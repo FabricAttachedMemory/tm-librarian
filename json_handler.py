@@ -20,6 +20,9 @@ method_handlers["version"] = version
 def json_handler(sock):
 
     in_json = sock.recv(1024).decode("utf-8").strip()
+    if len(in_json) == 0:
+        sock.close()
+        return -1
 
     try:
 
@@ -29,10 +32,10 @@ def json_handler(sock):
     except ValueError:
         # log error?
         sock.send(b'{"error":"Invalid JSON"}')
-        return
+        return 0
     except KeyError:
         # log error?
         sock.send(b'{"error":"No method key"}')
-        return
+        return 0
 
-    sock.send(str.encode(out_string))
+    return sock.send(str.encode(out_string))

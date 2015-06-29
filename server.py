@@ -16,15 +16,18 @@ def server_init():
     return sock
 
 def echo_handeler(sock):
-    # does not handle bad characters
+    # does not handle ctrl characters well
     print(sock.recv(1024).decode("utf-8").strip())
 
-def serv(handeler):
+def serv(handler):
 
     sock = server_init()
     to_read = [sock]
 
     while True:
+        # closed sockets get -1 value
+        # this may not work if the socket closes between now and the select
+        to_read = [sock for sock in to_read if sock.fileno() != -1]
         readable, _, _ = select.select(to_read, [], [])
 
         if sock in readable:
@@ -32,8 +35,10 @@ def serv(handeler):
             to_read.append(conn)
             readable.remove(sock)
 
+        # silly trick with short-circuted booleans
+        # does this ever get run have yet to verify
+        [handler(s) == -1 and readable.remove(s) for s in readable]
 
-        [handeler(s) for s in readable]
 
 def main():
     """ Run simple echo server to exersize the module """
