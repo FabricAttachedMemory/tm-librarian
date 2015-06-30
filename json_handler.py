@@ -9,7 +9,7 @@ VERSION = "4.0.1JSON"
 def json_error_creator(errno):
     r = {}
     r["error"] = errno
-    retrun json.dumps(r)
+    return json.dumps(r)
 
 # place string here
 def unknown_command_handler():
