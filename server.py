@@ -30,10 +30,17 @@ def serv(handler):
         to_read = [sock for sock in to_read if sock.fileno() != -1]
         readable, _, _ = select.select(to_read, [], [])
 
-        if sock in readable:
-            (conn, addr) = sock.accept()
-            to_read.append(conn)
-            readable.remove(sock)
+        try:
+
+            if sock in readable:
+                (conn, addr) = sock.accept()
+                to_read.append(conn)
+                readable.remove(sock)
+
+        # Socket was closed python hates me
+        except ValueError:
+            to_read = [sock for sock in to_read if sock.fileno() != -1]
+            continue
 
         # silly trick with short-circuted booleans
         # does this ever get run have yet to verify

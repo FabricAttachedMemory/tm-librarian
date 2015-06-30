@@ -1,17 +1,24 @@
 from collections import defaultdict
 import json
 
+# same version as Marks WMB as I'm trying to ensure they function
+# together
+VERSION = "4.0.1JSON"
+
+# may become usefull later
+def json_error_creator(errno):
+    r = {}
+    r["error"] = errno
+    retrun json.dumps(r)
+
 # place string here
 def unknown_command_handler():
-    r = {}
-    # Not implemented errno?
-    r["error"] = -1
-    return lambda x : json.dumps(r)
+    return lambda x : json_error_creator(-1)
 
 
 def version(in_dict):
    r = {}
-   r["version"] = "4.0.1JSON"
+   r["version"] = VERSION
    return json.dumps(r)
 
 method_handlers = defaultdict(unknown_command_handler)
@@ -31,10 +38,14 @@ def json_handler(sock):
 
     except ValueError:
         # log error?
+        # need to define error number later but since mark didn't implement
+        # errors on these i want them to be different
         sock.send(b'{"error":"Invalid JSON"}')
         return 0
     except KeyError:
         # log error?
+        # need to define error number later but since mark didn't implement
+        # errors on these i want them to be different
         sock.send(b'{"error":"No method key"}')
         return 0
 
