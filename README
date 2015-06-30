@@ -1,0 +1,333 @@
+---------------------------------------------------------------------------
+Librarian supported commands
+---------------------------------------------------------------------------
+
+Version - Query Librarian for version information.
+
+    Description:
+
+        +
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        { 
+            "Cmd":"Version",            # Command
+        }
+
+    Data out (json):
+
+        {
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+CreateShelf - Create a new shelf.
+
+    Description:
+
+        + new shelf starts with zero books
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"CreateShelf",        # Command
+        }
+
+    Data out (json):
+
+        {
+            "ShelfHandle":"<INT>"       # unique handle to identify this shelf
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+OpenShelf - Open an existing shelf.
+
+    Description:
+
+        +
+
+    Errors:
+
+        + shelf does not exist
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"OpenShelf",          # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+            "NodeID":"<INT>",           # Node ID
+            "GUID":"<INT>",             # Global User ID
+            "GGID":"<INT>"              # Global Group ID
+        }
+
+    Data out (json):
+
+        {
+            "ShelfHandle": "<INT>",     # Globally unique handle to identify shelf (zero on error)
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+CloseShelf - Close an existing shelf.
+
+    Description:
+
+        +
+
+    Errors:
+
+        + shelf does not exist
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"CloseShelf",         # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+            "NodeID":"<INT>",           # Node ID
+            "GUID":"<INT>",             # Global User ID
+            "GGID":"<INT>"              # Global Group ID
+        }
+
+    Data out (json):
+
+        {
+            "ShelfHandle": "<INT>",    # Globally unique handle to identify shelf (zero on error)
+            "Status":"<INT>"           # zero for success, otherwise errno
+        }
+
+DestroyShelf - Remove shelf
+
+    Description:
+
+        + new shelf starts with zero books
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"DestroyShelf",       # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+        }
+
+    Data out (json):
+
+        {
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+ResizeShelf - Change the size of the NVM available on the shelf.
+
+    Description:
+
+        + add or remove 8GB books to shelf so size has NVM backing
+        + if books added/removed talk with firewall
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"ResizeShelf",        # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+            "Size":"<INT>"              # New size of shelf in bytes
+        }
+
+    Data out (json):
+
+        {
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+ShelfZaddr - Request global zaddr for shelf
+
+    Description:
+
+        +
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        + need to define this one
+
+    Data in (json):
+
+        {
+            "Cmd":"ShelfZaddr",         # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+        }
+
+    Data out (json):
+
+        {
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+---------------------------------------------------------------------------
+Librarian supported debug commands
+---------------------------------------------------------------------------
+
+ListBook - List book data stored in database.
+
+    Description:
+
+        + 
+
+    Errors:
+
+        + book does not exist given criteria
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"ListBook",           # Command
+            "BookHandle":"<INT>",       # Book handle ??? what is this? maybe the global genz start address or maybe a range of addresses ???
+        }
+
+    Data out (json):
+
+        {
+            [BookData]                  # TBD - one or more book records
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+ListShelf - List shelf data stored in database.
+
+    Description:
+
+        + 
+
+    Errors:
+
+        + shelf does not exist
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"ListShelf",          # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+        }
+
+    Data out (json):
+
+        {
+            [ShelfData]                 # TBD - one shelf record
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+ListShelfRes - List shelf reservations.
+
+    Description:
+
+        +
+
+    Errors:
+
+        + no reservations exist for shelf
+
+    Questions/Issues:
+
+        +
+
+    Data in (json):
+
+        {
+            "Cmd":"ListShelfRes",       # Command
+            "ShelfHandle":"<INT>",      # Shelf handle
+        }
+
+    Data out (json):
+
+        {
+            [ShelfResData]              # TBD - zero or more shelf reservation records
+            "Status":"<INT>"            # zero for success, otherwise errno
+        }
+
+---------------------------------------------------------------------------
+Database schema
+---------------------------------------------------------------------------
+
+Books
+
+    rowid <INT>         - maybe not needed? use BookID as primary key? 
+    BookID <INT>        - unique ID, maybe the global GenZ address
+    Status <INT>        - some type of status (zero if unused, used, unavailable or in error?)
+    ShelfHandle <INT>   - shelf handle for the shelf this book belongs to, zero if free/unused
+    Seq <INT>           - order in which this book was added to shelf (1..N) zero if unallocated
+    Attr <INT>          - ??? maybe some type of attributes, such as proximity ???
+    Owner <INT>         - ??? maybe a owner ID to track who originally created this shelf ???
+
+    Issues/Comments:
+
+        + assuming a book can only be allocated to one shelf at time
+    
+Shelves
+
+    rowid <INT>         - maybe not needed? use ShelfID as primary key? 
+    ShelfID <INT>       - unique ID of some type 
+    SizeBytes <INT>     - current size in bytes, zero if no books allocated
+    NumBooks <INT>      - current number of books on shelf
+    OpenCnt <INT>       - current number opens
+    Owner <INT>         - ??? maybe a owner ID to track who originally created this shelf ???
+    Date <INT>          - ??? maybe a date stamp when this open happened ???
+
+    Issues/Comments:
+
+        + assuming a shelf can have many users that have it open
+        + assuming it's important to track the order in which books where added to shelf
+
+Reservations
+
+    rowid <INT>         - maybe not needed? use ShelfID as primary key? 
+    ShelfID <INT>       - unique ID of some type 
+    OpenID <INT>        - a unique identifier for who has this shelf open (NodeID+GUID+GGID) or ???
+    Date <INT>          - ??? maybe a date stamp when this open happened ???
+
+    Issues/Comments:
+
+        +
