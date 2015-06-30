@@ -1,8 +1,76 @@
 ---------------------------------------------------------------------------
+L4TM NVM Ecosystem
+---------------------------------------------------------------------------
+
+These are the NVM related components owned by the L4TM team.
+
+    The delivery points are:
+
+        - Qemu Fabric Experience (Qemu, res2hot and libpregion replacement)
+        - TMAS with GenZ/NVM and Top of Rack Server implemented
+        - Real Hardware with GenZ/NVM and Top of Rack Server present
+
+Librarian - aka "Wholesale Memory Broker"
+
+    - python3
+    - sqlite3 database
+    - json messages
+    - L4TM/Debian packaged ?
+
+Librarian Client(s)
+
+    - one per node
+    - python3
+    - json messages
+    - REPL interface
+    - FUSE interface
+    - L4TM/Debian packaged ?
+
+Firewall Manager
+
+    - python3
+    - json messages
+    - L4TM/Debian packaged ?
+
+Wholesale Filesystem
+
+    - C
+    - psuedo filesystem in kernel
+    - kernel module
+    - L4TM/Debian packaged
+
+Aperture Manager
+
+    - C
+    - kernel module
+    - general GenZ driver
+    - L4TM/Debian packaged
+
+Libpregion (or replacement)
+
+    - define functionality required ?
+
+---------------------------------------------------------------------------
+Style
+---------------------------------------------------------------------------
+
+Python
+
+    - variable naming
+    - function comments
+    - preamble
+
+JSON
+
+    - field names
+
+C
+
+---------------------------------------------------------------------------
 Librarian supported commands
 ---------------------------------------------------------------------------
 
-Version - Query Librarian for version information.
+"version" - Query Librarian for version information.
 
     Description:
 
@@ -19,16 +87,17 @@ Version - Query Librarian for version information.
     Data in (json):
 
         { 
-            "Cmd":"Version",            # Command
+            "command":"version"                     # command to execute
         }
 
     Data out (json):
 
         {
-            "Status":"<INT>"            # zero for success, otherwise errno
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
 
-CreateShelf - Create a new shelf.
+
+"create_shelf" - Create a new shelf.
 
     Description:
 
@@ -45,17 +114,18 @@ CreateShelf - Create a new shelf.
     Data in (json):
 
         {
-            "Cmd":"CreateShelf",        # Command
+            "command":"create_shelf"                # command to execute
         }
 
     Data out (json):
 
         {
-            "ShelfHandle":"<INT>"       # unique handle to identify this shelf
-            "Status":"<INT>"            # zero for success, otherwise errno
+            "shelf_handle":"<INT>",                 # unique handle to identify this shelf
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
 
-OpenShelf - Open an existing shelf.
+
+"open_shelf" - Open an existing shelf.
 
     Description:
 
@@ -72,21 +142,22 @@ OpenShelf - Open an existing shelf.
     Data in (json):
 
         {
-            "Cmd":"OpenShelf",          # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
-            "NodeID":"<INT>",           # Node ID
-            "GUID":"<INT>",             # Global User ID
-            "GGID":"<INT>"              # Global Group ID
+            "command":"open_shelf",                 # command to execute
+            "shelf_handle":"<INT>",                 # shelf handle
+            "node_id":"<INT>",                      # node identifier
+            "global_user_id":"<INT>",               # global user identifier
+            "global_group_id":"<INT>"               # global group identifier
         }
 
     Data out (json):
 
         {
-            "ShelfHandle": "<INT>",     # Globally unique handle to identify shelf (zero on error)
-            "Status":"<INT>"            # zero for success, otherwise errno
+            "shelf_handle": "<INT>",                # globally unique handle to identify shelf (zero on error)
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
 
-CloseShelf - Close an existing shelf.
+
+"close_shelf" - Close an existing shelf.
 
     Description:
 
@@ -103,21 +174,22 @@ CloseShelf - Close an existing shelf.
     Data in (json):
 
         {
-            "Cmd":"CloseShelf",         # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
-            "NodeID":"<INT>",           # Node ID
-            "GUID":"<INT>",             # Global User ID
-            "GGID":"<INT>"              # Global Group ID
+            "command":"close_shelf",                # command to execute
+            "shelf_handle":"<INT>",                 # shelf handle
+            "node_id":"<INT>",                      # node identifier
+            "global_user_id":"<INT>",               # global user identifier
+            "global_group_id":"<INT>"               # global group identifier
         }
 
     Data out (json):
 
         {
-            "ShelfHandle": "<INT>",    # Globally unique handle to identify shelf (zero on error)
-            "Status":"<INT>"           # zero for success, otherwise errno
+            "shelf_handle": "<INT>",                # globally unique handle to identify shelf (zero on error)
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
 
-DestroyShelf - Remove shelf
+
+"destroy_shelf" - Remove shelf
 
     Description:
 
@@ -134,17 +206,18 @@ DestroyShelf - Remove shelf
     Data in (json):
 
         {
-            "Cmd":"DestroyShelf",       # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
+            "command":"destroy_shelf",              # command to execute
+            "shelf_handle":"<INT>"                  # shelf handle
         }
 
     Data out (json):
 
         {
-            "Status":"<INT>"            # zero for success, otherwise errno
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
 
-ResizeShelf - Change the size of the NVM available on the shelf.
+
+"resize_shelf" - Change the size of the NVM available on the shelf.
 
     Description:
 
@@ -162,18 +235,19 @@ ResizeShelf - Change the size of the NVM available on the shelf.
     Data in (json):
 
         {
-            "Cmd":"ResizeShelf",        # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
-            "Size":"<INT>"              # New size of shelf in bytes
+            "command":"resize_shelf",               # command to execute
+            "shelf_handle":"<INT>",                 # shelf handle
+            "size_bytes":"<INT>"                    # new size of shelf in bytes
         }
 
     Data out (json):
 
         {
-            "Status":"<INT>"            # zero for success, otherwise errno
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
 
-ShelfZaddr - Request global zaddr for shelf
+
+"shelf_zaddr" - Request global zaddr for shelf
 
     Description:
 
@@ -185,26 +259,89 @@ ShelfZaddr - Request global zaddr for shelf
 
     Questions/Issues:
 
-        + need to define this one
+        + need to understand this one better
 
     Data in (json):
 
         {
-            "Cmd":"ShelfZaddr",         # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
+            "command":"shelf_zaddr",                # command to execute
+            "shelf_handle":"<INT>",                 # shelf handle
+            "address":"<INT>"                       # faulting address ???
         }
 
     Data out (json):
 
         {
-            "Status":"<INT>"            # zero for success, otherwise errno
+            "zaddr":"<INT>",                        # zaddr for book containing faulting address
+            "status":"<INT>"                        # zero for success, otherwise errno
         }
+
+
+"register_firewall" - Register firewall manager for node.
+
+    Description:
+
+        + firewall on node sends this message to register
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        + how does the firewall get the Librarian communication information (hostname and port)
+
+    Data in (json):
+
+        {
+            "command":"register_firewall",          # command to execute
+            "node_id":"<INT>",                      # node identifier
+            "hostname":"<TEXT>",                    # hostname of node for socket communication
+            "port":"<INT>"                          # port number for socket communication
+        }
+
+    Data out (json):
+
+        {
+            "status":"<INT>"                        # zero for success, otherwise errno
+        }
+
+
+"update_firewall" - Update firewall routing tables on node.
+
+    Description:
+
+        + firewall must have registers first before Librarian can send this message
+        + the Librarian initiates this command to the Firewall Manager
+
+    Errors:
+
+        +
+
+    Questions/Issues:
+
+        + not sure exactly what information we need to pass to the firewall manager
+
+    Data in (json):
+
+        {
+            "status":"<INT>"                        # zero for success, otherwise errno
+        }
+
+    Data out (json):
+
+        {
+            "command":"update_firewall",            # command to execute
+            "zaddr":"<INT>",                        # zaddress to add to firewall
+            "size_bytes":"<INT>"                    # ??? do we need a range or size for the firewall ???
+        }
+
 
 ---------------------------------------------------------------------------
 Librarian supported debug commands
 ---------------------------------------------------------------------------
 
-ListBook - List book data stored in database.
+"list_book" - List book data stored in database.
 
     Description:
 
@@ -216,23 +353,24 @@ ListBook - List book data stored in database.
 
     Questions/Issues:
 
-        +
+        + expand parameters so one or more books can be listed
 
     Data in (json):
 
         {
-            "Cmd":"ListBook",           # Command
-            "BookHandle":"<INT>",       # Book handle ??? what is this? maybe the global genz start address or maybe a range of addresses ???
+            "command":"list_book",                # command to execute
+            "book_handle":"<INT>"                 # Book handle (maybe one for each book you want returned?)
         }
 
     Data out (json):
 
         {
-            [BookData]                  # TBD - one or more book records
-            "Status":"<INT>"            # zero for success, otherwise errno
+            [BookData]                            # TBD - one or more book records
+            "Status":"<INT>"                      # zero for success, otherwise errno
         }
 
-ListShelf - List shelf data stored in database.
+
+"list_shelf" - List shelf data stored in database.
 
     Description:
 
@@ -244,23 +382,25 @@ ListShelf - List shelf data stored in database.
 
     Questions/Issues:
 
-        +
+        + expand parameters so one or more books can be listed
 
     Data in (json):
 
         {
-            "Cmd":"ListShelf",          # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
+            "command":"list_shelf",               # command to execute
+            "shelf_handle":"<INT>"                # shelf handle (maybe one for each shelf you want returned?)
         }
 
     Data out (json):
 
         {
-            [ShelfData]                 # TBD - one shelf record
-            "Status":"<INT>"            # zero for success, otherwise errno
+            [ShelfData]                           # TBD - one or more shelf records
+            "status":"<INT>"                      # zero for success, otherwise errno
         }
 
-ListShelfRes - List shelf reservations.
+
+
+"list_shelf_reservation" - List shelf reservation data stored in database.
 
     Description:
 
@@ -277,57 +417,67 @@ ListShelfRes - List shelf reservations.
     Data in (json):
 
         {
-            "Cmd":"ListShelfRes",       # Command
-            "ShelfHandle":"<INT>",      # Shelf handle
+            "command":"list_shelf_reservation",   # command to execture
+            "shelf_handle":"<INT>"                # shelf handle (maybe one for each list of shelf reservations you want returned?)
         }
 
     Data out (json):
 
         {
-            [ShelfResData]              # TBD - zero or more shelf reservation records
-            "Status":"<INT>"            # zero for success, otherwise errno
+            [ShelfResData]                        # TBD - zero or more shelf reservation records ???
+            "status":"<INT>"                      # zero for success, otherwise errno
         }
 
 ---------------------------------------------------------------------------
 Database schema
 ---------------------------------------------------------------------------
 
-Books
+"books" - All available books.
 
-    rowid <INT>         - maybe not needed? use BookID as primary key? 
-    BookID <INT>        - unique ID, maybe the global GenZ address
-    Status <INT>        - some type of status (zero if unused, used, unavailable or in error?)
-    ShelfHandle <INT>   - shelf handle for the shelf this book belongs to, zero if free/unused
-    Seq <INT>           - order in which this book was added to shelf (1..N) zero if unallocated
-    Attr <INT>          - ??? maybe some type of attributes, such as proximity ???
-    Owner <INT>         - ??? maybe a owner ID to track who originally created this shelf ???
+    book_id <INT>          - (primary key) unique ID, maybe the global GenZ address
+    status <INT>           - some type of status (zero if unused, used, unavailable or in error?)
+    shelf_handle <INT>     - shelf handle for the shelf this book belongs to, zero if free/unused
+    sequence <INT>         - order in which this book was added to shelf (1..N) zero if unallocated
+    attributes <INT>       - ??? maybe some type of attributes, such as proximity ???
+    owner <INT>            - ??? maybe a owner ID to track who originally created this shelf ???
 
     Issues/Comments:
 
         + assuming a book can only be allocated to one shelf at time
     
-Shelves
+"shelves" - All currently allocated shelves.
 
-    rowid <INT>         - maybe not needed? use ShelfID as primary key? 
-    ShelfID <INT>       - unique ID of some type 
-    SizeBytes <INT>     - current size in bytes, zero if no books allocated
-    NumBooks <INT>      - current number of books on shelf
-    OpenCnt <INT>       - current number opens
-    Owner <INT>         - ??? maybe a owner ID to track who originally created this shelf ???
-    Date <INT>          - ??? maybe a date stamp when this open happened ???
+    shelf_id <INT>         - (primary key) unique ID of some type 
+    size_bytes <INT>       - current size in bytes, zero if no books allocated
+    book_count <INT>       - current number of books on shelf
+    open_count <INT>       - current number of opens
+    owner <INT>            - ??? maybe an owner ID to track who originally created this shelf ???
+    creation_date <INT>    - ??? maybe a date stamp when this shelf was created ???
 
     Issues/Comments:
 
         + assuming a shelf can have many users that have it open
-        + assuming it's important to track the order in which books where added to shelf
+        + assuming it's important to track the order in which books where added to shelf, so books can be deleted in LIFO order
 
-Reservations
+"shelf_reservations" - Holds all current shelf reservations.
 
-    rowid <INT>         - maybe not needed? use ShelfID as primary key? 
-    ShelfID <INT>       - unique ID of some type 
-    OpenID <INT>        - a unique identifier for who has this shelf open (NodeID+GUID+GGID) or ???
-    Date <INT>          - ??? maybe a date stamp when this open happened ???
+    rowid <INT>            - (primary key)
+    shelf_id <INT>         - unique ID of some type 
+    open_id <INT>          - a unique identifier for who has this shelf open (NodeID+GUID+GGID) or process ID, ???
+    date_reserved <INT>    - ??? maybe a date stamp when this shelf was reserved ???
 
     Issues/Comments:
 
-        +
+        + assuming the "open_id" is unique
+
+"firewall_managers" - All currently registered node firewall managers.
+
+    node_id <INT>         - (primary key) unique ID of some type
+    host <TEXT>           - hostname for socket communication
+    port <INT>            - port number for socket communication
+    date_registered <INT> - ??? maybe a date stamp when this firewall manager registered ???
+
+    Issues/Comments:
+
+        + assuming one firewall manager running on each node
+        + assume firewall manager starts up and contacts Librarian with communication information
