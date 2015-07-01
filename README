@@ -6,6 +6,7 @@ These are the NVM related components owned by the L4TM team.
 
     The delivery points are:
 
+        - TMQ (put a bow around this and replace with QFE when ready)
         - Qemu Fabric Experience (Qemu, res2hot and libpregion replacement)
         - TMAS with GenZ/NVM and Top of Rack Server implemented
         - Real Hardware with GenZ/NVM and Top of Rack Server present
@@ -53,6 +54,7 @@ Libpregion (or replacement)
 ---------------------------------------------------------------------------
 Style
 ---------------------------------------------------------------------------
+Capture some of the agreed upon coding style decisions.
 
 Python
 
@@ -65,6 +67,48 @@ JSON
     - field names
 
 C
+
+---------------------------------------------------------------------------
+Node/Book registration
+---------------------------------------------------------------------------
+There will need to be a process for registering books with the Librarian.
+
+A static file will be used to initialize the database when the Librarian
+is brought up for the first time or in the case we want to support some
+type of reinitialize operation.
+
+The format of the data file will be (one stanza per node):
+
+    { 
+        "node_id":"INT"                     # node identifier where the books are hosted
+        "num_books":"INT"                   # number of 8GB books hosted on the node
+        "genz_addr":"INT"                   # GenZ address of the beginning of the first book
+    }
+
+Assumptions:
+
++ NVM on each node is a continiuous block with respect to GenZ addressing
++ Books are 8GB in length
+
+Issues/Questions:
+
++ 
+
+---------------------------------------------------------------------------
+Identity Manager
+---------------------------------------------------------------------------
+Do we need to have some type of identity management function built into the Librarian
+for the iterim, to convert node local user/group IDs into a global ID?
+
+---------------------------------------------------------------------------
+Librarian Issues/Questions
+---------------------------------------------------------------------------
+
+1. How does the Librarian find out if a node goes down?
+
+2. If a node goes down what does the Librarian do with any shelf reservations belonging to the node?
+
+3. What happens if an NVDIMM board goes down?
 
 ---------------------------------------------------------------------------
 Librarian supported commands
@@ -481,3 +525,5 @@ Database schema
 
         + assuming one firewall manager running on each node
         + assume firewall manager starts up and contacts Librarian with communication information
+
+---------------------------------------------------------------------------
