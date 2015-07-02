@@ -61,12 +61,11 @@ Python
     - variable naming
     - function comments
     - preamble
+    - run pep8 and pylint on code
 
 JSON
 
     - field names
-
-C
 
 ---------------------------------------------------------------------------
 Node/Book registration
@@ -93,6 +92,15 @@ Assumptions:
 Issues/Questions:
 
 + 
+
+---------------------------------------------------------------------------
+Debian packaging of Librarian
+---------------------------------------------------------------------------
+The librarian and all supporting files/documentation should be delivered
+in a Debian/hLinux package.
+
+- which files
+- where are they delivered
 
 ---------------------------------------------------------------------------
 Identity Manager
