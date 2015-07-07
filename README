@@ -2,6 +2,8 @@
 L4TM NVM Ecosystem
 ---------------------------------------------------------------------------
 
+* This is just an initial attempt to clarify deliverables, needs work
+
 These are the NVM related components owned by the L4TM team.
 
     The delivery points are:
@@ -26,6 +28,8 @@ Librarian Client(s)
     - REPL interface
     - FUSE interface
     - L4TM/Debian packaged ?
+    - used for initial testing of Librarian
+    - used for debugging Librarian going forward
 
 Firewall Manager
 
@@ -39,6 +43,7 @@ Wholesale Filesystem
     - psuedo filesystem in kernel
     - kernel module
     - L4TM/Debian packaged
+    - talks to Librarian using JSON wrapped packages
 
 Aperture Manager
 
@@ -54,6 +59,7 @@ Libpregion (or replacement)
 ---------------------------------------------------------------------------
 Style
 ---------------------------------------------------------------------------
+
 Capture some of the agreed upon coding style decisions.
 
 Python
@@ -63,13 +69,10 @@ Python
     - preamble
     - run pep8 and pylint on code
 
-JSON
-
-    - field names
-
 ---------------------------------------------------------------------------
 Node/Book registration
 ---------------------------------------------------------------------------
+
 There will need to be a process for registering books with the Librarian.
 
 A static file will be used to initialize the database when the Librarian
@@ -96,6 +99,7 @@ Issues/Questions:
 ---------------------------------------------------------------------------
 Debian packaging of Librarian
 ---------------------------------------------------------------------------
+
 The librarian and all supporting files/documentation should be delivered
 in a Debian/hLinux package.
 
@@ -105,6 +109,7 @@ in a Debian/hLinux package.
 ---------------------------------------------------------------------------
 Identity Manager
 ---------------------------------------------------------------------------
+
 Do we need to have some type of identity management function built into the Librarian
 for the iterim, to convert node local user/group IDs into a global ID?
 
@@ -117,6 +122,52 @@ Librarian Issues/Questions
 2. If a node goes down what does the Librarian do with any shelf reservations belonging to the node?
 
 3. What happens if an NVDIMM board goes down?
+
+---------------------------------------------------------------------------
+Testing
+---------------------------------------------------------------------------
+
+Each python module with have a "main" section that will have a set of tests
+that can be run to verify the basic functionality of the module.
+
+Will also need a set of tests to verify the complete Librarian:
+
++ Performance - create some test to measure transactions per second or something
+  that we can use as a performance baseline. This might include a single client
+  issuing commands or multiple clients issuing commands in parallel.
+
++ Functionality - create a set of commands we can run through the Librarian to
+  verify it's working as expected.
+
++ Errors - create a set of tests to check error/boundary conditions.
+
+---------------------------------------------------------------------------
+Librarian server/client design
+---------------------------------------------------------------------------
+
++ Librarian Server (runs on Top-of-Rack Server)
+
+  [Main]   - main python modules,
+  [Socket] - initialize/read/write socket
+  [TLS]    - wrap socket in TLS
+  [JSON]   - convert dictionary to JSAON and back
+  [Engine] - receive input from socket, verify and execute commands
+  [DB]     - initialize/read/write data to database
+
+  [Main] --> [Socket] <--> [JSON] <--> [Engine] <--> [DB]
+             [Socket] <--> [TLS]
+
++ Librarian client(s) (runs on modes)
+
+  [Main]   - main python module, includes either the REPL or FUSE interface
+  [REPL]   - read/evaluate/print/loop interface
+  [FUSE]   - filesystem interface
+  [Engine] - receive input from interface, verify and build commands to send
+  [JSON]   - convert dictionary to JSON and back
+  [Socket] - initialize/read/write/cleanup socket
+
+  [Main] --> [REPL] or [FUSE] <--> [Engine] <--> [JSON]
+                                   [Engine] <--> [Socket]
 
 ---------------------------------------------------------------------------
 Librarian supported commands
@@ -417,7 +468,7 @@ Librarian supported debug commands
     Data out (json):
 
         {
-            [BookData]                            # TBD - one or more book records
+            "books":[{book1},{bookN}]"            # data for zero or more books
             "Status":"<INT>"                      # zero for success, otherwise errno
         }
 
@@ -446,7 +497,7 @@ Librarian supported debug commands
     Data out (json):
 
         {
-            [ShelfData]                           # TBD - one or more shelf records
+            "shelves":[{shelf1},{shelfN}]"        # data for zero or more shelves
             "status":"<INT>"                      # zero for success, otherwise errno
         }
 
