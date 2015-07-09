@@ -168,6 +168,12 @@ Librarian server/client design
 
   [Main] --> [REPL] or [FUSE] <--> [Engine] <--> [JSON]
                                    [Engine] <--> [Socket]
+---------------------------------------------------------------------------
+FUSE interface
+---------------------------------------------------------------------------
+
+Add a description here of how we'll use the FUSE filesystem as an interface
+to the Librarian.
 
 ---------------------------------------------------------------------------
 Librarian supported commands
@@ -542,7 +548,7 @@ Database schema
     shelf_handle <INT>     - shelf handle for the shelf this book belongs to, zero if free/unused
     sequence <INT>         - order in which this book was added to shelf (1..N) zero if unallocated
     attributes <INT>       - ??? maybe some type of attributes, such as proximity ???
-    owner <INT>            - ??? maybe a owner ID to track who originally created this shelf ???
+    owner_id <INT>         - ??? maybe a owner ID to track who originally created this shelf ???
 
     Issues/Comments:
 
@@ -554,7 +560,7 @@ Database schema
     size_bytes <INT>       - current size in bytes, zero if no books allocated
     book_count <INT>       - current number of books on shelf
     open_count <INT>       - current number of opens
-    owner <INT>            - ??? maybe an owner ID to track who originally created this shelf ???
+    owner_id <INT>         - ??? maybe an owner ID to track who originally created this shelf ???
     creation_date <INT>    - ??? maybe a date stamp when this shelf was created ???
 
     Issues/Comments:
@@ -564,10 +570,9 @@ Database schema
 
 "shelf_reservations" - Holds all current shelf reservations.
 
-    rowid <INT>            - (primary key)
-    shelf_id <INT>         - unique ID of some type 
-    open_id <INT>          - a unique identifier for who has this shelf open (NodeID+GUID+GGID) or process ID, ???
-    date_reserved <INT>    - ??? maybe a date stamp when this shelf was reserved ???
+    reservation_id <INT>   - (primary key) a unique identifier for who has this shelf open (NodeID+GUID+GGID) or process ID, ???
+    shelf_id <INT>         - ID of the shelf this reservation is on behalf of
+    date_reserved <REAL>   - ??? maybe a date stamp when this shelf was reserved ???
 
     Issues/Comments:
 
@@ -575,10 +580,10 @@ Database schema
 
 "firewall_managers" - All currently registered node firewall managers.
 
-    node_id <INT>         - (primary key) unique ID of some type
-    host <TEXT>           - hostname for socket communication
-    port <INT>            - port number for socket communication
-    date_registered <INT> - ??? maybe a date stamp when this firewall manager registered ???
+    node_id <INT>          - (primary key) unique ID for each node
+    host <TEXT>            - hostname for socket communication
+    port <INT>             - port number for socket communication
+    date_registered <REAL> - ??? maybe a date stamp when this firewall manager registered ???
 
     Issues/Comments:
 
