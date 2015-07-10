@@ -16,23 +16,13 @@ class LibrarianDB(object):
     cur = None
     db_file = None
 
-    def db_init(self):
+    def db_init(self, db_file):
         """ Initialize database and create tables if they do not exist.
             Input---
               None
             Output---
               None
         """
-        if args.db_memory is True:
-            db_file = ":memory:"
-            print ("Using in memory database: %s" % (db_file))
-        elif args.db_file:
-            db_file = args.db_file
-            print ("Using custom database file: %s" % (db_file))
-        else:
-            db_file = DB_FILE
-            print ("Using default database file: %s" % (db_file))
-
         print("Connecting to database: %s" % (db_file))
         self.con = sqlite3.connect(db_file)
         self.cur = self.con.cursor()
@@ -574,9 +564,19 @@ if __name__ == '__main__':
                        % (DB_FILE))
     args = parser.parse_args()
 
+    if args.db_memory is True:
+        db_file = ":memory:"
+        print ("Using in memory database: %s" % (db_file))
+    elif args.db_file:
+        db_file = args.db_file
+        print ("Using custom database file: %s" % (db_file))
+    else:
+        db_file = DB_FILE
+        print ("Using default database file: %s" % (db_file))
+
     # Initialize database and check tables
     db = LibrarianDB()
-    db.db_init()
+    db.db_init(db_file)
     db.check_tables()
 
     #
