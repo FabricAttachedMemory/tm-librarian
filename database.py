@@ -6,7 +6,6 @@
 import os
 import sqlite3
 import time
-import argparse
 
 DB_FILE = "./librarian_db"
 
@@ -16,13 +15,23 @@ class LibrarianDB(object):
     cur = None
     db_file = None
 
-    def db_init(self, db_file):
+    def db_init(self, args):
         """ Initialize database and create tables if they do not exist.
             Input---
               None
             Output---
               None
         """
+        if args.db_memory is True:
+            db_file = ":memory:"
+            print ("Using in memory database: %s" % (db_file))
+        elif args.db_file:
+            db_file = args.db_file
+            print ("Using custom database file: %s" % (db_file))
+        else:
+            db_file = DB_FILE
+            print ("Using default database file: %s" % (db_file))
+
         print("Connecting to database: %s" % (db_file))
         self.con = sqlite3.connect(db_file)
         self.cur = self.con.cursor()
@@ -553,30 +562,26 @@ class LibrarianDB(object):
     def close(self):
         self.con.close()
 
-if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
+def db_args_init(parser):
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--db_memory", action="store_true",
                        help="use an in memory database")
     group.add_argument("--db_file",
                        help="specify the database file, (default = %s)"
                        % (DB_FILE))
-    args = parser.parse_args()
 
-    if args.db_memory is True:
-        db_file = ":memory:"
-        print ("Using in memory database: %s" % (db_file))
-    elif args.db_file:
-        db_file = args.db_file
-        print ("Using custom database file: %s" % (db_file))
-    else:
-        db_file = DB_FILE
-        print ("Using default database file: %s" % (db_file))
+if __name__ == '__main__':
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    db_args_init(parser)
+    args = parser.parse_args()
 
     # Initialize database and check tables
     db = LibrarianDB()
-    db.db_init(db_file)
+    db.db_init(args)
     db.check_tables()
 
     #
