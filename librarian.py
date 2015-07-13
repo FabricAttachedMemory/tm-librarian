@@ -6,6 +6,9 @@
 import argparse
 import database
 import book_register
+import engine
+
+LIBRARIAN_VERSION="Librarian v0.01"
 
 
 def librarian_args_init(parser):

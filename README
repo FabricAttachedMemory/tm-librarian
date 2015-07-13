@@ -239,11 +239,12 @@ These will be implemented in the "Engine" module of the Librarian.
     Data out (json):
 
         {
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "status":"<INT>",                       # zero for success, otherwise errno
+            "version":"<STR>"                       # librarian version string
         }
 
 
-"create_shelf" - Create a new shelf.
+"shelf_create" - Create a new shelf.
 
     Description:
 
@@ -260,22 +261,24 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"create_shelf"                # command to execute
+            "command":"shelf_create"                # command to execute
+            "shelf_owner":"<INT>"                   # node_id + user id + group id? or a global id?
         }
 
     Data out (json):
 
         {
-            "shelf_handle":"<INT>",                 # unique handle to identify this shelf
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "status":"<INT>",                       # zero for success, otherwise errno
+            "shelf_handle":"<INT>"                  # unique handle to identify this shelf, zero on error
         }
 
 
-"open_shelf" - Open an existing shelf.
+"shelf_open" - Reserve/Open an existing shelf for use.
 
     Description:
 
-        +
+        + increment shelf open count
+        + create shelf reservation
 
     Errors:
 
@@ -288,26 +291,24 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"open_shelf",                 # command to execute
-            "shelf_handle":"<INT>",                 # shelf handle
-            "node_id":"<INT>",                      # node identifier
-            "global_user_id":"<INT>",               # global user identifier
-            "global_group_id":"<INT>"               # global group identifier
+            "command":"shelf_open",                 # command to execute
+            "shelf_handle":"<INT>",                 # unique handle to identify this shelf, zero on error
+            "reservation_owner":"<INT>"             # node_id + user id + group id? or a global id?
         }
 
     Data out (json):
 
         {
-            "shelf_handle": "<INT>",                # globally unique handle to identify shelf (zero on error)
             "status":"<INT>"                        # zero for success, otherwise errno
         }
 
 
-"close_shelf" - Close an existing shelf.
+"shelf_close" - Close an existing shelf.
 
     Description:
 
-        +
+        + decrement shelf open count
+        + delete shelf reservation
 
     Errors:
 
@@ -335,11 +336,14 @@ These will be implemented in the "Engine" module of the Librarian.
         }
 
 
-"destroy_shelf" - Remove shelf
+"shelf_destroy" - Remove shelf
 
     Description:
 
-        + new shelf starts with zero books
+        + remove shelf
+        + free any existing books on shelf?
+        + delete any shelf reservations?
+        + OR should the destroy fail if the open count is greater than zero
 
     Errors:
 
@@ -352,7 +356,7 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"destroy_shelf",              # command to execute
+            "command":"shelf_destroy",              # command to execute
             "shelf_handle":"<INT>"                  # shelf handle
         }
 
@@ -363,7 +367,7 @@ These will be implemented in the "Engine" module of the Librarian.
         }
 
 
-"resize_shelf" - Change the size of the NVM available on the shelf.
+"shelf_resize" - Change the size of the NVM available on the shelf.
 
     Description:
 
@@ -381,7 +385,7 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"resize_shelf",               # command to execute
+            "command":"shelf_resize",               # command to execute
             "shelf_handle":"<INT>",                 # shelf handle
             "size_bytes":"<INT>"                    # new size of shelf in bytes
         }
@@ -423,7 +427,7 @@ These will be implemented in the "Engine" module of the Librarian.
         }
 
 
-"register_firewall" - Register firewall manager for node.
+"firewall_register" - Register firewall manager for node.
 
     Description:
 
@@ -440,7 +444,7 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"register_firewall",          # command to execute
+            "command":"firewall_register",          # command to execute
             "node_id":"<INT>",                      # node identifier
             "hostname":"<TEXT>",                    # hostname of node for socket communication
             "port":"<INT>"                          # port number for socket communication
@@ -453,11 +457,11 @@ These will be implemented in the "Engine" module of the Librarian.
         }
 
 
-"update_firewall" - Update firewall routing tables on node.
+"firewall_update" - Update firewall routing tables on node.
 
     Description:
 
-        + firewall must have registers first before Librarian can send this message
+        + firewall must have registered first before Librarian can send this message
         + the Librarian initiates this command to the Firewall Manager
 
     Errors:
@@ -477,7 +481,7 @@ These will be implemented in the "Engine" module of the Librarian.
     Data out (json):
 
         {
-            "command":"update_firewall",            # command to execute
+            "command":"firewall_update",            # command to execute
             "zaddr":"<INT>",                        # zaddress to add to firewall
             "size_bytes":"<INT>"                    # ??? do we need a range or size for the firewall ???
         }
@@ -487,11 +491,11 @@ These will be implemented in the "Engine" module of the Librarian.
 Librarian supported debug commands
 ---------------------------------------------------------------------------
 
-"list_book" - List book data stored in database.
+"book_list" - List book data stored in database.
 
     Description:
 
-        + 
+        + maybe a list of book handles to list, if book_handle == 0 then return them all?
 
     Errors:
 
@@ -504,7 +508,7 @@ Librarian supported debug commands
     Data in (json):
 
         {
-            "command":"list_book",                # command to execute
+            "command":"book_list",                # command to execute
             "book_handle":"<INT>"                 # Book handle (maybe one for each book you want returned?)
         }
 
@@ -516,11 +520,11 @@ Librarian supported debug commands
         }
 
 
-"list_shelf" - List shelf data stored in database.
+"shelf_list" - List shelf data stored in database.
 
     Description:
 
-        + 
+        +  maybe a list of shelf handles to list, if shelf_handle == 0 then return them all?
 
     Errors:
 
@@ -533,7 +537,7 @@ Librarian supported debug commands
     Data in (json):
 
         {
-            "command":"list_shelf",               # command to execute
+            "command":"shelf_list",               # command to execute
             "shelf_handle":"<INT>"                # shelf handle (maybe one for each shelf you want returned?)
         }
 
@@ -545,8 +549,7 @@ Librarian supported debug commands
         }
 
 
-
-"list_shelf_reservation" - List shelf reservation data stored in database.
+"shelf_reservation_list" - List shelf reservation data stored in database.
 
     Description:
 
@@ -563,7 +566,7 @@ Librarian supported debug commands
     Data in (json):
 
         {
-            "command":"list_shelf_reservation",   # command to execture
+            "command":"shelf_reservation_list",   # command to execture
             "shelf_handle":"<INT>"                # shelf handle (maybe one for each list of shelf reservations you want returned?)
         }
 
@@ -593,7 +596,7 @@ Database schema
     
 "shelves" - All currently allocated shelves.
 
-    shelf_id <INT>         - (primary key) unique ID of some type 
+    shelf_handle <INT>         - (primary key) unique ID of some type 
     size_bytes <INT>       - current size in bytes, zero if no books allocated
     book_count <INT>       - current number of books on shelf
     open_count <INT>       - current number of opens
@@ -608,7 +611,7 @@ Database schema
 "shelf_reservations" - Holds all current shelf reservations.
 
     reservation_id <INT>   - (primary key) a unique identifier for who has this shelf open (NodeID+GUID+GGID) or process ID, ???
-    shelf_id <INT>         - ID of the shelf this reservation is on behalf of
+    shelf_handle <INT>         - ID of the shelf this reservation is on behalf of
     date_reserved <REAL>   - ??? maybe a date stamp when this shelf was reserved ???
 
     Issues/Comments:
