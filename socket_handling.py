@@ -6,7 +6,7 @@ import select
 DEFAULT_HOST = ''
 DEFAULT_PORT = 9093
 
-def server_init():
+def server_init(host = DEFAULT_HOST, port = DEFAULT_PORT):
 
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -15,9 +15,22 @@ def server_init():
 
     return sock
 
-def echo_handeler(sock):
+def echo_handeler(string):
     # does not handle ctrl characters well
-    print(sock.recv(1024).decode("utf-8").strip())
+    print(string)
+
+def read_all(sock):
+    in_json = sock.recv(1024).decode("utf-8").strip()
+
+    # should never have to worry about this
+    # python will set the descriptor to -1 when it closes stopping us from
+    # having to read 0. But this is select/socket behavior so we need to
+    # account for it.
+    if len(in_json) == 0:
+        sock.close()
+        return None
+
+    return in_json
 
 def serv(handler):
 
@@ -44,7 +57,7 @@ def serv(handler):
 
         # silly trick with short-circuted booleans
         # does this ever get run have yet to verify
-        [handler(s) == -1 and readable.remove(s) for s in readable]
+        [handler(read_all(s)) == -1 and readable.remove(s) for s in readable]
 
 
 def main():
