@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -tt
 #---------------------------------------------------------------------------
 # Librarian book data registration module
 #---------------------------------------------------------------------------
@@ -7,10 +7,10 @@ import os
 import configparser
 
 BOOK_FILE = "./book_data.ini"
-BOOK_SIZE = (1024*1024*1024*8)
 
 
 def load_book_data(args, db):
+    nvm_end_prev = -1
     if args.book_file:
         print ("user specified book file: %s" % args.book_file)
         book_file = args.book_file
@@ -19,22 +19,57 @@ def load_book_data(args, db):
         book_file = BOOK_FILE
 
     config = configparser.ConfigParser()
+
     if not config.read(os.path.expanduser(book_file)) or not config.sections():
         raise SystemExit("Missing or empty config file: %s" % book_file)
 
+    if not config.has_section("global"):
+        raise SystemExit("Missing global section in config file: %s" %
+                         book_file)
+
     for section in config.sections():
         print(section)
-        node = dict(config.items(section))
-        print(node)
-        node_id = int(node["node_id"], 16)
-        base_addr = int(node["base_addr"], 16)
-        num_books = int(node["num_books"])
-        for book in range(num_books):
-            book_base_addr = (book * BOOK_SIZE) + base_addr
-            print("book base addr: 0x%016x" % book_base_addr)
-            book_data = (book_base_addr, 0, 0, 0, 0, 0)
-            print("insert book into db:", book_data)
-            db.create_book(book_data)
+        sdata = dict(config.items(section))
+        print(sdata)
+        if section == "global":
+            node_cnt = int(sdata["node_cnt"], 16)
+            bsize = sdata["book_size"]
+            if bsize.endswith("M"):
+                rsize = int(bsize[:-1])
+                book_size = rsize * 1024 * 1024
+            elif bsize.endswith("G"):
+                rsize = int(bsize[:-1])
+                book_size = rsize * 1024 * 1024 * 1024
+            else:
+                raise SystemExit("unknown booksize suffix: %s" % bsize)
+        else:
+            node_id = int(sdata["node_id"], 16)
+            lza_base = int(sdata["lza_base"], 16)
+            nsize = sdata["nvm_size"]
+            if nsize.endswith("M"):
+                rsize = int(nsize[:-1])
+                nvm_size = rsize * 1024 * 1024
+            elif nsize.endswith("G"):
+                rsize = int(nsize[:-1])
+                nvm_size = rsize * 1024 * 1024 * 1024
+            else:
+                raise SystemExit("unknown booksize suffix: %s" % nsize)
+
+            if nvm_size % book_size != 0:
+                raise SystemExit("nvm_size not multiple of book_size")
+
+            num_books = int(nvm_size / book_size)
+            nvm_end = (lza_base + (num_books * book_size) - 1)
+            if not nvm_end_prev < lza_base:
+                raise SystemExit("nvm sections overlap")
+            nvm_end_prev = nvm_end
+
+            for book in range(num_books):
+                book_base_addr = (book * book_size) + lza_base
+                print("book base addr: 0x%016x" % book_base_addr)
+                book_data = (book_base_addr, node_id, 0, 0, book_size)
+                print("insert book into db:", book_data)
+                db.create_book(book_data)
 
 
 def book_data_args_init(parser):
@@ -59,12 +94,11 @@ if __name__ == '__main__':
 
     load_book_data(args, db)
 
-    status, book_info = db.get_book_all()
+    book_info = db.get_book_all()
     for book in book_info:
-        print("  book =", book)
+        book_id, node_id, status, attributes, book_size = (book)
+        print("  book_id = 0x%016x, node_id = 0x%016x, status = 0x%x,"
+              " attributes = 0x%x, book_size = 0x%x" %
+              (book_id, node_id, status, attributes, book_size))
 
     db.close()
-
-# todo: check book offsets to see if they are all unique
-# todo: check base_addr values are unique
-# todo: check num_books value is less than a max value "MAX_NUM_BOOKS"
