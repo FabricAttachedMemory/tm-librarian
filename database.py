@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -tt
 #---------------------------------------------------------------------------
 # Librarian database interface module
 #---------------------------------------------------------------------------
@@ -18,7 +18,7 @@ class LibrarianDB(object):
     def db_init(self, args):
         """ Initialize database and create tables if they do not exist.
             Input---
-              None
+              args - command line arguments
             Output---
               None
         """
@@ -40,157 +40,137 @@ class LibrarianDB(object):
         table_create = """
             CREATE TABLE IF NOT EXISTS books (
             book_id INT PRIMARY KEY,
+            node_id INT,
             status INT,
-            shelf_handle INT,
-            sequence INT,
             attributes INT,
-            owner_id INT
+            size_bytes INT
             )
             """
         self.cur.execute(table_create)
 
         table_create = """
             CREATE TABLE IF NOT EXISTS shelves (
-            shelf_handle INT PRIMARY KEY,
+            shelf_id INT PRIMARY KEY,
             size_bytes INT,
             book_count INT,
             open_count INT,
-            owner_id INT,
-            creation_date INT
+            c_time REAL,
+            m_time REAL
             )
             """
         self.cur.execute(table_create)
 
         table_create = """
-            CREATE TABLE IF NOT EXISTS shelf_reservations (
-            reservation_id INT PRIMARY KEY,
-            shelf_handle INT,
-            date_reserved REAL
-            )
-            """
-        self.cur.execute(table_create)
-
-        table_create = """
-            CREATE TABLE IF NOT EXISTS firewall_managers (
-            node_id INT PRIMARY KEY,
-            host TEXT,
-            port INT,
-            date_registered REAL
+            CREATE TABLE IF NOT EXISTS books_on_shelf (
+            shelf_id INT,
+            book_id INT,
+            seq_num INT
             )
             """
         self.cur.execute(table_create)
 
         self.con.commit()
+        return("pass")
 
     #
     # books
     #
+# CREATE TABLE IF NOT EXISTS books (
+# book_id INT PRIMARY KEY,
+# node_id INT,
+# status INT,
+# attributes INT,
+# size_bytes INT
 
     def create_book(self, book_data):
         """ Insert one new book into "books" table.
             Input---
               book_data - list of book data to insert
             Output---
-              status: success = 0
-                      failure = -1
+              book_data or error message
         """
         print("add book to db:", book_data)
         try:
-            db_query = "INSERT INTO books VALUES (?,?,?,?,?,?)"
+            db_query = "INSERT INTO books VALUES (?,?,?,?,?)"
             self.cur.execute(db_query, book_data)
             self.con.commit()
-            return(0)
+            return(book_data)
         except sqlite3.Error:
-            print("create_book: error inserting new book")
-            return(-1)
+            return("create_book: error inserting new book")
 
     def get_book(self, book_id):
         """ Retrieve one book from "books" table.
             Input---
-              book_id - id of book to retrieve
+              book_id - id of book to get
             Output---
-              status: success = 0
-                      failure = -1
-              book_data: success = list of book data
-                         failure = None
+              book_data or error message
         """
         print("get book from db:", book_id)
         try:
             db_query = "SELECT * FROM books WHERE book_id = ?"
             self.cur.execute(db_query, (book_id,))
             book_data = self.cur.fetchone()
-            return(0, book_data)
+            return(book_data)
         except sqlite3.Error:
-            print("get_book: error retrieving book [book_id: 0x016xd]"
-                  % (book_id))
-            return(-1, None)
+            return("get_book: error retrieving book [book_id: 0x016xd]"
+                   % (book_id))
 
     def get_book_all(self):
         """ Retrieve all books from "books" table.
             Input---
               None
             Output---
-              status: success = 0
-                      failure = -1
-              book_data: success = list of book data
-                         failure =  None
+              book_data or error message
         """
         print("get all books from db")
         try:
-            db_query = "SELECT * FROM books"
+            db_query = "SELECT * FROM books ORDER BY book_id"
             self.cur.execute(db_query)
             book_data = self.cur.fetchall()
-            return(0, book_data)
+            return(book_data)
         except sqlite3.Error:
-            print("get_book_all: error retrieving all books")
-            return(-1, None)
+            return("get_book_all: error retrieving all books")
 
     def modify_book(self, book_data):
         """ Modify book data in "books" table.
             Input---
               book_data - list of new book data
             Output---
-              status: success = 0
-                      failure = -1
+              book_data or error message
         """
         print("modify book in db:", book_data)
-        book_id, status, shelf_handle, sequence, \
-            attributes, owner_id = (book_data)
+        book_id, node_id, status, attributes, size_bytes = (book_data)
         try:
             db_query = """
                 UPDATE books SET
+                node_id = ?,
                 status = ?,
-                shelf_handle = ?,
-                sequence = ?,
                 attributes = ?,
-                owner_id = ?
+                size_bytes = ?
                 WHERE book_id = ?
                 """
-            self.cur.execute(db_query, (status, shelf_handle,
-                             sequence, attributes, owner_id, book_id))
+            self.cur.execute(db_query, (node_id, status,
+                             attributes, size_bytes, book_id))
             self.con.commit()
-            return(0)
+            return(book_data)
         except sqlite3.Error:
-            print("modify_book: error modifying existing book data")
-            return(-1)
+            return("modify_book: error modifying existing book data")
 
     def delete_book(self, book_id):
         """ Delete one book from "books" table.
             Input---
               book_id - id of book to delete
             Output---
-              status: success = 0
-                      failure = -1
+              book_data or error message
         """
         print("delete book from db:", book_id)
         try:
             db_query = "DELETE FROM books WHERE book_id = ?"
             self.cur.execute(db_query, (book_id,))
-            return(0)
+            return(book_id)
         except sqlite3.Error:
-            print("delete_book: error deleting book [book_id: 0x016xd]"
-                  % (book_id))
-            return(-1, None)
+            return("delete_book: error deleting book [book_id: 0x016xd]"
+                   % (book_id))
 
     #
     # shelves
@@ -201,320 +181,195 @@ class LibrarianDB(object):
             Input---
               shelf_data - list of shelf data to insert
             Output---
-              status: success = 0
-                      failure = -1
+              shelf_data or error message
         """
         print("add shelf to db:", shelf_data)
         try:
             db_query = "INSERT INTO shelves VALUES (?,?,?,?,?,?)"
             self.cur.execute(db_query, shelf_data)
             self.con.commit()
-            return(0)
+            return(shelf_data)
         except sqlite3.Error:
-            print("create_shelf: error inserting new shelf")
-            return(-1)
+            return("create_shelf: error inserting new shelf")
 
-    def get_shelf(self, shelf_handle):
+    def get_shelf(self, shelf_id):
         """ Retrieve one shelf from "shelves" table.
             Input---
-              shelf_handle - id of shelf to retrieve
+              shelf_id - id of shelf to get
             Output---
-              status: success = 0
-                      failure = -1
-              shelf_data: success = list of shelf data on success
-                          failure = None
+              shelf_id or error message
         """
-        print("get shelf from db:", shelf_handle)
+        print("get shelf from db:", shelf_id)
         try:
-            db_query = "SELECT * FROM shelves WHERE shelf_handle = ?"
-            self.cur.execute(db_query, (shelf_handle,))
+            db_query = "SELECT * FROM shelves WHERE shelf_id = ?"
+            self.cur.execute(db_query, (shelf_id,))
             shelf_data = self.cur.fetchone()
-            return(0, shelf_data)
+            return(shelf_data)
         except sqlite3.Error:
-            print("get_shelf: error retrieving shelf [shelf_handle: 0x016xd]"
-                  % (shelf_handle))
-            return(-1, None)
+            return("get_shelf: error retrieving shelf [shelf_id: 0x016xd]"
+                   % (shelf_id))
 
     def get_shelf_all(self):
         """ Retrieve all shelves from "shelves" table.
             Input---
               None
             Output---
-              status: success = 0
-                      failure = -1
-              shelf_data: success = list of shelf data
-                          failure = None
+              shelf_data or error message
         """
         print("get all shelves from db")
         try:
-            db_query = "SELECT * FROM shelves"
+            db_query = "SELECT * FROM shelves ORDER BY shelf_id"
             self.cur.execute(db_query)
             shelf_data = self.cur.fetchall()
-            return(0, shelf_data)
+            return(shelf_data)
         except sqlite3.Error:
-            print("get_shelf_all: error retrieving all shelf")
-            return(-1, None)
+            return("get_shelf_all: error retrieving all shelf")
 
     def modify_shelf(self, shelf_data):
         """ Modify shelf data in "shelves" table.
             Input---
               shelf_data - list of new shelf data
             Output---
-              status: success = 0
-                      failure = -1
+              shelf_data or error message
         """
         print("modify shelf in db:", shelf_data)
-        shelf_handle, size_bytes, book_count, open_count, \
-            owner_id, creation_date = (shelf_data)
+        shelf_id, size_bytes, book_count, open_count, \
+            c_time, m_time = (shelf_data)
         try:
             db_query = """
                 UPDATE shelves SET
                 size_bytes = ?,
                 book_count = ?,
                 open_count = ?,
-                owner_id = ?,
-                creation_date = ?
-                WHERE shelf_handle = ?
+                c_time = ?,
+                m_time = ?
+                WHERE shelf_id = ?
                 """
             self.cur.execute(db_query, (size_bytes, book_count, open_count,
-                             owner_id, creation_date, shelf_handle))
+                             c_time, m_time, shelf_id))
             self.con.commit()
-            return(0)
+            return(shelf_data)
         except sqlite3.Error:
-            print("modify_shelf: error modifying existing shelf data")
-            return(-1)
+            return("modify_shelf: error modifying existing shelf data")
 
-    def delete_shelf(self, shelf_handle):
+    def delete_shelf(self, shelf_id):
         """ Delete one shelf from "shelves" table.
             Input---
-              shelf_handle - id of shelf to delete
+              shelf_id - id of shelf to delete
             Output---
-              status: success = 0
-                      failure = -1
+              shelf_data or error message
         """
-        print("delete shelf from db:", shelf_handle)
+        print("delete shelf from db:", shelf_id)
         try:
-            db_query = "DELETE FROM shelves WHERE shelf_handle = ?"
-            self.cur.execute(db_query, (shelf_handle,))
-            return(0)
+            db_query = "DELETE FROM shelves WHERE shelf_id = ?"
+            self.cur.execute(db_query, (shelf_id,))
+            return(shelf_id)
         except sqlite3.Error:
-            print("delete_shelf: error deleting shelf \
-                  [shelf_handle: 0x016xd]" % (shelf_handle))
-            return(-1, None)
+            return("delete_shelf: error deleting shelf \
+                  [shelf_id: 0x016xd]" % (shelf_id))
 
     #
-    # shelf_reservations
+    # books_on_shelf
     #
+# CREATE TABLE IF NOT EXISTS books_on_shelf (
+# shelf_id INT,
+# book_id INT,
+# seq_num INT
 
-    def create_reservation(self, reservation_data):
-        """ Insert one new reservation into "shelf_reservations" table.
+    def create_bos(self, bos_data):
+        """ Insert one new bos into "books_on_shelf" table.
             Input---
-              reservation_data - list of reservation data to insert
+              bos_data - list of bos data to insert
             Output---
               status: success = 0
                       failure = -1
         """
-        print("add reservation to db:", reservation_data)
+        print("add bos to db:", bos_data)
         try:
-            db_query = "INSERT INTO shelf_reservations VALUES (?,?,?)"
-            self.cur.execute(db_query, reservation_data)
+            db_query = "INSERT INTO books_on_shelf VALUES (?,?,?)"
+            self.cur.execute(db_query, bos_data)
             self.con.commit()
-            return(0)
+            return(bos_data)
         except sqlite3.Error:
-            print("create_reservation: error inserting new reservation")
-            return(-1)
+            return("create_bos: error inserting new bos")
 
-    def get_reservation(self, reservation_id):
-        """ Retrieve one reservation from "shelf_reservations" table.
+    def get_bos_by_shelf(self, shelf_id):
+        """ Retrieve all bos entries from "books_on_shelf" table
+            given a shelf_id.
             Input---
-              reservation_id - id of reservation to retrieve
+              shelf_id - shelf identifier
             Output---
-              reservation_data: success - list of reservation data on success
-                                failure - None
+              bos_data or error message
         """
-        print("get reservation from db:", reservation_id)
+        print("get bos by shelf from db:", shelf_id)
         try:
-            db_query = "SELECT * FROM shelf_reservations \
-                        WHERE reservation_id = ?"
-            self.cur.execute(db_query, (reservation_id,))
-            reservation_data = self.cur.fetchone()
-            return(0, reservation_data)
+            db_query = """
+                SELECT rowid,* FROM books_on_shelf
+                WHERE shelf_id = ?
+                """
+            self.cur.execute(db_query, (shelf_id,))
+            bos_data = self.cur.fetchall()
+            return(bos_data)
         except sqlite3.Error:
-            print("get_reservation: error retrieving reservation \
-                   [reservation_id: 0x016xd]" % (reservation_id))
-            return(-1, None)
+            return("get_bos_by_shelf: error retrieving bos \
+                   [shelf_id: 0x016xd]" % (book_id))
 
-    def get_reservation_all(self):
-        """ Retrieve all reservations from "shelf_reservations" table.
+    def get_bos_by_book(self, book_id):
+        """ Retrieve all bos entries from "books_on_shelf" table
+            given a book_id.
+            Input---
+              book_id - book identifier
+            Output---
+              bos_data or error message
+        """
+        print("get bos by book from db:", book_id)
+        try:
+            db_query = """
+                SELECT rowid,* FROM books_on_shelf
+                WHERE book_id = ?
+                """
+            self.cur.execute(db_query, (book_id,))
+            bos_data = self.cur.fetchall()
+            return(bos_data)
+        except sqlite3.Error:
+            return("get_bos_by_book: error retrieving bos \
+                   [book_id: 0x016xd]" % (book_id))
+
+    def get_bos_all(self):
+        """ Retrieve all bos from "books_on_shelf" table.
             Input---
               None
             Output---
-              status: success = 0
-                      failure = -1
-              reservation_data: success = list of reservation data
-                                failure = None
+              bos_data or error message
         """
-        print("get all reservations from db")
+        print("get all bos from db")
         try:
-            db_query = "SELECT * FROM shelf_reservations"
+            db_query = "SELECT rowid,* FROM books_on_shelf"
             self.cur.execute(db_query)
-            reservation_data = self.cur.fetchall()
-            return(0, reservation_data)
+            bos_data = self.cur.fetchall()
+            return(bos_data)
         except sqlite3.Error:
-            print("get_reservation_all: error retrieving all reservations")
-            return(-1, None)
+            return("get_bos_all: error retrieving all bos")
 
-    def modify_reservation(self, reservation_data):
-        """ Modify reservation data in "shelf_reservations" table.
+    def delete_bos(self, bos_data):
+        """ Delete one bos from "books_on_shelf" table.
             Input---
-              shelf_data - list of new reservation data
+              bos_data - list of bos data
             Output---
-              status: success = 0
-                      failure = -1
+              bos_data or error message
         """
-        print("modify reservation in db:", reservation_data)
-        reservation_id, shelf_handle, date_reserved = (reservation_data)
+        print("delete bos from db:", bos_data)
         try:
             db_query = """
-                UPDATE shelf_reservations SET
-                shelf_handle = ?,
-                date_reserved = ?
-                WHERE reservation_id = ?
+                DELETE FROM books_on_shelf
+                WHERE shelf_id = ? AND
+                book_id = ? AND
+                seq_num = ?
                 """
-            self.cur.execute(db_query, (shelf_handle,
-                             date_reserved, reservation_id))
-            self.con.commit()
-            return(0)
+            self.cur.execute(db_query, bos_data)
+            return(bos_data)
         except sqlite3.Error:
-            print("modify_reservation: error modifying \
-                   existing reservation data")
-            return(-1)
-
-    def delete_reservation(self, reservation_id):
-        """ Delete one reservation from "shelf_reservations" table.
-            Input---
-              reservation_id - id of reservation to delete
-            Output---
-              status: success = 0
-                      failure = -1
-        """
-        print("delete reservation from db:", reservation_id)
-        try:
-            db_query = "DELETE FROM shelf_reservations \
-                        WHERE reservation_id = ?"
-            self.cur.execute(db_query, (reservation_id,))
-            return(0)
-        except sqlite3.Error:
-            print("delete_reservation: error deleting reservation \
-                   [reservation_id: 0x016xd]" % (reservation_id))
-            return(-1, None)
-
-    #
-    # firewall_managers
-    #
-
-    def create_firewall(self, firewall_data):
-        """ Insert one new firewall into "firewall_managers" table.
-            Input---
-              firewall_data - list of firewall data to insert
-            Output---
-              status: success = 0
-                      failure = -1
-        """
-        print("add firewall to db:", firewall_data)
-        try:
-            db_query = "INSERT INTO firewall_managers VALUES (?,?,?,?)"
-            self.cur.execute(db_query, firewall_data)
-            self.con.commit()
-            return(0)
-        except sqlite3.Error:
-            print("create_firewall: error inserting new firewall manager")
-            return(-1)
-
-    def get_firewall(self, node_id):
-        """ Retrieve one firewall manager from "firewall_managers" table.
-            Input---
-              node_id - node id of firewall manager to retrieve
-            Output---
-              status: success = 0
-                      failure = -1
-              firewall_data: success = list of firewall data
-                             failure = None
-        """
-        print("get firewall manager from db:", node_id)
-        try:
-            db_query = "SELECT * FROM firewall_managers WHERE node_id = ?"
-            self.cur.execute(db_query, (node_id,))
-            firewall_data = self.cur.fetchone()
-            return(0, firewall_data)
-        except sqlite3.Error:
-            print("get_firewall: error retrieving firewall \
-                  [node_id: 0x016xd]" % (node_id))
-            return(-1, None)
-
-    def get_firewall_all(self):
-        """ Retrieve all firewall managers from "firewall_managers" table.
-            Input---
-              None
-            Output---
-              status: success = 0
-                      failure = -1
-              firewall_data: success = list of firewall data
-                             failure =  None
-        """
-        print("get all firewall managers from db")
-        try:
-            db_query = "SELECT * FROM firewall_managers"
-            self.cur.execute(db_query)
-            firewall_data = self.cur.fetchall()
-            return(0, firewall_data)
-        except sqlite3.Error:
-            print("get_firewall_all: error retrieving all \
-                   firewall managers")
-            return(-1, None)
-
-    def modify_firewall(self, firewall_data):
-        """ Modify firewall manager data in "firewall_managers" table.
-            Input---
-              firewall_data - list of new firewall data
-            Output---
-              status: success = 0
-                      failure =-1
-        """
-        print("modify firewall manager in db:", firewall_data)
-        node_id, host, port, date_registered = (firewall_data)
-        try:
-            db_query = """
-                UPDATE firewall_managers SET
-                host = ?,
-                port = ?,
-                date_registered = ?
-                WHERE node_id = ?
-                """
-            self.cur.execute(db_query, (host, port, date_registered, node_id))
-            self.con.commit()
-            return(0)
-        except sqlite3.Error:
-            print("modify_firewall: error modifying existing firewall data")
-            return(-1)
-
-    def delete_firewall(self, node_id):
-        """ Delete one firewall manager from "firewall_managers" table.
-            Input---
-              node_id - node id of firewall manager to delete
-            Output---
-              status: success = 0
-                      failure = -1
-        """
-        print("delete firewall manager from db:", node_id)
-        try:
-            db_query = "DELETE FROM firewall_managers WHERE node_id = ?"
-            self.cur.execute(db_query, (node_id,))
-            return(0)
-        except sqlite3.Error:
-            print("delete_firewall: error deleting firewall \
-                  [node_id: 0x016xd]" % (node_id))
-            return(-1, None)
+            return("delete_bos: error deleting bos", bos_data)
 
     #
     # Testing
@@ -526,7 +381,8 @@ class LibrarianDB(object):
         table_names = []
         tables_to_ignore = ["sqlite_sequence"]
         db_query = """
-            SELECT name FROM sqlite_master WHERE type='table' ORDER BY Name
+            SELECT name FROM sqlite_master
+            WHERE type='table' ORDER BY Name
             """
         self.cur.execute(db_query)
         tables = map(lambda t: t[0], self.cur.fetchall())
@@ -585,297 +441,187 @@ if __name__ == '__main__':
     db.check_tables()
 
     #
-    # Test "book" methods
+    # Test "books" methods
     #
 
-    # Add a single book to the database and then retrieve it
+    # Add a single book to the database and then get it
     book_id = 0x0DEAD0000000BEEF
-    book_owner = 0x1010101010101010
-    book_data = (book_id, 0, 0, 0, 0, book_owner)
+    node_id = 0x1010101010101010
+    size_bytes = 0x200000000
+    book_data = (book_id, node_id, 0, 0, size_bytes)
     status_create = db.create_book(book_data)
-    status_retrieve, book_info = db.get_book(book_id)
-    print("create/retrieve book:")
+    book_info = db.get_book(book_id)
+    print("create/get book:")
     print("  book_id = 0x%016x" % book_id)
-    print("  book_owner = 0x%016x" % book_owner)
+    print("  node_id = 0x%016x" % node_id)
     print("  book_data =", book_data)
-    print("  status_create = %s" % status_create)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_create:", status_create)
     print("  book_info =", book_info)
 
     # Modify a single book entry in database
     book_id = 0x0DEAD0000000BEEF
-    book_owner = 0x2020202020202020
-    book_data = (book_id, 1, 1, 1, 1, book_owner)
+    node_id = 0x2020202020202020
+    size_bytes = 0x200000000
+    book_data = (book_id, node_id, 1, 1, size_bytes)
     status_modify = db.modify_book(book_data)
-    status_retrieve, book_info = db.get_book(book_id)
-    print("modify/retrieve book:")
+    book_info = db.get_book(book_id)
+    print("modify/get book:")
     print("  book_id = 0x%016x" % book_id)
-    print("  book_owner = 0x%016x" % book_owner)
+    print("  node_id = 0x%016x" % node_id)
     print("  book_data =", book_data)
-    print("  status_modify = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_modify =", status_modify)
     print("  book_info =", book_info)
 
     # Delete single book entry in database
     book_id = 0x0DEAD0000000BEEF
     status_delete = db.delete_book(book_id)
-    status_retrieve, book_info = db.get_book(book_id)
-    print("delete/retrieve book:")
+    book_info = db.get_book(book_id)
+    print("delete/get book:")
     print("  book_id = 0x%016x" % book_id)
-    print("  status_delete = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_delete =", status_modify)
     print("  book_info =", book_info)
 
-    # Add two books to the database and then retrieve them
+    # Add two books to the database and then get them
     book_id1 = 0x0DEAD0000000AAAA
-    book_owner1 = 0x1010101010101010
-    book_data1 = (book_id1, 1, 1, 1, 1, book_owner1)
+    node_id1 = 0x1010101010101010
+    size_bytes1 = 0x200000000
+    book_data1 = (book_id1, node_id1, 1, 1, size_bytes1)
     book_id2 = 0x0DEAD0000000BBBB
-    book_owner2 = 0x2020202020202020
-    book_data2 = (book_id2, 2, 2, 2, 2, book_owner2)
+    node_id2 = 0x2020202020202020
+    size_bytes2 = 0x200000000
+    book_data2 = (book_id2, node_id2, 2, 2, size_bytes2)
     status_create1 = db.create_book(book_data1)
     status_create2 = db.create_book(book_data2)
-    status_retrieve, book_info = db.get_book_all()
-    print("create/retrieve two books:")
+    book_info = db.get_book_all()
+    print("create/get two books:")
     print("  book_id1 = 0x%016x" % book_id1)
-    print("  book_owner1 = 0x%016x" % book_owner1)
+    print("  node_id1 = 0x%016x" % node_id1)
     print("  book_data1 =", book_data1)
-    print("  status_create1 = %s" % status_create1)
+    print("  status_create1 = ", status_create1)
     print("  book_id2 = 0x%016x" % book_id2)
-    print("  book_owner2 = 0x%016x" % book_owner2)
+    print("  node_id2 = 0x%016x" % node_id2)
     print("  book_data2 =", book_data2)
-    print("  status_create2 = %s" % status_create2)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_create2 = ", status_create2)
     for book in book_info:
         print("  book =", book)
 
     #
-    # Test "shelf" methods
+    # Test "shelves" methods
     #
 
-    # Add a single shelf to the database and then retrieve it
-    shelf_handle = 0x0DEAD0000000BEEF
-    shelf_owner = 0x1010101010101010
-    shelf_time = time.time()
-    shelf_data = (shelf_handle, 0, 0, 0, shelf_owner, shelf_time)
+    # Add a single shelf to the database and then get it
+    shelf_id = 0x0DEAD0000000BEEF
+    c_time = time.time()
+    m_time = time.time()
+    shelf_data = (shelf_id, 0, 0, 0, c_time, m_time)
     status_create = db.create_shelf(shelf_data)
-    status_retrieve, shelf_info = db.get_shelf(shelf_handle)
-    print("create/retrieve shelf:")
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  shelf_owner = 0x%016x" % shelf_owner)
-    print("  shelf_time = %f (%s)" % (shelf_time, time.ctime(shelf_time)))
+    shelf_info = db.get_shelf(shelf_id)
+    print("create/get shelf:")
+    print("  shelf_id = 0x%016x" % shelf_id)
+    print("  c_time = %f (%s)" % (c_time, time.ctime(c_time)))
+    print("  m_time = %f (%s)" % (m_time, time.ctime(m_time)))
     print("  shelf_data =", shelf_data)
-    print("  status_create = %s" % status_create)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_create =", status_create)
     print("  shelf_info =", shelf_info)
 
     # Modify a single shelf entry in database
-    shelf_handle = 0x0DEAD0000000BEEF
-    shelf_owner = 0x2020202020202020
-    shelf_time = time.time()
-    shelf_data = (shelf_handle, 1, 1, 1, shelf_owner, shelf_time)
+    shelf_id = 0x0DEAD0000000BEEF
+    shelf_info = db.get_shelf(shelf_id)
+    shelf_id, size_bytes, book_count, open_count, c_time, m_time = (shelf_info)
+    m_time = time.time()
+    shelf_data = (shelf_id, 1, 1, 1, c_time, m_time)
     status_modify = db.modify_shelf(shelf_data)
-    status_retrieve, shelf_info = db.get_shelf(shelf_handle)
-    print("modify/retrieve shelf:")
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  shelf_owner = 0x%016x" % shelf_owner)
-    print("  shelf_time = %f (%s)" % (shelf_time, time.ctime(shelf_time)))
+    shelf_info = db.get_shelf(shelf_id)
+    print("get/modify/get shelf:")
+    print("  shelf_id = 0x%016x" % shelf_id)
+    print("  c_time = %f (%s)" % (c_time, time.ctime(c_time)))
+    print("  m_time = %f (%s)" % (m_time, time.ctime(m_time)))
     print("  shelf_data =", shelf_data)
-    print("  status_modify = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_modify =", status_modify)
     print("  shelf_info =", shelf_info)
 
     # Delete single shelf entry in database
-    shelf_handle = 0x0DEAD0000000BEEF
-    status_delete = db.delete_shelf(shelf_handle)
-    status_retrieve, shelf_info = db.get_shelf(shelf_handle)
-    print("delete/retrieve shelf:")
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  status_delete = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
+    shelf_id = 0x0DEAD0000000BEEF
+    status_delete = db.delete_shelf(shelf_id)
+    shelf_info = db.get_shelf(shelf_id)
+    print("delete/get shelf:")
+    print("  shelf_id = 0x%016x" % shelf_id)
+    print("  status_delete =", status_modify)
     print("  shelf_info =", shelf_info)
 
-    # Add two shelves to the database and then retrieve them
-    shelf_handle = 0x0DEAD0000000AAAA
-    shelf_owner1 = 0x1010101010101010
-    shelf_time1 = time.time()
-    shelf_data1 = (shelf_handle, 1, 1, 1, shelf_owner1, shelf_time1)
-    shelf_handle = 0x0DEAD0000000BBBB
-    shelf_owner2 = 0x2020202020202020
-    shelf_time2 = time.time()
-    shelf_data2 = (shelf_handle, 2, 2, 2, shelf_owner2, shelf_time2)
+    # Add two shelves to the database and then get them
+    shelf_id1 = 0x0DEAD0000000AAAA
+    c_time1 = time.time()
+    m_time1 = time.time()
+    shelf_data1 = (shelf_id1, 1, 1, 1, c_time1, m_time1)
+    shelf_id2 = 0x0DEAD0000000BBBB
+    c_time2 = time.time()
+    m_time2 = time.time()
+    shelf_data2 = (shelf_id2, 2, 2, 2, c_time2, m_time2)
     status_create1 = db.create_shelf(shelf_data1)
     status_create2 = db.create_shelf(shelf_data2)
-    status_retrieve, shelf_info = db.get_shelf_all()
-    print("create/retrieve two shelves:")
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  shelf_owner1 = 0x%016x" % shelf_owner1)
+    shelf_info = db.get_shelf_all()
+    print("create/get two shelves:")
+    print("  shelf_id1 = 0x%016x" % shelf_id1)
     print("  shelf_data1 =", shelf_data1)
-    print("  status_create1 = %s" % status_create1)
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  shelf_owner2 = 0x%016x" % shelf_owner2)
+    print("  status_create1 =", status_create1)
+    print("  shelf_id2 = 0x%016x" % shelf_id2)
     print("  shelf_data2 =", shelf_data2)
-    print("  status_create2 = %s" % status_create2)
-    print("  status_retrieve = %s" % status_retrieve)
+    print("  status_create2 =", status_create2)
     for shelf in shelf_info:
         print("  shelf =", shelf)
 
     #
-    # Test "reservation" methods
+    # Test "books_on_shelf" methods
     #
 
-    # Add a single shelf reservation to the database and then retrieve it
-    reservation_id = 0x0DEAD0000000BEEF
-    shelf_handle = 0x1010101010101010
-    reservation_time = time.time()
-    reservation_data = (reservation_id, shelf_handle, reservation_time)
-    status_create = db.create_reservation(reservation_data)
-    status_retrieve, reservation_info = db.get_reservation(reservation_id)
-    print("create/retrieve shelf reservation:")
-    print("  reservation_id = 0x%016x" % reservation_id)
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  reservation_time = %f (%s)" %
-          (reservation_time, time.ctime(reservation_time)))
-    print("  reservation_data =", reservation_data)
-    print("  status_create = %s" % status_create)
-    print("  status_retrieve = %s" % status_retrieve)
-    print("  reservation_info =", reservation_info)
+    # Add a single "books on shelf" (bos) to the database and then get it
+    shelf_id = 0x0DEAD0000000AAAA
+    book_id = 0x1010101010101010
+    bos_data = (shelf_id, book_id, 1)
+    status_create = db.create_bos(bos_data)
+    bos_info_shelf = db.get_bos_by_shelf(shelf_id)
+    bos_info_book = db.get_bos_by_book(book_id)
+    print("create/get bos:")
+    print("  shelf_id = 0x%016x" % shelf_id)
+    print("  book_id = 0x%016x" % book_id)
+    print("  bos_data =", bos_data)
+    print("  status_create =", status_create)
+    print("  bos_info_shelf =", bos_info_shelf)
+    print("  bos_info_book =", bos_info_book)
 
-    # Modify a single shelf reservation entry in database
-    reservation_id = 0x0DEAD0000000BEEF
-    shelf_handle = 0x2020202020202020
-    reservation_time = time.time()
-    reservation_data = (reservation_id, shelf_handle, reservation_time)
-    status_modify = db.modify_reservation(reservation_data)
-    status_retrieve, reservation_info = db.get_reservation(reservation_id)
-    print("modify/retrieve shelf reservation:")
-    print("  reservation_id = 0x%016x" % reservation_id)
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  reservation_time = %f (%s)" %
-          (reservation_time, time.ctime(reservation_time)))
-    print("  reservation_data =", reservation_data)
-    print("  status_modify = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
-    print("  reservation_info =", reservation_info)
+    # Delete single bos entry in database
+    shelf_id = 0x0DEAD0000000AAAA
+    book_id = 0x1010101010101010
+    bos_data = (shelf_id, book_id, 1)
+    status_delete = db.delete_bos(bos_data)
+    bos_info = db.get_bos_by_shelf(shelf_id)
+    print("delete/get bos:")
+    print("  shelf_id = 0x%016x" % shelf_id)
+    print("  status_delete =", status_modify)
+    print("  bos_info =", bos_info)
 
-    # Delete single shelf reservation entry in database
-    reservation_id = 0x0DEAD0000000BEEF
-    status_delete = db.delete_reservation(reservation_id)
-    status_retrieve, reservation_info = db.get_reservation(reservation_id)
-    print("delete/retrieve shelf reservation:")
-    print("  reservation_id = 0x%016x" % reservation_id)
-    print("  status_delete = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
-    print("  reservation_info =", reservation_info)
-
-    # Add two shelf reservations to the database and then retrieve them
-    reservation_id1 = 0x0DEAD0000000AAAA
-    shelf_handle = 0x1010101010101010
-    reservation_time1 = time.time()
-    reservation_data1 = (reservation_id1, shelf_handle, reservation_time1)
-    reservation_id2 = 0x0DEAD0000000BBBB
-    shelf_handle = 0x2020202020202020
-    reservation_time2 = time.time()
-    reservation_data2 = (reservation_id2, shelf_handle, reservation_time2)
-    status_create1 = db.create_reservation(reservation_data1)
-    status_create2 = db.create_reservation(reservation_data2)
-    status_retrieve, reservation_info = db.get_reservation_all()
-    print("create/retrieve two shelf reservations:")
-    print("  reservation_id1 = 0x%016x" % reservation_id1)
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  reservation_data1 =", reservation_data1)
-    print("  status_create1 = %s" % status_create1)
-    print("  reservation_id2 = 0x%016x" % reservation_id2)
-    print("  shelf_handle = 0x%016x" % shelf_handle)
-    print("  reservation_data2 =", reservation_data2)
-    print("  status_create2 = %s" % status_create2)
-    print("  status_retrieve = %s" % status_retrieve)
-    for reservation in reservation_info:
-        print("  reservation =", reservation)
-
-    #
-    # Test "firewall" methods
-    #
-
-    # Add a single firewall manager to the database and then retrieve it
-    node_id = 0x0DEAD0000000BEEF
-    host = "foobar.hp.com"
-    port = 9090
-    date_registered = time.time()
-    firewall_data = (node_id, host, port, date_registered)
-    status_create = db.create_firewall(firewall_data)
-    status_retrieve, firewall_info = db.get_firewall(node_id)
-    print("create/retrieve firewall manager:")
-    print("  node_id = 0x%016x" % node_id)
-    print("  host = %s" % host)
-    print("  port = %d" % port)
-    print("  date_registered = %f (%s)" %
-          (date_registered, time.ctime(date_registered)))
-    print("  firewall_data =", firewall_data)
-    print("  status_create = %s" % status_create)
-    print("  status_retrieve = %s" % status_retrieve)
-    print("  firewall_info =", firewall_info)
-
-    # Modify a single firewall manager entry in database
-    node_id = 0x0DEAD0000000BEEF
-    host = "fubar.hp.com"
-    port = 9191
-    date_registered = time.time()
-    firewall_data = (node_id, host, port, date_registered)
-    status_modify = db.modify_firewall(firewall_data)
-    status_retrieve, firewall_info = db.get_firewall(node_id)
-    print("modify/retrieve firewall manager:")
-    print("  node_id = 0x%016x" % node_id)
-    print("  host = %s" % host)
-    print("  port = %d" % port)
-    print("  date_registered = %f (%s)" %
-          (date_registered, time.ctime(date_registered)))
-    print("  firewall_data =", firewall_data)
-    print("  status_modify = %s" % status_modify)
-    print("  status_retrieve = %s" % status_retrieve)
-    print("  firewall_info =", firewall_info)
-
-    # Delete single firewall manager entry in database
-    node_id = 0x0DEAD0000000BEEF
-    status_delete = db.delete_firewall(node_id)
-    status_retrieve, firewall_info = db.get_firewall(node_id)
-    print("delete/retrieve firewall manager:")
-    print("  node_id = 0x%016x" % node_id)
-    print("  firewall_data =", firewall_data)
-    print("  status_delete = %s" % status_delete)
-    print("  status_retrieve = %s" % status_retrieve)
-    print("  firewall_info =", firewall_info)
-
-    # Add two firewall manager entries to the database and then retrieve them
-    node_id1 = 0x0DEAD0000000AAAA
-    host1 = "fubar.hp.com"
-    port1 = 9090
-    date_registered1 = time.time()
-    firewall_data1 = (node_id1, host1, port1, date_registered1)
-    node_id2 = 0x0DEAD0000000BBBB
-    host2 = "foobar.hp.com"
-    port2 = 9191
-    date_registered2 = time.time()
-    firewall_data2 = (node_id2, host2, port2, date_registered2)
-    status_create1 = db.create_firewall(firewall_data1)
-    status_create2 = db.create_firewall(firewall_data2)
-    status_retrieve, firewall_info = db.get_firewall_all()
-    print("create/retrieve two firewall manager entries:")
-    print("  node_id1 = 0x%016x" % node_id1)
-    print("  host1 = %s" % host1)
-    print("  port1 = %d" % port1)
-    print("  date_registered1 = %f (%s)" %
-          (date_registered1, time.ctime(date_registered1)))
-    print("  status_create1 = %s" % status_create1)
-    print("  node_id2 = 0x%016x" % node_id2)
-    print("  host2 = %s" % host2)
-    print("  port2 = %d" % port2)
-    print("  date_registered2 = %f (%s)" %
-          (date_registered2, time.ctime(date_registered2)))
-    print("  status_create2 = %s" % status_create2)
-    print("  status_retrieve = %s" % status_retrieve)
-    for firewall in firewall_info:
-        print("  firewall =", firewall)
+    # Add two bos to the database and then get them
+    shelf_id1 = 0x0DEAD0000000AAAA
+    book_id1 = 0x1010101010101010
+    bos_data1 = (shelf_id1, book_id1, 3)
+    shelf_id2 = 0x0DEAD0000000BBBB
+    book_id2 = 0x2020202020202020
+    bos_data2 = (shelf_id2, book_id2, 4)
+    status_create1 = db.create_bos(bos_data1)
+    status_create2 = db.create_bos(bos_data2)
+    bos_info = db.get_bos_all()
+    print("create/get two shelf reservations:")
+    print("  shelf_id1 = 0x%016x" % shelf_id1)
+    print("  book_id1 = 0x%016x" % book_id1)
+    print("  bos_data1 =", bos_data1)
+    print("  status_create1 = ", status_create1)
+    print("  shelf_id2 = 0x%016x" % shelf_id2)
+    print("  book_id2 = 0x%016x" % book_id2)
+    print("  bos_data2 =", bos_data2)
+    print("  status_create2 =s", status_create2)
+    for bos in bos_info:
+        print("  bos =", bos)
 
     # Cleanup
     db.close()
