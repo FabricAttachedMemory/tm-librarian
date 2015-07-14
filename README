@@ -94,47 +94,54 @@ database with the data.
 
 The data file will be in a basic "ini" file format, which can be parsed
 using the python3 "configparser" module. The layout will consist of a
-section for each node and within each section values for a node ID,
-number of books and NVM base address.
+global section which lists the total number of nodes and a book size, then
+a section for each node which lists the node ID, total NVM size and LZA base
+address for the NVM.
 
 Example:
 
-    [node1]
+    [global]
+    node_cnt = 5
+    book_size = 8G
+    [node01]
     node_id = 0x0A0A0A0A0A0A0A0A
-    num_books = 5
-    base_addr = 0x0001000000000000
-    [node2]
+    lza_base = 0x0000000000000000
+    nvm_size = 64G
+    [node02]
     node_id = 0x0B0B0B0B0B0B0B0B
-    num_books = 5
-    base_addr = 0x0002000000000000
-    [node3]
+    lza_base = 0x0000001000000000
+    nvm_size = 64G
+    [node03]
     node_id = 0x0C0C0C0C0C0C0C0C
-    num_books = 5
-    base_addr = 0x0003000000000000
-    [node4]
+    lza_base = 0x0000002000000000
+    nvm_size = 64G
+    [node04]
     node_id = 0x0D0D0D0D0D0D0D0D
-    num_books = 5
-    base_addr = 0x0004000000000000
-    [node5]
+    lza_base = 0x0000003000000000
+    nvm_size = 64G
+    [node05]
     node_id = 0x0E0E0E0E0E0E0E0E
-    num_books = 5
-    base_addr = 0x0005000000000000
+    lza_base = 0x0000004000000000
+    nvm_size = 64G
 
 Where:
 
-    [node#]     - unique section name
+    [global]    - (STR) global section name
+    node_cnt    - (INT) total number of nodes
+    book_size   - (INT) book size (M = Megabytes and G = Gigabytes)
+    [node##]    - (STR) unique section name
     node_id     - (INT) unique global node ID for SoC
-    num_books   - (INT) number of 8GB books hosted by SoC
-    base_addr   - (INT) global base address of NVM hosted by SoC
+    lza_base    - (INT) logical GenZ base address for NVM hosted by node
+    nvm_size    - (INT) total size of NVM hosted by node
 
 Assumptions:
 
-+ NVM on each node is a continiuous block with respect to GenZ addressing
-+ Books are 8GB in length
-
-Issues/Questions:
-
-+ 
+    + NVM on each node is a continiuous block with respect to GenZ addressing
+    + "node_cnt" matches the number of "[node#]" sections present in file
+    + "nvm_size" is a multiple of "book_size"
+    + nodes are in increasing order based on "lza_base"
+    + "lza_base" plus "nvm_size" does not overlap next node "lza_base"
+    + there can be gaps between the end of one nodes NVM and the start of another nodes NVM
 
 ---------------------------------------------------------------------------
 Debian packaging of Librarian
@@ -581,53 +588,38 @@ Librarian supported debug commands
 Database schema
 ---------------------------------------------------------------------------
 
-"books" - All available books.
+"books" - All available books
 
-    book_id <INT>          - (primary key) unique ID, maybe the global GenZ address
-    status <INT>           - some type of status (zero if unused, used, unavailable or in error?)
-    shelf_handle <INT>     - shelf handle for the shelf this book belongs to, zero if free/unused
-    sequence <INT>         - order in which this book was added to shelf (1..N) zero if unallocated
+    book_id <INT>          - (primary key) unique identifier for book (LZA address?)
+    node_id <INT>          - unique ID for each SoC node
+    status <INT>           - status of book (0 = unused, 1 = used in shelf(s))
     attributes <INT>       - ??? maybe some type of attributes, such as proximity ???
-    owner_id <INT>         - ??? maybe a owner ID to track who originally created this shelf ???
+    size_bytes <INT>       - book size in bytes
 
-    Issues/Comments:
-
-        + assuming a book can only be allocated to one shelf at time
+    Assumptions:
+        +
     
-"shelves" - All currently allocated shelves.
+"shelves" - All currently allocated shelves
 
-    shelf_handle <INT>         - (primary key) unique ID of some type 
+    shelf_id <INT>         - (primary key) unique identifier for shelf
     size_bytes <INT>       - current size in bytes, zero if no books allocated
     book_count <INT>       - current number of books on shelf
     open_count <INT>       - current number of opens
-    owner_id <INT>         - ??? maybe an owner ID to track who originally created this shelf ???
-    creation_date <INT>    - ??? maybe a date stamp when this shelf was created ???
+    c_time <REAL>          - creation time of shelf
+    m_time <REAL>          - last modification time of shelf
 
-    Issues/Comments:
+    Assumptions:
+        + a shelf can have many users that have it open
+        + it's important to track the order in which books where added to shelf, so books can be deleted in LIFO order
 
-        + assuming a shelf can have many users that have it open
-        + assuming it's important to track the order in which books where added to shelf, so books can be deleted in LIFO order
+"books_on_shelf" - All books allocated to shelves
 
-"shelf_reservations" - Holds all current shelf reservations.
+    shelf_id <INT>         - a unique identifier for shelf
+    book_id <INT>          - unique identifier for book (LZA address?)
+    seq_num <INT>          - order number in which this book was added to shelf (1..N)
 
-    reservation_id <INT>   - (primary key) a unique identifier for who has this shelf open (NodeID+GUID+GGID) or process ID, ???
-    shelf_handle <INT>         - ID of the shelf this reservation is on behalf of
-    date_reserved <REAL>   - ??? maybe a date stamp when this shelf was reserved ???
-
-    Issues/Comments:
-
-        + assuming the "open_id" is unique
-
-"firewall_managers" - All currently registered node firewall managers.
-
-    node_id <INT>          - (primary key) unique ID for each node
-    host <TEXT>            - hostname for socket communication
-    port <INT>             - port number for socket communication
-    date_registered <REAL> - ??? maybe a date stamp when this firewall manager registered ???
-
-    Issues/Comments:
-
-        + assuming one firewall manager running on each node
-        + assume firewall manager starts up and contacts Librarian with communication information
+    Assumptions:
+        + a book can be used on one or more shelves
+        + a book can be used more than once on a shelf
 
 ---------------------------------------------------------------------------
