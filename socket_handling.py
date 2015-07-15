@@ -59,8 +59,6 @@ def read_all(sock):
     # account for it.
     if len(in_json) == 0:
         sock.close()
-        # for some reason python sends an empty message on conenct
-        # cauases error with callback functions right now
         return None
 
     print("I'm returning now")
@@ -74,9 +72,17 @@ def client_init(host = 'localhost', port = DEFAULT_PORT):
     global SOCK
     SOCK = sock
 
+def client_exit():
+    global SOCK
+    sock.close()
 
 def client_send_recv(string):
     global SOCK
+
+    # This kills the socket
+    if len(string) == 0:
+        return ""
+
     send(string)
     return read_all(SOCK)
 
@@ -98,6 +104,8 @@ def start_event_loop(sock, handler):
     while True:
         # closed sockets get -1 value
         # this may not work if the socket closes between now and the select
+        # but i still haven't found documentation as to why it does this or how
+        # I can force it to stop.
         to_read = [sock for sock in to_read if sock.fileno() != -1]
         readable, _, _ = select.select(to_read, [], [])
 
@@ -108,13 +116,14 @@ def start_event_loop(sock, handler):
                 to_read.append(conn)
                 readable.remove(sock)
 
-        # Socket was closed python hates me
+        # Socket was closed python and hates me
         except ValueError:
             to_read = [sock for sock in to_read if sock.fileno() != -1]
             continue
 
         if len(readable) != 0:
-            [s.send(str.encode(handler(read_all(s)))) for s in readable]
+            for s in readable:
+                s.send(str.encode(handler(read_all(s))))
 
 
 def echo_handeler(string):
