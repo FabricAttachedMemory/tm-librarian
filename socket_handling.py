@@ -1,26 +1,57 @@
+#!/usr/bin/env python3
+""" Module to handle socket communication for Libraian and Clients """
 import socket
 import select
 
+__author__ = "Justin Vreeland"
+__copyright__ = "Copyright 2015 HP?"
+__credits__ = ""
+__license__ = ""
+__version__ = ""
+__maintainer__ = "Justin Vreeland"
+__email__ = "justin.mcd.vreeland@hp.com"
+__status__ = "Development"
 
-# Grap these from optparse in the future
+DEFAULT_INTERFACE = ''
 DEFAULT_HOST = ''
 DEFAULT_PORT = 9093
 
-def server_init(host = DEFAULT_HOST, port = DEFAULT_PORT):
+SOCK = None
 
+def server_init(interface = DEFAULT_INTERFACE, port = DEFAULT_PORT):
+    """ Initialize server socket.
+    :param interface:   Interface to bind to (default '')
+    :param port:        Port to listen on (default 9093)
+    :type interface:    dictionary
+    :type port:         int
+    :returns:           valid socket for serving
+    :rtype:             socket
+    """
     sock = socket.socket()
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((DEFAULT_HOST, DEFAULT_PORT))
+    sock.bind((DEFAULT_INTERFACE, DEFAULT_PORT))
     sock.listen(0)
 
     return sock
 
-def echo_handeler(string):
-    # does not handle ctrl characters well
-    print(string)
 
 def read_all(sock):
-    in_json = sock.recv(1024).decode("utf-8").strip()
+    """ Read a complete message (hopefully from the socket)
+    """
+    in_json = ""
+    in_delta = sock.recv(1024).decode("utf-8").strip()
+    in_json += in_delta
+
+    # It's possible that two messages are recieved verry quickly
+    # and this ends up reading the second one in. The alternative is that
+    # one isn't read completly.  it should be sub-divided and checked for
+    # a single valid json document.
+    while not len(in_delta) != 1024:
+        print("in loop")
+        in_delta = sock.recv(1024).decode("utf-8").strip()
+        in_json += in_delta
+
+    print("left loop")
 
     # should never have to worry about this
     # python will set the descriptor to -1 when it closes stopping us from
@@ -28,13 +59,40 @@ def read_all(sock):
     # account for it.
     if len(in_json) == 0:
         sock.close()
+        # for some reason python sends an empty message on conenct
+        # cauases error with callback functions right now
         return None
 
+    print("I'm returning now")
     return in_json
 
-def serv(handler):
 
-    sock = server_init()
+def client_init(host = 'localhost', port = DEFAULT_PORT):
+
+    sock = socket.socket()
+    sock.connect((DEFAULT_HOST, DEFAULT_PORT))
+    global SOCK
+    SOCK = sock
+
+
+def client_send_recv(string):
+    global SOCK
+    send(string)
+    return read_all(SOCK)
+
+
+# basic clienty stuff
+# So for the foreseable future (i.e. twoish weeks from this writing) there's
+# no urgency for having a workable eventloop. instead we'll do completly 100%
+# synchonous stuff over our perfect network : )
+def send(string):
+    global SOCK
+    SOCK.send(str.encode(string))
+
+
+# Maybe refactor into an object
+def start_event_loop(sock, handler):
+
     to_read = [sock]
 
     while True:
@@ -55,14 +113,20 @@ def serv(handler):
             to_read = [sock for sock in to_read if sock.fileno() != -1]
             continue
 
-        # silly trick with short-circuted booleans
-        # does this ever get run have yet to verify
-        [handler(read_all(s)) == -1 and readable.remove(s) for s in readable]
+        if len(readable) != 0:
+            [s.send(str.encode(handler(read_all(s)))) for s in readable]
+
+
+def echo_handeler(string):
+    # does not handle ctrl characters well
+    print(string)
+    return string
 
 
 def main():
     """ Run simple echo server to exersize the module """
-    serv(echo_handeler)
+    sock = server_init()
+    start_event_loop(sock, echo_handeler)
 
 if __name__ == "__main__":
     main()
