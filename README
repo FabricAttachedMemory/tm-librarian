@@ -184,13 +184,13 @@ Librarian server/client design
 
 + Librarian Server (runs on Top-of-Rack Server)
 
-  [Main]   - main python modules,
-  [Socket] - initialize/read/write socket
-  [TLS]    - wrap socket in TLS
-  [JSON]   - convert dictionary to JSAON and back
-  [Engine] - receive input from socket, verify and execute commands
-  [DB]     - initialize/read/write data to database
-  [Books]  - load fake node/book data from file
+  [Main]   - (librarian.py) main python modules,
+  [Socket] - (socket_handling.py) initialize/read/write socket
+  [TLS]    - (?) wrap socket in TLS
+  [JSON]   - (json_handler.py) convert dictionary to JSAON and back
+  [Engine] - (engine.py) receive input from socket, verify and execute commands
+  [DB]     - (database.py) initialize/read/write data to database
+  [Books]  - (book_register.py) load fake node/book data from file
 
   [Main] --> [Books]
   [Main] --> [Socket] <--> [JSON] <--> [Engine] <--> [DB]
@@ -221,7 +221,8 @@ protocols which could then talk to the Librarian.
 ---------------------------------------------------------------------------
 Librarian supported commands
 ---------------------------------------------------------------------------
-These will be implemented in the "Engine" module of the Librarian.
+
+These commands will be implemented in the "Engine" module of the Librarian.
 
 "version" - Query Librarian for version information.
 
@@ -231,7 +232,7 @@ These will be implemented in the "Engine" module of the Librarian.
 
     Errors:
 
-        +
+        + None
 
     Questions/Issues:
 
@@ -246,16 +247,16 @@ These will be implemented in the "Engine" module of the Librarian.
     Data out (json):
 
         {
-            "status":"<INT>",                       # zero for success, otherwise errno
             "version":"<STR>"                       # librarian version string
         }
 
 
-"shelf_create" - Create a new shelf.
+"create_shelf" - Create a new shelf.
 
     Description:
 
-        + new shelf starts with zero books
+        + new shelf starts with zero books and zero size
+        + only root can create shelf
 
     Errors:
 
@@ -268,24 +269,33 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"shelf_create"                # command to execute
-            "shelf_owner":"<INT>"                   # node_id + user id + group id? or a global id?
+            "command":"create_shelf"                # command to execute
         }
 
     Data out (json):
 
         {
-            "status":"<INT>",                       # zero for success, otherwise errno
-            "shelf_handle":"<INT>"                  # unique handle to identify this shelf, zero on error
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "size_bytes":"<INT>",                   # total size of NVM on shelf
+            "book_count":"<INT>",                   # number of books on shelf
+            "open_count":"<INT>",                   # node open count
+            "c_time":"<REAL>",                      # creation time
+            "m_time":"<REAL>"                       # modification time
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_open" - Reserve/Open an existing shelf for use.
+"open_shelf" - Open an existing shelf for use.
 
     Description:
 
         + increment shelf open count
-        + create shelf reservation
+        + only root can open shelf
 
     Errors:
 
@@ -298,24 +308,37 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"shelf_open",                 # command to execute
-            "shelf_handle":"<INT>",                 # unique handle to identify this shelf, zero on error
-            "reservation_owner":"<INT>"             # node_id + user id + group id? or a global id?
+            "command":"open_shelf",                 # command to execute
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "node_id":"<INT>",                      # unique ID for node
+            "uid":"<INT>",                          # user ID
+            "gid":"<INT>"                           # group ID
         }
 
     Data out (json):
 
         {
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "size_bytes":"<INT>",                   # total size of NVM on shelf
+            "book_count":"<INT>",                   # number of books on shelf
+            "open_count":"<INT>",                   # node open count
+            "c_time":"<REAL>",                      # creation time
+            "m_time":"<REAL>"                       # modification time
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_close" - Close an existing shelf.
+"close_shelf" - Close an existing shelf.
 
     Description:
 
         + decrement shelf open count
-        + delete shelf reservation
+        + only root can close shelf
 
     Errors:
 
@@ -329,32 +352,41 @@ These will be implemented in the "Engine" module of the Librarian.
 
         {
             "command":"close_shelf",                # command to execute
-            "shelf_handle":"<INT>",                 # shelf handle
-            "node_id":"<INT>",                      # node identifier
-            "global_user_id":"<INT>",               # global user identifier
-            "global_group_id":"<INT>"               # global group identifier
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "node_id":"<INT>",                      # unique ID for node
+            "uid":"<INT>",                          # user ID
+            "gid":"<INT>"                           # group ID
         }
 
     Data out (json):
 
         {
-            "shelf_handle": "<INT>",                # globally unique handle to identify shelf (zero on error)
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "size_bytes":"<INT>",                   # total size of NVM on shelf
+            "book_count":"<INT>",                   # number of books on shelf
+            "open_count":"<INT>",                   # node open count
+            "c_time":"<REAL>",                      # creation time
+            "m_time":"<REAL>"                       # modification time
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_destroy" - Remove shelf
+"destroy_shelf" - Remove shelf
 
     Description:
 
         + remove shelf
-        + free any existing books on shelf?
-        + delete any shelf reservations?
-        + OR should the destroy fail if the open count is greater than zero
+        + free any existing books on shelf
+        + only root can close shelf
 
     Errors:
 
-        +
+        + shelf does not exist
 
     Questions/Issues:
 
@@ -363,27 +395,39 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"shelf_destroy",              # command to execute
-            "shelf_handle":"<INT>"                  # shelf handle
+            "command":"destroy_shelf",              # command to execute
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "node_id":"<INT>",                      # unique ID for node
+            "uid":"<INT>",                          # user ID
+            "gid":"<INT>"                           # group ID
         }
 
     Data out (json):
 
         {
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "success":"Shelf destroyed"             # success message
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_resize" - Change the size of the NVM available on the shelf.
+"resize_shelf" - Change the size of the NVM available on the shelf.
 
     Description:
 
-        + add or remove 8GB books to shelf so size has NVM backing
-        + if books added/removed talk with firewall
+        + add or remove books on shelf so size has NVM backing
+        + create BOS for each book put on shelf
+        + remove BOS for each book removed from shelf
+        + only root can resize shelf
+        + update shelf to reflect size, books and modification time
 
     Errors:
 
-        +
+        + shelf does not exist
 
     Questions/Issues:
 
@@ -392,19 +436,35 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"shelf_resize",               # command to execute
-            "shelf_handle":"<INT>",                 # shelf handle
-            "size_bytes":"<INT>"                    # new size of shelf in bytes
+            "command":"resize_shelf",               # command to execute
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "node_id":"<INT>",                      # unique ID for node
+            "size_bytes":"<INT>",                   # total size of NVM on shelf
+            "book_count":"<INT>",                   # number of books on shelf
+            "open_count":"<INT>",                   # node open count
+            "c_time":"<REAL>",                      # creation time
+            "m_time":"<REAL>"                       # modification time
         }
 
     Data out (json):
 
         {
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "shelf_id":"<INT>",                     # unique ID to identify this shelf
+            "size_bytes":"<INT>",                   # total size of NVM on shelf
+            "book_count":"<INT>",                   # number of books on shelf
+            "open_count":"<INT>",                   # node open count
+            "c_time":"<REAL>",                      # creation time
+            "m_time":"<REAL>"                       # modification time
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_zaddr" - Request global zaddr for shelf
+"get_shelf_zaddr" - Request global zaddr for shelf
 
     Description:
 
@@ -421,113 +481,58 @@ These will be implemented in the "Engine" module of the Librarian.
     Data in (json):
 
         {
-            "command":"shelf_zaddr",                # command to execute
-            "shelf_handle":"<INT>",                 # shelf handle
-            "address":"<INT>"                       # faulting address ???
+            "command":"get_shelf_zaddr",                # command to execute
         }
 
     Data out (json):
 
         {
-            "zaddr":"<INT>",                        # zaddr for book containing faulting address
-            "status":"<INT>"                        # zero for success, otherwise errno
+            "error":"Command not implemented"       # not implemented yet
         }
-
-
-"firewall_register" - Register firewall manager for node.
-
-    Description:
-
-        + firewall on node sends this message to register
-
-    Errors:
-
-        +
-
-    Questions/Issues:
-
-        + how does the firewall get the Librarian communication information (hostname and port)
-
-    Data in (json):
-
-        {
-            "command":"firewall_register",          # command to execute
-            "node_id":"<INT>",                      # node identifier
-            "hostname":"<TEXT>",                    # hostname of node for socket communication
-            "port":"<INT>"                          # port number for socket communication
-        }
-
-    Data out (json):
-
-        {
-            "status":"<INT>"                        # zero for success, otherwise errno
-        }
-
-
-"firewall_update" - Update firewall routing tables on node.
-
-    Description:
-
-        + firewall must have registered first before Librarian can send this message
-        + the Librarian initiates this command to the Firewall Manager
-
-    Errors:
-
-        +
-
-    Questions/Issues:
-
-        + not sure exactly what information we need to pass to the firewall manager
-
-    Data in (json):
-
-        {
-            "status":"<INT>"                        # zero for success, otherwise errno
-        }
-
-    Data out (json):
-
-        {
-            "command":"firewall_update",            # command to execute
-            "zaddr":"<INT>",                        # zaddress to add to firewall
-            "size_bytes":"<INT>"                    # ??? do we need a range or size for the firewall ???
-        }
-
 
 ---------------------------------------------------------------------------
 Librarian supported debug commands
 ---------------------------------------------------------------------------
 
-"book_list" - List book data stored in database.
+"list_book" - List book data stored in database.
 
     Description:
 
-        + maybe a list of book handles to list, if book_handle == 0 then return them all?
+        + select book by book_id
 
     Errors:
 
-        + book does not exist given criteria
+        + book does not exist
 
     Questions/Issues:
 
-        + expand parameters so one or more books can be listed
+        +
 
     Data in (json):
 
         {
-            "command":"book_list",                # command to execute
-            "book_handle":"<INT>"                 # Book handle (maybe one for each book you want returned?)
+            "command":"list_book",                  # command to execute
+            "book_id":"<INT>"                       # unique book ID
         }
 
     Data out (json):
 
         {
-            "books":[{book1},{bookN}]"            # data for zero or more books
-            "Status":"<INT>"                      # zero for success, otherwise errno
+            "book_id":"<INT>",                      # unique identifier for book
+            "node_id":"<INT>",                      # unique node ID
+            "status":"<INT>",                       # status of book (0 = unused, 1 = used in shelf(s))
+            "attributes":"<INT>",                   # book attributes
+            "size_bytes":"<INT>"                    # book size in bytes
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_list" - List shelf data stored in database.
+"list_shelf" - List shelf data stored in database.
 
     Description:
 
@@ -544,44 +549,61 @@ Librarian supported debug commands
     Data in (json):
 
         {
-            "command":"shelf_list",               # command to execute
-            "shelf_handle":"<INT>"                # shelf handle (maybe one for each shelf you want returned?)
+            "command":"list_shelf",                 # command to execute
+            "shelf_id":"<INT>"                      # shelf handle (maybe one for each shelf you want returned?)
         }
 
     Data out (json):
 
         {
-            "shelves":[{shelf1},{shelfN}]"        # data for zero or more shelves
-            "status":"<INT>"                      # zero for success, otherwise errno
+            "shelf_id":"<INT>",                     # unique ID for shelf
+            "size_bytes":"<INT>",                   # total size of NVM on shelf
+            "book_count":"<INT>",                   # number of books on shelf
+            "open_count":"<INT>",                   # node open count
+            "c_time":"<REAL>",                      # creation time
+            "m_time":"<REAL>"                       # modification time
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 
-"shelf_reservation_list" - List shelf reservation data stored in database.
+"list_bos" - List books on a given shelf
 
     Description:
 
-        +
+        +  list of books
 
     Errors:
 
-        + no reservations exist for shelf
+        + shelf does not exist
 
     Questions/Issues:
 
-        +
+        + expand parameters so one or more books can be listed
 
     Data in (json):
 
         {
-            "command":"shelf_reservation_list",   # command to execture
-            "shelf_handle":"<INT>"                # shelf handle (maybe one for each list of shelf reservations you want returned?)
+            "command":"list_bos",                   # command to execute
+            "shelf_id":"<INT>"                      # unique ID for shelf
         }
 
     Data out (json):
 
         {
-            [ShelfResData]                        # TBD - zero or more shelf reservation records ???
-            "status":"<INT>"                      # zero for success, otherwise errno
+            "shelf_id":"<INT>",                     # unique ID for shelf
+            "book_id":"<INT>",                      # unique ID for book
+            "seq_num":"<INT>"                       # sequence number of book as added to shelf (1..N)
+        }
+
+        or on error:
+
+        {
+            "error":"<STR>"                         # error message on failure
         }
 
 ---------------------------------------------------------------------------
@@ -590,10 +612,10 @@ Database schema
 
 "books" - All available books
 
-    book_id <INT>          - (primary key) unique identifier for book (LZA address?)
+    book_id <INT>          - (primary key) unique identifier for book (LZA address)
     node_id <INT>          - unique ID for each SoC node
     status <INT>           - status of book (0 = unused, 1 = used in shelf(s))
-    attributes <INT>       - ??? maybe some type of attributes, such as proximity ???
+    attributes <INT>       - book attributes, such as proximity
     size_bytes <INT>       - book size in bytes
 
     Assumptions:
@@ -615,7 +637,7 @@ Database schema
 "books_on_shelf" - All books allocated to shelves
 
     shelf_id <INT>         - a unique identifier for shelf
-    book_id <INT>          - unique identifier for book (LZA address?)
+    book_id <INT>          - unique identifier for book (LZA address)
     seq_num <INT>          - order number in which this book was added to shelf (1..N)
 
     Assumptions:

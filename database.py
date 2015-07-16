@@ -75,12 +75,6 @@ class LibrarianDB(object):
     #
     # books
     #
-# CREATE TABLE IF NOT EXISTS books (
-# book_id INT PRIMARY KEY,
-# node_id INT,
-# status INT,
-# attributes INT,
-# size_bytes INT
 
     def create_book(self, book_data):
         """ Insert one new book into "books" table.
@@ -98,14 +92,14 @@ class LibrarianDB(object):
         except sqlite3.Error:
             return("create_book: error inserting new book")
 
-    def get_book(self, book_id):
+    def get_book_by_id(self, book_id):
         """ Retrieve one book from "books" table.
             Input---
               book_id - id of book to get
             Output---
               book_data or error message
         """
-        print("get book from db:", book_id)
+        print("get book by id from db:", book_id)
         try:
             db_query = "SELECT * FROM books WHERE book_id = ?"
             self.cur.execute(db_query, (book_id,))
@@ -114,6 +108,30 @@ class LibrarianDB(object):
         except sqlite3.Error:
             return("get_book: error retrieving book [book_id: 0x016xd]"
                    % (book_id))
+
+    def get_book_by_node(self, node_id, status, num_rows):
+        """ Retrieve book(s) from "books" table using node
+            Input---
+              node_id - id of node to filter on
+              status - status of book to filter on
+              num_rows - max number of rows to return
+            Output---
+              book_data or error message
+        """
+        print("get book by node from db:", node_id)
+        try:
+            db_query = """
+                SELECT * FROM books
+                WHERE node_id = ? AND
+                status = ?
+                LIMIT ?
+            """
+            self.cur.execute(db_query, (node_id, status, num_rows))
+            book_data = self.cur.fetchall()
+            return(book_data)
+        except sqlite3.Error:
+            return("get_book_by_node: error retrieving book [node_id: 0x016xd]"
+                   % (node_id))
 
     def get_book_all(self):
         """ Retrieve all books from "books" table.
@@ -271,10 +289,6 @@ class LibrarianDB(object):
     #
     # books_on_shelf
     #
-# CREATE TABLE IF NOT EXISTS books_on_shelf (
-# shelf_id INT,
-# book_id INT,
-# seq_num INT
 
     def create_bos(self, bos_data):
         """ Insert one new bos into "books_on_shelf" table.
@@ -304,7 +318,7 @@ class LibrarianDB(object):
         print("get bos by shelf from db:", shelf_id)
         try:
             db_query = """
-                SELECT rowid,* FROM books_on_shelf
+                SELECT * FROM books_on_shelf
                 WHERE shelf_id = ?
                 """
             self.cur.execute(db_query, (shelf_id,))
@@ -325,7 +339,7 @@ class LibrarianDB(object):
         print("get bos by book from db:", book_id)
         try:
             db_query = """
-                SELECT rowid,* FROM books_on_shelf
+                SELECT * FROM books_on_shelf
                 WHERE book_id = ?
                 """
             self.cur.execute(db_query, (book_id,))
@@ -344,7 +358,7 @@ class LibrarianDB(object):
         """
         print("get all bos from db")
         try:
-            db_query = "SELECT rowid,* FROM books_on_shelf"
+            db_query = "SELECT * FROM books_on_shelf"
             self.cur.execute(db_query)
             bos_data = self.cur.fetchall()
             return(bos_data)
@@ -450,7 +464,7 @@ if __name__ == '__main__':
     size_bytes = 0x200000000
     book_data = (book_id, node_id, 0, 0, size_bytes)
     status_create = db.create_book(book_data)
-    book_info = db.get_book(book_id)
+    book_info = db.get_book_by_id(book_id)
     print("create/get book:")
     print("  book_id = 0x%016x" % book_id)
     print("  node_id = 0x%016x" % node_id)
@@ -464,7 +478,7 @@ if __name__ == '__main__':
     size_bytes = 0x200000000
     book_data = (book_id, node_id, 1, 1, size_bytes)
     status_modify = db.modify_book(book_data)
-    book_info = db.get_book(book_id)
+    book_info = db.get_book_by_id(book_id)
     print("modify/get book:")
     print("  book_id = 0x%016x" % book_id)
     print("  node_id = 0x%016x" % node_id)
@@ -475,7 +489,7 @@ if __name__ == '__main__':
     # Delete single book entry in database
     book_id = 0x0DEAD0000000BEEF
     status_delete = db.delete_book(book_id)
-    book_info = db.get_book(book_id)
+    book_info = db.get_book_by_id(book_id)
     print("delete/get book:")
     print("  book_id = 0x%016x" % book_id)
     print("  status_delete =", status_modify)
@@ -489,7 +503,7 @@ if __name__ == '__main__':
     book_id2 = 0x0DEAD0000000BBBB
     node_id2 = 0x2020202020202020
     size_bytes2 = 0x200000000
-    book_data2 = (book_id2, node_id2, 2, 2, size_bytes2)
+    book_data2 = (book_id2, node_id2, 0, 1, size_bytes2)
     status_create1 = db.create_book(book_data1)
     status_create2 = db.create_book(book_data2)
     book_info = db.get_book_all()
@@ -502,6 +516,51 @@ if __name__ == '__main__':
     print("  node_id2 = 0x%016x" % node_id2)
     print("  book_data2 =", book_data2)
     print("  status_create2 = ", status_create2)
+    for book in book_info:
+        print("  book =", book)
+
+    # Add four books to the database and then get them
+    node_id = 0x2020202020202020
+    status = 0
+    max_books = 3
+    book_id1 = 0x0DEAD0000000CCCC
+    node_id1 = 0x2020202020202020
+    size_bytes1 = 0x200000000
+    book_data1 = (book_id1, node_id1, 0, 2, size_bytes1)
+    book_id2 = 0x0DEAD0000000DDDD
+    node_id2 = 0x2020202020202020
+    size_bytes2 = 0x200000000
+    book_data2 = (book_id2, node_id2, 1, 3, size_bytes2)
+    book_id3 = 0x0DEAD0000000EEEE
+    node_id3 = 0x2020202020202020
+    size_bytes3 = 0x200000000
+    book_data3 = (book_id3, node_id3, 0, 4, size_bytes3)
+    book_id4 = 0x0DEAD0000000FFFF
+    node_id4 = 0x2020202020202020
+    size_bytes4 = 0x200000000
+    book_data4 = (book_id4, node_id4, 0, 5, size_bytes4)
+    status_create1 = db.create_book(book_data1)
+    status_create2 = db.create_book(book_data2)
+    status_create3 = db.create_book(book_data3)
+    status_create4 = db.create_book(book_data4)
+    book_info = db.get_book_by_node(node_id1, status, max_books)
+    print("create/get three free books by node:")
+    print("  book_id1 = 0x%016x" % book_id1)
+    print("  node_id1 = 0x%016x" % node_id1)
+    print("  book_data1 =", book_data1)
+    print("  status_create1 = ", status_create1)
+    print("  book_id2 = 0x%016x" % book_id2)
+    print("  node_id2 = 0x%016x" % node_id2)
+    print("  book_data2 =", book_data2)
+    print("  status_create3 = ", status_create3)
+    print("  book_id3 = 0x%016x" % book_id3)
+    print("  node_id3 = 0x%016x" % node_id3)
+    print("  book_data3 =", book_data3)
+    print("  status_create4 = ", status_create4)
+    print("  book_id4 = 0x%016x" % book_id4)
+    print("  node_id4 = 0x%016x" % node_id4)
+    print("  book_data4 =", book_data4)
+    print("  status_create4 = ", status_create4)
     for book in book_info:
         print("  book =", book)
 
