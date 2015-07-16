@@ -71,6 +71,8 @@ def load_book_data(args, db):
                 print("insert book into db:", book_data)
                 db.create_book(book_data)
 
+    return(book_size)
+
 
 def book_data_args_init(parser):
     parser.add_argument("--book_file",
@@ -92,7 +94,7 @@ if __name__ == '__main__':
     db.db_init(args)
     db.check_tables()
 
-    load_book_data(args, db)
+    book_size = load_book_data(args, db)
 
     book_info = db.get_book_all()
     for book in book_info:
