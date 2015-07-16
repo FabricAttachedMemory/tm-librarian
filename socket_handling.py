@@ -110,7 +110,11 @@ class Server(SocketReadWrite):
     def __del__(self):
         super().__del__()
 
-    def serv(self, handler,interface = '', port = 9093):
+    # the default processor is an indentity processor so it's probably
+    # a requirement to have this, it could just initialize and use a brand
+    # new processor which is exactly what somone who didn't want processing
+    # would provid
+    def serv(self, handler, processor, interface = '', port = 9093):
         self._sock.bind((interface, port))
         self._sock.listen(0)
 
@@ -139,7 +143,11 @@ class Server(SocketReadWrite):
 
             if len(readable) != 0:
                 for s in readable:
-                    self.send(handler(self.recv_all(s)), s)
+
+                    in_string = self.recv_all(s)
+                    processed_in_string = processor.unprocess(in_string)
+                    result = handler(processed_in_string)
+                    self.send(processor.process(result), s)
 
 
 def main():

@@ -6,19 +6,30 @@ import functools
 class Processor:
 
     _processors = [lambda x : x]
+    _unprocessors = [lambda x : x]
 
     def __init__(self):
         pass
 
     def __del__(self):
         pass
+
     def add_processor(self, func):
         self._processors.append(func)
 
+    def add_unprocessor(self, func):
+        self._unprocessors.append(func)
+
     def process(self, in_obj):
         process = list(self._processors)
-        process.insert(0in_obj)
+        process.insert(0, in_obj)
         return functools.reduce(lambda x,y : y(x), process)
+
+    def unprocess(self, in_obj):
+        unprocess = list(self._unprocessors)
+        unprocess.insert(0, in_obj)
+        return functools.reduce(lambda x,y : y(x), unprocess)
+
 
 def json_error_creator(errno):
     r = {}

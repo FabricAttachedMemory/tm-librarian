@@ -6,6 +6,8 @@
 import uuid
 import time
 
+# version will fail if you don't have a top level definition
+LIBRARIAN_VERSION = "Librarian v0.01"
 
 def cmd_version(cmd_data):
     """" Return Librarian version number
@@ -100,6 +102,9 @@ def execute_command(cmd_data):
 
 def engine_args_init(parser):
     pass
+
+def unknown_command_handler():
+    return lambda x : json_error_creator(x)
 
 command_handlers = {
     "version": cmd_version,
