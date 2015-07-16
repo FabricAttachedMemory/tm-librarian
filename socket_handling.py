@@ -1,4 +1,4 @@
-#!/usr/bin/env python3 -tt
+#!/usr/bin/python3 -tt
 """ Module to handle socket communication for Librarian and Clients """
 import socket
 import select

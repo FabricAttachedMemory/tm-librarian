@@ -1,3 +1,4 @@
+#!/usr/bin/python3 -tt
 from collections import defaultdict
 import json
 #
