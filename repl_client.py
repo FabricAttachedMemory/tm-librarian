@@ -2,84 +2,90 @@
 
 from collections import defaultdict
 import socket_handling
-
+import json
+import json_handler
 
 def repl_init():
     socket_handling.client_init()
     sys
 
-def cmd_quit(var):
+def command_quit(var):
     print("bye")
     return None
 
-def cmd_Help(var):
+def command_help(var):
     print("help - list supported commands")
     print("version - query Librarian for current version")
-    print("listbook <rowid> - list book details by book rowid")
-    print("listbookall - list book details for all books in database")
-    print("listshelf - list shelf details by shelf name")
-    print("listshelfall - list shelf details for all shelves in database")
-    print("createshelf <shelf_name> <shelf_owner> - create new shelf")
-    print("resizeshelf <shelf_name> <size_in_bytes> - resize shelf to given size in bytes, add/remove books")
-    print("destroyshelf <shelf_name> - destroy shelf and free reserved books")
-    print("openshelf <shelf_name> - open shelf and setup node access")
-    print("closeshelf <shelf_name> - close shelf and tear down node access")
+    print("book_list <rowid> - list book details by book rowid")
+    print("book_listall - list book details for all books in database")
+    print("shelf_list - list shelf details by shelf name")
+    print("shelf_listall - list shelf details for all shelves in database")
+    print("shelf_create <shelf_name> <shelf_owner> - create new shelf")
+    print("shelf_resize <shelf_name> <size_in_bytes> - resize shelf to given size in bytes, add/remove books")
+    print("shelf_destroy <shelf_name> - destroy shelf and free reserved books")
+    print("shelf_open <shelf_name> - open shelf and setup node access")
+    print("shelf_close <shelf_name> - close shelf and tear down node access")
     return ""
 
-def cmd_Version(cmd):
-    print("cmd_Version()")
-    jcmd = '{"cmd":"version"}'
-    return(jcmd)
+def command_version(command):
+    command_dict = {}
+    command_dict["command"] = "version"
+    return(command_dict)
 
-def cmd_ListBook(cmd):
-    print("cmd_ListBook()")
-    jcmd = '{"cmd":"listbook","rowid":"' + cmd[1] + '"}'
-    return(jcmd)
+def command_book_list(command):
+    command_dict['command'] = "book_list"
+    command_dict['rowid'] = command[1]
+    return(command_dict)
 
-def cmd_ListBookAll(cmd):
-    print("cmd_ListBookAll()")
-    jcmd = '{"cmd":"listbookall"}'
-    return(jcmd)
+def command_shelf_list(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_list"
+    command_dict['shelf_name'] = command[1]
+    return(command_dict)
 
-def cmd_ListShelf(cmd):
-    print("cmd_ListShelf()")
-    jcmd = '{"cmd":"listshelf","shelf_name":"' + cmd[1] + '"}'
-    return(jcmd)
+def command_shelf_listall(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_reservation_list"
+    return(command_dict)
 
-def cmd_ListShelfAll(cmd):
-    print("cmd_ListShelfAll()")
-    jcmd = '{"cmd":"listshelfall"}'
-    return(jcmd)
+def command_shelf_create(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_create"
+    command_dict['shelf_name'] = command[1]
+    command_dict['shelf_owner'] = command[2]
+    return(command_dict)
 
-def cmd_CreateShelf(cmd):
-    print("cmd_CreateShelf()")
-    jcmd = '{"cmd":"createshelf","shelf_name":"' + cmd[1] + '","shelf_owner":"' + cmd[2] + '"}'
-    return(jcmd)
+def command_shelf_resize(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_resize"
+    command_dict['shelf_name'] = command[1]
+    command_dict['size_bytes'] = command[2]
+    return(command_dict)
 
-def cmd_ResizeShelf(cmd):
-    print("cmd_ResizeShelf()")
-    jcmd = '{"cmd":"resizeshelf","shelf_name":"' + cmd[1] + '","size_bytes":"' + cmd[2] + '"}'
-    return(jcmd)
+def command_shelf_destroy(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_destroy"
+    command_dict['shelf_name'] = command[1]
+    return(command_dict)
 
-def cmd_DestroyShelf(cmd):
-    print("cmd_DestroyShelf()")
-    jcmd = '{"cmd":"destroyshelf","shelf_name":"' + cmd[1] + '"}'
-    return(jcmd)
+def command_shelf_open(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_open"
+    command_dict['shelf_name'] = command[1]
+    command_dict['res_owner'] = command[2]
+    return(command_dict)
 
-def cmd_OpenShelf(cmd):
-    print("cmd_OpenShelf()")
-    jcmd = '{"cmd":"openshelf","shelf_name":"' + cmd[1] + '","res_owner":"' + cmd[2] + '"}'
-    return(jcmd)
+def command_shelf_close(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_close"
+    command_dict['shelf_name'] = command[1]
+    command_dict['res_owner'] = command[2]
+    return(command_dict)
 
-def cmd_CloseShelf(cmd):
-    print("cmd_CloseShelf()")
-    jcmd = '{"cmd":"closeshelf","shelf_name":"' + cmd[1] + '","res_owner":"' + cmd[2] + '"}'
-    return(jcmd)
-
-def cmd_ListResAll(cmd):
-    print("cmd_ListResAll()")
-    jcmd = '{"cmd":"listresall"}'
-    return(jcmd)
+def command_shelf_reservation_list(command):
+    command_dict = {}
+    command_dict['command'] = "shelf_reservation_list"
+    return command_dict
 
 # This is to stop the send currently this will be improved at a later date
 def json_error_creator(val):
@@ -93,18 +99,16 @@ def unknown_command_handler():
 command_handlers = defaultdict(unknown_command_handler)
 
 command_handlers.update({
-        "version":cmd_Version,
-        "listbook": cmd_ListBook,
-        "listbookall": cmd_ListBookAll,
-        "listshelf": cmd_ListShelf,
-        "listshelfall": cmd_ListShelfAll,
-        "createshelf": cmd_CreateShelf,
-        "resizeshelf": cmd_ResizeShelf,
-        "destroyshelf": cmd_DestroyShelf,
-        "openshelf": cmd_OpenShelf,
-        "closeshelf": cmd_CloseShelf,
-        "listresall": cmd_ListResAll,
-        "help" : cmd_Help,
+        "version":command_version,
+        "shelf_create": command_shelf_create,
+        "shelf_open": command_shelf_open,
+        "shelf_close": command_shelf_close,
+        "shelf_destroy": command_shelf_destroy,
+        "shelf_resize": command_shelf_resize,
+        "book_list": command_book_list,
+        "shelf_list": command_shelf_list,
+        "shelf_reservation_list": command_shelf_reservation_list,
+        "help" : command_help,
         "quit" : quit
         })
 
@@ -115,17 +119,21 @@ def main():
     client = socket_handling.Client()
     client.connect()
 
-    while True:
-        user_input_list = input("cmd> ").split(' ')
-        cmd = user_input_list[0]
+    processor = json_handler.Processor()
+    processor.add_processor(json.dumps)
 
-        msg = command_handlers[cmd](user_input_list)
+    while True:
+        user_input_list = input("command> ").split(' ')
+        command = user_input_list[0]
+
+        msg = command_handlers[command](user_input_list)
         if msg is None:
             break
         if msg is "":
             continue
 
-        client.send_recv(msg)
+        out_string = processor.process(msg)
+        print(client.send_recv(out_string))
 
 if __name__ == '__main__':
     main()

@@ -13,6 +13,8 @@ shelf_columns = ('shelf_id', 'size_bytes', 'book_count', 'open_count',
                  'c_time', 'm_time')
 bos_columns = ('shelf_id', 'book_id', 'seq_num')
 
+# version will fail if you don't have a top level definition
+LIBRARIAN_VERSION = "Librarian v0.01"
 
 def cmd_version(cmd_data):
     """ Return librarian version
@@ -291,6 +293,9 @@ def execute_command(cmd_data):
 
 def engine_args_init(parser):
     pass
+
+def unknown_command_handler():
+    return lambda x : json_error_creator(x)
 
 command_handlers = {
     "version": cmd_version,

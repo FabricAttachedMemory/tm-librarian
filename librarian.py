@@ -7,6 +7,9 @@ import argparse
 import database
 import book_register
 import engine
+import socket_handling
+import json_handler
+import json
 
 LIBRARIAN_VERSION="Librarian v0.01"
 
@@ -30,5 +33,14 @@ if __name__ == '__main__':
 
     # Populate books database
     book_register.load_book_data(args, db)
+
+    # create server object
+    server = socket_handling.Server()
+    # add handler to server object
+    processor = json_handler.Processor()
+    processor.add_processor(json.dumps)
+    processor.add_unprocessor(json.loads)
+
+    server.serv(engine.execute_command, processor)
 
     db.close()
