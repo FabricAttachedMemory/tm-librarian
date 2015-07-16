@@ -19,11 +19,11 @@ def cmd_Help(var):
     print("listbookall - list book details for all books in database")
     print("listshelf - list shelf details by shelf name")
     print("listshelfall - list shelf details for all shelves in database")
-    print("createshelf <shelf_name> <shelf_ownner> - create new shelf")
+    print("createshelf <shelf_name> <shelf_owner> - create new shelf")
     print("resizeshelf <shelf_name> <size_in_bytes> - resize shelf to given size in bytes, add/remove books")
     print("destroyshelf <shelf_name> - destroy shelf and free reserved books")
     print("openshelf <shelf_name> - open shelf and setup node access")
-    print("closeshelf <shelf_name> - close shelf and teardown node access")
+    print("closeshelf <shelf_name> - close shelf and tear down node access")
     return ""
 
 def cmd_Version(cmd):

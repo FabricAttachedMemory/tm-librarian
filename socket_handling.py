@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -tt
-""" Module to handle socket communication for Libraian and Clients """
+""" Module to handle socket communication for Librarian and Clients """
 import socket
 import select
 
@@ -11,10 +11,6 @@ __version__ = ""
 __maintainer__ = "Justin Vreeland"
 __email__ = "justin.mcd.vreeland@hp.com"
 __status__ = "Development"
-
-DEFAULT_INTERFACE = ''
-DEFAULT_HOST = ''
-DEFAULT_PORT = 9093
 
 class SocketReadWrite():
 
@@ -36,7 +32,7 @@ class SocketReadWrite():
 
     # should be static helper in base class called by child class
     def recv_all(self, sock = None):
-        """ Recvive the whole message """
+        """ Receive the whole message """
         if sock is None:
             sock = self._sock
 
@@ -60,7 +56,7 @@ class SocketReadWrite():
 
     # should be static helper in base class called by child class
     def send_recv(self, string, sock = None):
-        """ Send and recieve all data. """
+        """ Send and receive all data. """
         if sock is None:
             sock = self._sock
 
@@ -96,7 +92,7 @@ class Client(SocketReadWrite):
         self._sock.connect((host, port))
 
 
-def echo_handeler(string):
+def echo_handler(string):
     # does not handle ctrl characters well
     print(string)
     return string
@@ -115,7 +111,7 @@ class Server(SocketReadWrite):
         super().__del__()
 
     def serv(self, handler,interface = '', port = 9093):
-        self._sock.bind((DEFAULT_INTERFACE, DEFAULT_PORT))
+        self._sock.bind((interface, port))
         self._sock.listen(0)
 
         to_read = [self._sock]
@@ -150,7 +146,7 @@ def main():
     """ Run simple echo server to exersize the module """
 
     server = Server()
-    server.serv(echo_handeler)
+    server.serv(echo_handler)
 
 if __name__ == "__main__":
     main()
