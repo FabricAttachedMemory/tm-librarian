@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3 -tt
 """ Module to handle socket communication for Libraian and Clients """
 import socket
 import select
@@ -16,114 +16,84 @@ DEFAULT_INTERFACE = ''
 DEFAULT_HOST = ''
 DEFAULT_PORT = 9093
 
-SOCK = None
+class SocketReadWrite():
 
-def server_init(interface = DEFAULT_INTERFACE, port = DEFAULT_PORT):
-    """ Initialize server socket.
-    :param interface:   Interface to bind to (default '')
-    :param port:        Port to listen on (default 9093)
-    :type interface:    dictionary
-    :type port:         int
-    :returns:           valid socket for serving
-    :rtype:             socket
-    """
-    sock = socket.socket()
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((DEFAULT_INTERFACE, DEFAULT_PORT))
-    sock.listen(0)
+    _sock = None
 
-    return sock
+    def __init__(self):
+        self._sock = socket.socket()
 
+    def __del__(self):
+        self._sock.close()
 
-def read_all(sock):
-    """ Read a complete message (hopefully from the socket)
-    """
-    in_json = ""
-    in_delta = sock.recv(1024).decode("utf-8").strip()
-    in_json += in_delta
+    # should be static helper in base class called by child class
+    def send(self, string, sock = None):
+        """ Send this string """
+        if sock is None:
+            sock = self._sock
 
-    # It's possible that two messages are recieved verry quickly
-    # and this ends up reading the second one in. The alternative is that
-    # one isn't read completly.  it should be sub-divided and checked for
-    # a single valid json document.
-    while not len(in_delta) != 1024:
-        print("in loop")
+        sock.send(str.encode(string))
+
+    # should be static helper in base class called by child class
+    def recv_all(self, sock = None):
+        """ Recvive the whole message """
+        if sock is None:
+            sock = self._sock
+
+        in_json = ""
         in_delta = sock.recv(1024).decode("utf-8").strip()
         in_json += in_delta
 
-    print("left loop")
+        while not len(in_delta) != 1024:
+            in_delta = sock.recv(1024).decode("utf-8").strip()
+            in_json += in_delta
 
-    # should never have to worry about this
-    # python will set the descriptor to -1 when it closes stopping us from
-    # having to read 0. But this is select/socket behavior so we need to
-    # account for it.
-    if len(in_json) == 0:
-        sock.close()
-        return None
+        # should never have to worry about this
+        # python will set the descriptor to -1 when it closes stopping us from
+        # having to read 0. But this is select/socket behavior so we need to
+        # account for it.
+        if len(in_json) == 0:
+            sock.close()
+            return None
 
-    print("I'm returning now")
-    return in_json
+        return in_json
 
+    # should be static helper in base class called by child class
+    def send_recv(self, string, sock = None):
+        """ Send and recieve all data. """
+        if sock is None:
+            sock = self._sock
 
-def client_init(host = 'localhost', port = DEFAULT_PORT):
+        if len(string) == 0:
+            sock.close()
+            return None
 
-    sock = socket.socket()
-    sock.connect((DEFAULT_HOST, DEFAULT_PORT))
-    global SOCK
-    SOCK = sock
+        # This kills the socket
+        if string == "":
+            return None
 
-def client_exit():
-    global SOCK
-    sock.close()
+        # maybe do a proper error but w/e all of this will be replaced
+        # by a proper event loop eventually
+        if sock == None:
+            return None
 
-def client_send_recv(string):
-    global SOCK
-
-    # This kills the socket
-    if len(string) == 0:
-        return ""
-
-    send(string)
-    return read_all(SOCK)
-
-
-# basic clienty stuff
-# So for the foreseable future (i.e. twoish weeks from this writing) there's
-# no urgency for having a workable eventloop. instead we'll do completly 100%
-# synchonous stuff over our perfect network : )
-def send(string):
-    global SOCK
-    SOCK.send(str.encode(string))
+        self.send(string, sock)
+        return self.recv_all(sock)
 
 
-# Maybe refactor into an object
-def start_event_loop(sock, handler):
+class Client(SocketReadWrite):
+    """ A simple synchronous client for the Librarian """
+    _sock = None
 
-    to_read = [sock]
+    def __init__(self):
+        super().__init__()
 
-    while True:
-        # closed sockets get -1 value
-        # this may not work if the socket closes between now and the select
-        # but i still haven't found documentation as to why it does this or how
-        # I can force it to stop.
-        to_read = [sock for sock in to_read if sock.fileno() != -1]
-        readable, _, _ = select.select(to_read, [], [])
+    def __del__(self):
+        super().__del__()
 
-        try:
-
-            if sock in readable:
-                (conn, addr) = sock.accept()
-                to_read.append(conn)
-                readable.remove(sock)
-
-        # Socket was closed python and hates me
-        except ValueError:
-            to_read = [sock for sock in to_read if sock.fileno() != -1]
-            continue
-
-        if len(readable) != 0:
-            for s in readable:
-                s.send(str.encode(handler(read_all(s))))
+    def connect(self, host = '', port = 9093):
+        """ Connect socket to port on host """
+        self._sock.connect((host, port))
 
 
 def echo_handeler(string):
@@ -132,10 +102,55 @@ def echo_handeler(string):
     return string
 
 
+class Server(SocketReadWrite):
+    """ A simple asynchronous server for the Librarian """
+
+    _sock = None
+
+    def __init__(self):
+        super().__init__()
+        self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    def __del__(self):
+        super().__del__()
+
+    def serv(self, handler,interface = '', port = 9093):
+        self._sock.bind((DEFAULT_INTERFACE, DEFAULT_PORT))
+        self._sock.listen(0)
+
+        to_read = [self._sock]
+
+        while True:
+            # closed sockets get -1 value
+            # this may not work if the socket closes between now and the select
+            # but i still haven't found documentation as to why it does this or how
+            # I can force it to stop.
+            to_read = [sock for sock in to_read if sock.fileno() != -1]
+            readable, _, _ = select.select(to_read, [], [])
+
+            try:
+
+                if self._sock in readable:
+                    (conn, addr) = self._sock.accept()
+                    to_read.append(conn)
+                    readable.remove(self._sock)
+
+            # Socket was closed python and hates me
+            except ValueError:
+                # fix this code to conform to bad catching bad sockets
+                to_read = [sock for sock in to_read if sock.fileno() != -1]
+                continue
+
+            if len(readable) != 0:
+                for s in readable:
+                    self.send(handler(self.recv_all(s)), s)
+
+
 def main():
     """ Run simple echo server to exersize the module """
-    sock = server_init()
-    start_event_loop(sock, echo_handeler)
+
+    server = Server()
+    server.serv(echo_handeler)
 
 if __name__ == "__main__":
     main()

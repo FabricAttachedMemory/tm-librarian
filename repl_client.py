@@ -81,7 +81,9 @@ def cmd_ListResAll(cmd):
     jcmd = '{"cmd":"listresall"}'
     return(jcmd)
 
+# This is to stop the send currently this will be improved at a later date
 def json_error_creator(val):
+    print("Invlaid Command")
     return ""
 
 def unknown_command_handler():
@@ -102,16 +104,16 @@ command_handlers.update({
         "openshelf": cmd_OpenShelf,
         "closeshelf": cmd_CloseShelf,
         "listresall": cmd_ListResAll,
-        "help" : cmd_help,
+        "help" : cmd_Help,
         "quit" : quit
         })
 
 command_line_helpers = defaultdict(unknown_command_handler)
 
-command_line_helpers.update(
-
 def main():
-    socket_handling.client_init()
+
+    client = socket_handling.Client()
+    client.connect()
 
     while True:
         user_input_list = input("cmd> ").split(' ')
@@ -120,10 +122,10 @@ def main():
         msg = command_handlers[cmd](user_input_list)
         if msg is None:
             break
+        if msg is "":
+            continue
 
-        socket_handling.client_send_recv(msg)
-
-    socket_handling.client_exit()
+        client.send_recv(msg)
 
 if __name__ == '__main__':
     main()
