@@ -203,11 +203,17 @@ class SQLiteCursor(SQLcursor):
 
 if __name__ == '__main__':
 
-    # Use a file created by Greg's current setup script
-    cur = SQLiteCursor(DBfile=sys.argv[1])
+    from bookshelves import TMBook, mem_db_init
+    cur = SQLiteCursor()
+    mem_db_init(cur)
     print(cur.schema('Shelves'))
 
     # You caan't use qmark parmstyle on sqlite 'objects'.
+    book1 = TMBook()
+    sql = 'INSERT INTO books VALUES (?, ?, ?, ?, ?)'
+    set_trace()
+    cur.execute(sql, book1.tuple())
+
     sql = 'SELECT * FROM {} LIMIT 5'.format('books')
 
     # Direct: klunky but okay
@@ -223,7 +229,6 @@ if __name__ == '__main__':
         print(r)
 
     # Might be subject to some module path juggling
-    from bookshelves import TMBook
     cur.execute(sql)
     cur.iterclass = TMBook
     for r in cur:
