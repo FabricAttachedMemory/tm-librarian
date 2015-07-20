@@ -34,7 +34,7 @@ def command_shelf_listall(command, *args):
     return keyvals2dict('shelf_reservation_list', *args)
 
 def command_shelf_create(command, *args):
-    '''shelf_create <shelf_name> <shelf_owner> - create new shelf'''
+    '''<shelf_name> <shelf_owner> - create new shelf'''
     return keyvals2dict(command, *args, keywords=('shelf_name', 'shelf_owner') )
 
 def command_shelf_resize(command, *args):
