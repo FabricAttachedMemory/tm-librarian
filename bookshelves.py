@@ -4,6 +4,7 @@ from pdb import set_trace
 
 #########################################################################
 
+
 class BookShelfStuff(object):      # could become a mixin
 
     def __init__(self, *args, **kwargs):
@@ -11,7 +12,7 @@ class BookShelfStuff(object):      # could become a mixin
             assert not kwargs, 'full tuple or kwargs, not both'
             assert len(args) == len(self._ordered_schema), 'bad arg count'
             submitted = dict(zip(self._ordered_schema, args))
-            missing = { }
+            missing = {}
         else:
             submitted = frozenset(kwargs.keys())
             missing = self.__slots__ - submitted
@@ -32,9 +33,9 @@ class BookShelfStuff(object):      # could become a mixin
         return True
 
     def __str__(self):
-        s = [ ]
+        s = []
         for k in self._sorted:
-            s.append('{}: {}'.format( k, getattr(self, k)))
+            s.append('{}: {}'.format(k, getattr(self, k)))
         return '\n'.join(s)
 
     def __getitem__(self, key):    # and now I'm a dict
@@ -51,9 +52,10 @@ class BookShelfStuff(object):      # could become a mixin
 
 #########################################################################
 
+
 class TMBook(BookShelfStuff):
 
-    _ordered_schema = ( # a little dodgy
+    _ordered_schema = (  # a little dodgy
         'book_id',
         'node_id',
         'allocated',
@@ -66,17 +68,33 @@ class TMBook(BookShelfStuff):
 
 #########################################################################
 
+
 class TMShelf(BookShelfStuff):
 
-    _ordered_schema = ( # a little dodgy
-            'shelf_id',
-            'creator_id',
-            'size_bytes',
-            'book_count',
-            'open_count',
-            'c_time',
-            'm_time',
-            'name'
+    _ordered_schema = (  # a little dodgy
+        'shelf_id',
+        'creator_id',
+        'size_bytes',
+        'book_count',
+        'open_count',
+        'c_time',
+        'm_time',
+        'name'
+    )
+
+    _sorted = tuple(sorted(_ordered_schema))
+
+    __slots__ = frozenset((_ordered_schema))
+
+#########################################################################
+
+
+class TMBos(BookShelfStuff):
+
+    _ordered_schema = (  # a little dodgy
+        'shelf_id',
+        'book_id',
+        'seq_num'
     )
 
     _sorted = tuple(sorted(_ordered_schema))
@@ -109,7 +127,7 @@ if __name__ == '__main__':
     set_trace()
     cur.execute(sql, book1.tuple())
     cur.commit()
-    print(cur.rowcount, "row inserted") # only after updates, not SELECT
+    print(cur.rowcount, "row inserted")  # only after updates, not SELECT
 
     # ways to build objects
 
