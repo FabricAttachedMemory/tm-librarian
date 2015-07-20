@@ -9,7 +9,7 @@ from pdb import set_trace
 from pprint import pprint
 
 def keyvals2dict(command, values, keywords=None):
-    """keywords is an ordered list that aligns with values"""
+    '''keywords is an ordered list that aligns with values'''
     assert isinstance(values, list), 'Didn\'t see that coming'
     command_dict = { 'command': command }
     if keywords is not None:
@@ -18,43 +18,43 @@ def keyvals2dict(command, values, keywords=None):
     return command_dict
 
 def command_version(command, values):
-    """- query Librarian for current version"""
+    '''- query Librarian for current version'''
     return keyvals2dict(command, values)
 
 def command_book_list(command, values):
-    """<rowid> - list book details by book rowid"""
+    '''<rowid> - list book details by book rowid'''
     return keyvals2dict(command, values, keywords=('rowid', ) )
 
 def command_shelf_list(command, *args):
-    """- list shelf details by shelf name"""
+    '''- list shelf details by shelf name'''
     return keyvals2dict(command, *args, keywords=('shelf_name', ) )
 
 def command_shelf_listall(command, *args):
-    """- list shelf details for all shelves in database"""
+    '''- list shelf details for all shelves in database'''
     return keyvals2dict('shelf_reservation_list', *args)
 
 def command_shelf_create(command, *args):
-    """shelf_create <shelf_name> <shelf_owner> - create new shelf"""
+    '''shelf_create <shelf_name> <shelf_owner> - create new shelf'''
     return keyvals2dict(command, *args, keywords=('shelf_name', 'shelf_owner') )
 
 def command_shelf_resize(command, *args):
-    """<shelf_name> <size_in_bytes> - resize shelf to given size in bytes, add/remove books"""
+    '''<shelf_name> <size_in_bytes> - resize shelf to given size in bytes, add/remove books'''
     return keyvals2dict(command, *args, keywords=('shelf_name', 'size_bytes') )
 
 def command_shelf_destroy(command, *args):
-    """<shelf_name> - destroy shelf and free reserved books"""
+    '''<shelf_name> - destroy shelf and free reserved books'''
     return keyvals2dict(command, *args, keywords=('shelf_name', ) )
 
 def command_shelf_open(command, *args):
-    """<shelf_name>  <res_owner> - open shelf and setup node access"""
+    '''<shelf_name>  <res_owner> - open shelf and setup node access'''
     return keyvals2dict(command, *args, keywords=('shelf_name', 'res_owner') )
 
 def command_shelf_close(command, *args):
-    """<shelf_name> <res_owner> - close shelf and tear down node access"""
+    '''<shelf_name> <res_owner> - close shelf and tear down node access'''
     return keyvals2dict(command, *args, keywords=('shelf_name', 'res_owner') )
 
 def command_shelf_reservation_list(command, *args):
-    """- show all shelves"""
+    '''- show all shelves'''
     return keyvals2dict(command, *args)
 
 # This is to stop the send currently this will be improved at a later date
@@ -102,7 +102,7 @@ def main():
             cmdict = ''
             cmdict = handler(command, user_input_list)
         except AssertionError as e:
-            print(e)
+            print(str(e))
         except Exception as e:
             print('Internal error:', str(e))
 
