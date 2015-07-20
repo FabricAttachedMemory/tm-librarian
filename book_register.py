@@ -3,11 +3,10 @@
 # Librarian book data registration module
 #---------------------------------------------------------------------------
 
-import os, sys
+import os
+import sys
 import configparser
-
 from pdb import set_trace
-
 from bookshelves import TMBook, TMShelf
 from sqlcursors import SQLiteCursor
 
@@ -31,7 +30,7 @@ def load_book_data(inifile):
         raise SystemExit("Missing global section in config file: %s" %
                          inifile)
 
-    section2books = { }
+    section2books = {}
     for section in config.sections():
         print(section)
         sdata = dict(config.items(section))
@@ -48,7 +47,7 @@ def load_book_data(inifile):
             else:
                 raise ValueError("unknown booksize suffix: %s" % bsize)
         else:
-            section2books[section] = [ ]
+            section2books[section] = []
             node_id = int(sdata["node_id"], 16)
             lza_base = int(sdata["lza_base"], 16)
             nsize = sdata["nvm_size"]
@@ -84,6 +83,7 @@ def load_book_data(inifile):
     return(book_size, section2books)
 
 #---------------------------------------------------------------------------
+
 
 def create_empty_db(cur):
 
@@ -133,9 +133,6 @@ def create_empty_db(cur):
 
     # Idiot checks
 
-    set_trace()
-    pass
-
 #---------------------------------------------------------------------------
 
 if __name__ == '__main__':
@@ -161,4 +158,3 @@ if __name__ == '__main__':
     cur.close()
 
     raise SystemExit(0)
-
