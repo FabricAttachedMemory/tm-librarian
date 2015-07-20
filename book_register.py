@@ -3,30 +3,35 @@
 # Librarian book data registration module
 #---------------------------------------------------------------------------
 
-import os
+import os, sys
 import configparser
+
+from pdb import set_trace
+
+from bookshelves import TMBook
+from sqlcursors import SQLiteCursor
 
 BOOK_FILE = "./book_data.ini"
 
 
-def load_book_data(args, db):
+def load_book_data(inifile):
     nvm_end_prev = -1
-    if args.book_file:
-        print ("user specified book file: %s" % args.book_file)
-        book_file = args.book_file
+    if inifile:
+        print ("user specified book file: %s" % inifile)
     else:
         print ("using default book file: %s" % BOOK_FILE)
-        book_file = BOOK_FILE
+        inifile = BOOK_FILE
 
     config = configparser.ConfigParser()
 
-    if not config.read(os.path.expanduser(book_file)) or not config.sections():
-        raise SystemExit("Missing or empty config file: %s" % book_file)
+    if not config.read(os.path.expanduser(inifile)) or not config.sections():
+        raise SystemExit("Missing or empty config file: %s" % inifile)
 
     if not config.has_section("global"):
         raise SystemExit("Missing global section in config file: %s" %
-                         book_file)
+                         inifile)
 
+    section2books = { }
     for section in config.sections():
         print(section)
         sdata = dict(config.items(section))
@@ -41,8 +46,9 @@ def load_book_data(args, db):
                 rsize = int(bsize[:-1])
                 book_size = rsize * 1024 * 1024 * 1024
             else:
-                raise SystemExit("unknown booksize suffix: %s" % bsize)
+                raise ValueError("unknown booksize suffix: %s" % bsize)
         else:
+            section2books[section] = [ ]
             node_id = int(sdata["node_id"], 16)
             lza_base = int(sdata["lza_base"], 16)
             nsize = sdata["nvm_size"]
@@ -53,10 +59,10 @@ def load_book_data(args, db):
                 rsize = int(nsize[:-1])
                 nvm_size = rsize * 1024 * 1024 * 1024
             else:
-                raise SystemExit("unknown booksize suffix: %s" % nsize)
+                raise ValueError("unknown booksize suffix: %s" % nsize)
 
             if nvm_size % book_size != 0:
-                raise SystemExit("nvm_size not multiple of book_size")
+                raise ValueError("nvm_size not multiple of book_size")
 
             num_books = int(nvm_size / book_size)
             nvm_end = (lza_base + (num_books * book_size) - 1)
@@ -69,38 +75,86 @@ def load_book_data(args, db):
                 print("book base addr: 0x%016x" % book_base_addr)
                 book_data = (book_base_addr, node_id, 0, 0, book_size)
                 print("insert book into db:", book_data)
-                db.create_book(book_data)
+                tmp = TMBook(
+                    node_id=node_id,
+                    book_id=book_base_addr
+                )
+                section2books[section].append(tmp)
 
-    return(book_size)
+    return(book_size, section2books)
 
+#---------------------------------------------------------------------------
 
-def book_data_args_init(parser):
-    parser.add_argument("--book_file",
-                        help="specify the book data file, (default = %s)"
-                        % (BOOK_FILE))
+def create_empty_db(cur):
+
+    table_create = """
+        CREATE TABLE IF NOT EXISTS globals (
+        size_bytes INT
+        )
+        """
+    cur.execute(table_create)
+
+    table_create = """
+        CREATE TABLE IF NOT EXISTS books (
+        book_id INT PRIMARY KEY,
+        node_id INT,
+        allocated INT,
+        attributes INT
+        )
+        """
+    cur.execute(table_create)
+
+    table_create = """
+        CREATE TABLE IF NOT EXISTS shelves (
+        shelf_id INT PRIMARY KEY,
+        creator_id INT,
+        size_bytes INT,
+        book_count INT,
+        open_count INT,
+        c_time REAL,
+        m_time REAL,
+        name TEXT
+        )
+        """
+    cur.execute(table_create)
+
+    table_create = """
+        CREATE TABLE IF NOT EXISTS books_on_shelf (
+        shelf_id INT,
+        book_id INT,
+        seq_num INT
+        )
+        """
+    cur.execute(table_create)
+
+    cur.commit()
+
+#---------------------------------------------------------------------------
 
 if __name__ == '__main__':
 
-    import argparse
-    import database
+    book_size, section2books = load_book_data(sys.argv[1])
 
-    parser = argparse.ArgumentParser()
-    database.db_args_init(parser)
-    book_data_args_init(parser)
-    args = parser.parse_args()
+    if len(sys.argv) > 2:
+        fname = sys.argv[2]
+        assert not os.path.isfile(fname), '%s already exists' % fname
+    else:
+        fname = ':memory:'
+    cur = SQLiteCursor(DBfile=fname)
 
+    create_empty_db(cur)
+
+    cur.execute('INSERT INTO globals VALUES(?)', book_size)
+
+    set_trace()
+    for books in section2books.values():
+        for book in books:
+            cur.execute('INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
+
+    cur.commit()
+    set_trace()
     # Initialize database and check tables
-    db = database.LibrarianDB()
-    db.db_init(args)
-    db.check_tables()
+    # db = database.LibrarianDB()
+    # db.db_init(args)
+    # db.check_tables()
 
-    book_size = load_book_data(args, db)
-
-    book_info = db.get_book_all()
-    for book in book_info:
-        book_id, node_id, status, attributes, book_size = (book)
-        print("  book_id = 0x%016x, node_id = 0x%016x, status = 0x%x,"
-              " attributes = 0x%x, book_size = 0x%x" %
-              (book_id, node_id, status, attributes, book_size))
-
-    db.close()

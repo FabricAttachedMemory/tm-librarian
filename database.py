@@ -41,7 +41,7 @@ class LibrarianDB(object):
             CREATE TABLE IF NOT EXISTS books (
             book_id INT PRIMARY KEY,
             node_id INT,
-            status INT,
+            allocated INT,
             attributes INT,
             size_bytes INT
             )
@@ -51,11 +51,13 @@ class LibrarianDB(object):
         table_create = """
             CREATE TABLE IF NOT EXISTS shelves (
             shelf_id INT PRIMARY KEY,
+            creator_id INT,
             size_bytes INT,
             book_count INT,
             open_count INT,
             c_time REAL,
-            m_time REAL
+            m_time REAL,
+            name TEXT
             )
             """
         self.cur.execute(table_create)

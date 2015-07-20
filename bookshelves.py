@@ -15,7 +15,7 @@ class BookShelfStuff(object):      # could become a mixin
         else:
             submitted = frozenset(kwargs.keys())
             missing = self.__slots__ - submitted
-            if True and not self.__slots__.issubset(submitted):
+            if False and not self.__slots__.issubset(submitted):
                 print('Missing fields "%s"' % (
                     ', '.join(sorted([k for k in missing]))))
             submitted = kwargs
@@ -52,9 +52,8 @@ class TMBook(BookShelfStuff):
     _ordered_schema = ( # a little dodgy
         'book_id',
         'node_id',
-        'status',
+        'allocated',
         'attributes',
-        'size_bytes',
     )
 
     _sorted = tuple(sorted(_ordered_schema))
@@ -67,11 +66,13 @@ class TMShelf(BookShelfStuff):
 
     _ordered_schema = ( # a little dodgy
             'shelf_id',
+            'creator_id',
             'size_bytes',
             'book_count',
             'open_count',
             'c_time',
             'm_time',
+            'name'
     )
 
     _sorted = tuple(sorted(_ordered_schema))
@@ -81,46 +82,9 @@ class TMShelf(BookShelfStuff):
 #########################################################################
 # Support testing
 
-def mem_db_init(cur):
-    table_create = """
-            CREATE TABLE IF NOT EXISTS books (
-            book_id INT PRIMARY KEY,
-            node_id INT,
-            status INT,
-            attributes INT,
-            size_bytes INT
-            )
-    """
-    cur.execute(table_create)
-
-    table_create = """
-            CREATE TABLE IF NOT EXISTS shelves (
-            shelf_id INT PRIMARY KEY,
-            size_bytes INT,
-            book_count INT,
-            open_count INT,
-            c_time REAL,
-            m_time REAL
-            )
-    """
-    cur.execute(table_create)
-
-    table_create = """
-            CREATE TABLE IF NOT EXISTS books_on_shelf (
-            shelf_id INT,
-            book_id INT,
-            seq_num INT
-            )
-    """
-    cur.execute(table_create)
-
-    cur.commit()
-
-#########################################################################
-
 if __name__ == '__main__':
 
-    from librariansql import SQLiteCursor
+    from sqlcursors import SQLiteCursor
 
     cur = SQLiteCursor()    # no args == :memory:
 
