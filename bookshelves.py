@@ -45,6 +45,10 @@ class BookShelfStuff(object):      # could become a mixin
             args = self._ordered_schema
         return tuple([getattr(self, a) for a in args])
 
+    @classmethod
+    def schema(cls):
+        return cls._ordered_schema
+
 #########################################################################
 
 class TMBook(BookShelfStuff):

@@ -8,7 +8,7 @@ import configparser
 
 from pdb import set_trace
 
-from bookshelves import TMBook
+from bookshelves import TMBook, TMShelf
 from sqlcursors import SQLiteCursor
 
 BOOK_FILE = "./book_data.ini"
@@ -88,14 +88,14 @@ def load_book_data(inifile):
 def create_empty_db(cur):
 
     table_create = """
-        CREATE TABLE IF NOT EXISTS globals (
+        CREATE TABLE globals (
         size_bytes INT
         )
         """
     cur.execute(table_create)
 
     table_create = """
-        CREATE TABLE IF NOT EXISTS books (
+        CREATE TABLE books (
         book_id INT PRIMARY KEY,
         node_id INT,
         allocated INT,
@@ -103,9 +103,10 @@ def create_empty_db(cur):
         )
         """
     cur.execute(table_create)
+    assert TMBook.schema() == cur.schema('books'), 'Bad schema for books'
 
     table_create = """
-        CREATE TABLE IF NOT EXISTS shelves (
+        CREATE TABLE shelves (
         shelf_id INT PRIMARY KEY,
         creator_id INT,
         size_bytes INT,
@@ -117,9 +118,10 @@ def create_empty_db(cur):
         )
         """
     cur.execute(table_create)
+    assert TMShelf.schema() == cur.schema('shelves'), 'Bad schema for shelves'
 
     table_create = """
-        CREATE TABLE IF NOT EXISTS books_on_shelf (
+        CREATE TABLE books_on_shelf (
         shelf_id INT,
         book_id INT,
         seq_num INT
@@ -128,6 +130,11 @@ def create_empty_db(cur):
     cur.execute(table_create)
 
     cur.commit()
+
+    # Idiot checks
+
+    set_trace()
+    pass
 
 #---------------------------------------------------------------------------
 
@@ -146,15 +153,12 @@ if __name__ == '__main__':
 
     cur.execute('INSERT INTO globals VALUES(?)', book_size)
 
-    set_trace()
     for books in section2books.values():
         for book in books:
             cur.execute('INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
 
     cur.commit()
-    set_trace()
-    # Initialize database and check tables
-    # db = database.LibrarianDB()
-    # db.db_init(args)
-    # db.check_tables()
+    cur.close()
+
+    raise SystemExit(0)
 
