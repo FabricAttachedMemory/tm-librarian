@@ -1,8 +1,7 @@
 #!/usr/bin/python3 -tt
 
 import socket_handling
-import json
-import json_handler
+from librarian_chain import librarian_chain
 
 from pprint import pprint
 
@@ -16,9 +15,6 @@ def main():
 
     # client = socket_handling.Client()
     # client.connect()
-
-    # processor = json_handler.Processor()
-    # processor.add_processor(json.dumps)
 
     while True:
         user_input_list = input("command> ").split(' ')
@@ -39,8 +35,8 @@ def main():
             continue
 
         pprint(cmdict)
+        pprint(librarian_chain.forward_traverse(cmdict))
 
-        # out_string = processor.process(cmdict)
         # print(client.send_recv(out_string))
 
 if __name__ == '__main__':

@@ -35,7 +35,7 @@ class Encode_Link(Link):
         return obj.decode("utf-8")
 
 
-librarin_chain = Chain()
+librarian_chain = Chain()
 j_link = Json_Link()
 e_link = Encode_Link()
 
