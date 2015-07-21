@@ -154,6 +154,15 @@ def create_empty_db(cur):
         """
     cur.execute(table_create)
 
+    table_create = """
+        CREATE TABLE shelf_open (
+        shelf_id INT,
+        node_id INT,
+        process_id INT
+        )
+        """
+    cur.execute(table_create)
+
     cur.commit()
 
     # Idiot checks
