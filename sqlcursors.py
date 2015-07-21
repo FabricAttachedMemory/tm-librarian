@@ -355,6 +355,50 @@ if __name__ == '__main__':
     for r in cur:
         print("     ", r)
 
+    print("--> Create two shelf_open records, then print them")
+    shelf_id1 = 0x00000000AAAA0000
+    shelf_id2 = 0x00000000BBBB0000
+    node1 = 0x000000000000AAAA
+    node2 = 0x000000000000BBBB
+    pid1 = 0x0000000000001111
+    pid2= 0x0000000000002222
+    so1 = (shelf_id1, node1, pid1)
+    so2 = (shelf_id2, node2, pid2)
+    cur.execute('INSERT INTO shelf_open VALUES(?, ?, ?)', so1)
+    cur.execute('INSERT INTO shelf_open VALUES(?, ?, ?)', so2)
+    cur.commit()
+    cur.execute('SELECT * FROM shelf_open')
+    cur.iterclass = 'default'
+    print("    all shelf_open items (default) ---")
+    for r in cur:
+        print("     ", r)
+
+    print("--> Create four BOS records, then print them")
+    shelf_id1 = 0x00000000AAAA0000
+    shelf_id2 = 0x00000000BBBB0000
+    shelf_id3 = 0x00000000CCCC0000
+    book_id1 = 0x1111111111111111
+    book_id2 = 0x2222222222222222
+    book_id3 = 0x3333333333333333
+    book_id4 = 0x4444444444444444
+    book_id5 = 0x5555555555555555
+    bos1 = TMBos(shelf_id1, book_id1, 1)
+    bos2 = TMBos(shelf_id1, book_id2, 2)
+    bos3 = TMBos(shelf_id2, book_id3, 1)
+    bos4 = TMBos(shelf_id2, book_id4, 2)
+    bos5 = TMBos(shelf_id3, book_id5, 1)
+    cur.execute('INSERT INTO books_on_shelf VALUES(?, ?, ?)', bos1.tuple())
+    cur.execute('INSERT INTO books_on_shelf VALUES(?, ?, ?)', bos2.tuple())
+    cur.execute('INSERT INTO books_on_shelf VALUES(?, ?, ?)', bos3.tuple())
+    cur.execute('INSERT INTO books_on_shelf VALUES(?, ?, ?)', bos4.tuple())
+    cur.execute('INSERT INTO books_on_shelf VALUES(?, ?, ?)', bos5.tuple())
+    cur.commit()
+    cur.execute('SELECT * FROM books_on_shelf')
+    cur.iterclass = 'default'
+    print("    all bos (default) ---")
+    for r in cur:
+        print("     ", r)
+
     cur.close()
 
     raise SystemExit(0)
