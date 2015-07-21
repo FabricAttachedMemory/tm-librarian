@@ -8,8 +8,7 @@ import database
 import book_register
 import engine
 import socket_handling
-import json_handler
-import json
+from librarian_chain import Librarian_Chain
 
 LIBRARIAN_VERSION="Librarian v0.01"
 
@@ -36,11 +35,10 @@ if __name__ == '__main__':
 
     # create server object
     server = socket_handling.Server()
-    # add handler to server object
-    processor = json_handler.Processor()
-    processor.add_processor(json.dumps)
-    processor.add_unprocessor(json.loads)
 
-    server.serv(engine.execute_command, processor)
+    # add handler to server object
+    chain = Librarian_Chain()
+
+    server.serv(engine.execute_command, chain)
 
     db.close()

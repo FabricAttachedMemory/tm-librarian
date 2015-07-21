@@ -1,4 +1,5 @@
 #!/usr/bin/python3 -tt
+
 """ Module to handle socket communication for Librarian and Clients """
 import socket
 import select
@@ -114,7 +115,7 @@ class Server(SocketReadWrite):
     # a requirement to have this, it could just initialize and use a brand
     # new processor which is exactly what somone who didn't want processing
     # would provid
-    def serv(self, handler, processor, interface = '', port = 9093):
+    def serv(self, handler, chain, interface = '', port = 9093):
         self._sock.bind((interface, port))
         self._sock.listen(0)
 
@@ -145,16 +146,19 @@ class Server(SocketReadWrite):
                 for s in readable:
 
                     in_string = self.recv_all(s)
-                    processed_in_string = processor.unprocess(in_string)
+                    processed_in_string = chain.reverse_traverse(in_string)
                     result = handler(processed_in_string)
-                    self.send(processor.process(result), s)
+                    self.send(chain.forward_traverse(result), s)
 
 
 def main():
     """ Run simple echo server to exersize the module """
 
+    from function_chain import Identity_Chain
+    chain = Identity_Chain()
+
     server = Server()
-    server.serv(echo_handler)
+    server.serv(echo_handler, chain)
 
 if __name__ == "__main__":
     main()

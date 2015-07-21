@@ -41,3 +41,15 @@ class Link():
     def unapply(self):
         raise NotImplementedError
 
+class Identity_Link(Link):
+
+    def apply(self, obj):
+        return obj
+
+    def unapply(self, obj):
+        return obj
+
+class Identity_Chain(Chain):
+
+    def __init__(self):
+        super().add_link(Identity_Link())

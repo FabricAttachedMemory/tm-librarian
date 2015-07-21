@@ -26,4 +26,5 @@ class Encode_Link(Link):
 class Librarian_Chain(Chain):
     def __init__(self):
         super().add_link(Json_Link())
-        super().add_link(Encode_Link())
+        # temporarily removed to preserve current server code
+        #super().add_link(Encode_Link())
