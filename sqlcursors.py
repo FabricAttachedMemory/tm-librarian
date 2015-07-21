@@ -246,13 +246,24 @@ if __name__ == '__main__':
     cur.execute('INSERT INTO books VALUES(?, ?, ?, ?)', book5.tuple())
     cur.commit()
     cur.execute('SELECT * FROM books')
+    cur.iterclass = 'None'
+    print("    all books (iterclass=None) ---")
+    for r in cur.fetchall():
+        print("     ", r)
+    cur.execute('SELECT * FROM books')
     cur.iterclass = 'default'
-    print("    all books ---")
+    print("    all books (iterclass=default) ---")
     for r in cur:
         print("     ", r)
+    cur.execute('SELECT * FROM books')
+    cur.iterclass = TMBook
+    print("    all books (iterclass=TMBook) ---")
+    for r in cur:
+        print(r)
+
     cur.execute('SELECT * FROM books WHERE node_id = ?', node1)
     cur.iterclass = 'default'
-    print("    node1 books ---")
+    print("    node1 books (default) ---")
     for r in cur:
         print("     ", r)
 
@@ -265,7 +276,7 @@ if __name__ == '__main__':
     cur.commit()
     cur.execute('SELECT * FROM books')
     cur.iterclass = 'default'
-    print("    all books ---")
+    print("    all books (default) ---")
     for r in cur:
         print("     ", r)
 
@@ -290,7 +301,7 @@ if __name__ == '__main__':
     cur.commit()
     cur.execute('SELECT * FROM shelves')
     cur.iterclass = 'default'
-    print("    all shelves ---")
+    print("    all shelves (default) ---")
     for r in cur:
         print("     ", r)
 
@@ -303,7 +314,7 @@ if __name__ == '__main__':
     cur.commit()
     cur.execute('SELECT * FROM shelves')
     cur.iterclass = 'default'
-    print("    all shelves ---")
+    print("    all shelves (default )---")
     for r in cur:
         print("     ", r)
 
@@ -329,7 +340,7 @@ if __name__ == '__main__':
     cur.commit()
     cur.execute('SELECT * FROM books_on_shelf')
     cur.iterclass = 'default'
-    print("    all bos ---")
+    print("    all bos (default) ---")
     for r in cur:
         print("     ", r)
 
@@ -340,7 +351,7 @@ if __name__ == '__main__':
     cur.commit()
     cur.execute('SELECT * FROM books_on_shelf')
     cur.iterclass = 'default'
-    print("    all shelves ---")
+    print("    all shelves (default)---")
     for r in cur:
         print("     ", r)
 
