@@ -6,12 +6,6 @@ import json
 # function chain module?
 # instance or class? class? who cares really
 class Json_Link(Link):
-    # will python implicitly call parents constructor/destructor?
-    def __init__(self):
-        super().__init__()
-
-    def __del__(self):
-        super().__init__()
 
     def apply(self, obj):
         return json.dumps(obj)
@@ -22,12 +16,6 @@ class Json_Link(Link):
 
 class Encode_Link(Link):
 
-    def __init__(self):
-        super().__init__()
-
-    def __del__(self):
-        super().__init__()
-
     def apply(self, obj):
         return str.encode(obj)
 
@@ -35,10 +23,7 @@ class Encode_Link(Link):
         return obj.decode("utf-8")
 
 
-librarian_chain = Chain()
-j_link = Json_Link()
-e_link = Encode_Link()
-
-# this could be akward if the encodes and decodes we selected don't match up
-librarian_chain.add_link(j_link)
-librarian_chain.add_link(e_link)
+class Librarian_Chain(Chain):
+    def __init__(self):
+        super().add_link(Json_Link())
+        super().add_link(Encode_Link())

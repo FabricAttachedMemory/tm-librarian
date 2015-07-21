@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -tt
 
 import socket_handling
-from librarian_chain import librarian_chain
+from librarian_chain import Librarian_Chain
 
 from pprint import pprint
 
@@ -13,6 +13,7 @@ def main():
 
     lcp = cmdproto.LibrarianCommandProtocol()
 
+    chain = Librarian_Chain()
     # client = socket_handling.Client()
     # client.connect()
 
@@ -35,7 +36,7 @@ def main():
             continue
 
         pprint(cmdict)
-        pprint(librarian_chain.forward_traverse(cmdict))
+        pprint(chain.forward_traverse(cmdict))
 
         # print(client.send_recv(out_string))
 
