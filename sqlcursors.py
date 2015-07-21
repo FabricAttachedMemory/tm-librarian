@@ -128,6 +128,7 @@ class SQLcursor(object):
             raise StopIteration
         if self._iterclass is None:
             return r
+        cur = self._cursor
         asdict = dict(zip([f[0] for f in cur.description], r))
         return self._iterclass(**asdict)
 
@@ -361,7 +362,7 @@ if __name__ == '__main__':
     node1 = 0x000000000000AAAA
     node2 = 0x000000000000BBBB
     pid1 = 0x0000000000001111
-    pid2= 0x0000000000002222
+    pid2 = 0x0000000000002222
     so1 = (shelf_id1, node1, pid1)
     so2 = (shelf_id2, node2, pid2)
     cur.execute('INSERT INTO shelf_open VALUES(?, ?, ?)', so1)
