@@ -6,280 +6,301 @@
 import uuid
 import time
 import math
+import sys
+from pdb import set_trace
 
-book_size = 0
-book_columns = ('book_id', 'node_id', 'status', 'attributes', 'size_bytes')
-shelf_columns = ('shelf_id', 'size_bytes', 'book_count', 'open_count',
+from sqlcursors import SQLiteCursor
+from bookshelves import TMBook, TMShelf, TMBos
+from cmdproto import LibrarianCommandProtocol
+
+class LibrarianCommandExecution(object):
+
+    book_size = 0
+    book_columns = ('book_id', 'node_id', 'status', 'attributes', 'size_bytes')
+    shelf_columns = ('shelf_id', 'size_bytes', 'book_count', 'open_count',
                  'c_time', 'm_time')
-bos_columns = ('shelf_id', 'book_id', 'seq_num')
+    bos_columns = ('shelf_id', 'book_id', 'seq_num')
 
-# version will fail if you don't have a top level definition
-LIBRARIAN_VERSION = "Librarian v0.01"
+    # version will fail if you don't have a top level definition
+    LIBRARIAN_VERSION = "Librarian v0.01"
 
-def cmd_version(cmd_data):
-    """ Return librarian version
-        In (dict)---
-            None
-        Out (dict) ---
-            librarian version
-    """
-    data_out = {}
-    data_out.update({'version': LIBRARIAN_VERSION})
-    return data_out
+    def cmd_version(self, cmd_data):
+        """ Return librarian version
+            In (dict)---
+                None
+            Out (dict) ---
+                librarian version
+        """
+        data_out = {}
+        data_out.update({'version': LIBRARIAN_VERSION})
+        return data_out
 
-
-def cmd_create_shelf(cmd_data):
-    """ Create a new shelf
-        In (dict)---
-            None
-        Out (dict) ---
-            shelf data
-    """
-    shelf_id = int(uuid.uuid1().int >> 65)
-    c_time = time.time()
-    m_time = time.time()
-    shelf_data = (shelf_id, 0, 0, 0, c_time, m_time)
-    db_data = db.create_shelf(shelf_data)
-    resp = db.get_shelf(shelf_id)
-    data_out = dict(zip(shelf_columns, resp))
-    return data_out
-
-
-def cmd_open_shelf(cmd_data):
-    """ Open a shelf for access by a node.
-        In (dict)---
-            shelf_id
-            node_id
-            uid
-            gid
-        Out (dict) ---
-            shelf data
-    """
-    shelf_id = cmd_data["shelf_id"]
-    uid = cmd_data["uid"]
-    gid = cmd_data["gid"]
-
-    if uid != 0:
-        return '{"error":"Permission denied for non-root user"}'
-
-    resp = db.get_shelf(shelf_id)
-    # todo: fail if shelf does not exist
-    shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-    m_time = time.time()
-    open_count += 1
-    shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
-    resp = db.modify_shelf(shelf_data)
-    resp = db.get_shelf(shelf_id)
-    data_out = dict(zip(shelf_columns, resp))
-    return data_out
-
-
-def cmd_close_shelf(cmd_data):
-    """ Close a shelf against access by a node.
-        In (dict)---
-            shelf_id
-            node_id
-            uid
-            gid
-        Out (dict) ---
-            shelf data
-    """
-    # todo: check if node/user really has this shelf open
-    # todo: ensure open count does not go below zero
-    shelf_id = cmd_data["shelf_id"]
-    node_id = cmd_data["node_id"]
-    uid = cmd_data["uid"]
-    gid = cmd_data["gid"]
-
-    if uid != 0:
-        return '{"error":"Permission denied for non-root user"}'
-
-    resp = db.get_shelf(shelf_id)
-    # todo: fail if shelf does not exist
-    shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-    m_time = time.time()
-    open_count -= 1
-    shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
-    resp = db.modify_shelf(shelf_data)
-    resp = db.get_shelf(shelf_id)
-    data_out = dict(zip(shelf_columns, resp))
-    return data_out
-
-
-def cmd_destroy_shelf(cmd_data):
-    """ Destroy a shelf and free any books associated with it.
-        In (dict)---
-            shelf_id
-            node_id
-            uid
-            gid
-        Out (dict) ---
-            shelf data
-    """
-    shelf_id = cmd_data["shelf_id"]
-    node_id = cmd_data["node_id"]
-    uid = cmd_data["uid"]
-    gid = cmd_data["gid"]
-
-    if uid != 0:
-        return '{"error":"Permission denied for non-root user"}'
-
-    resp = db.get_shelf(shelf_id)
-    # todo: fail if shelf does not exist
-    shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-
-    if open_count != 0:
-        return '{"error":"Shelf open count is non-zero"}'
-
-    db_data = db.get_bos_by_shelf(shelf_id)
-    for bos in db_data:
-        print("bos:", bos)
-        shelf_id, book_id, seq_num = (bos)
-        db_data = db.delete_bos(bos)
-        book_data = db.get_book_by_id(book_id)
-        book_id, node_id, status, attributes, size_bytes = (book_data)
-        book_data = (book_id, node_id, 0, attributes, size_bytes)
-        db_data = db.modify_book(book_data)
-
-    # Delete shelf
-    db_data = db.delete_shelf(shelf_id)
-
-    return '{"success":"Shelf destroyed"}'
-
-
-def cmd_resize_shelf(cmd_data):
-    """ Resize given shelf given a shelf and new size in bytes.
-        In (dict)---
-            shelf_id
-            node_id
-            size_bytes
-            uid
-            gid
-        Out (dict) ---
-            shelf data
-    """
-    shelf_id = cmd_data['shelf_id']
-    node_id = cmd_data['node_id']
-    uid = cmd_data['uid']
-    gid = cmd_data['gid']
-    new_size_bytes = int(cmd_data['size_bytes'])
-    new_book_count = int(math.ceil(new_size_bytes / book_size))
-
-    if uid != 0:
-        return '{"error":"Permission denied for non-root user"}'
-
-    db_data = db.get_shelf(shelf_id)
-    # todo: fail if shelf does not exist
-    shelf_id, size_bytes, book_count, open_count, c_time, m_time = (db_data)
-    print("db_data:", db_data)
-
-    if new_size_bytes == size_bytes:
-        return db_data
-
-    books_needed = new_book_count - book_count
-    print("size_bytes = %d (0x%016x)" % (size_bytes, size_bytes))
-    print("new_size_bytes = %d (0x%016x)" % (new_size_bytes, new_size_bytes))
-    print("new_book_count = %d" % new_book_count)
-    print("book_size = %d (0x%016x)" % (book_size, book_size))
-    print("book_count = %d" % book_count)
-    print("books_needed = %d" % books_needed)
-
-    if books_needed > 0:
-        print("add books")
-        seq_num = book_count
-        db_data = db.get_book_by_node(node_id, 0, books_needed)
-        # todo: check we got back enough books
-        for book in db_data:
-            print("book (add):", book)
-            # Mark book in use and create BOS entry
-            seq_num += 1
-            book_id, node_id, status, attributes, size_bytes = (book)
-            book_data = (book_id, node_id, 1, attributes, size_bytes)
-            db_data = db.modify_book(book_data)
-            bos_data = (shelf_id, book_id, seq_num)
-            db_data = db.create_bos(bos_data)
-    elif books_needed < 0:
-        print("remove books")
-        books_del = 0
+    def cmd_create_shelf(self, cmd_data):
+        """ Create a new shelf
+            In (dict)---
+                None
+            Out (dict) ---
+                shelf data
+        """
+        shelf_id = int(uuid.uuid1().int >> 65)
+        c_time = time.time()
+        m_time = time.time()
+        shelf_data = (shelf_id, 0, 0, 0, c_time, m_time)
+        db_data = db.create_shelf(shelf_data)
+        resp = db.get_shelf(shelf_id)
+        data_out = dict(zip(shelf_columns, resp))
+        return data_out
+    
+    
+    def cmd_open_shelf(cmd_data):
+        """ Open a shelf for access by a node.
+            In (dict)---
+                shelf_id
+                node_id
+                uid
+                gid
+            Out (dict) ---
+                shelf data
+        """
+        shelf_id = cmd_data["shelf_id"]
+        uid = cmd_data["uid"]
+        gid = cmd_data["gid"]
+    
+        if uid != 0:
+            return '{"error":"Permission denied for non-root user"}'
+    
+        resp = db.get_shelf(shelf_id)
+        # todo: fail if shelf does not exist
+        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
+        m_time = time.time()
+        open_count += 1
+        shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
+        resp = db.modify_shelf(shelf_data)
+        resp = db.get_shelf(shelf_id)
+        data_out = dict(zip(shelf_columns, resp))
+        return data_out
+    
+    
+    def cmd_close_shelf(cmd_data):
+        """ Close a shelf against access by a node.
+            In (dict)---
+                shelf_id
+                node_id
+                uid
+                gid
+            Out (dict) ---
+                shelf data
+        """
+        # todo: check if node/user really has this shelf open
+        # todo: ensure open count does not go below zero
+        shelf_id = cmd_data["shelf_id"]
+        node_id = cmd_data["node_id"]
+        uid = cmd_data["uid"]
+        gid = cmd_data["gid"]
+    
+        if uid != 0:
+            return '{"error":"Permission denied for non-root user"}'
+    
+        resp = db.get_shelf(shelf_id)
+        # todo: fail if shelf does not exist
+        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
+        m_time = time.time()
+        open_count -= 1
+        shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
+        resp = db.modify_shelf(shelf_data)
+        resp = db.get_shelf(shelf_id)
+        data_out = dict(zip(shelf_columns, resp))
+        return data_out
+    
+    
+    def cmd_destroy_shelf(cmd_data):
+        """ Destroy a shelf and free any books associated with it.
+            In (dict)---
+                shelf_id
+                node_id
+                uid
+                gid
+            Out (dict) ---
+                shelf data
+        """
+        shelf_id = cmd_data["shelf_id"]
+        node_id = cmd_data["node_id"]
+        uid = cmd_data["uid"]
+        gid = cmd_data["gid"]
+    
+        if uid != 0:
+            return '{"error":"Permission denied for non-root user"}'
+    
+        resp = db.get_shelf(shelf_id)
+        # todo: fail if shelf does not exist
+        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
+    
+        if open_count != 0:
+            return '{"error":"Shelf open count is non-zero"}'
+    
         db_data = db.get_bos_by_shelf(shelf_id)
-        for bos in reversed(db_data):
-            print("book (del):", bos)
+        for bos in db_data:
+            print("bos:", bos)
             shelf_id, book_id, seq_num = (bos)
-            bos_data = (shelf_id, book_id, seq_num)
-            bos_info = db.delete_bos(bos_data)
+            db_data = db.delete_bos(bos)
             book_data = db.get_book_by_id(book_id)
-            print(book_data)
             book_id, node_id, status, attributes, size_bytes = (book_data)
             book_data = (book_id, node_id, 0, attributes, size_bytes)
-            book_data = db.modify_book(book_data)
-            books_del -= 1
-            print("books_del = %d" % books_del)
-            if books_del == books_needed:
-                break
+            db_data = db.modify_book(book_data)
+    
+        # Delete shelf
+        db_data = db.delete_shelf(shelf_id)
+    
+        return '{"success":"Shelf destroyed"}'
+    
+    
+    def cmd_resize_shelf(cmd_data):
+        """ Resize given shelf given a shelf and new size in bytes.
+            In (dict)---
+                shelf_id
+                node_id
+                size_bytes
+                uid
+                gid
+            Out (dict) ---
+                shelf data
+        """
+        shelf_id = cmd_data['shelf_id']
+        node_id = cmd_data['node_id']
+        uid = cmd_data['uid']
+        gid = cmd_data['gid']
+        new_size_bytes = int(cmd_data['size_bytes'])
+        new_book_count = int(math.ceil(new_size_bytes / book_size))
+    
+        if uid != 0:
+            return '{"error":"Permission denied for non-root user"}'
+    
+        db_data = db.get_shelf(shelf_id)
+        # todo: fail if shelf does not exist
+        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (db_data)
+        print("db_data:", db_data)
+    
+        if new_size_bytes == size_bytes:
+            return db_data
+    
+        books_needed = new_book_count - book_count
+        print("size_bytes = %d (0x%016x)" % (size_bytes, size_bytes))
+        print("new_size_bytes = %d (0x%016x)" % (new_size_bytes, new_size_bytes))
+        print("new_book_count = %d" % new_book_count)
+        print("book_size = %d (0x%016x)" % (book_size, book_size))
+        print("book_count = %d" % book_count)
+        print("books_needed = %d" % books_needed)
+    
+        if books_needed > 0:
+            print("add books")
+            seq_num = book_count
+            db_data = db.get_book_by_node(node_id, 0, books_needed)
+            # todo: check we got back enough books
+            for book in db_data:
+                print("book (add):", book)
+                # Mark book in use and create BOS entry
+                seq_num += 1
+                book_id, node_id, status, attributes, size_bytes = (book)
+                book_data = (book_id, node_id, 1, attributes, size_bytes)
+                db_data = db.modify_book(book_data)
+                bos_data = (shelf_id, book_id, seq_num)
+                db_data = db.create_bos(bos_data)
+        elif books_needed < 0:
+            print("remove books")
+            books_del = 0
+            db_data = db.get_bos_by_shelf(shelf_id)
+            for bos in reversed(db_data):
+                print("book (del):", bos)
+                shelf_id, book_id, seq_num = (bos)
+                bos_data = (shelf_id, book_id, seq_num)
+                bos_info = db.delete_bos(bos_data)
+                book_data = db.get_book_by_id(book_id)
+                print(book_data)
+                book_id, node_id, status, attributes, size_bytes = (book_data)
+                book_data = (book_id, node_id, 0, attributes, size_bytes)
+                book_data = db.modify_book(book_data)
+                books_del -= 1
+                print("books_del = %d" % books_del)
+                if books_del == books_needed:
+                    break
+    
+        m_time = time.time()
+        shelf_data = (shelf_id, new_size_bytes, new_book_count,
+                      open_count, c_time, m_time)
+        db_data = db.modify_shelf(shelf_data)
+    
+        resp = db.get_shelf(shelf_id)
+        data_out = dict(zip(shelf_columns, resp))
+    
+        return data_out
+    
+    
+    def cmd_get_shelf_zaddr(cmd_data):
+        """
+            In (dict)---
+                ?
+            Out (dict) ---
+                ?
+        """
+        return '{"error":"Command not implemented"}'
+    
+    
+    def cmd_list_book(cmd_data):
+        """ List a given book
+            In (dict)---
+                book_id
+            Out (dict) ---
+                book data
+        """
+        book_id = cmd_data["book_id"]
+        resp = db.get_book_by_id(book_id)
+        # todo: fail if book does not exist
+        data_out = dict(zip(book_columns, resp))
+        return data_out
+    
+    
+    def cmd_list_shelf(cmd_data):
+        """ List a given shelf.
+            In (dict)---
+                shelf_id
+            Out (dict) ---
+                shelf data
+        """
+        shelf_id = cmd_data["shelf_id"]
+        resp = db.get_shelf(shelf_id)
+        # todo: fail if shelf does not exist
+        data_out = dict(zip(shelf_columns, resp))
+        return data_out
 
-    m_time = time.time()
-    shelf_data = (shelf_id, new_size_bytes, new_book_count,
-                  open_count, c_time, m_time)
-    db_data = db.modify_shelf(shelf_data)
 
-    resp = db.get_shelf(shelf_id)
-    data_out = dict(zip(shelf_columns, resp))
+    def cmd_list_bos(cmd_data):
+        """ List all the books on a given shelf.
+            In (dict)---
+                shelf_id
+            Out (dict) ---
+                bos data
+        """
+        shelf_id = cmd_data["shelf_id"]
+        resp = db.get_bos_by_shelf(shelf_id)
+        # todo: fail if shelf does not exist
+        data_out = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
+                    for shelf_id, book_id, seq_num in resp]
+        return data_out
 
-    return data_out
+    _handlers = { }
 
+    def __init__(self):
+        # Skip 'cmd_' prefix
+        tmp = dict( [ (name[4:], func)
+                    for (name, func) in self.__class__.__dict__.items() if
+                        name.startswith('cmd_')
+                    ]
+        )
+        self._handlers.update(tmp)
 
-def cmd_get_shelf_zaddr(cmd_data):
-    """
-        In (dict)---
-            ?
-        Out (dict) ---
-            ?
-    """
-    return '{"error":"Command not implemented"}'
-
-
-def cmd_list_book(cmd_data):
-    """ List a given book
-        In (dict)---
-            book_id
-        Out (dict) ---
-            book data
-    """
-    book_id = cmd_data["book_id"]
-    resp = db.get_book_by_id(book_id)
-    # todo: fail if book does not exist
-    data_out = dict(zip(book_columns, resp))
-    return data_out
-
-
-def cmd_list_shelf(cmd_data):
-    """ List a given shelf.
-        In (dict)---
-            shelf_id
-        Out (dict) ---
-            shelf data
-    """
-    shelf_id = cmd_data["shelf_id"]
-    resp = db.get_shelf(shelf_id)
-    # todo: fail if shelf does not exist
-    data_out = dict(zip(shelf_columns, resp))
-    return data_out
-
-
-def cmd_list_bos(cmd_data):
-    """ List all the books on a given shelf.
-        In (dict)---
-            shelf_id
-        Out (dict) ---
-            bos data
-    """
-    shelf_id = cmd_data["shelf_id"]
-    resp = db.get_bos_by_shelf(shelf_id)
-    # todo: fail if shelf does not exist
-    data_out = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
-                for shelf_id, book_id, seq_num in resp]
-    return data_out
-
+    @property
+    def commandset(self):
+        return tuple(sorted(self._handlers.keys()))
 
 def execute_command(cmd_data):
     """ Execute the correct command handler.
@@ -297,41 +318,16 @@ def engine_args_init(parser):
 def unknown_command_handler():
     return lambda x : json_error_creator(x)
 
-command_handlers = {
-    "version": cmd_version,
-    "create_shelf": cmd_create_shelf,
-    "open_shelf": cmd_open_shelf,
-    "close_shelf": cmd_close_shelf,
-    "destroy_shelf": cmd_destroy_shelf,
-    "resize_shelf": cmd_resize_shelf,
-    "get_shelf_zaddr": cmd_get_shelf_zaddr,
-    "list_book": cmd_list_book,
-    "list_shelf": cmd_list_shelf,
-    "list_bos": cmd_list_bos
-    }
-
 if __name__ == '__main__':
 
-    import argparse
-    import database
-    import book_register
-
-    LIBRARIAN_VERSION = "Librarian v0.01"
-
-    # setup argparse
-    parser = argparse.ArgumentParser()
-    engine_args_init(parser)
-    database.db_args_init(parser)
-    book_register.book_data_args_init(parser)
-    args = parser.parse_args()
-
-    # Initialize database and check tables
-    db = database.LibrarianDB()
-    db.db_init(args)
-    db.check_tables()
-
-    # Load books
-    book_size = book_register.load_book_data(args, db)
+    cur = SQLiteCursor(DBfile=sys.argv[1])
+    lcp = LibrarianCommandProtocol()
+    print(lcp.commandset)
+    lce = LibrarianCommandExecution()
+    print(lce.commandset)
+    print()
+    print(set(lcp.commandset) - set(lce.commandset))
+    set_trace()
 
     # get librarian version
     print ("get librarian version -----")

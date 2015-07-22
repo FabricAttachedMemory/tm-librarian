@@ -4,42 +4,46 @@ class LibrarianCommandProtocol(object):
         '''- query Librarian for current version'''
         return self._kw2dict()
 
-    def _CP_book_list(self):
+    def _CP_list_book(self):
         '''<rowid> - list book details by book rowid'''
         return self._kw2dict(kw=('rowid', ) )
 
-    def _CP_shelf_list(self):
+    def _CP_list_shelves(self):
+        '''- list all shelf names'''
+        return self._kw2dict()
+
+    def _CP_list_open_shelves(self):
+        '''- show all shelves'''
+        return self._kw2dict()
+
+    def _CP_list_shelf(self):
         '''- list shelf details by shelf name'''
         return self._kw2dict(kw=('shelf_name', ) )
 
-    def _CP_shelf_listall(self):
-        '''- list shelf details for all shelves in database'''
-        self._command = 'shelf_reservation_list'
-        return self._kw2dict()
+    def _CP_create_shelf(self):
+        '''<shelf_name> <node_id> <pid> <uid> <gid> - create new shelf'''
+        return self._kw2dict(kw=( 'shelf_name',
+            'node_id', 'pid', 'uid', 'gid') )
 
-    def _CP_shelf_create(self):
-        '''<shelf_name> <shelf_owner> - create new shelf'''
-        return self._kw2dict(kw=('shelf_name', 'shelf_owner') )
-
-    def _CP_shelf_resize(self):
-        '''<shelf_name> <size_in_bytes> - resize shelf to given size '''
-        return self._kw2dict(kw=('shelf_name', 'size_bytes') )
-
-    def _CP_shelf_destroy(self):
-        '''<shelf_name> - destroy shelf and free reserved books'''
-        return self._kw2dict(kw=('shelf_name', ) )
-
-    def _CP_shelf_open(self):
+    def _CP_open_shelf(self):
         '''<shelf_name>  <res_owner> - open shelf and setup node access'''
-        return self._kw2dict(kw=('shelf_name', 'res_owner') )
+        return self._kw2dict(kw=('shelf_name',
+            'node_id', 'pid', 'uid', 'gid') )
 
-    def _CP_shelf_close(self):
+    def _CP_resize_shelf(self):
+        '''<shelf_name> <size_in_bytes> <node_id> <pid> <uid> <gid> - resize shelf to given size '''
+        return self._kw2dict(kw=('shelf_name', 'size_bytes',
+            'node_id', 'pid', 'uid', 'gid') )
+
+    def _CP_close_shelf(self):
         '''<shelf_name> <res_owner> - close shelf and tear down node access'''
-        return self._kw2dict(kw=('shelf_name', 'res_owner') )
+        return self._kw2dict(kw=('shelf_name',
+            'node_id', 'pid', 'uid', 'gid') )
 
-    def _CP_shelf_reservation_list(self):
-        '''- show all shelves'''
-        return self._kw2dict()
+    def _CP_destroy_shelf(self):
+        '''<shelf_name> <node_id> <pid> <uid> <gid> - destroy shelf and free reserved books'''
+        return self._kw2dict(kw=('shelf_name',
+            'node_id', 'pid', 'uid', 'gid') )
 
     def _kw2dict(self, kw=None):
         '''kw is a dict that aligns with self._values'''
@@ -72,6 +76,10 @@ class LibrarianCommandProtocol(object):
     @property
     def help(self):
         return self._help
+
+    @property
+    def commandset(self):
+        return tuple(sorted(self._handlers.keys()))
 
     def __call__(self, command, *args):
         self._command = command
