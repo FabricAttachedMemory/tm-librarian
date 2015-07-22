@@ -56,7 +56,7 @@ class BookShelfStuff(object):      # could become a mixin
 class TMBook(BookShelfStuff):
 
     _ordered_schema = (  # a little dodgy
-        'book_id',
+        'id',
         'node_id',
         'allocated',
         'attributes',
@@ -72,13 +72,13 @@ class TMBook(BookShelfStuff):
 class TMShelf(BookShelfStuff):
 
     _ordered_schema = (  # a little dodgy
-        'shelf_id',
+        'id',
         'creator_id',
         'size_bytes',
         'book_count',
         'open_count',
-        'c_time',
-        'm_time',
+        'ctime',
+        'mtime',
         'name'
     )
 

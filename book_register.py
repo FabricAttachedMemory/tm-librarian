@@ -20,7 +20,7 @@ def usage(msg):
 
 [global]
 node_count = C
-book_size = S
+book_size_bytes = S
 
 [node01]
 node_id = I
@@ -30,13 +30,13 @@ nvm_size = N
 [node02]
 :
 
-Book_size and NVM_size can have multipliers M/G/T (binary bytes)
+book_size_bytes and nvm_size can have multipliers M/G/T (binary bytes)
 
-NVM_size can have additional multiple B (books)
+nvm_size can have additional multiplier B (books)
 """)
     raise SystemExit(msg)
 
-def multiplier(instr, section, book_size=0):
+def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
     if suffix not in 'BMGT':
         usage('Illegal size multiplier "%s" in [%s]' % (suffix, section))
@@ -49,9 +49,9 @@ def multiplier(instr, section, book_size=0):
         return rsize * 1024 * 1024 * 1024 * 1024
 
     # Suffix is 'B' to reach this point
-    if not book_size:
+    if not book_size_bytes:
         usage('multiplier suffix "B" not useable in [%s]' % section)
-    return rsize * book_size
+    return rsize * book_size_bytes
 
 def load_book_data(inifile):
     nvm_end_prev = -1
@@ -76,36 +76,35 @@ def load_book_data(inifile):
         # print(sdata)
         if section == "global":
             node_count = int(sdata["node_count"], 16)
-            book_size = multiplier(sdata["book_size"], section)
+            book_size_bytes = multiplier(sdata["book_size_bytes"], section)
             if node_count != len(config.sections()) - 1:  # account for globals
                 usage('Section count in INI file != [global] node_count')
         else:
             section2books[section] = []
             node_id = int(sdata["node_id"], 16)
             lza_base = int(sdata["lza_base"], 16)
-            nvm_size = multiplier(sdata["nvm_size"], section, book_size)
+            nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
 
-            if nvm_size % book_size != 0:
-                usage("[%s] nvm_size not multiple of book_size" % section)
+            if nvm_size % book_size_bytes != 0:
+                usage("[%s] NVM size not multiple of book size" % section)
 
-            num_books = int(nvm_size / book_size)
-            nvm_end = (lza_base + (num_books * book_size) - 1)
+            num_books = int(nvm_size / book_size_bytes)
+            nvm_end = (lza_base + (num_books * book_size_bytes) - 1)
             if not nvm_end_prev < lza_base:
                 usage("[%s] NVM overlap" % section)
             nvm_end_prev = nvm_end
 
             for book in range(num_books):
-                book_base_addr = (book * book_size) + lza_base
-                print("book base addr: 0x%016x" % book_base_addr)
-                book_data = (book_base_addr, node_id, 0, 0, book_size)
-                print("insert book into db:", book_data)
+                book_base_addr = (book * book_size_bytes) + lza_base
+                book_data = (book_base_addr, node_id, 0, 0)
+                print("insert book %s @ 0x%016x" % (book_data, book_base_addr))
                 tmp = TMBook(
                     node_id=node_id,
-                    book_id=book_base_addr
+                    id=book_base_addr
                 )
                 section2books[section].append(tmp)
 
-    return(book_size, section2books)
+    return(book_size_bytes, section2books)
 
 #---------------------------------------------------------------------------
 
@@ -114,14 +113,14 @@ def create_empty_db(cur):
 
     table_create = """
         CREATE TABLE globals (
-        size_bytes INT
+        book_size_bytes INT
         )
         """
     cur.execute(table_create)
 
     table_create = """
         CREATE TABLE books (
-        book_id INT PRIMARY KEY,
+        id INT PRIMARY KEY,
         node_id INT,
         allocated INT,
         attributes INT
@@ -132,13 +131,13 @@ def create_empty_db(cur):
 
     table_create = """
         CREATE TABLE shelves (
-        shelf_id INT PRIMARY KEY,
+        id INT PRIMARY KEY,
         creator_id INT,
         size_bytes INT,
         book_count INT,
         open_count INT,
-        c_time REAL,
-        m_time REAL,
+        ctime REAL,
+        mtime REAL,
         name TEXT
         )
         """
@@ -171,7 +170,7 @@ def create_empty_db(cur):
 
 if __name__ == '__main__':
 
-    book_size, section2books = load_book_data(sys.argv[1])
+    book_size_bytes, section2books = load_book_data(sys.argv[1])
 
     if len(sys.argv) > 2:
         fname = sys.argv[2]
@@ -182,7 +181,7 @@ if __name__ == '__main__':
 
     create_empty_db(cur)
 
-    cur.execute('INSERT INTO globals VALUES(?)', book_size)
+    cur.execute('INSERT INTO globals VALUES(?)', book_size_bytes)
 
     for books in section2books.values():
         for book in books:

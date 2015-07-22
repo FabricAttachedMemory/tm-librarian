@@ -18,31 +18,31 @@ class LibrarianCommandProtocol(object):
 
     def _CP_list_shelf(self):
         '''- list shelf details by shelf name'''
-        return self._kw2dict(kw=('shelf_name', ) )
+        return self._kw2dict(kw=('name', ) )
 
     def _CP_create_shelf(self):
         '''<shelf_name> <node_id> <pid> <uid> <gid> - create new shelf'''
-        return self._kw2dict(kw=( 'shelf_name',
+        return self._kw2dict(kw=( 'name',
             'node_id', 'pid', 'uid', 'gid') )
 
     def _CP_open_shelf(self):
         '''<shelf_name>  <res_owner> - open shelf and setup node access'''
-        return self._kw2dict(kw=('shelf_name',
+        return self._kw2dict(kw=('name',
             'node_id', 'pid', 'uid', 'gid') )
 
     def _CP_resize_shelf(self):
         '''<shelf_name> <size_in_bytes> <node_id> <pid> <uid> <gid> - resize shelf to given size '''
-        return self._kw2dict(kw=('shelf_name', 'size_bytes',
+        return self._kw2dict(kw=('name', 'size_bytes',
             'node_id', 'pid', 'uid', 'gid') )
 
     def _CP_close_shelf(self):
         '''<shelf_name> <res_owner> - close shelf and tear down node access'''
-        return self._kw2dict(kw=('shelf_name',
+        return self._kw2dict(kw=('name',
             'node_id', 'pid', 'uid', 'gid') )
 
     def _CP_destroy_shelf(self):
         '''<shelf_name> <node_id> <pid> <uid> <gid> - destroy shelf and free reserved books'''
-        return self._kw2dict(kw=('shelf_name',
+        return self._kw2dict(kw=('name',
             'node_id', 'pid', 'uid', 'gid') )
 
     def _kw2dict(self, kw=None):
@@ -84,10 +84,10 @@ class LibrarianCommandProtocol(object):
     def __call__(self, command, *args):
         self._command = command
         try:
-            if args is None:
+            if args is None or not args:
                 self._values = tuple()
             else:
-                assert isinstance(args[0], list), 'Supplied arg is not a list'
+                assert isinstance(args[0], tuple), 'Supplied arg is not a tuple'
                 self._values = args[0]
             handler = self._handlers[command]
             return handler(self)

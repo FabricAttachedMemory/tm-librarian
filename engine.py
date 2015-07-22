@@ -24,34 +24,36 @@ class LibrarianCommandExecution(object):
     # version will fail if you don't have a top level definition
     LIBRARIAN_VERSION = "Librarian v0.01"
 
-    def cmd_version(self, cmd_data):
+    def cmd_version(self):
         """ Return librarian version
             In (dict)---
                 None
             Out (dict) ---
                 librarian version
         """
-        data_out = {}
-        data_out.update({'version': LIBRARIAN_VERSION})
-        return data_out
+        return self.LIBRARIAN_VERSION
 
-    def cmd_create_shelf(self, cmd_data):
+    def cmd_create_shelf(self):
         """ Create a new shelf
             In (dict)---
                 None
             Out (dict) ---
                 shelf data
         """
-        shelf_id = int(uuid.uuid1().int >> 65)
-        c_time = time.time()
-        m_time = time.time()
-        shelf_data = (shelf_id, 0, 0, 0, c_time, m_time)
-        db_data = db.create_shelf(shelf_data)
-        resp = db.get_shelf(shelf_id)
-        data_out = dict(zip(shelf_columns, resp))
-        return data_out
-    
-    
+        shelf = TMShelf(
+            shelf_id=int(uuid.uuid1().int >> 65),
+            c_time=time.time(),
+            m_time=time.time(),
+            name=self._cmdict['shelf_name'],
+        )
+        set_trace()
+        self._cur.execute(
+            'INSERT INTO shelves VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
+            shelf.tuple())
+        self._cur.commit()
+        return shelf
+
+
     def cmd_open_shelf(cmd_data):
         """ Open a shelf for access by a node.
             In (dict)---
@@ -65,10 +67,10 @@ class LibrarianCommandExecution(object):
         shelf_id = cmd_data["shelf_id"]
         uid = cmd_data["uid"]
         gid = cmd_data["gid"]
-    
+
         if uid != 0:
             return '{"error":"Permission denied for non-root user"}'
-    
+
         resp = db.get_shelf(shelf_id)
         # todo: fail if shelf does not exist
         shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
@@ -257,20 +259,23 @@ class LibrarianCommandExecution(object):
         # todo: fail if book does not exist
         data_out = dict(zip(book_columns, resp))
         return data_out
-    
-    
-    def cmd_list_shelf(cmd_data):
+
+
+    def cmd_list_shelf(self):
         """ List a given shelf.
             In (dict)---
                 shelf_id
             Out (dict) ---
                 shelf data
         """
-        shelf_id = cmd_data["shelf_id"]
-        resp = db.get_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        data_out = dict(zip(shelf_columns, resp))
-        return data_out
+        set_trace()
+        self._cur.execute(
+            'SELECT * FROM shelves WHERE name = ?',
+            self._cmdict['shelf_name'])
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        assert len(shelves) <= 1, 'oopsie'
+        return shelves[0] if shelves else None
 
 
     def cmd_list_bos(cmd_data):
@@ -289,7 +294,7 @@ class LibrarianCommandExecution(object):
 
     _handlers = { }
 
-    def __init__(self):
+    def __init__(self, cursor):
         # Skip 'cmd_' prefix
         tmp = dict( [ (name[4:], func)
                     for (name, func) in self.__class__.__dict__.items() if
@@ -297,7 +302,22 @@ class LibrarianCommandExecution(object):
                     ]
         )
         self._handlers.update(tmp)
+        self._cur = cursor
 
+    def __call__(self, cmdict):
+        try:
+            assert isinstance(cmdict, dict) and 'command' in cmdict
+            self._cmdict = cmdict
+            handler = self._handlers[self._cmdict['command']]
+            ret = handler(self)
+            return ret
+        except AssertionError as e:
+            msg = str(e)
+        except Exception as e:
+            set_trace()
+            msg = 'Internal error: ' + str(e)
+            pass
+        raise RuntimeError(msg)
     @property
     def commandset(self):
         return tuple(sorted(self._handlers.keys()))
@@ -315,41 +335,32 @@ def execute_command(cmd_data):
 def engine_args_init(parser):
     pass
 
-def unknown_command_handler():
-    return lambda x : json_error_creator(x)
-
 if __name__ == '__main__':
 
-    cur = SQLiteCursor(DBfile=sys.argv[1])
+    TheCursorThing = SQLiteCursor(DBfile=sys.argv[1])
     lcp = LibrarianCommandProtocol()
     print(lcp.commandset)
-    lce = LibrarianCommandExecution()
+    lce = LibrarianCommandExecution(TheCursorThing)
     print(lce.commandset)
     print()
     print(set(lcp.commandset) - set(lce.commandset))
-    set_trace()
 
     # get librarian version
-    print ("get librarian version -----")
-    data_out = {}
-    data_out.update({"command": "version"})
-    data_in = execute_command(data_out)
+    data_out = lcp('version')
+    data_in = lce(data_out)
     print ("data_in =", data_out)
     print ("data_out =", data_in)
 
     # create/get shelf
     print ("create/get shelf -----")
-    data_out = {}
-    data_out.update({"command": "create_shelf"})
-    data_in = execute_command(data_out)
-    shelf_id = data_in["shelf_id"]
-    print ("data_out =", data_out)
-    print ("data_in =", data_in)
-    print ("shelf_id = 0x%016x" % shelf_id)
-    data_out = {}
-    data_out.update({"command": "list_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
+    data_out = lcp("create_shelf", ('shelf1', 1, 0, 0, 0) )
+    data_in = lce(data_out)
+    s = data_in
+    print(s)
+
+    set_trace()
+    data_out = lcp('list_shelf', (s.shelf_name, ))
+    data_in = lce(data_out)
     print ("data_out =", data_out)
     print ("data_in =", data_in)
 
