@@ -14,8 +14,8 @@ def main():
     lcp = cmdproto.LibrarianCommandProtocol()
 
     chain = Librarian_Chain()
-    # client = socket_handling.Client()
-    # client.connect()
+    client = socket_handling.Client()
+    client.connect()
 
     while True:
         user_input_list = input("command> ").split(' ')
@@ -35,10 +35,9 @@ def main():
             print(str(e))
             continue
 
-        pprint(cmdict)
-        pprint(chain.forward_traverse(cmdict))
+        out_string = chain.forward_traverse(cmdict)
 
-        # print(client.send_recv(out_string))
+        print(client.send_recv(out_string))
 
 if __name__ == '__main__':
     main()
