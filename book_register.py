@@ -1,18 +1,57 @@
 #!/usr/bin/python3 -tt
 #---------------------------------------------------------------------------
-# Librarian book data registration module
+# Librarian book data registration module.  Take an INI file that describes
+# an instance of "The Machine" (node count, book size, NVM per node).  Use
+# that to prepopulate all the books for the librararian DB.
 #---------------------------------------------------------------------------
 
-import os, sys
+import os
+import sys
 import configparser
-
 from pdb import set_trace
-
 from bookshelves import TMBook, TMShelf
 from sqlcursors import SQLiteCursor
 
 BOOK_FILE = "./book_data.ini"
 
+def usage(msg):
+    print(msg, file=sys.stderr)
+    print("""INI file format:
+
+[global]
+node_count = C
+book_size = S
+
+[node01]
+node_id = I
+lza_base = 0xHHHHHHHHHHHHHHHH
+nvm_size = N
+
+[node02]
+:
+
+Book_size and NVM_size can have multipliers M/G/T (binary bytes)
+
+NVM_size can have additional multiple B (books)
+""")
+    raise SystemExit(msg)
+
+def multiplier(instr, section, book_size=0):
+    suffix = instr[-1].upper()
+    if suffix not in 'BMGT':
+        usage('Illegal size multiplier "%s" in [%s]' % (suffix, section))
+    rsize = int(instr[:-1])
+    if suffix == 'M':
+        return rsize * 1024 * 1024
+    elif suffix == 'G':
+        return rsize * 1024 * 1024 * 1024
+    elif suffix == 'T':
+        return rsize * 1024 * 1024 * 1024 * 1024
+
+    # Suffix is 'B' to reach this point
+    if not book_size:
+        usage('multiplier suffix "B" not useable in [%s]' % section)
+    return rsize * book_size
 
 def load_book_data(inifile):
     nvm_end_prev = -1
@@ -25,49 +64,34 @@ def load_book_data(inifile):
     config = configparser.ConfigParser()
 
     if not config.read(os.path.expanduser(inifile)) or not config.sections():
-        raise SystemExit("Missing or empty config file: %s" % inifile)
+        usage("Missing or empty config file: %s" % inifile)
 
     if not config.has_section("global"):
-        raise SystemExit("Missing global section in config file: %s" %
-                         inifile)
+        usage("Missing global section in config file: %s" % inifile)
 
-    section2books = { }
+    section2books = {}
     for section in config.sections():
         print(section)
         sdata = dict(config.items(section))
-        print(sdata)
+        # print(sdata)
         if section == "global":
-            node_cnt = int(sdata["node_cnt"], 16)
-            bsize = sdata["book_size"]
-            if bsize.endswith("M"):
-                rsize = int(bsize[:-1])
-                book_size = rsize * 1024 * 1024
-            elif bsize.endswith("G"):
-                rsize = int(bsize[:-1])
-                book_size = rsize * 1024 * 1024 * 1024
-            else:
-                raise ValueError("unknown booksize suffix: %s" % bsize)
+            node_count = int(sdata["node_count"], 16)
+            book_size = multiplier(sdata["book_size"], section)
+            if node_count != len(config.sections()) - 1:  # account for globals
+                usage('Section count in INI file != [global] node_count')
         else:
-            section2books[section] = [ ]
+            section2books[section] = []
             node_id = int(sdata["node_id"], 16)
             lza_base = int(sdata["lza_base"], 16)
-            nsize = sdata["nvm_size"]
-            if nsize.endswith("M"):
-                rsize = int(nsize[:-1])
-                nvm_size = rsize * 1024 * 1024
-            elif nsize.endswith("G"):
-                rsize = int(nsize[:-1])
-                nvm_size = rsize * 1024 * 1024 * 1024
-            else:
-                raise ValueError("unknown booksize suffix: %s" % nsize)
+            nvm_size = multiplier(sdata["nvm_size"], section, book_size)
 
             if nvm_size % book_size != 0:
-                raise ValueError("nvm_size not multiple of book_size")
+                usage("[%s] nvm_size not multiple of book_size" % section)
 
             num_books = int(nvm_size / book_size)
             nvm_end = (lza_base + (num_books * book_size) - 1)
             if not nvm_end_prev < lza_base:
-                raise SystemExit("nvm sections overlap")
+                usage("[%s] NVM overlap" % section)
             nvm_end_prev = nvm_end
 
             for book in range(num_books):
@@ -84,6 +108,7 @@ def load_book_data(inifile):
     return(book_size, section2books)
 
 #---------------------------------------------------------------------------
+
 
 def create_empty_db(cur):
 
@@ -129,12 +154,18 @@ def create_empty_db(cur):
         """
     cur.execute(table_create)
 
+    table_create = """
+        CREATE TABLE shelf_open (
+        shelf_id INT,
+        node_id INT,
+        process_id INT
+        )
+        """
+    cur.execute(table_create)
+
     cur.commit()
 
     # Idiot checks
-
-    set_trace()
-    pass
 
 #---------------------------------------------------------------------------
 
@@ -161,4 +192,3 @@ if __name__ == '__main__':
     cur.close()
 
     raise SystemExit(0)
-
