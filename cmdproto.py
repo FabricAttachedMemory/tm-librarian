@@ -1,101 +1,127 @@
+from collections import OrderedDict
+from pdb import set_trace
+from pprint import pprint
+
+from genericobj import GenericObject as GO;
+
 class LibrarianCommandProtocol(object):
 
-    def _CP_version(self):
-        '''- query Librarian for current version'''
-        return self._kw2dict()
+    _commands = {
 
-    def _CP_list_book(self):
-        '''<rowid> - list book details by book rowid'''
-        return self._kw2dict(kw=('rowid', ) )
+        'version':  GO(
+            doc='query librarian for version',
+            parms=None,
+        ),
+        'create_shelf': GO(
+            doc='create new shelf',
+            parms = ('name', ),
+        ),
+        'resize_shelf': GO(
+            doc='resize shelf to given size',
+            parms = ('name', 'size_bytes' ),
+        ),
+        'open_shelf': GO(
+            doc='open shelf and setup node access',
+            parms = ('name', )
+        ),
+        'list_shelves': GO(
+            doc='list all shelf names',
+            parms=None,
+        ),
+        'list_open_shelves': GO(
+            doc='show all open shelves',
+            parms=None,
+        ),
+        'list_shelf': GO(
+            doc='list shelf details by shelf name',
+            parms=('name', ),
+        ),
+        'close_shelf': GO(
+            doc='close shelf and tear down node access',
+            parms=('name', ),
+        ),
+        'destroy_shelf': GO(
+            doc='destroy shelf and free reserved books',
+            parms=('name', ),
+        ),
+        'list_book': GO(
+            doc='list book details by book id',
+            parms=('id', ),
+        ),
 
-    def _CP_list_shelves(self):
-        '''- list all shelf names'''
-        return self._kw2dict()
+    }   # _commands
 
-    def _CP_list_open_shelves(self):
-        '''- show all shelves'''
-        return self._kw2dict()
+    # Helper routine
+    @staticmethod
+    def _nulldict(cmd, go):
+        rsp = OrderedDict((('command', cmd), ))
+        for p in go.parms:
+            rsp[p] = None
+        return rsp
 
-    def _CP_list_shelf(self):
-        '''- list shelf details by shelf name'''
-        return self._kw2dict(kw=('name', ) )
+    def __getitem__(self, item):
+        go = self._commands[item]   # native KeyError is fine
+        return self._nulldict(item, go)
 
-    def _CP_create_shelf(self):
-        '''<shelf_name> <node_id> <pid> <uid> <gid> - create new shelf'''
-        return self._kw2dict(kw=( 'name',
-            'node_id', 'pid', 'uid', 'gid') )
-
-    def _CP_open_shelf(self):
-        '''<shelf_name>  <res_owner> - open shelf and setup node access'''
-        return self._kw2dict(kw=('name',
-            'node_id', 'pid', 'uid', 'gid') )
-
-    def _CP_resize_shelf(self):
-        '''<shelf_name> <size_in_bytes> <node_id> <pid> <uid> <gid> - resize shelf to given size '''
-        return self._kw2dict(kw=('name', 'size_bytes',
-            'node_id', 'pid', 'uid', 'gid') )
-
-    def _CP_close_shelf(self):
-        '''<shelf_name> <res_owner> - close shelf and tear down node access'''
-        return self._kw2dict(kw=('name',
-            'node_id', 'pid', 'uid', 'gid') )
-
-    def _CP_destroy_shelf(self):
-        '''<shelf_name> <node_id> <pid> <uid> <gid> - destroy shelf and free reserved books'''
-        return self._kw2dict(kw=('name',
-            'node_id', 'pid', 'uid', 'gid') )
-
-    def _kw2dict(self, kw=None):
-        '''kw is a dict that aligns with self._values'''
-        command_dict = { 'command': self._command }
-        if kw is None:
-            assert not self._values, 'Extraneous values %s' % self._values
-        else:
-            assert len(self._values) == len(kw), 'Keywords<->values mismatch'
-            command_dict.update(dict(zip(kw, self._values)))
-        return command_dict
-
-    _handlers = { }
-
-    _help = None
-
-    def __init__(self):
-        # Skip '_CP_' prefix
-        tmp = dict( [ (name[4:], func)
-                    for (name, func) in self.__class__.__dict__.items() if
-                        name.startswith('_CP_')
-                    ]
-        )
-        self._handlers.update(tmp)
-
-        docs = [ name + ' ' + func.__doc__ for (name, func) in
-            list(self._handlers.items()) ]
-        assert None not in docs, 'Missing one or more CP docstrings'
-        self.__class__._help = '\n'.join(sorted(docs))
-
-    @property
-    def help(self):
-        return self._help
-
-    @property
-    def commandset(self):
-        return tuple(sorted(self._handlers.keys()))
-
-    def __call__(self, command, *args):
-        self._command = command
+    def __getattr__(self, attr):
         try:
-            if args is None or not args:
-                self._values = tuple()
-            else:
-                assert isinstance(args[0], tuple), 'Supplied arg is not a tuple'
-                self._values = args[0]
-            handler = self._handlers[command]
-            return handler(self)
+            go = self._commands[attr]
+            return self._nulldict(attr, go)
         except KeyError as e:
-            msg = 'No such command "%s"' % command
+            raise AttributeError(attr)
+
+    def __call__(self, command, *args, **kwargs):
+        go = self._commands[command]    # natural keyerror is fine
+        assert not (args and kwargs), 'Pos/keyword args are mutually exclusive'
+        rsp = OrderedDict((('command', command), ))
+        try:
+            if args:
+                assert len(args) == len(go.parms), 'Argument count mismatch'
+                for item in zip(go.parms, args):
+                    rsp[item[0]] = item[1]
+            else:   # kwargs
+                keys = sorted(kwargs.keys())
+                assert set(keys) == set(go.parms), 'Argument field mismatch'
+                for key in keys:
+                    rsp[key] = kwargs[key]
+            return rsp
         except AssertionError as e:
             msg = str(e)
         except Exception as e:
             msg = 'Internal error: ' + str(e)
         raise RuntimeError(msg)
 
+    @property
+    def commandset(self):
+        return tuple(sorted(self._commands.keys()))
+
+    @property
+    def help(self):
+        docs = []
+        for name in self.commandset:
+            go = self._commands[name]
+            if go.parms is not None:
+                docstr = '{}{}: {}'.format(name, go.parms, go.doc)
+            else:
+                docstr = '{}: {}'.format(name, go.doc)
+            docs.append(docstr)
+        return '\n'.join(docs)
+
+if __name__ == '__main__':
+
+    lcp = LibrarianCommandProtocol()
+
+    print(lcp.help)
+
+    # two forms of null or template responses
+    pprint(lcp.resize_shelf)
+    pprint(lcp['resize_shelf'])
+
+    # filled in by tuple
+    junk = lcp('resize_shelf', 'shelf1', 42)
+    pprint(junk)
+
+    # filled in by keywords
+    junk = lcp('resize_shelf', size_bytes=84, name='shelf2')
+    pprint(junk)
+    

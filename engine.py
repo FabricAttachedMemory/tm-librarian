@@ -42,9 +42,9 @@ class LibrarianCommandExecution(object):
         """
         shelf = TMShelf(
             shelf_id=int(uuid.uuid1().int >> 65),
-            c_time=time.time(),
-            m_time=time.time(),
-            name=self._cmdict['shelf_name'],
+            ctime=time.time(),
+            mtime=time.time(),
+            name=self._cmdict['name'],
         )
         set_trace()
         self._cur.execute(
@@ -81,8 +81,8 @@ class LibrarianCommandExecution(object):
         resp = db.get_shelf(shelf_id)
         data_out = dict(zip(shelf_columns, resp))
         return data_out
-    
-    
+
+
     def cmd_close_shelf(cmd_data):
         """ Close a shelf against access by a node.
             In (dict)---
@@ -149,13 +149,13 @@ class LibrarianCommandExecution(object):
             book_id, node_id, status, attributes, size_bytes = (book_data)
             book_data = (book_id, node_id, 0, attributes, size_bytes)
             db_data = db.modify_book(book_data)
-    
+
         # Delete shelf
         db_data = db.delete_shelf(shelf_id)
-    
+
         return '{"success":"Shelf destroyed"}'
-    
-    
+
+
     def cmd_resize_shelf(cmd_data):
         """ Resize given shelf given a shelf and new size in bytes.
             In (dict)---
