@@ -12,7 +12,7 @@ from pdb import set_trace
 from bookshelves import TMBook, TMShelf
 from sqlcursors import SQLiteCursor
 
-BOOK_FILE = "./book_data.ini"
+#--------------------------------------------------------------------------
 
 def usage(msg):
     print(msg, file=sys.stderr)
@@ -36,6 +36,8 @@ nvm_size can have additional multiplier B (books)
 """)
     raise SystemExit(msg)
 
+#--------------------------------------------------------------------------
+
 def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
     if suffix not in 'BMGT':
@@ -53,13 +55,9 @@ def multiplier(instr, section, book_size_bytes=0):
         usage('multiplier suffix "B" not useable in [%s]' % section)
     return rsize * book_size_bytes
 
+#--------------------------------------------------------------------------
+
 def load_book_data(inifile):
-    nvm_end_prev = -1
-    if inifile:
-        print ("user specified book file: %s" % inifile)
-    else:
-        print ("using default book file: %s" % BOOK_FILE)
-        inifile = BOOK_FILE
 
     config = configparser.ConfigParser()
 
@@ -69,6 +67,7 @@ def load_book_data(inifile):
     if not config.has_section("global"):
         usage("Missing global section in config file: %s" % inifile)
 
+    nvm_end_prev = -1
     section2books = {}
     for section in config.sections():
         print(section)
@@ -97,7 +96,7 @@ def load_book_data(inifile):
             for book in range(num_books):
                 book_base_addr = (book * book_size_bytes) + lza_base
                 book_data = (book_base_addr, node_id, 0, 0)
-                print("insert book %s @ 0x%016x" % (book_data, book_base_addr))
+                print("book %s @ 0x%016x" % (book_data, book_base_addr))
                 tmp = TMBook(
                     node_id=node_id,
                     id=book_base_addr
@@ -107,7 +106,6 @@ def load_book_data(inifile):
     return(book_size_bytes, section2books)
 
 #---------------------------------------------------------------------------
-
 
 def create_empty_db(cur):
 
@@ -127,6 +125,7 @@ def create_empty_db(cur):
         )
         """
     cur.execute(table_create)
+    cur.commit()
     assert TMBook.schema() == cur.schema('books'), 'Bad schema for books'
 
     table_create = """
@@ -142,7 +141,10 @@ def create_empty_db(cur):
         )
         """
     cur.execute(table_create)
+    cur.commit()
     assert TMShelf.schema() == cur.schema('shelves'), 'Bad schema for shelves'
+    cur.execute('CREATE UNIQUE INDEX IDX_shelves ON shelves (name)')
+    cur.commit()
 
     table_create = """
         CREATE TABLE books_on_shelf (
@@ -152,6 +154,7 @@ def create_empty_db(cur):
         )
         """
     cur.execute(table_create)
+    cur.commit()
 
     table_create = """
         CREATE TABLE shelf_open (
@@ -161,7 +164,6 @@ def create_empty_db(cur):
         )
         """
     cur.execute(table_create)
-
     cur.commit()
 
     # Idiot checks
@@ -170,15 +172,18 @@ def create_empty_db(cur):
 
 if __name__ == '__main__':
 
-    book_size_bytes, section2books = load_book_data(sys.argv[1])
-
+    force = len(sys.argv) > 1 and sys.argv[1] == '-f' and bool(sys.argv.pop(1))
     if len(sys.argv) > 2:
         fname = sys.argv[2]
-        assert not os.path.isfile(fname), '%s already exists' % fname
+        if os.path.isfile(fname):
+            if not force:
+                raise SystemError('%s exists' % fname)
+            os.unlink(fname)
     else:
         fname = ':memory:'
     cur = SQLiteCursor(DBfile=fname)
 
+    book_size_bytes, section2books = load_book_data(sys.argv[1])
     create_empty_db(cur)
 
     cur.execute('INSERT INTO globals VALUES(?)', book_size_bytes)
