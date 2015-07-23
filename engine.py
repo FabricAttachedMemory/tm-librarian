@@ -21,8 +21,31 @@ class LibrarianCommandExecution(object):
                  'c_time', 'm_time')
     bos_columns = ('shelf_id', 'book_id', 'seq_num')
 
-    # version will fail if you don't have a top level definition
     LIBRARIAN_VERSION = "Librarian v0.01"
+
+    def _INSERT(self, table, values):
+        assert len(values), 'oopsie'
+        qmarks = ', '.join(['?'] * len(values))
+        self._cur.execute(
+            'INSERT INTO %s VALUES (%s)' % (table, qmarks),
+            values
+        )
+        # First is explicit failure like UNIQUE collision, second is generic
+        assert not self._cur.execfail, self._cur.execfail
+        if self._cur.rowcount != 1:
+            self._cur.rollback()
+            raise RuntimeError('Insertion failed')
+        # DO NOT COMMIT, give caller a chance for multiples
+        # self._cur.execute(
+            # 'INSERT INTO shelves VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
+            # shelf.tuple())
+
+    def _UPDATE(self, table, setclause, values):
+        self._cur.execute('UPDATE %s SET %s' % (table, setclause), values)
+        if not self._cur.rowcount == 1:
+            self._cur.rollback()
+            raise RuntimeError('update %s failed' % table)
+        # DO NOT COMMIT, give caller a chance for multiples
 
     def cmd_version(self):
         """ Return librarian version
@@ -48,16 +71,26 @@ class LibrarianCommandExecution(object):
             name=self._cmdict['name'],
         )
         # Since I indexed shelves on 'name', dupes fail nicely.
-        self._cur.execute(
-            'INSERT INTO shelves VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
-            shelf.tuple())
-        # First is explicit failure like UNIQUE collision, second is generic
-        assert not self._cur.execfail, self._cur.execfail
-        assert self._cur.rowcount == 1, 'Insertion failed'
+        self._INSERT('shelves', shelf.tuple())
         self._cur.commit()
         return shelf
 
-    def cmd_open_shelf(cmd_data):
+    def cmd_list_shelf(self):
+        """ List a given shelf.
+            In (dict)---
+                shelf_id
+            Out (dict) ---
+                shelf data
+        """
+        self._cur.execute(
+            'SELECT * FROM shelves WHERE name = ?',
+            self._cmdict['name'])
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        assert len(shelves) <= 1, 'oopsie'
+        return shelves[0] if shelves else None
+
+    def cmd_open_shelf(self):
         """ Open a shelf for access by a node.
             In (dict)---
                 shelf_id
@@ -67,25 +100,21 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 shelf data
         """
-        shelf_id = cmd_data["shelf_id"]
-        uid = cmd_data["uid"]
-        gid = cmd_data["gid"]
+        shelf = self.cmd_list_shelf()
+        if shelf is None:
+            return None
 
-        if uid != 0:
-            return '{"error":"Permission denied for non-root user"}'
+        shelf.mtime = time.time()
+        shelf.open_count += 1
+        self._UPDATE(
+            'shelves',
+            'mtime=?, open_count=? WHERE id=?',
+            shelf.tuple('mtime', 'open_count', 'id')
+        )
+        self._cur.commit()
+        return shelf
 
-        resp = db.get_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-        m_time = time.time()
-        open_count += 1
-        shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
-        resp = db.modify_shelf(shelf_data)
-        resp = db.get_shelf(shelf_id)
-        recvd = dict(zip(shelf_columns, resp))
-        return recvd
-
-    def cmd_close_shelf(cmd_data):
+    def cmd_close_shelf(self):
         """ Close a shelf against access by a node.
             In (dict)---
                 shelf_id
@@ -156,51 +185,37 @@ class LibrarianCommandExecution(object):
 
         return '{"success":"Shelf destroyed"}'
 
-
     def cmd_resize_shelf(cmd_data):
         """ Resize given shelf given a shelf and new size in bytes.
             In (dict)---
                 shelf_id
                 node_id
                 size_bytes
-                uid
-                gid
             Out (dict) ---
                 shelf data
         """
-        shelf_id = cmd_data['shelf_id']
-        node_id = cmd_data['node_id']
-        uid = cmd_data['uid']
-        gid = cmd_data['gid']
-        new_size_bytes = int(cmd_data['size_bytes'])
+        shelf = self.cmd_list_shelf()
+        if shelf is None:
+            return None
+
+        new_size_bytes = int(self._cmdict['size_bytes'])
+        assert new_size_bytes >= 0, 'Bad size'
+        if new_size_bytes == shelf.size_bytes:
+            return shelf
+        shelf.mtime = time.time()
+
+
+        books_needed = new_book_count - shelf.book_count
         new_book_count = int(math.ceil(new_size_bytes / book_size))
-
-        if uid != 0:
-            return '{"error":"Permission denied for non-root user"}'
-
-        db_data = db.get_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (db_data)
-        print("db_data:", db_data)
-
-        if new_size_bytes == size_bytes:
-            return db_data
-
-        books_needed = new_book_count - book_count
-        print("size_bytes = %d (0x%016x)" % (size_bytes, size_bytes))
-        print("new_size_bytes = %d (0x%016x)" % (new_size_bytes, new_size_bytes))
-        print("new_book_count = %d" % new_book_count)
-        print("book_size = %d (0x%016x)" % (book_size, book_size))
-        print("book_count = %d" % book_count)
-        print("books_needed = %d" % books_needed)
+        if not new_book_count:
+            return shelf
+        set_trace()
 
         if books_needed > 0:
-            print("add books")
-            seq_num = book_count
+            seq_num = shelf.book_count
             db_data = db.get_book_by_node(node_id, 0, books_needed)
             # todo: check we got back enough books
             for book in db_data:
-                print("book (add):", book)
                 # Mark book in use and create BOS entry
                 seq_num += 1
                 book_id, node_id, status, attributes, size_bytes = (book)
@@ -213,21 +228,17 @@ class LibrarianCommandExecution(object):
             books_del = 0
             db_data = db.get_bos_by_shelf(shelf_id)
             for bos in reversed(db_data):
-                print("book (del):", bos)
                 shelf_id, book_id, seq_num = (bos)
                 bos_data = (shelf_id, book_id, seq_num)
                 bos_info = db.delete_bos(bos_data)
                 book_data = db.get_book_by_id(book_id)
-                print(book_data)
                 book_id, node_id, status, attributes, size_bytes = (book_data)
                 book_data = (book_id, node_id, 0, attributes, size_bytes)
                 book_data = db.modify_book(book_data)
                 books_del -= 1
-                print("books_del = %d" % books_del)
                 if books_del == books_needed:
                     break
 
-        m_time = time.time()
         shelf_data = (shelf_id, new_size_bytes, new_book_count,
                       open_count, c_time, m_time)
         db_data = db.modify_shelf(shelf_data)
@@ -259,22 +270,6 @@ class LibrarianCommandExecution(object):
         # todo: fail if book does not exist
         recvd = dict(zip(book_columns, resp))
         return recvd
-
-    def cmd_list_shelf(self):
-        """ List a given shelf.
-            In (dict)---
-                shelf_id
-            Out (dict) ---
-                shelf data
-        """
-        set_trace()
-        self._cur.execute(
-            'SELECT * FROM shelves WHERE name = ?',
-            self._cmdict['shelf_name'])
-        self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
-        assert len(shelves) <= 1, 'oopsie'
-        return shelves[0] if shelves else None
 
     def cmd_list_bos(cmd_data):
         """ List all the books on a given shelf.
@@ -341,8 +336,7 @@ if __name__ == '__main__':
     from genericobj import GenericObject
 
     def pp(recvd, data):
-        print('Original command:')
-        pprint(dict(recvd))
+        print('Original:', dict(recvd))
         print('DB response:')
         if hasattr(data, '__init__'):   # TMBook, GenericObjects, etc
             print(str(data))
@@ -381,73 +375,14 @@ if __name__ == '__main__':
     data = lce(recvd)
     pp(recvd, data)
 
-    # open/get shelf
+    recvd = lcp('open_shelf', name=name)
+    data = lce(recvd)
+    pp(recvd, data)
+
     set_trace()
-    print ("open/get shelf -----")
-    recvd = {}
-    uid = 0
-    gid = 0
-    node_id = 0x0A0A0A0A0A0A0A0A
-    recvd.update({"command": "open_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-    recvd = {}
-    recvd.update({"command": "list_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-
-    # resize new shelf/get shelf
-    print ("resize/get shelf -----")
-    recvd = {}
-    node_id = 0x0A0A0A0A0A0A0A0A
-    size_bytes = (20 * 1024 * 1024 * 1024)
-    uid = 0
-    gid = 0
-    recvd.update({"command": "resize_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"size_bytes": size_bytes})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-    recvd = {}
-    recvd.update({"command": "list_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-
-    # resize shelf bigger/get shelf
-    print ("resize/get shelf -----")
-    recvd = {}
-    node_id = 0x0A0A0A0A0A0A0A0A
-    size_bytes = (50 * 1024 * 1024 * 1024)
-    uid = 0
-    gid = 0
-    recvd.update({"command": "resize_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"size_bytes": size_bytes})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-    recvd = {}
-    recvd.update({"command": "list_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
+    recvd = lcp('resize_shelf', name=name, size_bytes=42)
+    data = lce(recvd)
+    pp(recvd, data)
 
     # list books on shelf
     print ("list books on shelf -----")
@@ -459,29 +394,6 @@ if __name__ == '__main__':
     print ("data_in =", data_in)
     for book in data_in:
         print("  book:", book)
-
-    # resize shelf smaller/get shelf
-    print ("resize/get shelf -----")
-    recvd = {}
-    node_id = 0x0A0A0A0A0A0A0A0A
-    size_bytes = (6 * 1024 * 1024 * 1024)
-    uid = 0
-    gid = 0
-    recvd.update({"command": "resize_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"size_bytes": size_bytes})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-    recvd = {}
-    recvd.update({"command": "list_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
 
     # list books on shelf
     print ("list books on shelf -----")
