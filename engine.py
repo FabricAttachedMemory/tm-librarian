@@ -40,19 +40,22 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 shelf data
         """
+        tmp = time.time()
         shelf = TMShelf(
             shelf_id=int(uuid.uuid1().int >> 65),
-            ctime=time.time(),
-            mtime=time.time(),
+            ctime=tmp,
+            mtime=tmp,
             name=self._cmdict['name'],
         )
-        set_trace()
+        # Since I indexed shelves on 'name', dupes fail nicely.
         self._cur.execute(
             'INSERT INTO shelves VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
             shelf.tuple())
+        # First is explicit failure like UNIQUE collision, second is generic
+        assert not self._cur.execfail, self._cur.execfail
+        assert self._cur.rowcount == 1, 'Insertion failed'
         self._cur.commit()
         return shelf
-
 
     def cmd_open_shelf(cmd_data):
         """ Open a shelf for access by a node.
@@ -79,9 +82,8 @@ class LibrarianCommandExecution(object):
         shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
         resp = db.modify_shelf(shelf_data)
         resp = db.get_shelf(shelf_id)
-        data_out = dict(zip(shelf_columns, resp))
-        return data_out
-
+        recvd = dict(zip(shelf_columns, resp))
+        return recvd
 
     def cmd_close_shelf(cmd_data):
         """ Close a shelf against access by a node.
@@ -99,10 +101,10 @@ class LibrarianCommandExecution(object):
         node_id = cmd_data["node_id"]
         uid = cmd_data["uid"]
         gid = cmd_data["gid"]
-    
+
         if uid != 0:
             return '{"error":"Permission denied for non-root user"}'
-    
+
         resp = db.get_shelf(shelf_id)
         # todo: fail if shelf does not exist
         shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
@@ -111,10 +113,9 @@ class LibrarianCommandExecution(object):
         shelf_data = (shelf_id, size_bytes, book_count, open_count, c_time, m_time)
         resp = db.modify_shelf(shelf_data)
         resp = db.get_shelf(shelf_id)
-        data_out = dict(zip(shelf_columns, resp))
-        return data_out
-    
-    
+        recvd = dict(zip(shelf_columns, resp))
+        return recvd
+
     def cmd_destroy_shelf(cmd_data):
         """ Destroy a shelf and free any books associated with it.
             In (dict)---
@@ -129,17 +130,17 @@ class LibrarianCommandExecution(object):
         node_id = cmd_data["node_id"]
         uid = cmd_data["uid"]
         gid = cmd_data["gid"]
-    
+
         if uid != 0:
             return '{"error":"Permission denied for non-root user"}'
-    
+
         resp = db.get_shelf(shelf_id)
         # todo: fail if shelf does not exist
         shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-    
+
         if open_count != 0:
             return '{"error":"Shelf open count is non-zero"}'
-    
+
         db_data = db.get_bos_by_shelf(shelf_id)
         for bos in db_data:
             print("bos:", bos)
@@ -173,18 +174,18 @@ class LibrarianCommandExecution(object):
         gid = cmd_data['gid']
         new_size_bytes = int(cmd_data['size_bytes'])
         new_book_count = int(math.ceil(new_size_bytes / book_size))
-    
+
         if uid != 0:
             return '{"error":"Permission denied for non-root user"}'
-    
+
         db_data = db.get_shelf(shelf_id)
         # todo: fail if shelf does not exist
         shelf_id, size_bytes, book_count, open_count, c_time, m_time = (db_data)
         print("db_data:", db_data)
-    
+
         if new_size_bytes == size_bytes:
             return db_data
-    
+
         books_needed = new_book_count - book_count
         print("size_bytes = %d (0x%016x)" % (size_bytes, size_bytes))
         print("new_size_bytes = %d (0x%016x)" % (new_size_bytes, new_size_bytes))
@@ -192,7 +193,7 @@ class LibrarianCommandExecution(object):
         print("book_size = %d (0x%016x)" % (book_size, book_size))
         print("book_count = %d" % book_count)
         print("books_needed = %d" % books_needed)
-    
+
         if books_needed > 0:
             print("add books")
             seq_num = book_count
@@ -225,18 +226,18 @@ class LibrarianCommandExecution(object):
                 print("books_del = %d" % books_del)
                 if books_del == books_needed:
                     break
-    
+
         m_time = time.time()
         shelf_data = (shelf_id, new_size_bytes, new_book_count,
                       open_count, c_time, m_time)
         db_data = db.modify_shelf(shelf_data)
-    
+
         resp = db.get_shelf(shelf_id)
-        data_out = dict(zip(shelf_columns, resp))
-    
-        return data_out
-    
-    
+        recvd = dict(zip(shelf_columns, resp))
+
+        return recvd
+
+
     def cmd_get_shelf_zaddr(cmd_data):
         """
             In (dict)---
@@ -245,8 +246,7 @@ class LibrarianCommandExecution(object):
                 ?
         """
         return '{"error":"Command not implemented"}'
-    
-    
+
     def cmd_list_book(cmd_data):
         """ List a given book
             In (dict)---
@@ -257,9 +257,8 @@ class LibrarianCommandExecution(object):
         book_id = cmd_data["book_id"]
         resp = db.get_book_by_id(book_id)
         # todo: fail if book does not exist
-        data_out = dict(zip(book_columns, resp))
-        return data_out
-
+        recvd = dict(zip(book_columns, resp))
+        return recvd
 
     def cmd_list_shelf(self):
         """ List a given shelf.
@@ -277,7 +276,6 @@ class LibrarianCommandExecution(object):
         assert len(shelves) <= 1, 'oopsie'
         return shelves[0] if shelves else None
 
-
     def cmd_list_bos(cmd_data):
         """ List all the books on a given shelf.
             In (dict)---
@@ -288,9 +286,9 @@ class LibrarianCommandExecution(object):
         shelf_id = cmd_data["shelf_id"]
         resp = db.get_bos_by_shelf(shelf_id)
         # todo: fail if shelf does not exist
-        data_out = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
+        recvd = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
                     for shelf_id, book_id, seq_num in resp]
-        return data_out
+        return recvd
 
     _handlers = { }
 
@@ -314,7 +312,6 @@ class LibrarianCommandExecution(object):
         except AssertionError as e:
             msg = str(e)
         except Exception as e:
-            set_trace()
             msg = 'Internal error: ' + str(e)
             pass
         raise RuntimeError(msg)
@@ -336,178 +333,199 @@ def engine_args_init(parser):
     pass
 
 if __name__ == '__main__':
+    '''"recvd" is commands/data that would be received from a client.'''
 
-    TheCursorThing = SQLiteCursor(DBfile=sys.argv[1])
+    import os
+    from pprint import pprint
+
+    from genericobj import GenericObject
+
+    def pp(recvd, data):
+        print('Original command:')
+        pprint(dict(recvd))
+        print('DB response:')
+        if hasattr(data, '__init__'):   # TMBook, GenericObjects, etc
+            print(str(data))
+        else:
+            pprint(data)
+        print()
+
+    authdata = GenericObject(
+        node_id=1,
+        uid=os.geteuid(),
+        gid=os.getegid(),
+        pid=os.getpid()
+    )
+
+    lce = LibrarianCommandExecution(SQLiteCursor(DBfile=sys.argv[1]))
     lcp = LibrarianCommandProtocol()
     print(lcp.commandset)
-    lce = LibrarianCommandExecution(TheCursorThing)
     print(lce.commandset)
     print()
-    print(set(lcp.commandset) - set(lce.commandset))
+    print('Engine missing:',set(lcp.commandset) - set(lce.commandset))
+    print('Engine extras: ',set(lce.commandset) - set(lcp.commandset))
 
-    # get librarian version
-    data_out = lcp('version')
-    data_in = lce(data_out)
-    print ("data_in =", data_out)
-    print ("data_out =", data_in)
+    recvd = lcp('version')
+    data = lce(recvd)
+    pp(recvd, data)
 
-    # create/get shelf
-    print ("create/get shelf -----")
-    data_out = lcp("create_shelf", ('shelf1', 1, 0, 0, 0) )
-    data_in = lce(data_out)
-    s = data_in
-    print(s)
+    name = 'xyzzy1'
+    recvd = lcp('create_shelf', name=name)
+    try:
+        data = lce(recvd)
+    except Exception as e:
+        data = e
+    pp(recvd, data)
 
-    set_trace()
-    data_out = lcp('list_shelf', (s.shelf_name, ))
-    data_in = lce(data_out)
-    print ("data_out =", data_out)
-    print ("data_in =", data_in)
+    recvd = lcp('list_shelf', name=name)
+    data = lce(recvd)
+    pp(recvd, data)
 
     # open/get shelf
+    set_trace()
     print ("open/get shelf -----")
-    data_out = {}
+    recvd = {}
     uid = 0
     gid = 0
     node_id = 0x0A0A0A0A0A0A0A0A
-    data_out.update({"command": "open_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_out.update({"node_id": node_id})
-    data_out.update({"uid": uid})
-    data_out.update({"gid": gid})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd.update({"command": "open_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    recvd.update({"node_id": node_id})
+    recvd.update({"uid": uid})
+    recvd.update({"gid": gid})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
-    data_out = {}
-    data_out.update({"command": "list_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
 
     # resize new shelf/get shelf
     print ("resize/get shelf -----")
-    data_out = {}
+    recvd = {}
     node_id = 0x0A0A0A0A0A0A0A0A
     size_bytes = (20 * 1024 * 1024 * 1024)
     uid = 0
     gid = 0
-    data_out.update({"command": "resize_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_out.update({"node_id": node_id})
-    data_out.update({"size_bytes": size_bytes})
-    data_out.update({"uid": uid})
-    data_out.update({"gid": gid})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd.update({"command": "resize_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    recvd.update({"node_id": node_id})
+    recvd.update({"size_bytes": size_bytes})
+    recvd.update({"uid": uid})
+    recvd.update({"gid": gid})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
-    data_out = {}
-    data_out.update({"command": "list_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
 
     # resize shelf bigger/get shelf
     print ("resize/get shelf -----")
-    data_out = {}
+    recvd = {}
     node_id = 0x0A0A0A0A0A0A0A0A
     size_bytes = (50 * 1024 * 1024 * 1024)
     uid = 0
     gid = 0
-    data_out.update({"command": "resize_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_out.update({"node_id": node_id})
-    data_out.update({"size_bytes": size_bytes})
-    data_out.update({"uid": uid})
-    data_out.update({"gid": gid})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd.update({"command": "resize_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    recvd.update({"node_id": node_id})
+    recvd.update({"size_bytes": size_bytes})
+    recvd.update({"uid": uid})
+    recvd.update({"gid": gid})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
-    data_out = {}
-    data_out.update({"command": "list_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
 
     # list books on shelf
     print ("list books on shelf -----")
-    data_out = {}
-    data_out.update({"command": "list_bos"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_bos"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
     for book in data_in:
         print("  book:", book)
 
     # resize shelf smaller/get shelf
     print ("resize/get shelf -----")
-    data_out = {}
+    recvd = {}
     node_id = 0x0A0A0A0A0A0A0A0A
     size_bytes = (6 * 1024 * 1024 * 1024)
     uid = 0
     gid = 0
-    data_out.update({"command": "resize_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_out.update({"node_id": node_id})
-    data_out.update({"size_bytes": size_bytes})
-    data_out.update({"uid": uid})
-    data_out.update({"gid": gid})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd.update({"command": "resize_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    recvd.update({"node_id": node_id})
+    recvd.update({"size_bytes": size_bytes})
+    recvd.update({"uid": uid})
+    recvd.update({"gid": gid})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
-    data_out = {}
-    data_out.update({"command": "list_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
 
     # list books on shelf
     print ("list books on shelf -----")
-    data_out = {}
-    data_out.update({"command": "list_bos"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_bos"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
     for book in data_in:
         print("  book:", book)
 
     # close/get shelf
     print ("close/get shelf -----")
-    data_out = {}
+    recvd = {}
     node_id = 0x0A0A0A0A0A0A0A0A
     uid = 0
     gid = 0
-    data_out.update({"command": "close_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_out.update({"node_id": node_id})
-    data_out.update({"uid": uid})
-    data_out.update({"gid": gid})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd.update({"command": "close_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    recvd.update({"node_id": node_id})
+    recvd.update({"uid": uid})
+    recvd.update({"gid": gid})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
-    data_out = {}
-    data_out.update({"command": "list_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd = {}
+    recvd.update({"command": "list_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)
 
     # destroy shelf
     print ("destroy/get shelf -----")
-    data_out = {}
+    recvd = {}
     node_id = 0x0A0A0A0A0A0A0A0A
     uid = 0
     gid = 0
-    data_out.update({"command": "destroy_shelf"})
-    data_out.update({"shelf_id": shelf_id})
-    data_out.update({"node_id": node_id})
-    data_out.update({"uid": uid})
-    data_out.update({"gid": gid})
-    data_in = execute_command(data_out)
-    print ("data_out =", data_out)
+    recvd.update({"command": "destroy_shelf"})
+    recvd.update({"shelf_id": shelf_id})
+    recvd.update({"node_id": node_id})
+    recvd.update({"uid": uid})
+    recvd.update({"gid": gid})
+    data_in = execute_command(recvd)
+    print ("recvd =", recvd)
     print ("data_in =", data_in)

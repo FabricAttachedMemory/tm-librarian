@@ -137,21 +137,17 @@ class SQLcursor(object):
     # callable to be invoked by the caller.
 
     def __getattr__(self, name):
+        if self._cursor is None:
+            raise AttributeError('DB has no cursor')
+
         if name == 'close':
             cur = self._cursor
             conn = self._conn
             self._cursor = self._conn = None
             return conn.close if cur is not None else (lambda: False)
 
-        if not hasattr(self, '_cursor'):
-            raise RuntimeError(self.status)
-
         if name == 'commit':
             return self._conn.commit
-
-        if self._cursor is None:
-            raise AttributeError
-            ('DB has no cursor')
 
         realattr = self._cursor.__getattribute__(name)
         if name != 'execute':
@@ -159,18 +155,18 @@ class SQLcursor(object):
 
         # Wrap it to use the internal attrs in a callback, hidden from user
         def exec_wrapper(query, parms=None):
+            self.execfail = ''
             try:
                 if parms is None:
-                    tmp = self._cursor.execute(query)
+                    self._cursor.execute(query)
                 else:
                     # Insure a tuple.  DON'T call tuple() as it iterates.
                     if not isinstance(parms, tuple):
                         parms = (parms, )
-                    tmp = self._cursor.execute(query, parms)
+                    self._cursor.execute(query, parms)
             except Exception as e:
-                print('SQL execute failed:', str(e))
-                tmp = None
-            return tmp
+                self.execfail = str(e)
+            return
         return exec_wrapper
 
 ###########################################################################

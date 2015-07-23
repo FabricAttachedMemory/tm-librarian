@@ -55,10 +55,10 @@ class LibrarianCommandProtocol(object):
     # Helper routine
     @staticmethod
     def _nulldict(cmd, go):
-        rsp = OrderedDict((('command', cmd), ))
+        respdict = OrderedDict((('command', cmd), ))
         for p in go.parms:
-            rsp[p] = None
-        return rsp
+            respdict[p] = None
+        return respdict
 
     def __getitem__(self, item):
         go = self._commands[item]   # native KeyError is fine
@@ -74,7 +74,7 @@ class LibrarianCommandProtocol(object):
     def __call__(self, command, *args, **kwargs):
         go = self._commands[command]    # natural keyerror is fine
         assert not (args and kwargs), 'Pos/keyword args are mutually exclusive'
-        rsp = OrderedDict((('command', command), ))
+        respdict = OrderedDict((('command', command), ))
 
         # Polymorphism.  Careful: passing a sring makes args[0] a tuple
         if args and isinstance(args[0], dict):
@@ -84,13 +84,13 @@ class LibrarianCommandProtocol(object):
             if args:
                 assert len(args) == len(go.parms), 'Argument count mismatch'
                 for item in zip(go.parms, args):
-                    rsp[item[0]] = item[1]
-            else:   # kwargs
+                    respdict[item[0]] = item[1]
+            if kwargs:
                 keys = sorted(kwargs.keys())
                 assert set(keys) == set(go.parms), 'Argument field mismatch'
                 for key in keys:
-                    rsp[key] = kwargs[key]
-            return rsp
+                    respdict[key] = kwargs[key]
+            return respdict
         except AssertionError as e:
             msg = str(e)
         except Exception as e:
