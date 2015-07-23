@@ -5,6 +5,7 @@ from pprint import pprint
 from genericobj import GenericObject as GO;
 
 class LibrarianCommandProtocol(object):
+    '''__call__ will take a full tuple, kwargs, or a dict.'''
 
     _commands = {
 
@@ -74,6 +75,11 @@ class LibrarianCommandProtocol(object):
         go = self._commands[command]    # natural keyerror is fine
         assert not (args and kwargs), 'Pos/keyword args are mutually exclusive'
         rsp = OrderedDict((('command', command), ))
+
+        # Polymorphism.  Careful: passing a sring makes args[0] a tuple
+        if args and isinstance(args[0], dict):
+            kwargs = args[0]
+            args = None
         try:
             if args:
                 assert len(args) == len(go.parms), 'Argument count mismatch'
@@ -124,4 +130,9 @@ if __name__ == '__main__':
     # filled in by keywords
     junk = lcp('resize_shelf', size_bytes=84, name='shelf2')
     pprint(junk)
-    
+
+    # filled in by dict
+    junk = lcp('resize_shelf', { 'size_bytes': 27, 'name': 'shelf3' })
+    pprint(junk)
+
+    raise SystemExit(0)

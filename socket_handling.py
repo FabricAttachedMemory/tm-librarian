@@ -88,7 +88,7 @@ class Client(SocketReadWrite):
     def __del__(self):
         super().__del__()
 
-    def connect(self, host = '', port = 9093):
+    def connect(self, host='', port=9093):
         """ Connect socket to port on host """
         self._sock.connect((host, port))
 

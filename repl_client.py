@@ -3,6 +3,7 @@
 import socket_handling
 from librarian_chain import Librarian_Chain
 
+from pdb import set_trace
 from pprint import pprint
 
 import cmdproto
@@ -10,12 +11,15 @@ import cmdproto
 #--------------------------------------------------------------------------
 
 def main():
-
     lcp = cmdproto.LibrarianCommandProtocol()
 
     chain = Librarian_Chain()
     client = socket_handling.Client()
-    client.connect()
+    try:
+        client.connect()
+    except Exception as e:
+        print(str(e), '; falling back to local print')
+        client = None
 
     while True:
         user_input_list = input("command> ").split(' ')
@@ -30,14 +34,19 @@ def main():
                 continue
             if command in ('adios', 'bye', 'exit', 'quit', 'q'):
                 break
-            cmdict = lcp(command, user_input_list)
+            cmdict = lcp(command, *user_input_list)
+            pprint(cmdict)
         except Exception as e:
-            print(str(e))
+            print('Bad command:', str(e))
             continue
 
         out_string = chain.forward_traverse(cmdict)
 
-        print(client.send_recv(out_string))
+        if client is None:
+            print('LOCAL:', out_string)
+        else:
+            print(client.send_recv(out_string))
+        print()
 
 if __name__ == '__main__':
     main()
