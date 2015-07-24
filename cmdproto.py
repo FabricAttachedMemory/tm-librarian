@@ -4,6 +4,7 @@
    a method to construct a valid command dictionary from a variety
    of input parameter conventions.'''
 
+import sys
 from collections import OrderedDict
 from pdb import set_trace
 from pprint import pprint
@@ -88,18 +89,24 @@ class LibrarianCommandProtocol(object):
 
         try:
             if args:    # Gotta have them all, unless...
-                if args[0] == 'help':
+                arg0 = args[0]
+                if str(arg0) == 'help':
                     return self._emitparms(command, go)
-                assert len(args) == len(go.parms), 'Argument count mismatch'
-                for item in zip(go.parms, args):
-                    respdict[item[0]] = item[1]
+                # It might be an object.  Try duck typing first.
+                try:
+                    for p in go.parms:
+                        respdict[p] = getattr(arg0, p)
+                except AttributeError as e:
+                    assert len(args) == len(go.parms), 'Arg count mismatch'
+                    for item in zip(go.parms, args):
+                        respdict[item[0]] = item[1]
             elif kwargs:
                 keys = sorted(kwargs.keys())
-                assert set(keys) == set(go.parms), 'Argument field mismatch'
+                assert set(keys) == set(go.parms), 'Arg field mismatch'
                 for key in keys:
                     respdict[key] = kwargs[key]
             else:
-                assert not len(go.parms), 'Missing parameter(s)'
+                assert go.parms is None, 'Missing parameter(s)'
 
             if auth is not None:
                 respdict.update(auth)
@@ -108,7 +115,8 @@ class LibrarianCommandProtocol(object):
         except AssertionError as e:
             msg = str(e)
         except Exception as e:
-            msg = 'INTERNAL ERROR: ' + str(e)
+            msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         raise RuntimeError(msg)
 
     @property
@@ -128,6 +136,8 @@ class LibrarianCommandProtocol(object):
         return '\n'.join(docs)
 
 if __name__ == '__main__':
+
+    from bookshelves import TMShelf
 
     lcp = LibrarianCommandProtocol()
 
@@ -157,6 +167,12 @@ if __name__ == '__main__':
     # filled in by dict
     junk = lcp('resize_shelf',
                { 'size_bytes': 42, 'id': 31178, 'name': 'shelf3' })
+    pprint(junk)
+
+    # high-level
+    shelf = TMShelf(name='shelf4')
+    shelf.size_bytes = 42
+    junk = lcp('resize_shelf', shelf)
     pprint(junk)
 
     raise SystemExit(0)
