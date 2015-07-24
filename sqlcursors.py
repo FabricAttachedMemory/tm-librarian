@@ -67,12 +67,16 @@ class SQLcursor(object):
         'passwd':           None,
     }
 
-    def DBconnect(self):
-        self._conn = None
-        self._cursor = None
+    def DBconnect(self, *args):
         raise NotImplementedError   # Left as an exercise to the reader
 
-    def schema(self, table):
+    def schema(self, *args):
+        raise NotImplementedError   # Left as an exercise to the reader
+
+    def INSERT(self, *args):
+        raise NotImplementedError   # Left as an exercise to the reader
+
+    def UPDATE(self, *args):
         raise NotImplementedError   # Left as an exercise to the reader
 
     def __init__(self, **kwargs):
@@ -197,6 +201,31 @@ class SQLiteCursor(SQLcursor):
         tmp = tuple([str(row[1]) for row in self.fetchall()])
         assert tmp, 'Empty schema'
         return tmp
+
+    def INSERT(self, table, values):
+        '''Values are a COMPLETE tuple following ordered schema'''
+        assert len(values), 'oopsie'
+        qmarks = ', '.join(['?'] * len(values))
+        self.execute(
+            'INSERT INTO %s VALUES (%s)' % (table, qmarks),
+            values
+        )
+        # First is explicit failure like UNIQUE collision, second is generic
+        if self.execfail:
+            raise AssertionError(
+                'INSERT %s failed: %s' % (table, self.execfail))
+        if self.rowcount != 1:
+            self.rollback()
+            raise AssertionError('INSERT %s failed' % table)
+        # DO NOT COMMIT, give caller a chance for multiples or rollback
+
+    def UPDATE(self, table, setclause, values):
+        '''setclause is effective key=val, key=val sequence'''
+        self.execute('UPDATE %s SET %s' % (table, setclause), values)
+        if not self.rowcount == 1:
+            self.rollback()
+            raise AssertionError('UPDATE %s failed' % table)
+        # DO NOT COMMIT, give caller a chance for multiples or rollback
 
 ###########################################################################
 
