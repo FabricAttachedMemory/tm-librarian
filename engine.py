@@ -16,13 +16,13 @@ from cmdproto import LibrarianCommandProtocol
 
 class LibrarianCommandExecution(object):
 
-    book_size = 0
-    book_columns = ('book_id', 'node_id', 'status', 'attributes', 'size_bytes')
-    shelf_columns = ('shelf_id', 'size_bytes', 'book_count', 'open_count',
-                 'c_time', 'm_time')
-    bos_columns = ('shelf_id', 'book_id', 'seq_num')
+    @classmethod
+    def args_init(cls, parser): # sets up things for optargs in __init__
+        pass
 
-    LIBRARIAN_VERSION = "Librarian v0.01"
+    _book_size = 0  # read from DB by __init__
+
+    LIBRARIAN_VERSION = 'Librarian v0.01'
 
     # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
     # hole-filling.  Explicitly setting id overrides that.  Break it out
@@ -38,29 +38,6 @@ class LibrarianCommandExecution(object):
         if id == 0:
             return 1    # first id is non-zero
         raise RuntimeError('Cannot discern nextid for ' + table)
-
-    def _INSERT(self, table, values):
-        assert len(values), 'oopsie'
-        qmarks = ', '.join(['?'] * len(values))
-        self._cur.execute(
-            'INSERT INTO %s VALUES (%s)' % (table, qmarks),
-            values
-        )
-        # First is explicit failure like UNIQUE collision, second is generic
-        if self._cur.execfail:
-            raise RuntimeError(
-                'INSERT %s failed: %s' % (table, self._cur.execfail))
-        if self._cur.rowcount != 1:
-            self._cur.rollback()
-            raise RuntimeError('INSERT %s failed' % table)
-        # DO NOT COMMIT, give caller a chance for multiples or rollback
-
-    def _UPDATE(self, table, setclause, values):
-        self._cur.execute('UPDATE %s SET %s' % (table, setclause), values)
-        if not self._cur.rowcount == 1:
-            self._cur.rollback()
-            raise RuntimeError('update %s failed' % table)
-        # DO NOT COMMIT, give caller a chance for multiples or rollback
 
     def cmd_version(self):
         """ Return librarian version
@@ -87,7 +64,7 @@ class LibrarianCommandExecution(object):
             name=self._cmdict['name'],
         )
         # Since shelves are indexed on 'name', dupes fail nicely.
-        self._INSERT('shelves', shelf.tuple())
+        self._cur.INSERT('shelves', shelf.tuple())
         self._cur.commit()
         return shelf
 
@@ -99,8 +76,7 @@ class LibrarianCommandExecution(object):
                 shelf data
         """
         self._cur.execute(
-            'SELECT * FROM shelves WHERE %s = ?' % field,
-            self._cmdict[field])
+            'SELECT * FROM shelves WHERE name = ?', self._cmdict['name'])
         self._cur.iterclass = TMShelf
         shelves = [ r for r in self._cur ]
         assert len(shelves) <= 1, 'oopsie'
@@ -128,7 +104,7 @@ class LibrarianCommandExecution(object):
 
         shelf.mtime = int(time.time())
         shelf.open_count += 1
-        self._UPDATE(
+        self._cur.UPDATE(
             'shelves',
             'mtime=?, open_count=? WHERE id=?',
             shelf.tuple('mtime', 'open_count', 'id')
@@ -157,7 +133,7 @@ class LibrarianCommandExecution(object):
         shelf.mtime = int(time.time())
         shelf.open_count -= 1
 
-        self._UPDATE(
+        self._cur.UPDATE(
             'shelves',
             'mtime=?, open_count=? WHERE id=?',
             shelf.tuple('mtime', 'open_count', 'id')
@@ -226,7 +202,7 @@ class LibrarianCommandExecution(object):
             return shelf
         shelf.size_bytes = new_size_bytes
         shelf.mtime = int(time.time())
-        self._UPDATE(
+        self._cur.UPDATE(
             'shelves',
             'mtime=?, size_bytes=? WHERE id=?',
             shelf.tuple('mtime', 'size_bytes', 'id')
@@ -234,7 +210,7 @@ class LibrarianCommandExecution(object):
         self._cur.commit()
         return shelf
 
-        new_book_count = int(math.ceil(new_size_bytes / self.book_size))
+        new_book_count = int(math.ceil(new_size_bytes / self._book_size))
         books_needed = new_book_count - shelf.book_count
         if not new_book_count:
             return shelf
@@ -316,7 +292,7 @@ class LibrarianCommandExecution(object):
 
     _handlers = { }
 
-    def __init__(self, cursor):
+    def __init__(self, cursor, optargs=None):
         # Skip 'cmd_' prefix
         tmp = dict( [ (name[4:], func)
                     for (name, func) in self.__class__.__dict__.items() if
@@ -326,8 +302,8 @@ class LibrarianCommandExecution(object):
         self._handlers.update(tmp)
         self._cur = cursor
         self._cur.execute('SELECT book_size_bytes FROM globals')
-        self.__class__.book_size = self._cur.fetchone()[0]
-        assert self.book_size > 1024*1024, 'Bad book size'
+        self.__class__._book_size = self._cur.fetchone()[0]
+        assert self._book_size > 1024*1024, 'Bad book size in DB'
 
     def __call__(self, cmdict):
         try:
@@ -339,7 +315,8 @@ class LibrarianCommandExecution(object):
         except AssertionError as e:
             msg = str(e)
         except Exception as e:
-            msg = 'Internal error: ' + str(e)
+            msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
             pass
         raise RuntimeError(msg)
     @property
@@ -354,9 +331,6 @@ def execute_command(cmd_data):
         return(command_handlers[cmd](cmd_data))
     except:
         return '{"error":"No command key"}'
-
-def engine_args_init(parser):
-    pass
 
 if __name__ == '__main__':
     '''"recvd" is commands/data that would be received from a client.'''
@@ -416,38 +390,18 @@ if __name__ == '__main__':
     pp(recvd, data)
 
     # Need to have this fail if shelf is not opened to me
-    set_trace()
-    new_size = data.size_bytes + 42
-    recvd = lcp('resize_shelf', id=data.id, size_bytes=new_size)
+    data.size_bytes += 42
+    recvd = lcp('resize_shelf', data)
     data = lce(recvd)
     pp(recvd, data)
 
     # Need to have this fail if shelf is not opened to me
-    recvd = lcp('close_shelf', id=data.id)
+    recvd = lcp('close_shelf', data)
     data = lce(recvd)
     pp(recvd, data)
 
-    print ("close/get shelf -----")
-    recvd = {}
-    node_id = 0x0A0A0A0A0A0A0A0A
-    uid = 0
-    gid = 0
-    recvd.update({"command": "close_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-    recvd = {}
-    recvd.update({"command": "list_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
-
     # destroy shelf
+    set_trace()
     print ("destroy/get shelf -----")
     recvd = {}
     node_id = 0x0A0A0A0A0A0A0A0A
