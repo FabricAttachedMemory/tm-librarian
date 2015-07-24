@@ -1,5 +1,6 @@
 #!/usr/bin/python3 -tt
 
+import time
 from pdb import set_trace
 
 #########################################################################
@@ -35,7 +36,10 @@ class BookShelfStuff(object):      # could become a mixin
     def __str__(self):
         s = []
         for k in self._sorted:
-            s.append('{}: {}'.format(k, getattr(self, k)))
+            val = getattr(self, k)
+            if k.endswith('time'):
+                val = time.ctime(val)
+            s.append('{}: {}'.format(k, val))
         return '\n'.join(s)
 
     def __getitem__(self, key):    # and now I'm a dict

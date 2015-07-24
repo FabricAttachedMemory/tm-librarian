@@ -135,8 +135,8 @@ def create_empty_db(cur):
         size_bytes INT,
         book_count INT,
         open_count INT,
-        ctime REAL,
-        mtime REAL,
+        ctime INT,
+        mtime INT,
         name TEXT
         )
         """

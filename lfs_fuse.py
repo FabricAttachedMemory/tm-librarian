@@ -12,6 +12,8 @@ from pdb import set_trace
 
 from fuse import FUSE, FuseOSError, Operations
 
+from cmdproto import LibrarianCommandProtocol
+
 def prentry(func):
     def new_func(*args, **kwargs):
         # args[0] is usually 'self', so ...
@@ -51,6 +53,7 @@ class LibrarianFSd(Operations):
 
     def init(self, root):
         try:
+            set_trace()
             self.tormsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tormsock.connect((self.host, self.port))
         except Exception, e:
