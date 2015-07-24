@@ -148,10 +148,14 @@ class Server(SocketReadWrite):
 if __name__ == "__main__":
     """ Run simple echo server to exercise the module """
 
+    import json
+    import time
+
     def echo_handler(string):
-        # Dictionary IO.  Does not handle ctrl characters well
+        # Does not handle ctrl characters well.  Needs to be modified
+        # for dictionary IO
         print(string)
-        return string
+        return json.dumps({ 'status': 'Processed @ %s' % time.ctime() })
 
     from function_chain import Identity_Chain
     chain = Identity_Chain()
