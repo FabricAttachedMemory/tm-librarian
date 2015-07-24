@@ -14,13 +14,15 @@ def main():
     lcp = cmdproto.LibrarianCommandProtocol()
 
     chain = Librarian_Chain()
-    client = socket_handling.Client()
+    client = socket_handling.Client()   # socket_handling.py
     try:
         client.connect()
+        print('Connected')
     except Exception as e:
         print(str(e), '; falling back to local print')
         client = None
 
+    # Right now it's just identification, not auth[entication|orization]
     auth = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
