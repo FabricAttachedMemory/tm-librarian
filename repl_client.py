@@ -21,6 +21,13 @@ def main():
         print(str(e), '; falling back to local print')
         client = None
 
+    auth = {
+        'uid': os.geteuid(),
+        'gid': os.getegid(),
+        'pid': os.getpid(),
+        'node_id': 999
+    }
+
     while True:
         user_input_list = input("command> ").split(' ')
         try:
@@ -34,8 +41,16 @@ def main():
                 continue
             if command in ('adios', 'bye', 'exit', 'quit', 'q'):
                 break
+
+            # Two forms
             cmdict = lcp(command, *user_input_list)
             pprint(cmdict)
+            print()
+
+            cmdict = lcp(command, *user_input_list, auth=auth)
+            pprint(cmdict)
+            print()
+
         except Exception as e:
             print('Bad command:', str(e))
             continue
@@ -49,4 +64,6 @@ def main():
         print()
 
 if __name__ == '__main__':
+    import os
+
     main()

@@ -91,15 +91,13 @@ class LibrarianCommandExecution(object):
         self._cur.commit()
         return shelf
 
-    def cmd_list_shelf(self, field=None):
+    def cmd_list_shelf(self, aux=None):
         """ List a given shelf.
             In (dict)---
                 shelf_id
             Out (dict) ---
                 shelf data
         """
-        if field is None:
-            field = 'name'
         self._cur.execute(
             'SELECT * FROM shelves WHERE %s = ?' % field,
             self._cmdict[field])
@@ -152,7 +150,7 @@ class LibrarianCommandExecution(object):
         # todo: ensure open count does not go below zero
 
         set_trace()
-        shelf = self.cmd_list_shelf('id')
+        shelf = self.cmd_list_shelf(aux='id')
         if shelf is None:
             return None
 
@@ -218,7 +216,7 @@ class LibrarianCommandExecution(object):
                 shelf data
         """
         set_trace()
-        shelf = self.cmd_list_shelf('id')
+        shelf = self.cmd_list_shelf(aux='id')
         if shelf is None:
             return None
 
