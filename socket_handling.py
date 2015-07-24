@@ -24,7 +24,7 @@ class SocketReadWrite():
         self._sock.close()
 
     # should be static helper in base class called by child class
-    def send(self, string, sock = None):
+    def send(self, string, sock=None):
         """ Send this string """
         if sock is None:
             sock = self._sock
@@ -93,12 +93,6 @@ class Client(SocketReadWrite):
         self._sock.connect((host, port))
 
 
-def echo_handler(string):
-    # does not handle ctrl characters well
-    print(string)
-    return string
-
-
 class Server(SocketReadWrite):
     """ A simple asynchronous server for the Librarian """
 
@@ -151,15 +145,18 @@ class Server(SocketReadWrite):
                     self.send(chain.forward_traverse(result), s)
 
 
-def main():
-    """ Run simple echo server to exersize the module """
+if __name__ == "__main__":
+    """ Run simple echo server to exercise the module """
+
+    def echo_handler(string):
+        # Dictionary IO.  Does not handle ctrl characters well
+        print(string)
+        return string
 
     from function_chain import Identity_Chain
     chain = Identity_Chain()
-
     server = Server()
+    print('Waiting for connection...')
     server.serv(echo_handler, chain)
 
-if __name__ == "__main__":
-    main()
 
