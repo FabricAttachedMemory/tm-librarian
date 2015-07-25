@@ -107,7 +107,7 @@ class SQLcursor(object):
         return '\n'.join(s)
 
     @property
-    def iterclass(self, cls):
+    def iterclass(self):
         return self._iterclass
 
     @iterclass.setter

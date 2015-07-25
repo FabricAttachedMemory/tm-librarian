@@ -9,7 +9,8 @@ import os
 import sys
 import configparser
 from pdb import set_trace
-from bookshelves import TMBook, TMShelf
+
+from bookshelves import TMBook, TMShelf, TMBos
 from sqlcursors import SQLiteCursor
 
 #--------------------------------------------------------------------------
@@ -127,7 +128,6 @@ def create_empty_db(cur):
         """
     cur.execute(table_create)
     cur.commit()
-    assert TMBook.schema() == cur.schema('books'), 'Bad schema for books'
 
     table_create = """
         CREATE TABLE shelves (
@@ -143,12 +143,12 @@ def create_empty_db(cur):
         """
     cur.execute(table_create)
     cur.commit()
-    assert TMShelf.schema() == cur.schema('shelves'), 'Bad schema for shelves'
+
     cur.execute('CREATE UNIQUE INDEX IDX_shelves ON shelves (name)')
     cur.commit()
 
     table_create = """
-        CREATE TABLE books_on_shelf (
+        CREATE TABLE books_on_shelves (
         shelf_id INT,
         book_id INT,
         seq_num INT
@@ -168,6 +168,12 @@ def create_empty_db(cur):
     cur.commit()
 
     # Idiot checks
+    book = TMBook()
+    assert book.schema == cur.schema('books'), 'Bad schema: books'
+    shelf = TMShelf()
+    assert shelf.schema == cur.schema('shelves'), 'Bad schema: shelves'
+    bos = TMBos()
+    assert bos.schema == cur.schema('books_on_shelves'), 'Bad schema: BOS'
 
 #---------------------------------------------------------------------------
 
@@ -188,7 +194,7 @@ if __name__ == '__main__':
     create_empty_db(cur)
 
     cur.execute('INSERT INTO globals VALUES(?)',
-        'LIBRARIAN 0.98', book_size_bytes)
+        ('LIBRARIAN 0.98', book_size_bytes))
 
     for books in section2books.values():
         for book in books:
