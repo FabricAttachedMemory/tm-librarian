@@ -15,11 +15,20 @@ class BookShelfStuff(object):      # could become a mixin
 
     __slots__ = ()
 
+    _sorted = None
+
+    def _msg(self, basemsg):
+        return '%s: %s' % (self.__class__.__name__, basemsg)
+
     def __init__(self, *args, **kwargs):
-        self.__class__._sorted = tuple(sorted(self._ordered_schema))
+        if not self._sorted:
+            self.__class__._sorted = tuple(sorted(self._ordered_schema))
+        assert not (args and kwargs), _msg('full tuple or kwargs, not both')
+        if args and isinstance(args[0], dict):
+            kwargs = args[0]
+            args = None
         if args:
-            assert not kwargs, 'full tuple or kwargs, not both'
-            assert len(args) == len(self._ordered_schema), 'bad arg count'
+            assert len(args) == len(self._ordered_schema), _msg('bad arg count')
             submitted = dict(zip(self._ordered_schema, args))
             missing = {}
         else:
@@ -33,7 +42,10 @@ class BookShelfStuff(object):      # could become a mixin
 
         for src in (submitted, missing):
             for k, v in src.items():
-                setattr(self, k, v)
+                try:    # __slots__ is in play
+                    setattr(self, k, v)
+                except AttributeError as e:
+                    pass
         setattr(self, self._MFname, None)
 
     def __eq__(self, other):
@@ -54,8 +66,13 @@ class BookShelfStuff(object):      # could become a mixin
     def __getitem__(self, key):    # and now I'm a dict
         return getattr(self, key)
 
+    # Be liberal in what I take, versus expecting people to remember
+    # to *expand existing tuples.
     def tuple(self, *args):
-        if not args:
+        if args:
+            if isinstance(args[0], tuple):  # probably matchfields
+                args = args[0]
+        else:
             args = self._ordered_schema
         return tuple([getattr(self, a) for a in args])
 
@@ -70,11 +87,14 @@ class BookShelfStuff(object):      # could become a mixin
     def matchfields(self):
         return getattr(self, self._MFname)
 
+    # Liberal in what you accept
     @matchfields.setter
     def matchfields(self, infields):
+        if isinstance(infields, str):
+            infields = (infields, )
         for f in infields:
-            assert f in self._ordered_schmea, 'Bad field %s' % f
-        sgetattr(self, self._MFname, (infields))
+            assert f in self._ordered_schema, self._msg('Bad field %s' % f)
+        setattr(self, self._MFname, infields)
 
 #########################################################################
 

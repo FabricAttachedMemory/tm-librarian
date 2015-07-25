@@ -6,7 +6,7 @@
 import argparse
 import database
 import book_register
-import engine
+from engine import LibrarianCommandEngine
 import socket_handling
 from librarian_chain import Librarian_Chain
 
@@ -39,6 +39,7 @@ if __name__ == '__main__':
     # add handler to server object
     chain = Librarian_Chain()
 
-    server.serv(engine.execute_command, chain)
+    lce = LibrarianCommandEngine(DBfile=args.something)
+    server.serv(lce, chain)
 
     db.close()

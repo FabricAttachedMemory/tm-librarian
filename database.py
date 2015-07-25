@@ -32,12 +32,20 @@ class LibrarianDBackendSQL(object):
         raise RuntimeError('Cannot discern nextid for ' + table)
 
     #
-    # books
+    # globals
     #
+
+    def get_version(self):
+        self._cur.execute('SELECT schema_version FROM globals')
+        return self._cur.fetchone()[0]
 
     def get_book_size(self):
         self._cur.execute('SELECT book_size_bytes FROM globals')
-        return self._cur.fetchone()[0]
+        return int(self._cur.fetchone()[0])
+
+    #
+    # books
+    #
 
     def create_book(self, book_data):
         """ Insert one new book into "books" table.
@@ -164,24 +172,32 @@ class LibrarianDBackendSQL(object):
             Output---
               shelf_data or error message
         """
-        shelf.id = self._getnextid('shelves')
+        shelf.id = self._getnextid('shelves')   # Could take a second
+        tmp = int(time.time())
+        shelf.ctime = shelf.mtime = tmp
         self._cur.INSERT('shelves', shelf.tuple())
         self._cur.commit()
         return shelf
 
-    def get_shelf(self, name, aux=None):
+    @staticmethod
+    def _fields2qmarks(fields, joiner):
+        q = [ '%s=?' % f for  f in fields ]
+        return joiner.join(q)
+
+    def get_shelf(self, shelf):
         """ Retrieve one shelf from "shelves" table.
             Input---
               shelf_id - id of shelf to get
             Output---
               shelf_id or error message
         """
-        if aux is not None:
-            set_trace()
-        self._cur.execute('SELECT * FROM shelves WHERE name = ?', name)
+        fields = shelf.matchfields
+        qmarks = self._fields2qmarks(fields, ' AND ')
+        sql = 'SELECT * FROM shelves WHERE %s' % qmarks
+        self._cur.execute(sql, shelf.tuple(fields))
         self._cur.iterclass = TMShelf
         shelves = [ r for r in self._cur ]
-        assert len(shelves) <= 1, 'oopsie'
+        assert len(shelves) <= 1, 'Matched more than one shelf'
         return shelves[0] if shelves else None
 
     def get_shelf_all(self):
@@ -196,27 +212,23 @@ class LibrarianDBackendSQL(object):
         shelves = [ r for r in self._cur ]
         return shelves
 
-    @staticmethod
-    def _fields2qmarks(fields):
-        q = [ '%s=?' % f for  f in fields ]
-        return ', '.join(q)
-
-    def modify_shelf(self, shelf, setfields, commit=True):
+    def modify_shelf(self, shelf, commit=True):
         """ Modify shelf data in "shelves" table.
             Input---
               shelf_data - list of new shelf data
             Output---
               shelf_data or error message
         """
+        fields = shelf.matchfields
+        assert fields, 'Missing field(s) for update'
         reserved = ('mtime', 'id')
         for f in reserved:
-            assert f not in setfields, 'Bad setfield %s' % f
-        set_trace()
-        qmarks = self._fields2qmarks(setfields)
+            assert f not in fields, 'Bad setfield %s' % f
+        qmarks = self._fields2qmarks(fields, ', ')
         sql = qmarks + ', mtime=? WHERE id=?'
-        fields = setfields + reserved
+        fields = fields + reserved
         shelf.mtime = int(time.time())
-        self._cur.UPDATE('shelves', qmarks, shelf.tuple(fields))
+        self._cur.UPDATE('shelves', sql, shelf.tuple(fields))
         if commit:
             self._cur.commit()
         return shelf
@@ -241,7 +253,7 @@ class LibrarianDBackendSQL(object):
         except sqlite3.Error:
             return("modify_shelf: error modifying existing shelf data")
 
-    def delete_shelf(self, shelf_id):
+    def delete_shelf(self, shelf):
         """ Delete one shelf from "shelves" table.
             Input---
               shelf_id - id of shelf to delete
@@ -278,7 +290,7 @@ class LibrarianDBackendSQL(object):
         except sqlite3.Error:
             return("create_bos: error inserting new bos")
 
-    def get_bos_by_shelf(self, shelf_id):
+    def get_bos_by_shelf(self, shelf):
         """ Retrieve all bos entries from "books_on_shelf" table
             given a shelf_id.
             Input---
@@ -286,11 +298,11 @@ class LibrarianDBackendSQL(object):
             Output---
               bos_data or error message
         """
-        # FIXME: is it faster to let SQL sort, or do it here?
+        # FIXME: is it faster to let SQL sort or do it here?
 
         self._cur.execute('''SELECT * FROM books_on_shelf
                              WHERE shelf_id=? ORDER BY seq_num''',
-                          shelf_id)
+                          shelf.id)
         self._cur.iterclass = TMBos
         books = [ r for r in self._cur ]
         return books
@@ -304,6 +316,7 @@ class LibrarianDBackendSQL(object):
               bos_data or error message
         """
         print("get bos by book from db:", book_id)
+        set_trace()
         try:
             db_query = """
                 SELECT * FROM books_on_shelf
@@ -400,7 +413,9 @@ class LibrarianDBackendSQL(object):
         print("Total number of tables: %d" % total_tables)
 
     def close(self):
-        self.con.close()
+        self._cur.close()
+
+###########################################################################
 
 if __name__ == '__main__':
 

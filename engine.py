@@ -15,13 +15,15 @@ from cmdproto import LibrarianCommandProtocol
 
 class LibrarianCommandEngine(object):
 
+    _book_size = 0  # read from DB
+
     @classmethod
     def args_init(cls, parser): # sets up things for optargs in __init__
         pass
 
-    _book_size = 0  # read from DB
-
-    LIBRARIAN_VERSION = 'Librarian v0.01'
+    @classmethod
+    def _nbooks(cls, nbytes):
+        return int(math.ceil(float(nbytes) / float(cls._book_size)))
 
     def cmd_version(self):
         """ Return librarian version
@@ -30,32 +32,30 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 librarian version
         """
-        return self.LIBRARIAN_VERSION
+        return self.db.get_version()
 
     def cmd_create_shelf(self):
         """ Create a new shelf
             In (dict)---
-                None
+                name
             Out (dict) ---
                 shelf data
         """
-        tmp = int(time.time())
-        shelf = TMShelf(
-            ctime=tmp,
-            mtime=tmp,
-            name=self._cmdict['name'],
-        )
-        self.db.create_shelf(shelf)
-        return shelf
+        return self.db.create_shelf(TMSHelf(self._cmdict))
 
-    def cmd_list_shelf(self, aux=None):
+    def cmd_list_shelf(self):        # By name only
         """ List a given shelf.
             In (dict)---
-                shelf_id
-            Out (dict) ---
-                shelf data
+                name
+            Out (TMShelf object) ---
+                TMShelf object
         """
-        return self.db.get_shelf(self._cmdict['name'], aux)
+        shelf = TMShelf(self._cmdict)
+        shelf.matchfields = ('name', )
+        shelf = self.db.get_shelf(shelf)
+        if shelf is not None:
+            assert self._nbooks(shelf.size_bytes) == shelf.book_count, '%s size metadata mismatch' % shelf.name
+        return shelf
 
     def cmd_list_shelves(self):
         return self.db.get_shelf_all()
@@ -63,18 +63,15 @@ class LibrarianCommandEngine(object):
     def cmd_open_shelf(self):
         """ Open a shelf for access by a node.
             In (dict)---
-                shelf_id
-                node_id
-                uid
-                gid
-            Out (dict) ---
-                shelf data
+                name
+            Out ---
+                TMShelf object
         """
-        set_trace()
-        shelf = self.db.get_shelf(self._cmdict['name'])
+        shelf = self.cmd_list_shelf()   # lookup by name
         if shelf is None:
             return None
         shelf.open_count += 1
+        shelf.matchfields = 'open_count'
         self.db.modify_shelf(shelf)
         return shelf
 
@@ -82,31 +79,23 @@ class LibrarianCommandEngine(object):
         """ Close a shelf against access by a node.
             In (dict)---
                 shelf_id
-                node_id
-                uid
-                gid
             Out (dict) ---
-                shelf data
+                TMShelf object
         """
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
         set_trace()
-        shelf = self.cmd_list_shelf(aux='id')
+        shelf = TMShelf(self._cmdict)
+        shelf.matchfields = ('id')
+        shelf = self.db.get_shelf(shelf)
         if shelf is None:
             return None
 
-        shelf.mtime = int(time.time())
         shelf.open_count -= 1
-
-        self._cur.UPDATE(
-            'shelves',
-            'mtime=?, open_count=? WHERE id=?',
-            shelf.tuple('mtime', 'open_count', 'id')
-        )
-        self._cur.commit()
+        shelf.matchfields = 'open_count'
+        self.db.modify_shelf(shelf)
         return shelf
-
 
     def cmd_destroy_shelf(cmd_data):
         """ Destroy a shelf and free any books associated with it.
@@ -118,21 +107,13 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf_id = cmd_data["shelf_id"]
-        node_id = cmd_data["node_id"]
-        uid = cmd_data["uid"]
-        gid = cmd_data["gid"]
+        shelf = self.cmd_list_shelf()   # lookup by name
+        if shelf is None:
+            return None
+        assert shelf.open_count <= 0, '%s open count is %d' % (
+                                    shelf.name, shelf.open_count)
 
-        if uid != 0:
-            return '{"error":"Permission denied for non-root user"}'
-
-        resp = db.get_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-
-        if open_count != 0:
-            return '{"error":"Shelf open count is non-zero"}'
-
+        set_trace()
         db_data = db.get_bos_by_shelf(shelf_id)
         for bos in db_data:
             print("bos:", bos)
@@ -151,42 +132,47 @@ class LibrarianCommandEngine(object):
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
             In (dict)---
-                shelf_id
-                node_id
+                name
+                id
                 size_bytes
             Out (dict) ---
                 shelf data
         """
-        set_trace()
-# may pass sub-dict?  or entire dict and field(s)?
-        shelf = self.db.get_shelf(self._cmdict['name'], aux='id')
+
+        # Gonna need book details sooner or later.  Since resizing should
+        # be reasonably infrequent, do some consistency checking now.
+        # Save the idiot checking until later.
+
+        shelf = TMShelf(self._cmdict)   # just for the....
+        shelf.matchfields = ('id')
+        shelf = self.db.get_shelf(shelf)
         if shelf is None:
             return None
 
-        # Gonna need book details sooner or later.  Since resizing should
-        # be reasonably rare, do some consistency checking now.
+        books = self.db.get_bos_by_shelf(shelf)
+        assert len(books) == shelf.book_count, (
+            '%s book count mismatch' % shelf.name)
 
-        books = self.db.get_bos_by_shelf(self._cmdict['shelf_id'])
-        assert len(books) == shelf.book_count
-
+        # other consistency checks
+        assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+            '%s size metadata mismatch' % shelf.name)
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
+        new_book_count = self._nbooks(new_size_bytes)
+
+        # Can I leave real early?
         if new_size_bytes == shelf.size_bytes:
             return shelf
 
+        # How about a little early?
         shelf.size_bytes = new_size_bytes
-        new_book_count = int(math.ceil(new_size_bytes / self._book_size))
-        if not new_book_count:
-            shelf.mtime = int(time.time())
-            self._cur.UPDATE(
-                'shelves',
-                'mtime=?, size_bytes=? WHERE id=?',
-                shelf.tuple('mtime', 'size_bytes', 'id')
-            )
-            self._cur.commit()
+        shelf.matchfields = 'size_bytes'
+        if new_book_count == shelf.book_count:
+            self.db.modify_shelf(shelf)
             return shelf
 
         books_needed = new_book_count - shelf.book_count
+        set_trace()
         if books_needed > 0:
             seq_num = shelf.book_count
             db_data = db.get_book_by_node(node_id, 0, books_needed)
@@ -264,7 +250,7 @@ class LibrarianCommandEngine(object):
 
     _handlers = { }
 
-    def __init__(self, backend, optargs=None):
+    def __init__(self, backend, optargs=None, cooked=False):
         self.db = backend
         self.__class__._book_size = self.db.get_book_size()
         assert self._book_size >= 1024*1024, 'Bad book size in DB'
@@ -276,6 +262,7 @@ class LibrarianCommandEngine(object):
                     ]
         )
         self._handlers.update(tmp)
+        self._cooked = cooked   # return style: raw = dict, cooked = obj
 
     def __call__(self, cmdict):
         try:
@@ -286,7 +273,9 @@ class LibrarianCommandEngine(object):
 
         try:
             ret = handler(self)
-            return ret
+            if self._cooked:
+                return ret
+            raise NotImplementedError('obj2dict')
         except AssertionError as e:     # idiot checks
             msg = str(e)
         except Exception as e:
@@ -327,10 +316,16 @@ if __name__ == '__main__':
         pid=os.getpid()
     )
 
-    lce = LibrarianCommandEngine(LibrarianDBackendSQL(DBfile=sys.argv[1]))
+    # Used to synthesize command dictionaries
     lcp = LibrarianCommandProtocol()
     print(lcp.commandset)
+
+    # For self test, look at prettier results than dictionaries
+    lce = LibrarianCommandEngine(
+                    LibrarianDBackendSQL(DBfile=sys.argv[1]),
+                    cooked=True)
     print(lce.commandset)
+
     print()
     print('Engine missing:',set(lcp.commandset) - set(lce.commandset))
     print('Engine extras: ',set(lce.commandset) - set(lcp.commandset))

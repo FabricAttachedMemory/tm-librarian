@@ -193,7 +193,7 @@ if __name__ == '__main__':
     book_size_bytes, section2books = load_book_data(sys.argv[1])
     create_empty_db(cur)
 
-    cur.execute('INSERT INTO globals VALUES(?)',
+    cur.execute('INSERT INTO globals VALUES(?, ?)',
         ('LIBRARIAN 0.98', book_size_bytes))
 
     for books in section2books.values():
