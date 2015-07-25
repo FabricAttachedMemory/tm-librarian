@@ -14,7 +14,7 @@ from sqlcursors import SQLiteCursor
 from bookshelves import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 
-class LibrarianCommandExecution(object):
+class LibrarianCommandEngine(object):
 
     @classmethod
     def args_init(cls, parser): # sets up things for optargs in __init__
@@ -75,6 +75,8 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 shelf data
         """
+        if aux is not None:
+            set_trace()
         self._cur.execute(
             'SELECT * FROM shelves WHERE name = ?', self._cmdict['name'])
         self._cur.iterclass = TMShelf
@@ -182,6 +184,8 @@ class LibrarianCommandExecution(object):
 
         return '{"success":"Shelf destroyed"}'
 
+
+
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
             In (dict)---
@@ -191,31 +195,39 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 shelf data
         """
-        set_trace()
         shelf = self.cmd_list_shelf(aux='id')
         if shelf is None:
             return None
+
+        # Gonna need book details sooner or later.  Since resizing should
+        # be reasonably rare, do some consistency checking now.
+        # FIXME: is it faster to let SQL sort, or do it here?
+
+        self._cur.execute('SELECT * FROM books_on_shelf
+                           WHERE shelf_id=? ORDER BY seq_num',
+                           shelf.id)
+        self._cur.iterclass = 'default'
+        books = [ r for r in self._cur ]
+        assert len(books) == shelf.
 
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
         if new_size_bytes == shelf.size_bytes:
             return shelf
+
         shelf.size_bytes = new_size_bytes
-        shelf.mtime = int(time.time())
-        self._cur.UPDATE(
-            'shelves',
-            'mtime=?, size_bytes=? WHERE id=?',
-            shelf.tuple('mtime', 'size_bytes', 'id')
-        )
-        self._cur.commit()
-        return shelf
-
         new_book_count = int(math.ceil(new_size_bytes / self._book_size))
-        books_needed = new_book_count - shelf.book_count
         if not new_book_count:
+            shelf.mtime = int(time.time())
+            self._cur.UPDATE(
+                'shelves',
+                'mtime=?, size_bytes=? WHERE id=?',
+                shelf.tuple('mtime', 'size_bytes', 'id')
+            )
+            self._cur.commit()
             return shelf
-        set_trace()
 
+        books_needed = new_book_count - shelf.book_count
         if books_needed > 0:
             seq_num = shelf.book_count
             db_data = db.get_book_by_node(node_id, 0, books_needed)
@@ -270,6 +282,7 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 book data
         """
+        set_trace()
         book_id = cmd_data["book_id"]
         resp = db.get_book_by_id(book_id)
         # todo: fail if book does not exist
@@ -342,13 +355,14 @@ if __name__ == '__main__':
 
     def pp(recvd, data):
         print('Original:', dict(recvd))
-        print('DB response:')
+        print('DB results:')
         if hasattr(data, '__init__'):   # TMBook, GenericObjects, etc
             print(str(data))
         else:
             pprint(data)
         print()
 
+    # Someday this will be fancy
     authdata = GenericObject(
         node_id=1,
         uid=os.geteuid(),
@@ -356,7 +370,7 @@ if __name__ == '__main__':
         pid=os.getpid()
     )
 
-    lce = LibrarianCommandExecution(SQLiteCursor(DBfile=sys.argv[1]))
+    lce = LibrarianCommandEngine(SQLiteCursor(DBfile=sys.argv[1]))
     lcp = LibrarianCommandProtocol()
     print(lcp.commandset)
     print(lce.commandset)

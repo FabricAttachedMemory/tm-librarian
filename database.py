@@ -4,75 +4,9 @@
 #---------------------------------------------------------------------------
 
 import os
-import sqlite3
 import time
 
-DB_FILE = "./librarian_db"
-
-
-class LibrarianDB(object):
-    con = None
-    cur = None
-    db_file = None
-
-    def db_init(self, args):
-        """ Initialize database and create tables if they do not exist.
-            Input---
-              args - command line arguments
-            Output---
-              None
-        """
-        if args.db_memory is True:
-            db_file = ":memory:"
-            print ("Using in memory database: %s" % (db_file))
-        elif args.db_file:
-            db_file = args.db_file
-            print ("Using custom database file: %s" % (db_file))
-        else:
-            db_file = DB_FILE
-            print ("Using default database file: %s" % (db_file))
-
-        print("Connecting to database: %s" % (db_file))
-        self.con = sqlite3.connect(db_file)
-        self.cur = self.con.cursor()
-
-        print("Creating tables in database")
-        table_create = """
-            CREATE TABLE IF NOT EXISTS books (
-            book_id INT PRIMARY KEY,
-            node_id INT,
-            allocated INT,
-            attributes INT,
-            size_bytes INT
-            )
-            """
-        self.cur.execute(table_create)
-
-        table_create = """
-            CREATE TABLE IF NOT EXISTS shelves (
-            shelf_id INT PRIMARY KEY,
-            creator_id INT,
-            size_bytes INT,
-            book_count INT,
-            open_count INT,
-            c_time REAL,
-            m_time REAL,
-            name TEXT
-            )
-            """
-        self.cur.execute(table_create)
-
-        table_create = """
-            CREATE TABLE IF NOT EXISTS books_on_shelf (
-            shelf_id INT,
-            book_id INT,
-            seq_num INT
-            )
-            """
-        self.cur.execute(table_create)
-
-        self.con.commit()
-        return("pass")
+class LibrarianDBackendSQL(object):
 
     #
     # books
@@ -203,7 +137,6 @@ class LibrarianDB(object):
             Output---
               shelf_data or error message
         """
-        print("add shelf to db:", shelf_data)
         try:
             db_query = "INSERT INTO shelves VALUES (?,?,?,?,?,?)"
             self.cur.execute(db_query, shelf_data)
@@ -391,7 +324,7 @@ class LibrarianDB(object):
     # Testing
     #
 
-    def check_tables(self):
+    def check_consisency(self):
         print("check_tables()")
         total_tables = 0
         table_names = []
@@ -434,27 +367,10 @@ class LibrarianDB(object):
     def close(self):
         self.con.close()
 
-
-def db_args_init(parser):
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("--db_memory", action="store_true",
-                       help="use an in memory database")
-    group.add_argument("--db_file",
-                       help="specify the database file, (default = %s)"
-                       % (DB_FILE))
-
 if __name__ == '__main__':
 
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    db_args_init(parser)
-    args = parser.parse_args()
-
-    # Initialize database and check tables
     db = LibrarianDB()
-    db.db_init(args)
-    db.check_tables()
+    db.check_consistency()
 
     #
     # Test "books" methods

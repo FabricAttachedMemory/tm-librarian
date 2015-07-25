@@ -157,7 +157,8 @@ class SQLcursor(object):
         if name != 'execute':
             return realattr
 
-        # Wrap it to use the internal attrs in a callback, hidden from user
+        # Wrap it to use the internal attrs in a callback, hidden from user.
+        # This is where actual execute() occurs and errors can be trapped.
         def exec_wrapper(query, parms=None):
             self.execfail = ''
             try:
@@ -168,7 +169,7 @@ class SQLcursor(object):
                     if not isinstance(parms, tuple):
                         parms = (parms, )
                     self._cursor.execute(query, parms)
-            except Exception as e:
+            except Exception as e:  # includes sqlite3.Error
                 self.execfail = str(e)
             return
         return exec_wrapper
