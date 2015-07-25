@@ -10,7 +10,6 @@ import math
 import sys
 from pdb import set_trace
 
-from sqlcursors import SQLiteCursor
 from bookshelves import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 
@@ -20,24 +19,9 @@ class LibrarianCommandEngine(object):
     def args_init(cls, parser): # sets up things for optargs in __init__
         pass
 
-    _book_size = 0  # read from DB by __init__
+    _book_size = 0  # read from DB
 
     LIBRARIAN_VERSION = 'Librarian v0.01'
-
-    # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
-    # hole-filling.  Explicitly setting id overrides that.  Break it out
-    # in case we switch to a UUID or something else.
-    def _getnextid(self, table):
-        self._cur.execute('SELECT MAX(id) FROM %s' % table)
-        id = self._cur.fetchone()
-        if isinstance(id[0], int):
-            return id[0] + 1
-        # no rows? double check
-        self._cur.execute('SELECT COUNT(id) FROM %s' % table)
-        id = self._cur.fetchone()[0]
-        if id == 0:
-            return 1    # first id is non-zero
-        raise RuntimeError('Cannot discern nextid for ' + table)
 
     def cmd_version(self):
         """ Return librarian version
@@ -55,17 +39,13 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        id = self._getnextid('shelves')
         tmp = int(time.time())
         shelf = TMShelf(
-            id=id,
             ctime=tmp,
             mtime=tmp,
             name=self._cmdict['name'],
         )
-        # Since shelves are indexed on 'name', dupes fail nicely.
-        self._cur.INSERT('shelves', shelf.tuple())
-        self._cur.commit()
+        self.db.create_shelf(shelf)
         return shelf
 
     def cmd_list_shelf(self, aux=None):
@@ -75,20 +55,10 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        if aux is not None:
-            set_trace()
-        self._cur.execute(
-            'SELECT * FROM shelves WHERE name = ?', self._cmdict['name'])
-        self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
-        assert len(shelves) <= 1, 'oopsie'
-        return shelves[0] if shelves else None
+        return self.db.get_shelf(self._cmdict['name'], aux)
 
     def cmd_list_shelves(self):
-        self._cur.execute('SELECT * FROM shelves')
-        self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
-        return shelves
+        return self.db.get_shelf_all()
 
     def cmd_open_shelf(self):
         """ Open a shelf for access by a node.
@@ -100,18 +70,12 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_list_shelf()
+        set_trace()
+        shelf = self.db.get_shelf(self._cmdict['name'])
         if shelf is None:
             return None
-
-        shelf.mtime = int(time.time())
         shelf.open_count += 1
-        self._cur.UPDATE(
-            'shelves',
-            'mtime=?, open_count=? WHERE id=?',
-            shelf.tuple('mtime', 'open_count', 'id')
-        )
-        self._cur.commit()
+        self.db.modify_shelf(shelf)
         return shelf
 
     def cmd_close_shelf(self):
@@ -184,8 +148,6 @@ class LibrarianCommandEngine(object):
 
         return '{"success":"Shelf destroyed"}'
 
-
-
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
             In (dict)---
@@ -195,20 +157,17 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_list_shelf(aux='id')
+        set_trace()
+# may pass sub-dict?  or entire dict and field(s)?
+        shelf = self.db.get_shelf(self._cmdict['name'], aux='id')
         if shelf is None:
             return None
 
         # Gonna need book details sooner or later.  Since resizing should
         # be reasonably rare, do some consistency checking now.
-        # FIXME: is it faster to let SQL sort, or do it here?
 
-        self._cur.execute('SELECT * FROM books_on_shelf
-                           WHERE shelf_id=? ORDER BY seq_num',
-                           shelf.id)
-        self._cur.iterclass = 'default'
-        books = [ r for r in self._cur ]
-        assert len(books) == shelf.
+        books = self.db.get_bos_by_shelf(self._cmdict['shelf_id'])
+        assert len(books) == shelf.book_count
 
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
@@ -289,14 +248,14 @@ class LibrarianCommandEngine(object):
         recvd = dict(zip(book_columns, resp))
         return recvd
 
-    def cmd_list_bos(cmd_data):
+    def cmd_list_bos(self):
         """ List all the books on a given shelf.
             In (dict)---
                 shelf_id
             Out (dict) ---
                 bos data
         """
-        shelf_id = cmd_data["shelf_id"]
+        shelf_id = self._cmdict['shelf_id']
         resp = db.get_bos_by_shelf(shelf_id)
         # todo: fail if shelf does not exist
         recvd = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
@@ -305,7 +264,11 @@ class LibrarianCommandEngine(object):
 
     _handlers = { }
 
-    def __init__(self, cursor, optargs=None):
+    def __init__(self, backend, optargs=None):
+        self.db = backend
+        self.__class__._book_size = self.db.get_book_size()
+        assert self._book_size >= 1024*1024, 'Bad book size in DB'
+
         # Skip 'cmd_' prefix
         tmp = dict( [ (name[4:], func)
                     for (name, func) in self.__class__.__dict__.items() if
@@ -313,37 +276,30 @@ class LibrarianCommandEngine(object):
                     ]
         )
         self._handlers.update(tmp)
-        self._cur = cursor
-        self._cur.execute('SELECT book_size_bytes FROM globals')
-        self.__class__._book_size = self._cur.fetchone()[0]
-        assert self._book_size > 1024*1024, 'Bad book size in DB'
 
     def __call__(self, cmdict):
         try:
-            assert isinstance(cmdict, dict) and 'command' in cmdict
             self._cmdict = cmdict
             handler = self._handlers[self._cmdict['command']]
+        except KeyError as e:
+            raise RuntimeError('Bad lookup on "%s"' % str(e))
+
+        try:
             ret = handler(self)
             return ret
-        except AssertionError as e:
+        except AssertionError as e:     # idiot checks
             msg = str(e)
         except Exception as e:
             msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
             pass
         raise RuntimeError(msg)
+
     @property
     def commandset(self):
         return tuple(sorted(self._handlers.keys()))
 
-def execute_command(cmd_data):
-    """ Execute the correct command handler.
-    """
-    try:
-        cmd = cmd_data["command"]
-        return(command_handlers[cmd](cmd_data))
-    except:
-        return '{"error":"No command key"}'
+###########################################################################
 
 if __name__ == '__main__':
     '''"recvd" is commands/data that would be received from a client.'''
@@ -351,6 +307,7 @@ if __name__ == '__main__':
     import os
     from pprint import pprint
 
+    from database import LibrarianDBackendSQL
     from genericobj import GenericObject
 
     def pp(recvd, data):
@@ -370,7 +327,7 @@ if __name__ == '__main__':
         pid=os.getpid()
     )
 
-    lce = LibrarianCommandEngine(SQLiteCursor(DBfile=sys.argv[1]))
+    lce = LibrarianCommandEngine(LibrarianDBackendSQL(DBfile=sys.argv[1]))
     lcp = LibrarianCommandProtocol()
     print(lcp.commandset)
     print(lce.commandset)
@@ -385,7 +342,7 @@ if __name__ == '__main__':
     for name in ('xyzzy', 'shelf22', 'coke', 'pepsi'):
         recvd = lcp('create_shelf', name=name)
         try:
-            data = lce(recvd)
+            data = lce(recvd)   # only works on fresh DB
         except Exception as e:
             data = e
         pp(recvd, data)
@@ -397,6 +354,7 @@ if __name__ == '__main__':
 
     recvd = lcp('list_shelves')
     data = lce(recvd)
+    assert len(data) >= 4, 'not good'
     pp(recvd, data)
 
     recvd = lcp('open_shelf', name=name)

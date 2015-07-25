@@ -115,12 +115,12 @@ class SQLcursor(object):
         '''Set to None, 'default', or a class with __init__(..., **kwargs)'''
         if cls is None or cls == 'raw':
             self._iterclass = None
-        elif cls == 'default':
+        elif cls in ('default', 'generic'):
             self._iterclass = GenericObject
-        elif hasattr(cls, '__init__'):
+        elif not isinstance(cls, str):
             self._iterclass = cls
         else:
-            raise ValueError('must be None, "default", or a class name')
+            raise ValueError('must be None, "generic", or a class name')
 
     def __iter__(self):
         return self
@@ -129,6 +129,7 @@ class SQLcursor(object):
         '''Fancier than fetchone/many'''
         r = self._cursor.fetchone()
         if not r:
+            self._iterclass = None  # yes, force problems "next time"
             raise StopIteration
         if self._iterclass is None:
             return r
