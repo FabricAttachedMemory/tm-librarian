@@ -8,7 +8,15 @@ from pdb import set_trace
 
 class BookShelfStuff(object):      # could become a mixin
 
+    # If not specified here, the mechanism doesn't work in subclasses.
+    # Obviously this needs an override.  Unfortunately, it doesn't
+    # work to set it in this __init__,  There's probably some way
+    # to do it with metaclasses, that's another day.
+
+    __slots__ = ()
+
     def __init__(self, *args, **kwargs):
+        self.__class__._sorted = tuple(sorted(self._ordered_schema))
         if args:
             assert not kwargs, 'full tuple or kwargs, not both'
             assert len(args) == len(self._ordered_schema), 'bad arg count'
@@ -26,6 +34,7 @@ class BookShelfStuff(object):      # could become a mixin
         for src in (submitted, missing):
             for k, v in src.items():
                 setattr(self, k, v)
+        setattr(self, self._MFname, None)
 
     def __eq__(self, other):
         for k in self._ordered_schema:
@@ -50,9 +59,22 @@ class BookShelfStuff(object):      # could become a mixin
             args = self._ordered_schema
         return tuple([getattr(self, a) for a in args])
 
-    @classmethod
-    def schema(cls):
-        return cls._ordered_schema
+    @property
+    def schema(self):
+        return self._ordered_schema
+
+    # Used for DB searches.  Align with next two property names.
+    _MFname = '_matchfields'
+
+    @property
+    def matchfields(self):
+        return getattr(self, self._MFname)
+
+    @matchfields.setter
+    def matchfields(self, infields):
+        for f in infields:
+            assert f in self._ordered_schmea, 'Bad field %s' % f
+        sgetattr(self, self._MFname, (infields))
 
 #########################################################################
 
@@ -66,9 +88,8 @@ class TMBook(BookShelfStuff):
         'attributes',
     )
 
-    _sorted = tuple(sorted(_ordered_schema))
-
-    __slots__ = frozenset((_ordered_schema))
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
 
 #########################################################################
 
@@ -86,9 +107,8 @@ class TMShelf(BookShelfStuff):
         'name'
     )
 
-    _sorted = tuple(sorted(_ordered_schema))
-
-    __slots__ = frozenset((_ordered_schema))
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
 
 #########################################################################
 
@@ -101,9 +121,8 @@ class TMBos(BookShelfStuff):
         'seq_num'
     )
 
-    _sorted = tuple(sorted(_ordered_schema))
-
-    __slots__ = frozenset((_ordered_schema))
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
 
 #########################################################################
 # Support testing
@@ -114,14 +133,13 @@ if __name__ == '__main__':
 
     cur = SQLiteCursor()    # no args == :memory:
 
-    set_trace()
     book1 = TMBook()
     print(book1)
 
     shelf1 = TMShelf()
     print(shelf1)
+    set_trace()
 
-    mem_db_init(cur)
     fields = cur.schema('books')
     assert set(fields) == set(TMBook._ordered_schema), 'TMBook oopsie'
     fields = cur.schema('shelves')
