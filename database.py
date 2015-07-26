@@ -15,8 +15,9 @@ class LibrarianDBackendSQL(object):
 
     @staticmethod
     def argparse_extend(parser):
-        parser.exclusive_group(bizmumble)
-        pass
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument("--db_file",
+                           help="specify the SQLite3 database file")
 
     def __init__(self, *args, **kwargs):
         self._cur = SQLiteCursor(DBfile=kwargs['DBfile'])
