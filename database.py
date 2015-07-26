@@ -29,7 +29,7 @@ class LibrarianDBackendSQL(object):
         id = self._cur.fetchone()[0]
         if id == 0:
             return 1    # first id is non-zero
-        raise RuntimeError('Cannot discern nextid for ' + table)
+        raise RuntimeError('Cannot calculate nextid for ' + table)
 
     #
     # DB globals
@@ -105,15 +105,11 @@ class LibrarianDBackendSQL(object):
             Output---
               book_data or error message
         """
-        print("get book by id from db:", book_id)
-        try:
-            db_query = "SELECT * FROM books WHERE book_id = ?"
-            self.cur.execute(db_query, (book_id,))
-            book_data = self.cur.fetchone()
-            return(book_data)
-        except sqlite3.Error:
-            return("get_book: error retrieving book [book_id: 0x016xd]"
-                   % (book_id))
+        self._cur.execute('SELECT * FROM books WHERE id=?', (book_id,))
+        self._cur.iterclass = TMBook
+        books = [ r for r in self._cur ]
+        assert len(books) <= 1, 'Matched more than one book'
+        return books[0] if books else None
 
     def get_book_by_node(self, node_id, allocated_value, num_books):
         """ Retrieve book(s) from "books" table using node
@@ -198,28 +194,25 @@ class LibrarianDBackendSQL(object):
         shelves = [ r for r in self._cur ]
         return shelves
 
-    def delete_shelf(self, shelf):
+    def delete_shelf(self, shelf, commit=False):
         """ Delete one shelf from "shelves" table.
             Input---
               shelf_id - id of shelf to delete
             Output---
               shelf_data or error message
         """
-        print("delete shelf from db:", shelf_id)
-        try:
-            db_query = "DELETE FROM shelves WHERE shelf_id = ?"
-            self.cur.execute(db_query, (shelf_id,))
-            return(shelf_id)
-        except sqlite3.Error:
-            return("delete_shelf: error deleting shelf \
-                  [shelf_id: 0x016xd]" % (shelf_id))
+        where = self._fields2qmarks(shelf.schema, ' AND ')
+        self._cur.DELETE('shelves', where, shelf.tuple())
+        if commit:
+            self._cur.commit()
+        return(shelf)
 
     #
-    # books_on_shelf.  Gets are very specific compared to books and shelves.
+    # books_on_shelves.  Gets are very specific compared to books and shelves.
     #
 
     def create_bos(self, bos, commit=False):
-        """ Insert one new bos into "books_on_shelf" table.
+        """ Insert one new bos into "books_on_shelves" table.
             Input---
               bos_data - list of bos data to insert
             Output---
@@ -232,7 +225,7 @@ class LibrarianDBackendSQL(object):
         return(bos)
 
     def get_bos_by_shelf_id(self, shelf_id):
-        """ Retrieve all bos entries from "books_on_shelf" table
+        """ Retrieve all bos entries from "books_on_shelves" table
             given a shelf_id.
             Input---
               shelf_id - shelf identifier
@@ -241,7 +234,7 @@ class LibrarianDBackendSQL(object):
         """
         # FIXME: is it faster to let SQL sort or do it here?
 
-        self._cur.execute('''SELECT * FROM books_on_shelf
+        self._cur.execute('''SELECT * FROM books_on_shelves
                              WHERE shelf_id=? ORDER BY seq_num''',
                           shelf_id)
         self._cur.iterclass = TMBos
@@ -249,14 +242,14 @@ class LibrarianDBackendSQL(object):
         return bos
 
     def get_bos_by_book_id(self, book_id):
-        """ Retrieve all bos entries from "books_on_shelf" table
+        """ Retrieve all bos entries from "books_on_shelves" table
             given a book_id.
             Input---
               book_id - book identifier
             Output---
               bos_data or error message
         """
-        self._cur.execute('''SELECT * FROM books_on_shelf
+        self._cur.execute('''SELECT * FROM books_on_shelves
                              WHERE book_id=? ORDER BY seq_num''',
                           book_id)
         self._cur.iterclass = TMBos
@@ -264,7 +257,7 @@ class LibrarianDBackendSQL(object):
         return bos
 
     def get_bos_all(self):
-        """ Retrieve all bos from "books_on_shelf" table.
+        """ Retrieve all bos from "books_on_shelves" table.
             Input---
               None
             Output---
@@ -272,32 +265,25 @@ class LibrarianDBackendSQL(object):
         """
         print("get all bos from db")
         try:
-            db_query = "SELECT * FROM books_on_shelf"
+            db_query = "SELECT * FROM books_on_shelves"
             self.cur.execute(db_query)
             bos_data = self.cur.fetchall()
             return(bos_data)
         except sqlite3.Error:
             return("get_bos_all: error retrieving all bos")
 
-    def delete_bos(self, bos_data):
-        """ Delete one bos from "books_on_shelf" table.
+    def delete_bos(self, bos, commit=False):
+        """ Delete one bos from "books_on_shelves" table.
             Input---
               bos_data - list of bos data
             Output---
               bos_data or error message
         """
-        print("delete bos from db:", bos_data)
-        try:
-            db_query = """
-                DELETE FROM books_on_shelf
-                WHERE shelf_id = ? AND
-                book_id = ? AND
-                seq_num = ?
-                """
-            self.cur.execute(db_query, bos_data)
-            return(bos_data)
-        except sqlite3.Error:
-            return("delete_bos: error deleting bos", bos_data)
+        where = self._fields2qmarks(bos.schema, ' AND ')
+        self._cur.DELETE('books_on_shelves', where, bos.tuple())
+        if commit:
+            self._cur.commit()
+        return(bos)
 
     #
     # Testing - SQLite 3
@@ -533,7 +519,7 @@ if __name__ == '__main__':
         print("  shelf =", shelf)
 
     #
-    # Test "books_on_shelf" methods
+    # Test "books_on_shelves" methods
     #
 
     # Add a single "books on shelf" (bos) to the database and then get it

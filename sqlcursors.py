@@ -79,6 +79,9 @@ class SQLcursor(object):
     def UPDATE(self, *args):
         raise NotImplementedError   # Left as an exercise to the reader
 
+    def DELETE(self, *args):
+        raise NotImplementedError   # Left as an exercise to the reader
+
     def __init__(self, **kwargs):
         for k in self._defaults:
             if k not in kwargs:
@@ -180,7 +183,6 @@ class SQLcursor(object):
 
 import sqlite3
 
-
 class SQLiteCursor(SQLcursor):
 
     _SQLshowtables = 'SELECT name FROM main.sqlite_master WHERE type="table";'
@@ -207,7 +209,7 @@ class SQLiteCursor(SQLcursor):
 
     def INSERT(self, table, values):
         '''Values are a COMPLETE tuple following ordered schema'''
-        assert len(values), 'oopsie'
+        assert values, 'missing values for INSERT'
         qmarks = ', '.join(['?'] * len(values))
         self.execute(
             'INSERT INTO %s VALUES (%s)' % (table, qmarks),
@@ -219,7 +221,7 @@ class SQLiteCursor(SQLcursor):
                 'INSERT %s failed: %s' % (table, self.execfail))
         if self.rowcount != 1:
             self.rollback()
-            raise AssertionError('INSERT %s failed' % table)
+            raise AssertionError('INSERT INTO %s failed' % table)
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
     def UPDATE(self, table, setclause, values):
@@ -230,6 +232,18 @@ class SQLiteCursor(SQLcursor):
             set_trace()
             self.rollback()
             raise AssertionError('UPDATE %s failed' % table)
+        # DO NOT COMMIT, give caller a chance for multiples or rollback
+
+    # FIXME: move fields2qmarks in here (makes sense), then just pass
+    # pass the data object?  Or do schema manips belong "one level up" ?
+    def DELETE(self, table, where, values):
+        '''Values are a COMPLETE tuple following ordered schema'''
+        assert values, 'missing values for DELETE'
+        sql = 'DELETE FROM %s WHERE %s' % (table, where)
+        self.execute(sql, values)
+        if self.rowcount != 1:
+            self.rollback()
+            raise AssertionError('DELETE FROM %s %sfailed' % (table, values))
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
 ###########################################################################

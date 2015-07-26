@@ -56,12 +56,15 @@ class BookShelfStuff(object):      # could become a mixin
 
     def __str__(self):
         s = []
-        for k in self._sorted:
+        for k in sorted(self._sorted + ('matchfields', )):
             val = getattr(self, k)
             if k.endswith('time'):
                 val = time.ctime(val)
             s.append('{}: {}'.format(k, val))
         return '\n'.join(s)
+
+    def __repr__(self):         # makes "p" work better in pdb
+        return self.__str__()
 
     def __getitem__(self, key):    # and now I'm a dict
         return getattr(self, key)

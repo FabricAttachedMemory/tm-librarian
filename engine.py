@@ -107,20 +107,25 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_list_shelf()   # lookup by name
+        # Do my own join, start with lookup by name
+        shelf = self.cmd_list_shelf()
         if shelf is None:
             return None
-        assert shelf.open_count <= 0, '%s open count is %d' % (
-                                    shelf.name, shelf.open_count)
+        # FIXME: make this an assertion, wedge a "force" option in somewhere
+        if shelf.open_count:
+            print('%s open count is %d' % (shelf.name, shelf.open_count),
+                  file=sys.stderr)
 
-        set_trace()
         bos = self.db.get_bos_by_shelf_id(shelf.id)
         for thisbos in bos:
             self.db.delete_bos(thisbos)
             book = self.db.get_book_by_id(thisbos.book_id)
+            assert book, 'Book lookup failed'
             book.allocated = 2  # zombie
+            book.matchfields = 'allocated'
             book = self.db.modify_book(book)
-        shelf = db.delete_shelf(shelf, commit=True)
+            assert book, 'Book allocation modify failed'
+        return self.db.delete_shelf(shelf, commit=True)
 
 
     def cmd_resize_shelf(self):
@@ -259,23 +264,27 @@ class LibrarianCommandEngine(object):
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
     def __call__(self, cmdict):
+        errmsg = ''
         try:
             self._cmdict = cmdict
             handler = self._handlers[self._cmdict['command']]
         except KeyError as e:
-            raise RuntimeError('Bad lookup on "%s"' % str(e))
+            errmsg = 'Bad lookup on "%s"' % str(e)
 
         try:
+            assert not errmsg, errmsg
             ret = handler(self)
             if self._cooked:
                 return ret
             raise NotImplementedError('obj2dict')
-        except AssertionError as e:     # idiot checks
+        except AssertionError as e:     # consistency checks
             msg = str(e)
-        except Exception as e:
+        except RuntimeError as e:       # idiot checks
             msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-            pass
+        except Exception as e:       # idiot checks
+            msg = 'UNEXPECTED ERROR @ %s[%d]: %s' %  (
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         raise RuntimeError(msg)
 
     @property
@@ -287,18 +296,19 @@ class LibrarianCommandEngine(object):
 if __name__ == '__main__':
     '''"recvd" is commands/data that would be received from a client.'''
 
+    # Use LCP to construct command dictionaries from fixed data.  Those
+    # dictionaries are what would be "received" from real clients
+    # (like TMTetris) use to turn thought into action..
+
     import os
     from pprint import pprint
 
     from database import LibrarianDBackendSQL
 
     def pp(recvd, data):
-        print('Original:', dict(recvd))
-        print('DB results:')
-        if hasattr(data, '__init__'):   # TMBook, GenericObjects, etc
-            print(str(data))
-        else:
-            pprint(data)
+        print('Command:', dict(recvd))
+        print('DB action results:')
+        pprint(data)
         print()
 
     requestor = {
@@ -308,8 +318,6 @@ if __name__ == '__main__':
         'pid': os.getpid()
     }
 
-    # Used to synthesize command dictionaries.  This is what "real"
-    # clients (like TMTetris) use to turn thought into action..
     lcp = LibrarianCommandProtocol(requestor)
     print(lcp.commandset)
 
@@ -324,57 +332,61 @@ if __name__ == '__main__':
     print('Engine extras: ',set(lce.commandset) - set(lcp.commandset))
 
     recvd = lcp('version')
-    data = lce(recvd)
-    pp(recvd, data)
+    version = lce(recvd)
+    pp(recvd, version)
 
     for name in ('xyzzy', 'shelf22', 'coke', 'pepsi'):
         recvd = lcp('create_shelf', name=name)
         try:
-            data = lce(recvd)   # only works on fresh DB
+            shelf = lce(recvd)   # only works on fresh DB
         except Exception as e:
-            data = str(e)
-            if data.startswith('INTERNAL ERROR'):
+            shelf = str(e)
+            if shelf.startswith('INTERNAL ERROR'):
                 set_trace()
                 raise e
-        pp(recvd, data)
+        pp(recvd, shelf)
 
+    # Two ways to get started
     name = 'xyzzy'
     recvd = lcp('list_shelf', name=name)
-    data = lce(recvd)
-    pp(recvd, data)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+
+    recvd = lcp('list_shelf', shelf)    # a pre-existing object with 'name'
+    shelf = lce(recvd)
+    pp(recvd, shelf)
 
     recvd = lcp('list_shelves')
-    data = lce(recvd)
-    assert len(data) >= 4, 'not good'
-    pp(recvd, data)
+    shelves = lce(recvd)
+    assert len(shelves) >= 4, 'not good'
+    pp(recvd, shelf)
 
-    recvd = lcp('open_shelf', name=name)
-    data = lce(recvd)
-    pp(recvd, data)
+    recvd = lcp('open_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (open)')
 
-    # Need to have this fail if shelf is not opened to me
-    data.size_bytes += 42
-    recvd = lcp('resize_shelf', data)
-    data = lce(recvd)
-    pp(recvd, data)
+    # These commands should all fail if shelf is not open to "me".
 
-    # Need to have this fail if shelf is not opened to me
-    recvd = lcp('close_shelf', data)
-    data = lce(recvd)
-    pp(recvd, data)
+    shelf.size_bytes += 42
+    recvd = lcp('resize_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
 
-    # destroy shelf
-    set_trace()
-    print ("destroy/get shelf -----")
-    recvd = {}
-    node_id = 0x0A0A0A0A0A0A0A0A
-    uid = 0
-    gid = 0
-    recvd.update({"command": "destroy_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
+    recvd = lcp('close_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (close)')
+
+    # destroy shelf is just based on the name
+    recvd = lcp('destroy_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (destroy)')
+
+    raise SystemExit(0)
