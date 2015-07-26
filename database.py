@@ -13,6 +13,11 @@ from pdb import set_trace
 
 class LibrarianDBackendSQL(object):
 
+    @staticmethod
+    def argparse_extend(parser):
+        parser.exclusive_group(bizmumble)
+        pass
+
     def __init__(self, *args, **kwargs):
         self._cur = SQLiteCursor(DBfile=kwargs['DBfile'])
 

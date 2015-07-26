@@ -24,6 +24,11 @@ class Encode_Link(Link):
 
 
 class Librarian_Chain(Chain):
+
+    @staticmethod
+    def argparse_extend(parser):
+     pass
+
     def __init__(self):
         super().add_link(Json_Link())
         # temporarily removed to preserve current server code

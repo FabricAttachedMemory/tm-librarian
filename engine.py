@@ -15,12 +15,20 @@ from cmdproto import LibrarianCommandProtocol
 
 class LibrarianCommandEngine(object):
 
+    @staticmethod
+    def argparse_extend(parser):
+        pass
+
     _book_size = 0
     _total_nvm = 0  # read from DB
 
-    @classmethod
-    def args_init(cls, parser): # sets up things for optargs in __init__
-        pass
+    @property
+    def book_size(self):
+        return self._book_size
+
+    @property
+    def total_nvm(self):
+        return self._total_nvm
 
     @classmethod
     def _nbooks(cls, nbytes):
@@ -249,8 +257,10 @@ class LibrarianCommandEngine(object):
         try:
             self.db = backend
             (self.__class__._book_size,
-            self.__class__._total_nvm) = self.db.get_nvm_parameters()
+             self.__class__._total_nvm) = self.db.get_nvm_parameters()
             assert self._book_size >= 1024*1024, 'Bad book size in DB'
+            assert self._total_nvm >= 16 * self._book_size, (
+                'Less than 16 books in NVM pool')
 
             # Skip 'cmd_' prefix
             tmp = dict( [ (name[4:], func)
@@ -369,7 +379,7 @@ if __name__ == '__main__':
 
     # These commands should all fail if shelf is not open to "me".
 
-    shelf.size_bytes += 42
+    shelf.size_bytes = (70 * lce.book_size) / 2  # 35 times book size
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)

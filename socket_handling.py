@@ -96,6 +96,10 @@ class Client(SocketReadWrite):
 class Server(SocketReadWrite):
     """ A simple asynchronous server for the Librarian """
 
+    @staticmethod
+    def argparse_extend(parser):
+     pass
+
     _sock = None
 
     def __init__(self):
