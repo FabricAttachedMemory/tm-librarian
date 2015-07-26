@@ -32,36 +32,71 @@ class LibrarianDBackendSQL(object):
         raise RuntimeError('Cannot discern nextid for ' + table)
 
     #
-    # globals
+    # DB globals
     #
 
     def get_version(self):
         self._cur.execute('SELECT schema_version FROM globals')
         return self._cur.fetchone()[0]
 
-    def get_book_size(self):
-        self._cur.execute('SELECT book_size_bytes FROM globals')
-        return int(self._cur.fetchone()[0])
+    def get_nvm_parameters(self):
+        self._cur.execute(
+            'SELECT book_size_bytes, total_nvm_bytes FROM globals')
+        return self._cur.fetchone()
 
     #
-    # books
+    # DB modifies.  Grouped like this to see similarites.
     #
 
-    def create_book(self, book_data):
-        """ Insert one new book into "books" table.
+    @staticmethod
+    def _fields2qmarks(fields, joiner):
+        q = [ '%s=?' % f for  f in fields ]
+        return joiner.join(q)
+
+    # matchfields provide the core of the SET clause and were set by
+    # the importer.  Localmods fields were done in the direct caller
+    # of this routine.  Those two field sets must be disjoint.
+
+    def _modify_table(self, table, obj, localmods, commit):
+        assert hasattr(obj, 'id'), 'object ineligible for this routine'
+        assert obj.matchfields, 'Missing field(s) for matching'
+
+        # id will be the WHERE clause and thus must come last
+        id = ('id', )
+        cantmatch = localmods + id
+        tmp = set(obj.matchfields).intersection(set(cantmatch))
+        assert not tmp, 'Bad matchfields %s' % str(tmp)
+
+        fields = obj.matchfields + localmods
+        qmarks = self._fields2qmarks(fields, ', ')
+        setwhere = '%s WHERE id=?' % qmarks
+        self._cur.UPDATE(table, setwhere, obj.tuple(fields + id))
+        if commit:
+            self._cur.commit()
+        return obj
+
+    def modify_book(self, book, commit=False):
+        """ Modify book data in "books" table.
             Input---
-              book_data - list of book data to insert
+              book_data - list of new book data
             Output---
               book_data or error message
         """
-        print("add book to db:", book_data)
-        try:
-            db_query = "INSERT INTO books VALUES (?,?,?,?,?)"
-            self.cur.execute(db_query, book_data)
-            self.con.commit()
-            return(book_data)
-        except sqlite3.Error:
-            return("create_book: error inserting new book")
+        return self._modify_table('books', book, (), commit)
+
+    def modify_shelf(self, shelf, commit=False):
+        """ Modify shelf data in "shelves" table.
+            Input---
+              shelf_data - list of new shelf data
+            Output---
+              shelf_data or error message
+        """
+        shelf.mtime = int(time.time())
+        return self._modify_table('shelves', shelf, ('mtime', ), commit)
+
+    #
+    # DB books
+    #
 
     def get_book_by_id(self, book_id):
         """ Retrieve one book from "books" table.
@@ -80,7 +115,7 @@ class LibrarianDBackendSQL(object):
             return("get_book: error retrieving book [book_id: 0x016xd]"
                    % (book_id))
 
-    def get_book_by_node(self, node_id, status, num_rows):
+    def get_book_by_node(self, node_id, allocated_value, num_books):
         """ Retrieve book(s) from "books" table using node
             Input---
               node_id - id of node to filter on
@@ -89,20 +124,16 @@ class LibrarianDBackendSQL(object):
             Output---
               book_data or error message
         """
-        print("get book by node from db:", node_id)
-        try:
-            db_query = """
+        db_query = """
                 SELECT * FROM books
                 WHERE node_id = ? AND
-                status = ?
+                allocated = ?
                 LIMIT ?
             """
-            self.cur.execute(db_query, (node_id, status, num_rows))
-            book_data = self.cur.fetchall()
-            return(book_data)
-        except sqlite3.Error:
-            return("get_book_by_node: error retrieving book [node_id: 0x016xd]"
-                   % (node_id))
+        self._cur.execute(db_query, (node_id, allocated_value, num_books))
+        self._cur.iterclass = TMBook
+        book_data = [ r for r in self._cur ]
+        return(book_data)
 
     def get_book_all(self):
         """ Retrieve all books from "books" table.
@@ -120,52 +151,11 @@ class LibrarianDBackendSQL(object):
         except sqlite3.Error:
             return("get_book_all: error retrieving all books")
 
-    def modify_book(self, book_data):
-        """ Modify book data in "books" table.
-            Input---
-              book_data - list of new book data
-            Output---
-              book_data or error message
-        """
-        print("modify book in db:", book_data)
-        book_id, node_id, status, attributes, size_bytes = (book_data)
-        try:
-            db_query = """
-                UPDATE books SET
-                node_id = ?,
-                status = ?,
-                attributes = ?,
-                size_bytes = ?
-                WHERE book_id = ?
-                """
-            self.cur.execute(db_query, (node_id, status,
-                             attributes, size_bytes, book_id))
-            self.con.commit()
-            return(book_data)
-        except sqlite3.Error:
-            return("modify_book: error modifying existing book data")
-
-    def delete_book(self, book_id):
-        """ Delete one book from "books" table.
-            Input---
-              book_id - id of book to delete
-            Output---
-              book_data or error message
-        """
-        print("delete book from db:", book_id)
-        try:
-            db_query = "DELETE FROM books WHERE book_id = ?"
-            self.cur.execute(db_query, (book_id,))
-            return(book_id)
-        except sqlite3.Error:
-            return("delete_book: error deleting book [book_id: 0x016xd]"
-                   % (book_id))
-
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
     #
 
-    def create_shelf(self, shelf):
+    def create_shelf(self, shelf, commit=False):
         """ Insert one new shelf into "shelves" table.
             Input---
               shelf_data - list of shelf data to insert
@@ -176,13 +166,9 @@ class LibrarianDBackendSQL(object):
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
         self._cur.INSERT('shelves', shelf.tuple())
-        self._cur.commit()
+        if commit:
+            self._cur.commit()
         return shelf
-
-    @staticmethod
-    def _fields2qmarks(fields, joiner):
-        q = [ '%s=?' % f for  f in fields ]
-        return joiner.join(q)
 
     def get_shelf(self, shelf):
         """ Retrieve one shelf from "shelves" table.
@@ -212,47 +198,6 @@ class LibrarianDBackendSQL(object):
         shelves = [ r for r in self._cur ]
         return shelves
 
-    def modify_shelf(self, shelf, commit=True):
-        """ Modify shelf data in "shelves" table.
-            Input---
-              shelf_data - list of new shelf data
-            Output---
-              shelf_data or error message
-        """
-        fields = shelf.matchfields
-        assert fields, 'Missing field(s) for update'
-        reserved = ('mtime', 'id')
-        for f in reserved:
-            assert f not in fields, 'Bad setfield %s' % f
-        qmarks = self._fields2qmarks(fields, ', ')
-        sql = qmarks + ', mtime=? WHERE id=?'
-        fields = fields + reserved
-        shelf.mtime = int(time.time())
-        self._cur.UPDATE('shelves', sql, shelf.tuple(fields))
-        if commit:
-            self._cur.commit()
-        return shelf
-
-        print("modify shelf in db:", shelf_data)
-        shelf_id, size_bytes, book_count, open_count, \
-            c_time, m_time = (shelf_data)
-        try:
-            db_query = """
-                UPDATE shelves SET
-                size_bytes = ?,
-                book_count = ?,
-                open_count = ?,
-                c_time = ?,
-                m_time = ?
-                WHERE shelf_id = ?
-                """
-            self.cur.execute(db_query, (size_bytes, book_count, open_count,
-                             c_time, m_time, shelf_id))
-            self.con.commit()
-            return(shelf_data)
-        except sqlite3.Error:
-            return("modify_shelf: error modifying existing shelf data")
-
     def delete_shelf(self, shelf):
         """ Delete one shelf from "shelves" table.
             Input---
@@ -270,10 +215,10 @@ class LibrarianDBackendSQL(object):
                   [shelf_id: 0x016xd]" % (shelf_id))
 
     #
-    # books_on_shelf
+    # books_on_shelf.  Gets are very specific compared to books and shelves.
     #
 
-    def create_bos(self, bos_data):
+    def create_bos(self, bos, commit=False):
         """ Insert one new bos into "books_on_shelf" table.
             Input---
               bos_data - list of bos data to insert
@@ -281,16 +226,12 @@ class LibrarianDBackendSQL(object):
               status: success = 0
                       failure = -1
         """
-        print("add bos to db:", bos_data)
-        try:
-            db_query = "INSERT INTO books_on_shelf VALUES (?,?,?)"
-            self.cur.execute(db_query, bos_data)
-            self.con.commit()
-            return(bos_data)
-        except sqlite3.Error:
-            return("create_bos: error inserting new bos")
+        self._cur.INSERT('books_on_shelves', bos.tuple())
+        if commit:
+            self._cur.commit()
+        return(bos)
 
-    def get_bos_by_shelf(self, shelf):
+    def get_bos_by_shelf_id(self, shelf_id):
         """ Retrieve all bos entries from "books_on_shelf" table
             given a shelf_id.
             Input---
@@ -302,12 +243,12 @@ class LibrarianDBackendSQL(object):
 
         self._cur.execute('''SELECT * FROM books_on_shelf
                              WHERE shelf_id=? ORDER BY seq_num''',
-                          shelf.id)
+                          shelf_id)
         self._cur.iterclass = TMBos
-        books = [ r for r in self._cur ]
-        return books
+        bos = [ r for r in self._cur ]
+        return bos
 
-    def get_bos_by_book(self, book_id):
+    def get_bos_by_book_id(self, book_id):
         """ Retrieve all bos entries from "books_on_shelf" table
             given a book_id.
             Input---
@@ -315,19 +256,12 @@ class LibrarianDBackendSQL(object):
             Output---
               bos_data or error message
         """
-        print("get bos by book from db:", book_id)
-        set_trace()
-        try:
-            db_query = """
-                SELECT * FROM books_on_shelf
-                WHERE book_id = ?
-                """
-            self.cur.execute(db_query, (book_id,))
-            bos_data = self.cur.fetchall()
-            return(bos_data)
-        except sqlite3.Error:
-            return("get_bos_by_book: error retrieving bos \
-                   [book_id: 0x016xd]" % (book_id))
+        self._cur.execute('''SELECT * FROM books_on_shelf
+                             WHERE book_id=? ORDER BY seq_num''',
+                          book_id)
+        self._cur.iterclass = TMBos
+        bos = [ r for r in self._cur ]
+        return bos
 
     def get_bos_all(self):
         """ Retrieve all bos from "books_on_shelf" table.

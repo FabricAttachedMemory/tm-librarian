@@ -113,7 +113,9 @@ def create_empty_db(cur):
     table_create = """
         CREATE TABLE globals (
         schema_version TEXT,
-        book_size_bytes INT
+        book_size_bytes INT,
+        total_nvm_bytes INT
+
         )
         """
     cur.execute(table_create)
@@ -193,14 +195,18 @@ if __name__ == '__main__':
     book_size_bytes, section2books = load_book_data(sys.argv[1])
     create_empty_db(cur)
 
-    cur.execute('INSERT INTO globals VALUES(?, ?)',
-        ('LIBRARIAN 0.98', book_size_bytes))
-
+    total_nvm_bytes = 0
     for books in section2books.values():
+        total_nvm_bytes += len(books) * book_size_bytes
         for book in books:
-            cur.execute('INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
+            cur.execute(
+                'INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
+        cur.commit()    # every section; about 1000 in a real TM node
 
+    cur.execute('INSERT INTO globals VALUES(?, ?, ?)',
+        ('LIBRARIAN 0.98', book_size_bytes, total_nvm_bytes))
     cur.commit()
+
     cur.close()
 
     raise SystemExit(0)

@@ -151,8 +151,9 @@ class SQLcursor(object):
             self._cursor = self._conn = None
             return conn.close if cur is not None else (lambda: False)
 
-        if name == 'commit':
-            return self._conn.commit
+        # Connection methods.  'execute' is a special case, handled below.
+        if name in ('commit', 'rollback'):
+            return getattr(self._conn, name)
 
         realattr = self._cursor.__getattribute__(name)
         if name != 'execute':
@@ -223,8 +224,10 @@ class SQLiteCursor(SQLcursor):
 
     def UPDATE(self, table, setclause, values):
         '''setclause is effective key=val, key=val sequence'''
-        self.execute('UPDATE %s SET %s' % (table, setclause), values)
-        if not self.rowcount == 1:
+        sql = 'UPDATE %s SET %s' % (table, setclause)
+        self.execute(sql, values)
+        if self.rowcount != 1:
+            set_trace()
             self.rollback()
             raise AssertionError('UPDATE %s failed' % table)
         # DO NOT COMMIT, give caller a chance for multiples or rollback

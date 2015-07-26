@@ -15,7 +15,8 @@ from cmdproto import LibrarianCommandProtocol
 
 class LibrarianCommandEngine(object):
 
-    _book_size = 0  # read from DB
+    _book_size = 0
+    _total_nvm = 0  # read from DB
 
     @classmethod
     def args_init(cls, parser): # sets up things for optargs in __init__
@@ -41,7 +42,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        return self.db.create_shelf(TMSHelf(self._cmdict))
+        return self.db.create_shelf(TMShelf(self._cmdict), commit=True)
 
     def cmd_list_shelf(self):        # By name only
         """ List a given shelf.
@@ -72,7 +73,7 @@ class LibrarianCommandEngine(object):
             return None
         shelf.open_count += 1
         shelf.matchfields = 'open_count'
-        self.db.modify_shelf(shelf)
+        self.db.modify_shelf(shelf, commit=True)
         return shelf
 
     def cmd_close_shelf(self):
@@ -85,7 +86,6 @@ class LibrarianCommandEngine(object):
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
-        set_trace()
         shelf = TMShelf(self._cmdict)
         shelf.matchfields = ('id')
         shelf = self.db.get_shelf(shelf)
@@ -94,10 +94,10 @@ class LibrarianCommandEngine(object):
 
         shelf.open_count -= 1
         shelf.matchfields = 'open_count'
-        self.db.modify_shelf(shelf)
+        self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-    def cmd_destroy_shelf(cmd_data):
+    def cmd_destroy_shelf(self):
         """ Destroy a shelf and free any books associated with it.
             In (dict)---
                 shelf_id
@@ -114,20 +114,14 @@ class LibrarianCommandEngine(object):
                                     shelf.name, shelf.open_count)
 
         set_trace()
-        db_data = db.get_bos_by_shelf(shelf_id)
-        for bos in db_data:
-            print("bos:", bos)
-            shelf_id, book_id, seq_num = (bos)
-            db_data = db.delete_bos(bos)
-            book_data = db.get_book_by_id(book_id)
-            book_id, node_id, status, attributes, size_bytes = (book_data)
-            book_data = (book_id, node_id, 0, attributes, size_bytes)
-            db_data = db.modify_book(book_data)
+        bos = self.db.get_bos_by_shelf_id(shelf.id)
+        for thisbos in bos:
+            self.db.delete_bos(thisbos)
+            book = self.db.get_book_by_id(thisbos.book_id)
+            book.allocated = 2  # zombie
+            book = self.db.modify_book(book)
+        shelf = db.delete_shelf(shelf, commit=True)
 
-        # Delete shelf
-        db_data = db.delete_shelf(shelf_id)
-
-        return '{"success":"Shelf destroyed"}'
 
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
@@ -149,8 +143,8 @@ class LibrarianCommandEngine(object):
         if shelf is None:
             return None
 
-        books = self.db.get_bos_by_shelf(shelf)
-        assert len(books) == shelf.book_count, (
+        bos = self.db.get_bos_by_shelf_id(shelf.id)
+        assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
 
         # other consistency checks
@@ -159,56 +153,56 @@ class LibrarianCommandEngine(object):
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
+        if bos:
+            seqs = [ b.seq_num for b in bos ]
+            assert set(seqs) == set(range(1, shelf.book_count + 1)), (
+                'Corrupt BOS sequence progression for %s' % shelf.name)
 
         # Can I leave real early?
         if new_size_bytes == shelf.size_bytes:
             return shelf
+        shelf.size_bytes = new_size_bytes
 
         # How about a little early?
-        shelf.size_bytes = new_size_bytes
-        shelf.matchfields = 'size_bytes'
         if new_book_count == shelf.book_count:
-            self.db.modify_shelf(shelf)
+            shelf.matchfields = 'size_bytes'
+            shelf = self.db.modify_shelf(shelf, commit=True)
             return shelf
 
         books_needed = new_book_count - shelf.book_count
-        set_trace()
+        node_id = self._cmdict['requestor']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
-            db_data = db.get_book_by_node(node_id, 0, books_needed)
-            # todo: check we got back enough books
-            for book in db_data:
-                # Mark book in use and create BOS entry
+            freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
+            assert len(freebooks) == books_needed, (
+                'ENOSPC on node %d' % node_id)
+            for book in freebooks: # Mark book in use and create BOS entry
+                book.allocated = 1
+                book.matchfields = 'allocated'
+                book = self.db.modify_book(book)
                 seq_num += 1
-                book_id, node_id, status, attributes, size_bytes = (book)
-                book_data = (book_id, node_id, 1, attributes, size_bytes)
-                db_data = db.modify_book(book_data)
-                bos_data = (shelf_id, book_id, seq_num)
-                db_data = db.create_bos(bos_data)
+                thisbos = TMBos(
+                    shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
+                thisbos = self.db.create_bos(thisbos)
         elif books_needed < 0:
-            print("remove books")
-            books_del = 0
-            db_data = db.get_bos_by_shelf(shelf_id)
-            for bos in reversed(db_data):
-                shelf_id, book_id, seq_num = (bos)
-                bos_data = (shelf_id, book_id, seq_num)
-                bos_info = db.delete_bos(bos_data)
-                book_data = db.get_book_by_id(book_id)
-                book_id, node_id, status, attributes, size_bytes = (book_data)
-                book_data = (book_id, node_id, 0, attributes, size_bytes)
-                book_data = db.modify_book(book_data)
-                books_del -= 1
-                if books_del == books_needed:
-                    break
+            books_needed = -books_needed    # it all reads so much better
+            assert len(bos) >= books_needs, 'Book removal problem'
+            set_trace()
+            while books_needed > 0:
+                thisbos = bos.pop()
+                db.delete_bos(thisbos)
+                book = db.get_book_by_id(thisbos.book_id)
+                book.allocated = 2  # zombie
+                db.modify_book(book)
+                books_needed -= 1
+        else:
+            self.db.rollback()
+            raise RuntimeError('Bad code path in shelf_resize()')
 
-        shelf_data = (shelf_id, new_size_bytes, new_book_count,
-                      open_count, c_time, m_time)
-        db_data = db.modify_shelf(shelf_data)
-
-        resp = db.get_shelf(shelf_id)
-        recvd = dict(zip(shelf_columns, resp))
-
-        return recvd
+        shelf.book_count = new_book_count
+        shelf.matchfields = ('size_bytes', 'book_count')
+        shelf = self.db.modify_shelf(shelf, commit=True)
+        return shelf
 
 
     def cmd_get_shelf_zaddr(cmd_data):
@@ -242,27 +236,27 @@ class LibrarianCommandEngine(object):
                 bos data
         """
         shelf_id = self._cmdict['shelf_id']
-        resp = db.get_bos_by_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        recvd = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
-                    for shelf_id, book_id, seq_num in resp]
-        return recvd
+        bos = db.get_bos_by_shelf_id(shelf_id)
 
     _handlers = { }
 
     def __init__(self, backend, optargs=None, cooked=False):
-        self.db = backend
-        self.__class__._book_size = self.db.get_book_size()
-        assert self._book_size >= 1024*1024, 'Bad book size in DB'
+        try:
+            self.db = backend
+            (self.__class__._book_size,
+            self.__class__._total_nvm) = self.db.get_nvm_parameters()
+            assert self._book_size >= 1024*1024, 'Bad book size in DB'
 
-        # Skip 'cmd_' prefix
-        tmp = dict( [ (name[4:], func)
-                    for (name, func) in self.__class__.__dict__.items() if
-                        name.startswith('cmd_')
-                    ]
-        )
-        self._handlers.update(tmp)
-        self._cooked = cooked   # return style: raw = dict, cooked = obj
+            # Skip 'cmd_' prefix
+            tmp = dict( [ (name[4:], func)
+                        for (name, func) in self.__class__.__dict__.items() if
+                            name.startswith('cmd_')
+                        ]
+            )
+            self._handlers.update(tmp)
+            self._cooked = cooked   # return style: raw = dict, cooked = obj
+        except Exception as e:
+            raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
     def __call__(self, cmdict):
         try:
@@ -297,7 +291,6 @@ if __name__ == '__main__':
     from pprint import pprint
 
     from database import LibrarianDBackendSQL
-    from genericobj import GenericObject
 
     def pp(recvd, data):
         print('Original:', dict(recvd))
@@ -308,16 +301,16 @@ if __name__ == '__main__':
             pprint(data)
         print()
 
-    # Someday this will be fancy
-    authdata = GenericObject(
-        node_id=1,
-        uid=os.geteuid(),
-        gid=os.getegid(),
-        pid=os.getpid()
-    )
+    requestor = {
+        'node_id': 1,
+        'uid': os.geteuid(),
+        'gid': os.getegid(),
+        'pid': os.getpid()
+    }
 
-    # Used to synthesize command dictionaries
-    lcp = LibrarianCommandProtocol()
+    # Used to synthesize command dictionaries.  This is what "real"
+    # clients (like TMTetris) use to turn thought into action..
+    lcp = LibrarianCommandProtocol(requestor)
     print(lcp.commandset)
 
     # For self test, look at prettier results than dictionaries
@@ -339,7 +332,10 @@ if __name__ == '__main__':
         try:
             data = lce(recvd)   # only works on fresh DB
         except Exception as e:
-            data = e
+            data = str(e)
+            if data.startswith('INTERNAL ERROR'):
+                set_trace()
+                raise e
         pp(recvd, data)
 
     name = 'xyzzy'

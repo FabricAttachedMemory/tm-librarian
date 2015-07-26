@@ -66,18 +66,14 @@ class LibrarianCommandProtocol(object):
         respdict['parms'] = go.parms
         return respdict
 
+    def __init__(self, requestor=None):
+        self._requestor = { } if not requestor else requestor
+        self._auth = { }
+
     def __call__(self, command, *args, **kwargs):
         '''Accept additional parameters as positional args, keywords,
            or a dictionary.'''
         go = self._commands[command]    # natural keyerror is fine here
-
-        # stub for now
-        try:
-            auth = kwargs['auth']
-            del kwargs['auth']
-            assert isinstance(auth, dict), 'auth object is not a dictionary'
-        except KeyError:    # let assertion through
-            auth = None
 
         assert not (args and kwargs), 'Pos/keyword args are mutually exclusive'
         respdict = OrderedDict((('command', command), ))
@@ -108,8 +104,7 @@ class LibrarianCommandProtocol(object):
             else:
                 assert go.parms is None, 'Missing parameter(s)'
 
-            if auth is not None:
-                respdict.update(auth)
+            respdict['requestor'] = self._requestor
             return respdict
 
         except AssertionError as e:

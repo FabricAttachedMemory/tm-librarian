@@ -33,7 +33,7 @@ class BookShelfStuff(object):      # could become a mixin
             missing = {}
         else:
             submitted = frozenset(kwargs.keys())
-            missing = self.__slots__ - submitted
+            missing = self.__slots__ - submitted - set((self._MFname,))
             if False and not self.__slots__.issubset(submitted):
                 print('Missing fields "%s"' % (
                     ', '.join(sorted([k for k in missing]))))
@@ -177,8 +177,6 @@ if __name__ == '__main__':
     tmp = cur.execute(sql).fetchone()
     plagiarize = TMBook(*tmp)
     print(book1 == plagiarize)
-
-    pass
 
     cur.close()
 
