@@ -45,15 +45,14 @@ class LibrarianFSd(Operations):
         try:
             self.port = int(elems[1])
         except Exception, e:
-            self.port = 9090
+            self.port = 9093
+        self.lcp = LibrarianCommandProtocol()
 
-    # Mount and unmount
-    # =================
-    # root is usually ('/', ) probably influenced by FuSE builtin option.
+    # start with mount/unmount.  root is usually ('/', ) probably
+    # influenced by FuSE builtin option.
 
     def init(self, root):
         try:
-            set_trace()
             self.tormsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tormsock.connect((self.host, self.port))
         except Exception, e:
@@ -73,8 +72,7 @@ class LibrarianFSd(Operations):
             pass
         del self.tormsock
 
-    # Helpers
-    # =======
+    # helpers
 
     # Round 1: flat namespace at / requires a leading / and no others
     @staticmethod
@@ -91,12 +89,12 @@ class LibrarianFSd(Operations):
     # Second level: tenant group
     # Third level:  shelves
 
-    def librarian(self, cmd, trace=False):
+    def librarian(self, cmd, trace=True):
         '''Dictionary in, dictionary out'''
         if trace:
             set_trace()
         try:
-            cmd['cmd']  # idiot check: is it a dict with this keyword
+            cmd['command']  # idiot check: is it a dict with this keyword
             cmdJS = json.dumps(cmd)
             cmdJSenc = cmdJS.encode()
         except Exception, e:
@@ -118,8 +116,7 @@ class LibrarianFSd(Operations):
 
         return rsp
 
-    # Filesystem methods
-    # ==================
+    # Higher-level FS operations
 
     # Called early on nearly all accesses
     @prentry
@@ -139,11 +136,13 @@ class LibrarianFSd(Operations):
             tmp.update(self._basetimes)
             return tmp
 
-        rsp = self.librarian({
-                                'cmd':          'listshelf',
-                                'shelf_name':   shelf_name,
-                             })
-        if rsp['shelf_name'] != shelf_name:
+        set_trace()
+        req1 = { 'command':  'list_shelf', 'name': shelf_name }
+        req2 = self.lcp('list_shelf', name=shelf_name)
+        rsp = self.librarian(req2)
+        try:
+            assert rsp['name'] == shelf_name
+        except Exception as e:
             raise FuseOSError(errno.ENOENT)
 
         tmp = {

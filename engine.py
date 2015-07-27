@@ -273,20 +273,26 @@ class LibrarianCommandEngine(object):
         except Exception as e:
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
+    def _obj2dict(self, resp):
+        if resp is None:
+            return {'command': self._cmdict['command']}
+        set_trace()
+        pass
+
     def __call__(self, cmdict):
         errmsg = ''
         try:
             self._cmdict = cmdict
             handler = self._handlers[self._cmdict['command']]
         except KeyError as e:
+            set_trace()
             errmsg = 'Bad lookup on "%s"' % str(e)
+            return None
 
         try:
             assert not errmsg, errmsg
             ret = handler(self)
-            if self._cooked:
-                return ret
-            raise NotImplementedError('obj2dict')
+            return ret if self._cooked else self._obj2dict(ret)
         except AssertionError as e:     # consistency checks
             msg = str(e)
         except RuntimeError as e:       # idiot checks

@@ -32,6 +32,6 @@ try:
 except Exception as e:
     print(str(e))
 
-backed.close()
+backend.close()
 
 raise SystemExit(0)
