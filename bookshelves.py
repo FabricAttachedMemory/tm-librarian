@@ -104,6 +104,10 @@ class BookShelfStuff(object):      # could become a mixin
 
 class TMBook(BookShelfStuff):
 
+    ALLOC_FREE = 0
+    ALLOC_INUSE = 1
+    ALLOC_ZOMBIE = 2
+
     _ordered_schema = (  # a little dodgy
         'id',
         'node_id',
