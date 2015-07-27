@@ -190,15 +190,15 @@ class SQLiteCursor(SQLcursor):
 
     def DBconnect(self):
         try:
-            self._conn = sqlite3.connect(self.DBfile)
+            self._conn = sqlite3.connect(self.db_file)
             self._cursor = self._conn.cursor()
         except Exception as e:
             raise
         pass
 
     def __init__(self, **kwargs):
-        if not 'DBfile' in kwargs:
-            kwargs['DBfile'] = ':memory:'
+        if not 'db_file' in kwargs:
+            kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
 
     def schema(self, table):

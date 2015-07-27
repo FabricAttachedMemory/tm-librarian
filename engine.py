@@ -129,7 +129,7 @@ class LibrarianCommandEngine(object):
             self.db.delete_bos(thisbos)
             book = self.db.get_book_by_id(thisbos.book_id)
             assert book, 'Book lookup failed'
-            book.allocated = 2  # zombie
+            book.allocated = TMBook.ALLOC_ZOMBIE
             book.matchfields = 'allocated'
             book = self.db.modify_book(book)
             assert book, 'Book allocation modify failed'
@@ -190,7 +190,7 @@ class LibrarianCommandEngine(object):
             assert len(freebooks) == books_needed, (
                 'ENOSPC on node %d' % node_id)
             for book in freebooks: # Mark book in use and create BOS entry
-                book.allocated = 1
+                book.allocated = TMBook.ALLOC_INUSE
                 book.matchfields = 'allocated'
                 book = self.db.modify_book(book)
                 seq_num += 1
@@ -205,7 +205,7 @@ class LibrarianCommandEngine(object):
                 thisbos = bos.pop()
                 db.delete_bos(thisbos)
                 book = db.get_book_by_id(thisbos.book_id)
-                book.allocated = 2  # zombie
+                book.allocated = TMBook.ALLOC_ZOMBIE
                 db.modify_book(book)
                 books_needed -= 1
         else:
@@ -311,6 +311,7 @@ if __name__ == '__main__':
     # (like TMTetris) use to turn thought into action..
 
     import os
+    from argparse import Namespace
     from pprint import pprint
 
     from database import LibrarianDBackendSQL
@@ -331,9 +332,11 @@ if __name__ == '__main__':
     lcp = LibrarianCommandProtocol(requestor)
     print(lcp.commandset)
 
-    # For self test, look at prettier results than dictionaries
+    # For self test, look at prettier results than dictionaries.
+    # Namespace is the end result of an argparse sequence.
+    args = Namespace(db_file=sys.argv[1])
     lce = LibrarianCommandEngine(
-                    LibrarianDBackendSQL(DBfile=sys.argv[1]),
+                    LibrarianDBackendSQL(args),
                     cooked=True)
     print(lce.commandset)
 

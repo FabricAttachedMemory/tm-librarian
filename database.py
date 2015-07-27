@@ -11,16 +11,19 @@ from sqlcursors import SQLiteCursor
 
 from pdb import set_trace
 
+#--------------------------------------------------------------------------
+
 class LibrarianDBackendSQL(object):
 
     @staticmethod
     def argparse_extend(parser):
-        group = parser.add_mutually_exclusive_group()
-        group.add_argument("--db_file",
-                           help="specify the SQLite3 database file")
+        # group = parser.add_mutually_exclusive_group()
+        parser.add_argument('--db_file',
+                           help='specify the SQLite3 database file',
+                           required=True)
 
-    def __init__(self, *args, **kwargs):
-        self._cur = SQLiteCursor(DBfile=kwargs['DBfile'])
+    def __init__(self, args):
+        self._cur = SQLiteCursor(db_file=args.db_file)
 
     # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
     # hole-filling.  Explicitly setting id overrides that.  Break it out
@@ -35,7 +38,7 @@ class LibrarianDBackendSQL(object):
         id = self._cur.fetchone()[0]
         if id == 0:
             return 1    # first id is non-zero
-        raise RuntimeError('Cannot calculate nextid for ' + table)
+        raise RuntimeError('Cannot calculate nextid for %s' % table)
 
     #
     # DB globals
@@ -46,6 +49,7 @@ class LibrarianDBackendSQL(object):
         return self._cur.fetchone()[0]
 
     def get_nvm_parameters(self):
+        '''Returns duple(book_size, total_nvm)'''
         self._cur.execute(
             'SELECT book_size_bytes, total_nvm_bytes FROM globals')
         return self._cur.fetchone()
