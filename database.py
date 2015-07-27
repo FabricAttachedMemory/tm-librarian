@@ -19,7 +19,7 @@ class LibrarianDBackendSQL(object):
     def argparse_extend(parser):
         # group = parser.add_mutually_exclusive_group()
         parser.add_argument('--db_file',
-                           help='specify the SQLite3 database file',
+                           help='SQLite3 database backing store file',
                            required=True)
 
     def __init__(self, args):
