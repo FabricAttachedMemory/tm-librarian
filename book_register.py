@@ -68,41 +68,74 @@ def load_book_data(inifile):
     if not config.has_section("global"):
         usage("Missing global section in config file: %s" % inifile)
 
+    # Get required global config items
+    section = 'global'
+    node_count = int(config.get(section, 'node_count'))
+    book_size_bytes = multiplier(
+        config.get(section, 'book_size_bytes'), section)
+
+    # If optional item 'bytes_per_node' is there, loop it out.
+
+    try:
+        bytes_per_node = multiplier(
+            config.get(section, 'bytes_per_node'), section)
+        if bytes_per_node % book_size_bytes != 0:
+            usage('[global] bytes_per_node not multiple of book size')
+        books_per_node = int(bytes_per_node / book_size_bytes)
+        section2books = {}
+        lza = 0
+        print ('Auto-provisioning %d 0x%x-byte books in each of %d nodes' % (
+            books_per_node, book_size_bytes, node_count))
+        for node_id in range(1, node_count + 1):
+            section = 'node%02d' % node_id
+            section2books[section] = []
+            print('%s @ LZA 0x%016x' % (section, lza))
+            for i in range(books_per_node):
+                book = TMBook(
+                    id=lza,
+                    node_id=node_id,
+                )
+                section2books[section].append(book)
+                lza += book_size_bytes
+        return book_size_bytes, section2books
+    except configparse.NoOptionError:
+        pass
+ 
+    # No short cuts, grind it out.
+    config.remove_section(section)
     nvm_end_prev = -1
     section2books = {}
+    auto_lza_base = 0
     for section in config.sections():
         print(section)
         sdata = dict(config.items(section))
         # print(sdata)
-        if section == "global":
-            node_count = int(sdata["node_count"], 16)
-            book_size_bytes = multiplier(sdata["book_size_bytes"], section)
-            if node_count != len(config.sections()) - 1:  # account for globals
-                usage('Section count in INI file != [global] node_count')
-        else:
-            section2books[section] = []
-            node_id = int(sdata["node_id"], 16)
+        section2books[section] = []
+        node_id = int(sdata["node_id"], 16)
+        nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
+        try:
             lza_base = int(sdata["lza_base"], 16)
-            nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
+        except KeyError:
+            lza_base = nvm_end_prev + 1
 
-            if nvm_size % book_size_bytes != 0:
-                usage("[%s] NVM size not multiple of book size" % section)
+        if nvm_size % book_size_bytes != 0:
+            usage("[%s] NVM size not multiple of book size" % section)
 
-            num_books = int(nvm_size / book_size_bytes)
-            nvm_end = (lza_base + (num_books * book_size_bytes) - 1)
-            if not nvm_end_prev < lza_base:
-                usage("[%s] NVM overlap" % section)
-            nvm_end_prev = nvm_end
+        num_books = int(nvm_size / book_size_bytes)
+        nvm_end = (lza_base + (num_books * book_size_bytes) - 1)
+        if nvm_end_prev >= lza_base:
+            usage("[%s] NVM overlap" % section)
+        nvm_end_prev = nvm_end
 
-            for book in range(num_books):
-                book_base_addr = (book * book_size_bytes) + lza_base
-                book_data = (book_base_addr, node_id, 0, 0)
-                print("book %s @ 0x%016x" % (book_data, book_base_addr))
-                tmp = TMBook(
-                    node_id=node_id,
-                    id=book_base_addr
-                )
-                section2books[section].append(tmp)
+        for book in range(num_books):
+            book_base_addr = (book * book_size_bytes) + lza_base
+            book_data = (book_base_addr, node_id, 0, 0)
+            print("book %s @ 0x%016x" % (book_data, book_base_addr))
+            tmp = TMBook(
+                node_id=node_id,
+                id=book_base_addr
+            )
+            section2books[section].append(tmp)
 
     return(book_size_bytes, section2books)
 
@@ -190,7 +223,7 @@ if __name__ == '__main__':
             os.unlink(fname)
     else:
         fname = ':memory:'
-    cur = SQLiteCursor(DBfile=fname)
+    cur = SQLiteCursor(db_file=fname)
 
     book_size_bytes, section2books = load_book_data(sys.argv[1])
     create_empty_db(cur)
