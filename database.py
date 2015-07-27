@@ -1,98 +1,112 @@
 #!/usr/bin/python3 -tt
 #---------------------------------------------------------------------------
-# Librarian database interface module
+# Librarian database interface module for SQL backends
 #---------------------------------------------------------------------------
 
-import os
-import sqlite3
 import time
 
-DB_FILE = "./librarian_db"
+from bookshelves import TMBook, TMShelf, TMBos
 
+from sqlcursors import SQLiteCursor
 
-class LibrarianDB(object):
-    con = None
-    cur = None
-    db_file = None
+from pdb import set_trace
 
-    def db_init(self, args):
-        """ Initialize database and create tables if they do not exist.
-            Input---
-              args - command line arguments
-            Output---
-              None
-        """
-        if args.db_memory is True:
-            db_file = ":memory:"
-            print ("Using in memory database: %s" % (db_file))
-        elif args.db_file:
-            db_file = args.db_file
-            print ("Using custom database file: %s" % (db_file))
-        else:
-            db_file = DB_FILE
-            print ("Using default database file: %s" % (db_file))
+#--------------------------------------------------------------------------
 
-        print("Connecting to database: %s" % (db_file))
-        self.con = sqlite3.connect(db_file)
-        self.cur = self.con.cursor()
+class LibrarianDBackendSQL(object):
 
-        print("Creating tables in database")
-        table_create = """
-            CREATE TABLE IF NOT EXISTS books (
-            book_id INT PRIMARY KEY,
-            node_id INT,
-            allocated INT,
-            attributes INT,
-            size_bytes INT
-            )
-            """
-        self.cur.execute(table_create)
+    @staticmethod
+    def argparse_extend(parser):
+        # group = parser.add_mutually_exclusive_group()
+        parser.add_argument('--db_file',
+                           help='SQLite3 database backing store file',
+                           required=True)
 
-        table_create = """
-            CREATE TABLE IF NOT EXISTS shelves (
-            shelf_id INT PRIMARY KEY,
-            creator_id INT,
-            size_bytes INT,
-            book_count INT,
-            open_count INT,
-            c_time REAL,
-            m_time REAL,
-            name TEXT
-            )
-            """
-        self.cur.execute(table_create)
+    def __init__(self, args):
+        self._cur = SQLiteCursor(db_file=args.db_file)
 
-        table_create = """
-            CREATE TABLE IF NOT EXISTS books_on_shelf (
-            shelf_id INT,
-            book_id INT,
-            seq_num INT
-            )
-            """
-        self.cur.execute(table_create)
-
-        self.con.commit()
-        return("pass")
+    # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
+    # hole-filling.  Explicitly setting id overrides that.  Break it out
+    # in case we switch to a UUID or something else.
+    def _getnextid(self, table):
+        self._cur.execute('SELECT MAX(id) FROM %s' % table)
+        id = self._cur.fetchone()
+        if isinstance(id[0], int):
+            return id[0] + 1
+        # no rows? double check
+        self._cur.execute('SELECT COUNT(id) FROM %s' % table)
+        id = self._cur.fetchone()[0]
+        if id == 0:
+            return 1    # first id is non-zero
+        raise RuntimeError('Cannot calculate nextid for %s' % table)
 
     #
-    # books
+    # DB globals
     #
 
-    def create_book(self, book_data):
-        """ Insert one new book into "books" table.
+    def get_version(self):
+        self._cur.execute('SELECT schema_version FROM globals')
+        return self._cur.fetchone()[0]
+
+    def get_nvm_parameters(self):
+        '''Returns duple(book_size, total_nvm)'''
+        self._cur.execute(
+            'SELECT book_size_bytes, total_nvm_bytes FROM globals')
+        return self._cur.fetchone()
+
+    #
+    # DB modifies.  Grouped like this to see similarites.
+    #
+
+    @staticmethod
+    def _fields2qmarks(fields, joiner):
+        q = [ '%s=?' % f for  f in fields ]
+        return joiner.join(q)
+
+    # matchfields provide the core of the SET clause and were set by
+    # the importer.  Localmods fields were done in the direct caller
+    # of this routine.  Those two field sets must be disjoint.
+
+    def _modify_table(self, table, obj, localmods, commit):
+        assert hasattr(obj, 'id'), 'object ineligible for this routine'
+        assert obj.matchfields, 'Missing field(s) for matching'
+
+        # id will be the WHERE clause and thus must come last
+        id = ('id', )
+        cantmatch = localmods + id
+        tmp = set(obj.matchfields).intersection(set(cantmatch))
+        assert not tmp, 'Bad matchfields %s' % str(tmp)
+
+        fields = obj.matchfields + localmods
+        qmarks = self._fields2qmarks(fields, ', ')
+        setwhere = '%s WHERE id=?' % qmarks
+        self._cur.UPDATE(table, setwhere, obj.tuple(fields + id))
+        if commit:
+            self._cur.commit()
+        return obj
+
+    def modify_book(self, book, commit=False):
+        """ Modify book data in "books" table.
             Input---
-              book_data - list of book data to insert
+              book_data - list of new book data
             Output---
               book_data or error message
         """
-        print("add book to db:", book_data)
-        try:
-            db_query = "INSERT INTO books VALUES (?,?,?,?,?)"
-            self.cur.execute(db_query, book_data)
-            self.con.commit()
-            return(book_data)
-        except sqlite3.Error:
-            return("create_book: error inserting new book")
+        return self._modify_table('books', book, (), commit)
+
+    def modify_shelf(self, shelf, commit=False):
+        """ Modify shelf data in "shelves" table.
+            Input---
+              shelf_data - list of new shelf data
+            Output---
+              shelf_data or error message
+        """
+        shelf.mtime = int(time.time())
+        return self._modify_table('shelves', shelf, ('mtime', ), commit)
+
+    #
+    # DB books
+    #
 
     def get_book_by_id(self, book_id):
         """ Retrieve one book from "books" table.
@@ -101,17 +115,13 @@ class LibrarianDB(object):
             Output---
               book_data or error message
         """
-        print("get book by id from db:", book_id)
-        try:
-            db_query = "SELECT * FROM books WHERE book_id = ?"
-            self.cur.execute(db_query, (book_id,))
-            book_data = self.cur.fetchone()
-            return(book_data)
-        except sqlite3.Error:
-            return("get_book: error retrieving book [book_id: 0x016xd]"
-                   % (book_id))
+        self._cur.execute('SELECT * FROM books WHERE id=?', (book_id,))
+        self._cur.iterclass = TMBook
+        books = [ r for r in self._cur ]
+        assert len(books) <= 1, 'Matched more than one book'
+        return books[0] if books else None
 
-    def get_book_by_node(self, node_id, status, num_rows):
+    def get_book_by_node(self, node_id, allocated_value, num_books):
         """ Retrieve book(s) from "books" table using node
             Input---
               node_id - id of node to filter on
@@ -120,20 +130,16 @@ class LibrarianDB(object):
             Output---
               book_data or error message
         """
-        print("get book by node from db:", node_id)
-        try:
-            db_query = """
+        db_query = """
                 SELECT * FROM books
                 WHERE node_id = ? AND
-                status = ?
+                allocated = ?
                 LIMIT ?
             """
-            self.cur.execute(db_query, (node_id, status, num_rows))
-            book_data = self.cur.fetchall()
-            return(book_data)
-        except sqlite3.Error:
-            return("get_book_by_node: error retrieving book [node_id: 0x016xd]"
-                   % (node_id))
+        self._cur.execute(db_query, (node_id, allocated_value, num_books))
+        self._cur.iterclass = TMBook
+        book_data = [ r for r in self._cur ]
+        return(book_data)
 
     def get_book_all(self):
         """ Retrieve all books from "books" table.
@@ -145,89 +151,46 @@ class LibrarianDB(object):
         print("get all books from db")
         try:
             db_query = "SELECT * FROM books ORDER BY book_id"
-            self.cur.execute(db_query)
-            book_data = self.cur.fetchall()
+            self._cur.execute(db_query)
+            book_data = self._cur.fetchall()
             return(book_data)
         except sqlite3.Error:
             return("get_book_all: error retrieving all books")
 
-    def modify_book(self, book_data):
-        """ Modify book data in "books" table.
-            Input---
-              book_data - list of new book data
-            Output---
-              book_data or error message
-        """
-        print("modify book in db:", book_data)
-        book_id, node_id, status, attributes, size_bytes = (book_data)
-        try:
-            db_query = """
-                UPDATE books SET
-                node_id = ?,
-                status = ?,
-                attributes = ?,
-                size_bytes = ?
-                WHERE book_id = ?
-                """
-            self.cur.execute(db_query, (node_id, status,
-                             attributes, size_bytes, book_id))
-            self.con.commit()
-            return(book_data)
-        except sqlite3.Error:
-            return("modify_book: error modifying existing book data")
-
-    def delete_book(self, book_id):
-        """ Delete one book from "books" table.
-            Input---
-              book_id - id of book to delete
-            Output---
-              book_data or error message
-        """
-        print("delete book from db:", book_id)
-        try:
-            db_query = "DELETE FROM books WHERE book_id = ?"
-            self.cur.execute(db_query, (book_id,))
-            return(book_id)
-        except sqlite3.Error:
-            return("delete_book: error deleting book [book_id: 0x016xd]"
-                   % (book_id))
-
     #
-    # shelves
+    # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
     #
 
-    def create_shelf(self, shelf_data):
+    def create_shelf(self, shelf, commit=False):
         """ Insert one new shelf into "shelves" table.
             Input---
               shelf_data - list of shelf data to insert
             Output---
               shelf_data or error message
         """
-        print("add shelf to db:", shelf_data)
-        try:
-            db_query = "INSERT INTO shelves VALUES (?,?,?,?,?,?)"
-            self.cur.execute(db_query, shelf_data)
-            self.con.commit()
-            return(shelf_data)
-        except sqlite3.Error:
-            return("create_shelf: error inserting new shelf")
+        shelf.id = self._getnextid('shelves')   # Could take a second
+        tmp = int(time.time())
+        shelf.ctime = shelf.mtime = tmp
+        self._cur.INSERT('shelves', shelf.tuple())
+        if commit:
+            self._cur.commit()
+        return shelf
 
-    def get_shelf(self, shelf_id):
+    def get_shelf(self, shelf):
         """ Retrieve one shelf from "shelves" table.
             Input---
               shelf_id - id of shelf to get
             Output---
               shelf_id or error message
         """
-        print("get shelf from db:", shelf_id)
-        try:
-            db_query = "SELECT * FROM shelves WHERE shelf_id = ?"
-            self.cur.execute(db_query, (shelf_id,))
-            shelf_data = self.cur.fetchone()
-            return(shelf_data)
-        except sqlite3.Error:
-            return("get_shelf: error retrieving shelf [shelf_id: 0x016xd]"
-                   % (shelf_id))
+        fields = shelf.matchfields
+        qmarks = self._fields2qmarks(fields, ' AND ')
+        sql = 'SELECT * FROM shelves WHERE %s' % qmarks
+        self._cur.execute(sql, shelf.tuple(fields))
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        assert len(shelves) <= 1, 'Matched more than one shelf'
+        return shelves[0] if shelves else None
 
     def get_shelf_all(self):
         """ Retrieve all shelves from "shelves" table.
@@ -236,123 +199,75 @@ class LibrarianDB(object):
             Output---
               shelf_data or error message
         """
-        print("get all shelves from db")
-        try:
-            db_query = "SELECT * FROM shelves ORDER BY shelf_id"
-            self.cur.execute(db_query)
-            shelf_data = self.cur.fetchall()
-            return(shelf_data)
-        except sqlite3.Error:
-            return("get_shelf_all: error retrieving all shelf")
+        self._cur.execute('SELECT * FROM shelves ORDER BY id')
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        return shelves
 
-    def modify_shelf(self, shelf_data):
-        """ Modify shelf data in "shelves" table.
-            Input---
-              shelf_data - list of new shelf data
-            Output---
-              shelf_data or error message
-        """
-        print("modify shelf in db:", shelf_data)
-        shelf_id, size_bytes, book_count, open_count, \
-            c_time, m_time = (shelf_data)
-        try:
-            db_query = """
-                UPDATE shelves SET
-                size_bytes = ?,
-                book_count = ?,
-                open_count = ?,
-                c_time = ?,
-                m_time = ?
-                WHERE shelf_id = ?
-                """
-            self.cur.execute(db_query, (size_bytes, book_count, open_count,
-                             c_time, m_time, shelf_id))
-            self.con.commit()
-            return(shelf_data)
-        except sqlite3.Error:
-            return("modify_shelf: error modifying existing shelf data")
-
-    def delete_shelf(self, shelf_id):
+    def delete_shelf(self, shelf, commit=False):
         """ Delete one shelf from "shelves" table.
             Input---
               shelf_id - id of shelf to delete
             Output---
               shelf_data or error message
         """
-        print("delete shelf from db:", shelf_id)
-        try:
-            db_query = "DELETE FROM shelves WHERE shelf_id = ?"
-            self.cur.execute(db_query, (shelf_id,))
-            return(shelf_id)
-        except sqlite3.Error:
-            return("delete_shelf: error deleting shelf \
-                  [shelf_id: 0x016xd]" % (shelf_id))
+        where = self._fields2qmarks(shelf.schema, ' AND ')
+        self._cur.DELETE('shelves', where, shelf.tuple())
+        if commit:
+            self._cur.commit()
+        return(shelf)
 
     #
-    # books_on_shelf
+    # books_on_shelves.  Gets are very specific compared to books and shelves.
     #
 
-    def create_bos(self, bos_data):
-        """ Insert one new bos into "books_on_shelf" table.
+    def create_bos(self, bos, commit=False):
+        """ Insert one new bos into "books_on_shelves" table.
             Input---
               bos_data - list of bos data to insert
             Output---
               status: success = 0
                       failure = -1
         """
-        print("add bos to db:", bos_data)
-        try:
-            db_query = "INSERT INTO books_on_shelf VALUES (?,?,?)"
-            self.cur.execute(db_query, bos_data)
-            self.con.commit()
-            return(bos_data)
-        except sqlite3.Error:
-            return("create_bos: error inserting new bos")
+        self._cur.INSERT('books_on_shelves', bos.tuple())
+        if commit:
+            self._cur.commit()
+        return(bos)
 
-    def get_bos_by_shelf(self, shelf_id):
-        """ Retrieve all bos entries from "books_on_shelf" table
+    def get_bos_by_shelf_id(self, shelf_id):
+        """ Retrieve all bos entries from "books_on_shelves" table
             given a shelf_id.
             Input---
               shelf_id - shelf identifier
             Output---
               bos_data or error message
         """
-        print("get bos by shelf from db:", shelf_id)
-        try:
-            db_query = """
-                SELECT * FROM books_on_shelf
-                WHERE shelf_id = ?
-                """
-            self.cur.execute(db_query, (shelf_id,))
-            bos_data = self.cur.fetchall()
-            return(bos_data)
-        except sqlite3.Error:
-            return("get_bos_by_shelf: error retrieving bos \
-                   [shelf_id: 0x016xd]" % (book_id))
+        # FIXME: is it faster to let SQL sort or do it here?
 
-    def get_bos_by_book(self, book_id):
-        """ Retrieve all bos entries from "books_on_shelf" table
+        self._cur.execute('''SELECT * FROM books_on_shelves
+                             WHERE shelf_id=? ORDER BY seq_num''',
+                          shelf_id)
+        self._cur.iterclass = TMBos
+        bos = [ r for r in self._cur ]
+        return bos
+
+    def get_bos_by_book_id(self, book_id):
+        """ Retrieve all bos entries from "books_on_shelves" table
             given a book_id.
             Input---
               book_id - book identifier
             Output---
               bos_data or error message
         """
-        print("get bos by book from db:", book_id)
-        try:
-            db_query = """
-                SELECT * FROM books_on_shelf
-                WHERE book_id = ?
-                """
-            self.cur.execute(db_query, (book_id,))
-            bos_data = self.cur.fetchall()
-            return(bos_data)
-        except sqlite3.Error:
-            return("get_bos_by_book: error retrieving bos \
-                   [book_id: 0x016xd]" % (book_id))
+        self._cur.execute('''SELECT * FROM books_on_shelves
+                             WHERE book_id=? ORDER BY seq_num''',
+                          book_id)
+        self._cur.iterclass = TMBos
+        bos = [ r for r in self._cur ]
+        return bos
 
     def get_bos_all(self):
-        """ Retrieve all bos from "books_on_shelf" table.
+        """ Retrieve all bos from "books_on_shelves" table.
             Input---
               None
             Output---
@@ -360,39 +275,35 @@ class LibrarianDB(object):
         """
         print("get all bos from db")
         try:
-            db_query = "SELECT * FROM books_on_shelf"
-            self.cur.execute(db_query)
-            bos_data = self.cur.fetchall()
+            db_query = "SELECT * FROM books_on_shelves"
+            self._cur.execute(db_query)
+            bos_data = self._cur.fetchall()
             return(bos_data)
         except sqlite3.Error:
             return("get_bos_all: error retrieving all bos")
 
-    def delete_bos(self, bos_data):
-        """ Delete one bos from "books_on_shelf" table.
+    def delete_bos(self, bos, commit=False):
+        """ Delete one bos from "books_on_shelves" table.
             Input---
               bos_data - list of bos data
             Output---
               bos_data or error message
         """
-        print("delete bos from db:", bos_data)
-        try:
-            db_query = """
-                DELETE FROM books_on_shelf
-                WHERE shelf_id = ? AND
-                book_id = ? AND
-                seq_num = ?
-                """
-            self.cur.execute(db_query, bos_data)
-            return(bos_data)
-        except sqlite3.Error:
-            return("delete_bos: error deleting bos", bos_data)
+        where = self._fields2qmarks(bos.schema, ' AND ')
+        self._cur.DELETE('books_on_shelves', where, bos.tuple())
+        if commit:
+            self._cur.commit()
+        return(bos)
 
     #
-    # Testing
+    # Testing - SQLite 3
     #
 
     def check_tables(self):
         print("check_tables()")
+
+        # select all shelves by name, no dupes#
+
         total_tables = 0
         table_names = []
         tables_to_ignore = ["sqlite_sequence"]
@@ -400,8 +311,8 @@ class LibrarianDB(object):
             SELECT name FROM sqlite_master
             WHERE type='table' ORDER BY Name
             """
-        self.cur.execute(db_query)
-        tables = map(lambda t: t[0], self.cur.fetchall())
+        self._cur.execute(db_query)
+        tables = map(lambda t: t[0], self._cur.fetchall())
 
         for table in tables:
 
@@ -409,16 +320,16 @@ class LibrarianDB(object):
                 continue
 
             db_query = "PRAGMA table_info(%s)" % (table)
-            self.cur.execute(db_query)
-            number_of_columns = len(self.cur.fetchall())
+            self._cur.execute(db_query)
+            number_of_columns = len(self._cur.fetchall())
 
             db_query = "PRAGMA table_info(%s)" % (table)
-            self.cur.execute(db_query)
-            columns = self.cur.fetchall()
+            self._cur.execute(db_query)
+            columns = self._cur.fetchall()
 
             db_query = "SELECT Count() FROM %s" % (table)
-            self.cur.execute(db_query)
-            number_of_rows = self.cur.fetchone()[0]
+            self._cur.execute(db_query)
+            number_of_rows = self._cur.fetchone()[0]
 
             print("Table: %s (columns = %d, rows = %d)" %
                   (table, number_of_columns, number_of_rows))
@@ -432,29 +343,14 @@ class LibrarianDB(object):
         print("Total number of tables: %d" % total_tables)
 
     def close(self):
-        self.con.close()
+        self._cur.close()
 
-
-def db_args_init(parser):
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("--db_memory", action="store_true",
-                       help="use an in memory database")
-    group.add_argument("--db_file",
-                       help="specify the database file, (default = %s)"
-                       % (DB_FILE))
+###########################################################################
 
 if __name__ == '__main__':
 
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    db_args_init(parser)
-    args = parser.parse_args()
-
-    # Initialize database and check tables
     db = LibrarianDB()
-    db.db_init(args)
-    db.check_tables()
+    db.check_consistency()
 
     #
     # Test "books" methods
@@ -633,7 +529,7 @@ if __name__ == '__main__':
         print("  shelf =", shelf)
 
     #
-    # Test "books_on_shelf" methods
+    # Test "books_on_shelves" methods
     #
 
     # Add a single "books on shelf" (bos) to the database and then get it

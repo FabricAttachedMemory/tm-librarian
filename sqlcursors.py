@@ -79,6 +79,9 @@ class SQLcursor(object):
     def UPDATE(self, *args):
         raise NotImplementedError   # Left as an exercise to the reader
 
+    def DELETE(self, *args):
+        raise NotImplementedError   # Left as an exercise to the reader
+
     def __init__(self, **kwargs):
         for k in self._defaults:
             if k not in kwargs:
@@ -107,7 +110,7 @@ class SQLcursor(object):
         return '\n'.join(s)
 
     @property
-    def iterclass(self, cls):
+    def iterclass(self):
         return self._iterclass
 
     @iterclass.setter
@@ -115,12 +118,12 @@ class SQLcursor(object):
         '''Set to None, 'default', or a class with __init__(..., **kwargs)'''
         if cls is None or cls == 'raw':
             self._iterclass = None
-        elif cls == 'default':
+        elif cls in ('default', 'generic'):
             self._iterclass = GenericObject
-        elif hasattr(cls, '__init__'):
+        elif not isinstance(cls, str):
             self._iterclass = cls
         else:
-            raise ValueError('must be None, "default", or a class name')
+            raise ValueError('must be None, "generic", or a class name')
 
     def __iter__(self):
         return self
@@ -129,6 +132,7 @@ class SQLcursor(object):
         '''Fancier than fetchone/many'''
         r = self._cursor.fetchone()
         if not r:
+            self._iterclass = None  # yes, force problems "next time"
             raise StopIteration
         if self._iterclass is None:
             return r
@@ -150,14 +154,16 @@ class SQLcursor(object):
             self._cursor = self._conn = None
             return conn.close if cur is not None else (lambda: False)
 
-        if name == 'commit':
-            return self._conn.commit
+        # Connection methods.  'execute' is a special case, handled below.
+        if name in ('commit', 'rollback'):
+            return getattr(self._conn, name)
 
         realattr = self._cursor.__getattribute__(name)
         if name != 'execute':
             return realattr
 
-        # Wrap it to use the internal attrs in a callback, hidden from user
+        # Wrap it to use the internal attrs in a callback, hidden from user.
+        # This is where actual execute() occurs and errors can be trapped.
         def exec_wrapper(query, parms=None):
             self.execfail = ''
             try:
@@ -168,7 +174,7 @@ class SQLcursor(object):
                     if not isinstance(parms, tuple):
                         parms = (parms, )
                     self._cursor.execute(query, parms)
-            except Exception as e:
+            except Exception as e:  # includes sqlite3.Error
                 self.execfail = str(e)
             return
         return exec_wrapper
@@ -177,7 +183,6 @@ class SQLcursor(object):
 
 import sqlite3
 
-
 class SQLiteCursor(SQLcursor):
 
     _SQLshowtables = 'SELECT name FROM main.sqlite_master WHERE type="table";'
@@ -185,15 +190,15 @@ class SQLiteCursor(SQLcursor):
 
     def DBconnect(self):
         try:
-            self._conn = sqlite3.connect(self.DBfile)
+            self._conn = sqlite3.connect(self.db_file)
             self._cursor = self._conn.cursor()
         except Exception as e:
             raise
         pass
 
     def __init__(self, **kwargs):
-        if not 'DBfile' in kwargs:
-            kwargs['DBfile'] = ':memory:'
+        if not 'db_file' in kwargs:
+            kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
 
     def schema(self, table):
@@ -204,7 +209,7 @@ class SQLiteCursor(SQLcursor):
 
     def INSERT(self, table, values):
         '''Values are a COMPLETE tuple following ordered schema'''
-        assert len(values), 'oopsie'
+        assert values, 'missing values for INSERT'
         qmarks = ', '.join(['?'] * len(values))
         self.execute(
             'INSERT INTO %s VALUES (%s)' % (table, qmarks),
@@ -216,15 +221,29 @@ class SQLiteCursor(SQLcursor):
                 'INSERT %s failed: %s' % (table, self.execfail))
         if self.rowcount != 1:
             self.rollback()
-            raise AssertionError('INSERT %s failed' % table)
+            raise AssertionError('INSERT INTO %s failed' % table)
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
     def UPDATE(self, table, setclause, values):
         '''setclause is effective key=val, key=val sequence'''
-        self.execute('UPDATE %s SET %s' % (table, setclause), values)
-        if not self.rowcount == 1:
+        sql = 'UPDATE %s SET %s' % (table, setclause)
+        self.execute(sql, values)
+        if self.rowcount != 1:
+            set_trace()
             self.rollback()
             raise AssertionError('UPDATE %s failed' % table)
+        # DO NOT COMMIT, give caller a chance for multiples or rollback
+
+    # FIXME: move fields2qmarks in here (makes sense), then just pass
+    # pass the data object?  Or do schema manips belong "one level up" ?
+    def DELETE(self, table, where, values):
+        '''Values are a COMPLETE tuple following ordered schema'''
+        assert values, 'missing values for DELETE'
+        sql = 'DELETE FROM %s WHERE %s' % (table, where)
+        self.execute(sql, values)
+        if self.rowcount != 1:
+            self.rollback()
+            raise AssertionError('DELETE FROM %s %sfailed' % (table, values))
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
 ###########################################################################

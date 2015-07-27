@@ -8,15 +8,32 @@ from pdb import set_trace
 
 class BookShelfStuff(object):      # could become a mixin
 
+    # If not specified here, the mechanism doesn't work in subclasses.
+    # Obviously this needs an override.  Unfortunately, it doesn't
+    # work to set it in this __init__,  There's probably some way
+    # to do it with metaclasses, that's another day.
+
+    __slots__ = ()
+
+    _sorted = None
+
+    def _msg(self, basemsg):
+        return '%s: %s' % (self.__class__.__name__, basemsg)
+
     def __init__(self, *args, **kwargs):
+        if not self._sorted:
+            self.__class__._sorted = tuple(sorted(self._ordered_schema))
+        assert not (args and kwargs), _msg('full tuple or kwargs, not both')
+        if args and isinstance(args[0], dict):
+            kwargs = args[0]
+            args = None
         if args:
-            assert not kwargs, 'full tuple or kwargs, not both'
-            assert len(args) == len(self._ordered_schema), 'bad arg count'
+            assert len(args) == len(self._ordered_schema), _msg('bad arg count')
             submitted = dict(zip(self._ordered_schema, args))
             missing = {}
         else:
             submitted = frozenset(kwargs.keys())
-            missing = self.__slots__ - submitted
+            missing = self.__slots__ - submitted - set((self._MFname,))
             if False and not self.__slots__.issubset(submitted):
                 print('Missing fields "%s"' % (
                     ', '.join(sorted([k for k in missing]))))
@@ -25,7 +42,11 @@ class BookShelfStuff(object):      # could become a mixin
 
         for src in (submitted, missing):
             for k, v in src.items():
-                setattr(self, k, v)
+                try:    # __slots__ is in play
+                    setattr(self, k, v)
+                except AttributeError as e:
+                    pass
+        setattr(self, self._MFname, None)
 
     def __eq__(self, other):
         for k in self._ordered_schema:
@@ -35,29 +56,57 @@ class BookShelfStuff(object):      # could become a mixin
 
     def __str__(self):
         s = []
-        for k in self._sorted:
+        for k in sorted(self._sorted + ('matchfields', )):
             val = getattr(self, k)
             if k.endswith('time'):
                 val = time.ctime(val)
             s.append('{}: {}'.format(k, val))
         return '\n'.join(s)
 
+    def __repr__(self):         # makes "p" work better in pdb
+        return self.__str__()
+
     def __getitem__(self, key):    # and now I'm a dict
         return getattr(self, key)
 
+    # Be liberal in what I take, versus expecting people to remember
+    # to *expand existing tuples.
     def tuple(self, *args):
-        if not args:
+        if args:
+            if isinstance(args[0], tuple):  # probably matchfields
+                args = args[0]
+        else:
             args = self._ordered_schema
         return tuple([getattr(self, a) for a in args])
 
-    @classmethod
-    def schema(cls):
-        return cls._ordered_schema
+    @property
+    def schema(self):
+        return self._ordered_schema
+
+    # Used for DB searches.  Align with next two property names.
+    _MFname = '_matchfields'
+
+    @property
+    def matchfields(self):
+        return getattr(self, self._MFname)
+
+    # Liberal in what you accept
+    @matchfields.setter
+    def matchfields(self, infields):
+        if isinstance(infields, str):
+            infields = (infields, )
+        for f in infields:
+            assert f in self._ordered_schema, self._msg('Bad field %s' % f)
+        setattr(self, self._MFname, infields)
 
 #########################################################################
 
 
 class TMBook(BookShelfStuff):
+
+    ALLOC_FREE = 0
+    ALLOC_INUSE = 1
+    ALLOC_ZOMBIE = 2
 
     _ordered_schema = (  # a little dodgy
         'id',
@@ -66,9 +115,8 @@ class TMBook(BookShelfStuff):
         'attributes',
     )
 
-    _sorted = tuple(sorted(_ordered_schema))
-
-    __slots__ = frozenset((_ordered_schema))
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
 
 #########################################################################
 
@@ -86,9 +134,8 @@ class TMShelf(BookShelfStuff):
         'name'
     )
 
-    _sorted = tuple(sorted(_ordered_schema))
-
-    __slots__ = frozenset((_ordered_schema))
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
 
 #########################################################################
 
@@ -101,9 +148,8 @@ class TMBos(BookShelfStuff):
         'seq_num'
     )
 
-    _sorted = tuple(sorted(_ordered_schema))
-
-    __slots__ = frozenset((_ordered_schema))
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
 
 #########################################################################
 # Support testing
@@ -114,14 +160,13 @@ if __name__ == '__main__':
 
     cur = SQLiteCursor()    # no args == :memory:
 
-    set_trace()
     book1 = TMBook()
     print(book1)
 
     shelf1 = TMShelf()
     print(shelf1)
+    set_trace()
 
-    mem_db_init(cur)
     fields = cur.schema('books')
     assert set(fields) == set(TMBook._ordered_schema), 'TMBook oopsie'
     fields = cur.schema('shelves')
@@ -139,8 +184,6 @@ if __name__ == '__main__':
     tmp = cur.execute(sql).fetchone()
     plagiarize = TMBook(*tmp)
     print(book1 == plagiarize)
-
-    pass
 
     cur.close()
 

@@ -96,11 +96,20 @@ class Client(SocketReadWrite):
 class Server(SocketReadWrite):
     """ A simple asynchronous server for the Librarian """
 
+    @staticmethod
+    def argparse_extend(parser):
+        # group = parser.add_mutually_exclusive_group()
+        parser.add_argument('--port',
+                           help='TCP listening port',
+                           type=int,
+                           default=9093)
+
     _sock = None
 
-    def __init__(self):
+    def __init__(self, args):
         super().__init__()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._port = args.port
 
     def __del__(self):
         super().__del__()
@@ -109,9 +118,9 @@ class Server(SocketReadWrite):
     # a requirement to have this, it could just initialize and use a brand
     # new processor which is exactly what somone who didn't want processing
     # would provid
-    def serv(self, handler, chain, interface = '', port = 9093):
-        self._sock.bind((interface, port))
-        self._sock.listen(0)
+    def serv(self, handler, chain, interface = ''):
+        self._sock.bind((interface, self._port))
+        self._sock.listen(10)
 
         to_read = [self._sock]
 

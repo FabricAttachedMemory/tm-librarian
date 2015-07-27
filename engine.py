@@ -10,34 +10,29 @@ import math
 import sys
 from pdb import set_trace
 
-from sqlcursors import SQLiteCursor
 from bookshelves import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 
-class LibrarianCommandExecution(object):
+class LibrarianCommandEngine(object):
 
-    @classmethod
-    def args_init(cls, parser): # sets up things for optargs in __init__
+    @staticmethod
+    def argparse_extend(parser):
         pass
 
-    _book_size = 0  # read from DB by __init__
+    _book_size = 0
+    _total_nvm = 0  # read from DB
 
-    LIBRARIAN_VERSION = 'Librarian v0.01'
+    @property
+    def book_size(self):
+        return self._book_size
 
-    # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
-    # hole-filling.  Explicitly setting id overrides that.  Break it out
-    # in case we switch to a UUID or something else.
-    def _getnextid(self, table):
-        self._cur.execute('SELECT MAX(id) FROM %s' % table)
-        id = self._cur.fetchone()
-        if isinstance(id[0], int):
-            return id[0] + 1
-        # no rows? double check
-        self._cur.execute('SELECT COUNT(id) FROM %s' % table)
-        id = self._cur.fetchone()[0]
-        if id == 0:
-            return 1    # first id is non-zero
-        raise RuntimeError('Cannot discern nextid for ' + table)
+    @property
+    def total_nvm(self):
+        return self._total_nvm
+
+    @classmethod
+    def _nbooks(cls, nbytes):
+        return int(math.ceil(float(nbytes) / float(cls._book_size)))
 
     def cmd_version(self):
         """ Return librarian version
@@ -46,103 +41,71 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 librarian version
         """
-        return self.LIBRARIAN_VERSION
+        return self.db.get_version()
 
     def cmd_create_shelf(self):
         """ Create a new shelf
             In (dict)---
-                None
+                name
             Out (dict) ---
                 shelf data
         """
-        id = self._getnextid('shelves')
-        tmp = int(time.time())
-        shelf = TMShelf(
-            id=id,
-            ctime=tmp,
-            mtime=tmp,
-            name=self._cmdict['name'],
-        )
-        # Since shelves are indexed on 'name', dupes fail nicely.
-        self._cur.INSERT('shelves', shelf.tuple())
-        self._cur.commit()
-        return shelf
+        return self.db.create_shelf(TMShelf(self._cmdict), commit=True)
 
-    def cmd_list_shelf(self, aux=None):
+    def cmd_list_shelf(self):        # By name only
         """ List a given shelf.
             In (dict)---
-                shelf_id
-            Out (dict) ---
-                shelf data
+                name
+            Out (TMShelf object) ---
+                TMShelf object
         """
-        self._cur.execute(
-            'SELECT * FROM shelves WHERE name = ?', self._cmdict['name'])
-        self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
-        assert len(shelves) <= 1, 'oopsie'
-        return shelves[0] if shelves else None
+        shelf = TMShelf(self._cmdict)
+        shelf.matchfields = ('name', )
+        shelf = self.db.get_shelf(shelf)
+        if shelf is not None:
+            assert self._nbooks(shelf.size_bytes) == shelf.book_count, '%s size metadata mismatch' % shelf.name
+        return shelf
 
     def cmd_list_shelves(self):
-        self._cur.execute('SELECT * FROM shelves')
-        self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
-        return shelves
+        return self.db.get_shelf_all()
 
     def cmd_open_shelf(self):
         """ Open a shelf for access by a node.
             In (dict)---
-                shelf_id
-                node_id
-                uid
-                gid
-            Out (dict) ---
-                shelf data
+                name
+            Out ---
+                TMShelf object
         """
-        shelf = self.cmd_list_shelf()
+        shelf = self.cmd_list_shelf()   # lookup by name
         if shelf is None:
             return None
-
-        shelf.mtime = int(time.time())
         shelf.open_count += 1
-        self._cur.UPDATE(
-            'shelves',
-            'mtime=?, open_count=? WHERE id=?',
-            shelf.tuple('mtime', 'open_count', 'id')
-        )
-        self._cur.commit()
+        shelf.matchfields = 'open_count'
+        self.db.modify_shelf(shelf, commit=True)
         return shelf
 
     def cmd_close_shelf(self):
         """ Close a shelf against access by a node.
             In (dict)---
                 shelf_id
-                node_id
-                uid
-                gid
             Out (dict) ---
-                shelf data
+                TMShelf object
         """
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
-        set_trace()
-        shelf = self.cmd_list_shelf(aux='id')
+        shelf = TMShelf(self._cmdict)
+        shelf.matchfields = ('id')
+        shelf = self.db.get_shelf(shelf)
         if shelf is None:
             return None
 
-        shelf.mtime = int(time.time())
         shelf.open_count -= 1
-
-        self._cur.UPDATE(
-            'shelves',
-            'mtime=?, open_count=? WHERE id=?',
-            shelf.tuple('mtime', 'open_count', 'id')
-        )
-        self._cur.commit()
+        shelf.matchfields = 'open_count'
+        self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-
-    def cmd_destroy_shelf(cmd_data):
+    def cmd_destroy_shelf(self):
         """ Destroy a shelf and free any books associated with it.
             In (dict)---
                 shelf_id
@@ -152,106 +115,107 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 shelf data
         """
-        shelf_id = cmd_data["shelf_id"]
-        node_id = cmd_data["node_id"]
-        uid = cmd_data["uid"]
-        gid = cmd_data["gid"]
+        # Do my own join, start with lookup by name
+        shelf = self.cmd_list_shelf()
+        if shelf is None:
+            return None
+        # FIXME: make this an assertion, wedge a "force" option in somewhere
+        if shelf.open_count:
+            print('%s open count is %d' % (shelf.name, shelf.open_count),
+                  file=sys.stderr)
 
-        if uid != 0:
-            return '{"error":"Permission denied for non-root user"}'
+        bos = self.db.get_bos_by_shelf_id(shelf.id)
+        for thisbos in bos:
+            self.db.delete_bos(thisbos)
+            book = self.db.get_book_by_id(thisbos.book_id)
+            assert book, 'Book lookup failed'
+            book.allocated = TMBook.ALLOC_ZOMBIE
+            book.matchfields = 'allocated'
+            book = self.db.modify_book(book)
+            assert book, 'Book allocation modify failed'
+        return self.db.delete_shelf(shelf, commit=True)
 
-        resp = db.get_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        shelf_id, size_bytes, book_count, open_count, c_time, m_time = (resp)
-
-        if open_count != 0:
-            return '{"error":"Shelf open count is non-zero"}'
-
-        db_data = db.get_bos_by_shelf(shelf_id)
-        for bos in db_data:
-            print("bos:", bos)
-            shelf_id, book_id, seq_num = (bos)
-            db_data = db.delete_bos(bos)
-            book_data = db.get_book_by_id(book_id)
-            book_id, node_id, status, attributes, size_bytes = (book_data)
-            book_data = (book_id, node_id, 0, attributes, size_bytes)
-            db_data = db.modify_book(book_data)
-
-        # Delete shelf
-        db_data = db.delete_shelf(shelf_id)
-
-        return '{"success":"Shelf destroyed"}'
 
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
             In (dict)---
-                shelf_id
-                node_id
+                name
+                id
                 size_bytes
             Out (dict) ---
                 shelf data
         """
-        set_trace()
-        shelf = self.cmd_list_shelf(aux='id')
+
+        # Gonna need book details sooner or later.  Since resizing should
+        # be reasonably infrequent, do some consistency checking now.
+        # Save the idiot checking until later.
+
+        shelf = TMShelf(self._cmdict)   # just for the....
+        shelf.matchfields = ('id')
+        shelf = self.db.get_shelf(shelf)
         if shelf is None:
             return None
 
+        bos = self.db.get_bos_by_shelf_id(shelf.id)
+        assert len(bos) == shelf.book_count, (
+            '%s book count mismatch' % shelf.name)
+
+        # other consistency checks
+        assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+            '%s size metadata mismatch' % shelf.name)
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
+        new_book_count = self._nbooks(new_size_bytes)
+        if bos:
+            seqs = [ b.seq_num for b in bos ]
+            assert set(seqs) == set(range(1, shelf.book_count + 1)), (
+                'Corrupt BOS sequence progression for %s' % shelf.name)
+
+        # Can I leave real early?
         if new_size_bytes == shelf.size_bytes:
             return shelf
         shelf.size_bytes = new_size_bytes
-        shelf.mtime = int(time.time())
-        self._cur.UPDATE(
-            'shelves',
-            'mtime=?, size_bytes=? WHERE id=?',
-            shelf.tuple('mtime', 'size_bytes', 'id')
-        )
-        self._cur.commit()
-        return shelf
 
-        new_book_count = int(math.ceil(new_size_bytes / self._book_size))
-        books_needed = new_book_count - shelf.book_count
-        if not new_book_count:
+        # How about a little early?
+        if new_book_count == shelf.book_count:
+            shelf.matchfields = 'size_bytes'
+            shelf = self.db.modify_shelf(shelf, commit=True)
             return shelf
-        set_trace()
 
+        books_needed = new_book_count - shelf.book_count
+        node_id = self._cmdict['requestor']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
-            db_data = db.get_book_by_node(node_id, 0, books_needed)
-            # todo: check we got back enough books
-            for book in db_data:
-                # Mark book in use and create BOS entry
+            freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
+            assert len(freebooks) == books_needed, (
+                'ENOSPC on node %d' % node_id)
+            for book in freebooks: # Mark book in use and create BOS entry
+                book.allocated = TMBook.ALLOC_INUSE
+                book.matchfields = 'allocated'
+                book = self.db.modify_book(book)
                 seq_num += 1
-                book_id, node_id, status, attributes, size_bytes = (book)
-                book_data = (book_id, node_id, 1, attributes, size_bytes)
-                db_data = db.modify_book(book_data)
-                bos_data = (shelf_id, book_id, seq_num)
-                db_data = db.create_bos(bos_data)
+                thisbos = TMBos(
+                    shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
+                thisbos = self.db.create_bos(thisbos)
         elif books_needed < 0:
-            print("remove books")
-            books_del = 0
-            db_data = db.get_bos_by_shelf(shelf_id)
-            for bos in reversed(db_data):
-                shelf_id, book_id, seq_num = (bos)
-                bos_data = (shelf_id, book_id, seq_num)
-                bos_info = db.delete_bos(bos_data)
-                book_data = db.get_book_by_id(book_id)
-                book_id, node_id, status, attributes, size_bytes = (book_data)
-                book_data = (book_id, node_id, 0, attributes, size_bytes)
-                book_data = db.modify_book(book_data)
-                books_del -= 1
-                if books_del == books_needed:
-                    break
+            books_needed = -books_needed    # it all reads so much better
+            assert len(bos) >= books_needs, 'Book removal problem'
+            set_trace()
+            while books_needed > 0:
+                thisbos = bos.pop()
+                db.delete_bos(thisbos)
+                book = db.get_book_by_id(thisbos.book_id)
+                book.allocated = TMBook.ALLOC_ZOMBIE
+                db.modify_book(book)
+                books_needed -= 1
+        else:
+            self.db.rollback()
+            raise RuntimeError('Bad code path in shelf_resize()')
 
-        shelf_data = (shelf_id, new_size_bytes, new_book_count,
-                      open_count, c_time, m_time)
-        db_data = db.modify_shelf(shelf_data)
-
-        resp = db.get_shelf(shelf_id)
-        recvd = dict(zip(shelf_columns, resp))
-
-        return recvd
+        shelf.book_count = new_book_count
+        shelf.matchfields = ('size_bytes', 'book_count')
+        shelf = self.db.modify_shelf(shelf, commit=True)
+        return shelf
 
 
     def cmd_get_shelf_zaddr(cmd_data):
@@ -270,148 +234,178 @@ class LibrarianCommandExecution(object):
             Out (dict) ---
                 book data
         """
+        set_trace()
         book_id = cmd_data["book_id"]
         resp = db.get_book_by_id(book_id)
         # todo: fail if book does not exist
         recvd = dict(zip(book_columns, resp))
         return recvd
 
-    def cmd_list_bos(cmd_data):
+    def cmd_list_bos(self):
         """ List all the books on a given shelf.
             In (dict)---
                 shelf_id
             Out (dict) ---
                 bos data
         """
-        shelf_id = cmd_data["shelf_id"]
-        resp = db.get_bos_by_shelf(shelf_id)
-        # todo: fail if shelf does not exist
-        recvd = [{'shelf_id': shelf_id, 'book_id': book_id, 'seq_num': seq_num}
-                    for shelf_id, book_id, seq_num in resp]
-        return recvd
+        shelf_id = self._cmdict['shelf_id']
+        bos = db.get_bos_by_shelf_id(shelf_id)
 
     _handlers = { }
 
-    def __init__(self, cursor, optargs=None):
-        # Skip 'cmd_' prefix
-        tmp = dict( [ (name[4:], func)
-                    for (name, func) in self.__class__.__dict__.items() if
-                        name.startswith('cmd_')
-                    ]
-        )
-        self._handlers.update(tmp)
-        self._cur = cursor
-        self._cur.execute('SELECT book_size_bytes FROM globals')
-        self.__class__._book_size = self._cur.fetchone()[0]
-        assert self._book_size > 1024*1024, 'Bad book size in DB'
+    def __init__(self, backend, optargs=None, cooked=False):
+        try:
+            self.db = backend
+            (self.__class__._book_size,
+             self.__class__._total_nvm) = self.db.get_nvm_parameters()
+            assert self._book_size >= 1024*1024, 'Bad book size in DB'
+            assert self._total_nvm >= 16 * self._book_size, (
+                'Less than 16 books in NVM pool')
+
+            # Skip 'cmd_' prefix
+            tmp = dict( [ (name[4:], func)
+                        for (name, func) in self.__class__.__dict__.items() if
+                            name.startswith('cmd_')
+                        ]
+            )
+            self._handlers.update(tmp)
+            self._cooked = cooked   # return style: raw = dict, cooked = obj
+        except Exception as e:
+            raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
+
+    def _obj2dict(self, resp):
+        if resp is None:
+            return {'command': self._cmdict['command']}
+        set_trace()
+        pass
 
     def __call__(self, cmdict):
+        errmsg = ''
         try:
-            assert isinstance(cmdict, dict) and 'command' in cmdict
             self._cmdict = cmdict
             handler = self._handlers[self._cmdict['command']]
+        except KeyError as e:
+            set_trace()
+            errmsg = 'Bad lookup on "%s"' % str(e)
+            return None
+
+        try:
+            assert not errmsg, errmsg
             ret = handler(self)
-            return ret
-        except AssertionError as e:
+            return ret if self._cooked else self._obj2dict(ret)
+        except AssertionError as e:     # consistency checks
             msg = str(e)
-        except Exception as e:
+        except RuntimeError as e:       # idiot checks
             msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-            pass
+        except Exception as e:       # idiot checks
+            msg = 'UNEXPECTED ERROR @ %s[%d]: %s' %  (
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         raise RuntimeError(msg)
+
     @property
     def commandset(self):
         return tuple(sorted(self._handlers.keys()))
 
-def execute_command(cmd_data):
-    """ Execute the correct command handler.
-    """
-    try:
-        cmd = cmd_data["command"]
-        return(command_handlers[cmd](cmd_data))
-    except:
-        return '{"error":"No command key"}'
+###########################################################################
 
 if __name__ == '__main__':
     '''"recvd" is commands/data that would be received from a client.'''
 
+    # Use LCP to construct command dictionaries from fixed data.  Those
+    # dictionaries are what would be "received" from real clients
+    # (like TMTetris) use to turn thought into action..
+
     import os
+    from argparse import Namespace
     from pprint import pprint
 
-    from genericobj import GenericObject
+    from database import LibrarianDBackendSQL
 
     def pp(recvd, data):
-        print('Original:', dict(recvd))
-        print('DB response:')
-        if hasattr(data, '__init__'):   # TMBook, GenericObjects, etc
-            print(str(data))
-        else:
-            pprint(data)
+        print('Command:', dict(recvd))
+        print('DB action results:')
+        pprint(data)
         print()
 
-    authdata = GenericObject(
-        node_id=1,
-        uid=os.geteuid(),
-        gid=os.getegid(),
-        pid=os.getpid()
-    )
+    requestor = {
+        'node_id': 1,
+        'uid': os.geteuid(),
+        'gid': os.getegid(),
+        'pid': os.getpid()
+    }
 
-    lce = LibrarianCommandExecution(SQLiteCursor(DBfile=sys.argv[1]))
-    lcp = LibrarianCommandProtocol()
+    lcp = LibrarianCommandProtocol(requestor)
     print(lcp.commandset)
+
+    # For self test, look at prettier results than dictionaries.
+    # Namespace is the end result of an argparse sequence.
+    args = Namespace(db_file=sys.argv[1])
+    lce = LibrarianCommandEngine(
+                    LibrarianDBackendSQL(args),
+                    cooked=True)
     print(lce.commandset)
+
     print()
     print('Engine missing:',set(lcp.commandset) - set(lce.commandset))
     print('Engine extras: ',set(lce.commandset) - set(lcp.commandset))
 
     recvd = lcp('version')
-    data = lce(recvd)
-    pp(recvd, data)
+    version = lce(recvd)
+    pp(recvd, version)
 
     for name in ('xyzzy', 'shelf22', 'coke', 'pepsi'):
         recvd = lcp('create_shelf', name=name)
         try:
-            data = lce(recvd)
+            shelf = lce(recvd)   # only works on fresh DB
         except Exception as e:
-            data = e
-        pp(recvd, data)
+            shelf = str(e)
+            if shelf.startswith('INTERNAL ERROR'):
+                set_trace()
+                raise e
+        pp(recvd, shelf)
 
+    # Two ways to get started
     name = 'xyzzy'
     recvd = lcp('list_shelf', name=name)
-    data = lce(recvd)
-    pp(recvd, data)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+
+    recvd = lcp('list_shelf', shelf)    # a pre-existing object with 'name'
+    shelf = lce(recvd)
+    pp(recvd, shelf)
 
     recvd = lcp('list_shelves')
-    data = lce(recvd)
-    pp(recvd, data)
+    shelves = lce(recvd)
+    assert len(shelves) >= 4, 'not good'
+    pp(recvd, shelf)
 
-    recvd = lcp('open_shelf', name=name)
-    data = lce(recvd)
-    pp(recvd, data)
+    recvd = lcp('open_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (open)')
 
-    # Need to have this fail if shelf is not opened to me
-    data.size_bytes += 42
-    recvd = lcp('resize_shelf', data)
-    data = lce(recvd)
-    pp(recvd, data)
+    # These commands should all fail if shelf is not open to "me".
 
-    # Need to have this fail if shelf is not opened to me
-    recvd = lcp('close_shelf', data)
-    data = lce(recvd)
-    pp(recvd, data)
+    shelf.size_bytes = (70 * lce.book_size) / 2  # 35 times book size
+    recvd = lcp('resize_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
 
-    # destroy shelf
-    set_trace()
-    print ("destroy/get shelf -----")
-    recvd = {}
-    node_id = 0x0A0A0A0A0A0A0A0A
-    uid = 0
-    gid = 0
-    recvd.update({"command": "destroy_shelf"})
-    recvd.update({"shelf_id": shelf_id})
-    recvd.update({"node_id": node_id})
-    recvd.update({"uid": uid})
-    recvd.update({"gid": gid})
-    data_in = execute_command(recvd)
-    print ("recvd =", recvd)
-    print ("data_in =", data_in)
+    recvd = lcp('close_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (close)')
+
+    # destroy shelf is just based on the name
+    recvd = lcp('destroy_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (destroy)')
+
+    raise SystemExit(0)

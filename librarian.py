@@ -4,41 +4,34 @@
 #---------------------------------------------------------------------------
 
 import argparse
-import database
-import book_register
-import engine
-import socket_handling
+import sys
+
+from pdb import set_trace
+
+from database import LibrarianDBackendSQL as LBE
+from engine import LibrarianCommandEngine as LCE
+from socket_handling import Server
 from librarian_chain import Librarian_Chain
 
-LIBRARIAN_VERSION="Librarian v0.01"
+# Initialize argparse for local stuff, then have each module add
+# its arguments, then go.
+parser = argparse.ArgumentParser(description='The Machine Librarian')
 
+for obj in (LBE, LCE, Server, Librarian_Chain ):
+    obj.argparse_extend(parser)
+args = parser.parse_args()
 
-def librarian_args_init(parser):
-    pass
+backend = LBE(args)
+backend.check_tables()
+lce = LCE(backend, args)
+server = Server(args)
+chain = Librarian_Chain(args)
 
-if __name__ == '__main__':
+try:
+    server.serv(lce, chain)
+except Exception as e:
+    print(str(e))
 
-    # Initialize argparse and module argument additions
-    parser = argparse.ArgumentParser()
-    database.db_args_init(parser)
-    book_register.book_data_args_init(parser)
-    librarian_args_init(parser)
-    args = parser.parse_args()
+backend.close()
 
-    # Initialize database and check tables
-    db = database.LibrarianDB()
-    db.db_init(args)
-    db.check_tables()
-
-    # Populate books database
-    book_register.load_book_data(args, db)
-
-    # create server object
-    server = socket_handling.Server()
-
-    # add handler to server object
-    chain = Librarian_Chain()
-
-    server.serv(engine.execute_command, chain)
-
-    db.close()
+raise SystemExit(0)
