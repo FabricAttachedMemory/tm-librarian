@@ -151,8 +151,8 @@ class LibrarianDBackendSQL(object):
         print("get all books from db")
         try:
             db_query = "SELECT * FROM books ORDER BY book_id"
-            self.cur.execute(db_query)
-            book_data = self.cur.fetchall()
+            self._cur.execute(db_query)
+            book_data = self._cur.fetchall()
             return(book_data)
         except sqlite3.Error:
             return("get_book_all: error retrieving all books")
@@ -276,8 +276,8 @@ class LibrarianDBackendSQL(object):
         print("get all bos from db")
         try:
             db_query = "SELECT * FROM books_on_shelves"
-            self.cur.execute(db_query)
-            bos_data = self.cur.fetchall()
+            self._cur.execute(db_query)
+            bos_data = self._cur.fetchall()
             return(bos_data)
         except sqlite3.Error:
             return("get_bos_all: error retrieving all bos")
@@ -299,7 +299,7 @@ class LibrarianDBackendSQL(object):
     # Testing - SQLite 3
     #
 
-    def check_consisency(self):
+    def check_tables(self):
         print("check_tables()")
 
         # select all shelves by name, no dupes#
@@ -311,8 +311,8 @@ class LibrarianDBackendSQL(object):
             SELECT name FROM sqlite_master
             WHERE type='table' ORDER BY Name
             """
-        self.cur.execute(db_query)
-        tables = map(lambda t: t[0], self.cur.fetchall())
+        self._cur.execute(db_query)
+        tables = map(lambda t: t[0], self._cur.fetchall())
 
         for table in tables:
 
@@ -320,16 +320,16 @@ class LibrarianDBackendSQL(object):
                 continue
 
             db_query = "PRAGMA table_info(%s)" % (table)
-            self.cur.execute(db_query)
-            number_of_columns = len(self.cur.fetchall())
+            self._cur.execute(db_query)
+            number_of_columns = len(self._cur.fetchall())
 
             db_query = "PRAGMA table_info(%s)" % (table)
-            self.cur.execute(db_query)
-            columns = self.cur.fetchall()
+            self._cur.execute(db_query)
+            columns = self._cur.fetchall()
 
             db_query = "SELECT Count() FROM %s" % (table)
-            self.cur.execute(db_query)
-            number_of_rows = self.cur.fetchone()[0]
+            self._cur.execute(db_query)
+            number_of_rows = self._cur.fetchone()[0]
 
             print("Table: %s (columns = %d, rows = %d)" %
                   (table, number_of_columns, number_of_rows))

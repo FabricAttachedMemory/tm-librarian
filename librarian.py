@@ -22,8 +22,8 @@ for obj in (LBE, LCE, Server, Librarian_Chain ):
 args = parser.parse_args()
 
 backend = LBE(args)
+backend.check_tables()
 lce = LCE(backend, args)
-lce.check_tables()
 server = Server(args)
 chain = Librarian_Chain(args)
 

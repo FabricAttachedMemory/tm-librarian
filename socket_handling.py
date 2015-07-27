@@ -102,7 +102,7 @@ class Server(SocketReadWrite):
 
     _sock = None
 
-    def __init__(self):
+    def __init__(self, args):
         super().__init__()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 

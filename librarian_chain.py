@@ -29,7 +29,7 @@ class Librarian_Chain(Chain):
     def argparse_extend(parser):
      pass
 
-    def __init__(self):
+    def __init__(self, args):
         super().add_link(Json_Link())
         # temporarily removed to preserve current server code
         #super().add_link(Encode_Link())
