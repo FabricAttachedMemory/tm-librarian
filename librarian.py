@@ -16,13 +16,16 @@ from librarian_chain import Librarian_Chain
 # Initialize argparse for local stuff, then have each module add
 # its arguments, then go.
 parser = argparse.ArgumentParser(description='The Machine Librarian')
+parser.add_argument('--verbose',
+                     help='level of runtime output, larger == more',
+                     type=int,
+                     default=0)
 
 for obj in (LBE, LCE, Server, Librarian_Chain ):
     obj.argparse_extend(parser)
 args = parser.parse_args()
 
 backend = LBE(args)
-backend.check_tables()
 lce = LCE(backend, args)
 server = Server(args)
 chain = Librarian_Chain(args)

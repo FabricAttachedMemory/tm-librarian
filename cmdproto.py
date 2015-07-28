@@ -66,8 +66,12 @@ class LibrarianCommandProtocol(object):
         respdict['parms'] = go.parms
         return respdict
 
-    def __init__(self, requestor=None):
-        self._requestor = { } if not requestor else requestor
+    # "Context" name is from FuSE, I had originally called it "requestor".
+    # FuSE context is (uid, gid, pid, umask, private_data) # where
+    # private_data is the return of the FuSE init call (NOT __init__).
+    # I'll add noded_id to that list.  Validation will be rough.
+    def __init__(self, context):
+        self._context = context
         self._auth = { }
 
     def __call__(self, command, *args, **kwargs):
@@ -104,7 +108,7 @@ class LibrarianCommandProtocol(object):
             else:
                 assert go.parms is None, 'Missing parameter(s)'
 
-            respdict['requestor'] = self._requestor
+            respdict['context'] = self._context
             return respdict
 
         except AssertionError as e:

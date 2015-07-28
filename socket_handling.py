@@ -4,6 +4,8 @@
 import socket
 import select
 
+from pdb import set_trace
+
 __author__ = "Justin Vreeland"
 __copyright__ = "Copyright 2015 HP?"
 __credits__ = ""
@@ -110,14 +112,28 @@ class Server(SocketReadWrite):
         super().__init__()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._port = args.port
+        self.verbose = args.verbose
 
     def __del__(self):
         super().__del__()
 
-    # the default processor is an indentity processor so it's probably
+    # the default processor is an identity processor so it's probably
     # a requirement to have this, it could just initialize and use a brand
     # new processor which is exactly what somone who didn't want processing
-    # would provid
+    # would provide
+
+    # "Weird" event loop exit behavior is explained in Python source:
+    # https://github.com/python/cpython/blob/Master/modules/socketmodule.c#L2530
+    # The remote side of a socket may get closed at any time, whether gracefuli
+    # or not.  Linux sees it first, before the Python socket module (duh).  A
+    # system-call read on a dead socket yields EBADF.  Python tries to do the
+    # same thing.  In pure C, The right thing to do is close the socket;
+    # however, the kernel may release the fd for reuse BEFORE the syscall
+    # returns.   The Python socket module still has the old fd, so on the
+    # first EBADF, "socketmodule" first puts -1 in the internal Python
+    # fd which will force EBADF.  Finally it closes the real socket fd.
+    # Hence the explicit searches for fileno == -1 below.
+
     def serv(self, handler, chain, interface = ''):
         self._sock.bind((interface, self._port))
         self._sock.listen(10)
@@ -125,34 +141,54 @@ class Server(SocketReadWrite):
         to_read = [self._sock]
 
         while True:
-            # closed sockets get -1 value
-            # this may not work if the socket closes between now and the select
-            # but i still haven't found documentation as to why it does this or how
-            # I can force it to stop.
+
+            # There are few enough connections to where this should
+            # not be a performance problem.
             to_read = [sock for sock in to_read if sock.fileno() != -1]
-            readable, _, _ = select.select(to_read, [], [])
 
+            if self.verbose:
+                print('Waiting for request(s)')
+                timeout = 5.0
+            else:
+                timeout = 20.0 # hits the cleanup loop
+
+            readable, _, _ = select.select(to_read, [], [], timeout)
+
+            # Is it a new connection?
             try:
-
                 if self._sock in readable:
+                    if self.verbose: print('New connection')
                     (conn, addr) = self._sock.accept()
                     to_read.append(conn)
-                    readable.remove(self._sock)
-
-            # Socket was closed python and hates me
+                    readable.remove(self._sock) # and fall through for others
             except ValueError:
-                # fix this code to conform to bad catching bad sockets
-                to_read = [sock for sock in to_read if sock.fileno() != -1]
+                if verbose:
+                    print('SELECT: socket closed from afar, maybe no FIN/RST')
+                continue
+            except Exception as e:
+                print('SELECT: ', str(e))
+                set_trace()
                 continue
 
-            if len(readable) != 0:
-                for s in readable:
-
+            for s in readable:
+                try:
                     in_string = self.recv_all(s)
-                    processed_in_string = chain.reverse_traverse(in_string)
-                    result = handler(processed_in_string)
+                    cmdict = chain.reverse_traverse(in_string)
+                    if self.verbose:
+                        if self.verbose == 1:
+                            print('Processing ',
+                                s.getpeername(), cmdict['command'])
+                        else:
+                            print('Processing ',
+                                s.getpeername(), str(cmdict))
+                    result = handler(cmdict)
                     self.send(chain.forward_traverse(result), s)
-
+                except TypeError as e:
+                    print('READABLE: Usually bad JSON, sometimes socket death')
+                except Exception as e:
+                    print('READABLE: ', str(e))
+                    set_trace()
+                    pass
 
 if __name__ == "__main__":
     """ Run simple echo server to exercise the module """

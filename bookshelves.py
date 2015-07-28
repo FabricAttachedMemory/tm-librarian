@@ -69,6 +69,15 @@ class BookShelfStuff(object):      # could become a mixin
     def __getitem__(self, key):    # and now I'm a dict
         return getattr(self, key)
 
+    # for (re)conversion to send back across the wire
+    @property
+    def dict(self):
+        d = {}
+        for k in self._sorted:
+            val = getattr(self, k)
+            d[k] = val
+        return d
+
     # Be liberal in what I take, versus expecting people to remember
     # to *expand existing tuples.
     def tuple(self, *args):

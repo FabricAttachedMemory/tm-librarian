@@ -183,7 +183,7 @@ class LibrarianCommandEngine(object):
             return shelf
 
         books_needed = new_book_count - shelf.book_count
-        node_id = self._cmdict['requestor']['node_id']
+        node_id = self._cmdict['context']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
             freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
@@ -198,16 +198,16 @@ class LibrarianCommandEngine(object):
                     shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
                 thisbos = self.db.create_bos(thisbos)
         elif books_needed < 0:
-            books_needed = -books_needed    # it all reads so much better
-            assert len(bos) >= books_needs, 'Book removal problem'
-            set_trace()
-            while books_needed > 0:
+            books_2bdel = -books_needed    # it all reads so much better
+            assert len(bos) >= books_2bdel, 'Book removal problem'
+            while books_2bdel > 0:
                 thisbos = bos.pop()
-                db.delete_bos(thisbos)
-                book = db.get_book_by_id(thisbos.book_id)
+                self.db.delete_bos(thisbos)
+                book = self.db.get_book_by_id(thisbos.book_id)
                 book.allocated = TMBook.ALLOC_ZOMBIE
-                db.modify_book(book)
-                books_needed -= 1
+                book.matchfields = ('allocated')
+                self.db.modify_book(book)
+                books_2bdel -= 1
         else:
             self.db.rollback()
             raise RuntimeError('Bad code path in shelf_resize()')
@@ -275,9 +275,10 @@ class LibrarianCommandEngine(object):
 
     def _obj2dict(self, resp):
         if resp is None:
-            return {'command': self._cmdict['command']}
-        set_trace()
-        pass
+            return None # see comment elsewhere about JSON(None) in Python
+        if isinstance(resp, list):
+            return [ r.dict for r in resp ] # generator didn't work?
+        return resp.dict
 
     def __call__(self, cmdict):
         errmsg = ''
@@ -285,7 +286,15 @@ class LibrarianCommandEngine(object):
             self._cmdict = cmdict
             handler = self._handlers[self._cmdict['command']]
         except KeyError as e:
-            set_trace()
+            # This comment might go better in the module that imports json.
+            # From StackOverflow: NULL is not zero. It is not a value, per se:
+            # it is a value outside the domain of the variable's type,
+            # indicating missing or unknown data.  There is only one way to
+            # represent null in JSON. Per the specs (RFC 4627 and json.org):
+            # 2.1.  Values.  A JSON value MUST be an object, array, number,
+            # or string, OR one of the following three literal names:
+            # false null true
+            # Python's json handler turns None into 'null' and vice verse.
             errmsg = 'Bad lookup on "%s"' % str(e)
             return None
 
@@ -299,6 +308,7 @@ class LibrarianCommandEngine(object):
             msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         except Exception as e:       # idiot checks
+            set_trace()
             msg = 'UNEXPECTED ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         raise RuntimeError(msg)
@@ -328,14 +338,17 @@ if __name__ == '__main__':
         pprint(data)
         print()
 
-    requestor = {
-        'node_id': 1,
+    umask = os.umask(0)
+    os.umask(umask)
+    context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
-        'pid': os.getpid()
+        'pid': os.getpid(),
+        'umask': umask,
+        'node_id': 1,
     }
 
-    lcp = LibrarianCommandProtocol(requestor)
+    lcp = LibrarianCommandProtocol(context)
     print(lcp.commandset)
 
     # For self test, look at prettier results than dictionaries.
@@ -388,7 +401,14 @@ if __name__ == '__main__':
 
     # These commands should all fail if shelf is not open to "me".
 
-    shelf.size_bytes = (70 * lce.book_size) / 2  # 35 times book size
+    shelf.size_bytes = (70 * lce.book_size)
+    recvd = lcp('resize_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
+
+    shelf.size_bytes = (50 * lce.book_size)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
