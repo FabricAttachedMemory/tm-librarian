@@ -1,5 +1,4 @@
 #!/usr/bin/python3 -tt
-
 """ Module to handle socket communication for Librarian and Clients """
 import errno
 import socket
@@ -7,16 +6,10 @@ import select
 
 from pdb import set_trace
 
-__author__ = "Justin Vreeland"
-__copyright__ = "Copyright 2015 HP?"
-__credits__ = ""
-__license__ = ""
-__version__ = ""
-__maintainer__ = "Justin Vreeland"
-__email__ = "justin.mcd.vreeland@hp.com"
-__status__ = "Development"
-
 class SocketReadWrite():
+    """ Object that will read and write from a socket
+    used primarily as a base class for the Client and Server
+    objects """
 
     _sock = None
 
@@ -28,15 +21,32 @@ class SocketReadWrite():
 
     # should be static helper in base class called by child class
     def send(self, string, sock=None):
-        """ Send this string """
+        """ Encode and send end string along the socket.
+
+        Args:
+            string: the python3 string to be sent
+            sock: The socket to send the string on.
+
+        Returns:
+                Nothing.
+        """
+
         if sock is None:
             sock = self._sock
 
         sock.send(str.encode(string))
 
     # should be static helper in base class called by child class
-    def recv_all(self, sock = None):
-        """ Receive the whole message """
+    def recv_all(self, sock=None):
+        """ Receive the whole message and decode it to a python3 string.
+
+        Args:
+            sock: the socket to receive data from.
+
+        Returns:
+            The python3 string that was recieved from the socket.
+        """
+
         if sock is None:
             sock = self._sock
 
@@ -59,8 +69,17 @@ class SocketReadWrite():
         return in_json
 
     # should be static helper in base class called by child class
-    def send_recv(self, string, sock = None):
-        """ Send and receive all data. """
+    def send_recv(self, string, sock=None):
+        """ Send and receive all data.
+
+        Args:
+            string: String to be sent.
+            sock: The socket to send, then receive from.
+
+        Returns:
+            The string received as a response to what was sent.
+        """
+
         if sock is None:
             sock = self._sock
 
@@ -92,7 +111,16 @@ class Client(SocketReadWrite):
         super().__del__()
 
     def connect(self, host='', port=9093):
-        """ Connect socket to port on host """
+        """ Connect socket to port on host
+
+        Args:
+            host: the host to connect to
+            port: the port to connect to
+
+        Returns:
+            Nothing
+        """
+
         self._sock.connect((host, port))
 
 
@@ -101,11 +129,20 @@ class Server(SocketReadWrite):
 
     @staticmethod
     def argparse_extend(parser):
+        """ Method to add the arguments server expects to the parser
+
+        Args:
+            parser: the parse to add the arguments too.
+
+        Returns:
+            Nothing.
+        """
+
         # group = parser.add_mutually_exclusive_group()
         parser.add_argument('--port',
-                           help='TCP listening port',
-                           type=int,
-                           default=9093)
+                            help='TCP listening port',
+                            type=int,
+                            default=9093)
 
     _sock = None
 
@@ -136,6 +173,19 @@ class Server(SocketReadWrite):
     # Hence the explicit searches for fileno == -1 below.
 
     def serv(self, handler, chain, interface = ''):
+    # would provid
+    def serv(self, handler, chain, interface=''):
+        """ "event-loop" for the server this is where the server starts
+        listening and serving requests.
+
+        Args:
+            handler: The handler for commands received by the server.
+            chain: The chain to convert to strings from the socket into usable
+                ojects.
+        Returns:
+            Nothing.
+        """
+
         self._sock.bind((interface, self._port))
         self._sock.listen(10)
 
@@ -159,7 +209,7 @@ class Server(SocketReadWrite):
             try:
                 if self._sock in readable:
                     if self.verbose: print('New connection')
-                    (conn, addr) = self._sock.accept()
+                    (conn, _) = self._sock.accept()
                     to_read.append(conn)
                     readable.remove(self._sock) # and fall through for others
             except ValueError:
@@ -208,22 +258,32 @@ class Server(SocketReadWrite):
                         pass
 
 
-if __name__ == "__main__":
+def main():
     """ Run simple echo server to exercise the module """
 
     import json
     import time
 
     def echo_handler(string):
+        """ Echo handler for use with testing server.
+
+        Args:
+            string: a JSON string.
+
+        Returns:
+            Dictionary representing the json string.
+        """
         # Does not handle ctrl characters well.  Needs to be modified
         # for dictionary IO
         print(string)
-        return json.dumps({ 'status': 'Processed @ %s' % time.ctime() })
+        return json.dumps({'status': 'Processed @ %s' % time.ctime()})
 
-    from function_chain import Identity_Chain
-    chain = Identity_Chain()
-    server = Server()
+    from function_chain import IdentityChain
+    chain = IdentityChain()
+    server = Server(None)
     print('Waiting for connection...')
     server.serv(echo_handler, chain)
 
+if __name__ == "__main__":
+    main()
 

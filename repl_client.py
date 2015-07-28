@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -tt
-
+""" Main module  for the REPL client for the librarian """
 import socket_handling
-from librarian_chain import Librarian_Chain
+from librarian_chain import LibrarianChain
 
 from pdb import set_trace
 from pprint import pprint
@@ -11,9 +11,12 @@ import cmdproto
 #--------------------------------------------------------------------------
 
 def main():
+    """ Main function for the REPL client this functions connects to the
+    server waits for user input and then sends/recvs commands from ther server
+    """
     lcp = cmdproto.LibrarianCommandProtocol()
 
-    chain = Librarian_Chain()
+    chain = LibrarianChain(None)
     client = socket_handling.Client()   # socket_handling.py
     try:
         client.connect()

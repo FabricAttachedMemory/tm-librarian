@@ -31,7 +31,7 @@ class JsonLink(Link):
 class EncodeLink(Link):
     """ Encode and decode strings to pass to a socket """
     def apply(self, obj):
-        """ Apply aencoding python string -> byte string
+        """ Apply an encoding python string -> byte string
         Args:
             obj: Python3 string
 

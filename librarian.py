@@ -1,10 +1,7 @@
 #!/usr/bin/python3 -tt
-#---------------------------------------------------------------------------
-# Librarian server main module
-#---------------------------------------------------------------------------
-
+""" Librarian server main module
+"""
 import argparse
-import sys
 
 from pdb import set_trace
 
@@ -20,21 +17,27 @@ parser.add_argument('--verbose',
                      help='level of runtime output, larger == more',
                      type=int,
                      default=0)
+def main():
+    """ Librarain main """
+    # Initialize argparse for local stuff, then have each module add
+    # its arguments, then go.
+    parser = argparse.ArgumentParser(description='The Machine Librarian')
 
-for obj in (LBE, LCE, Server, LibrarianChain ):
-    obj.argparse_extend(parser)
-args = parser.parse_args()
+    for obj in (LBE, LCE, Server, LibrarianChain):
+        obj.argparse_extend(parser)
+    args = parser.parse_args()
 
-backend = LBE(args)
-lce = LCE(backend, args)
-server = Server(args)
-chain = LibrarianChain(args)
+    backend = LBE(args)
+    lce = LCE(backend, args)
+    server = Server(args)
+    chain = LibrarianChain(args)
 
-try:
-    server.serv(lce, chain)
-except Exception as e:
-    print(str(e))
+    try:
+        server.serv(lce, chain)
+    except Exception as e:
+        print(str(e))
 
-backend.close()
+    backend.close()
 
-raise SystemExit(0)
+if __name__ == '__main__':
+    main()

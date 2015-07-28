@@ -1,5 +1,5 @@
 """ Module to ease the repeated applying of an arbitrary number of functions to
-object.  Usefull when doing conversion betwix things when you don't want to
+object.  Useful when doing conversion betwix things when you don't want to
 chain the API """
 
 class Chain():
@@ -47,8 +47,8 @@ class Chain():
             to the unapply() functions int he chain.
 
         Returns:
-            The same object as the least recently added Link's unapply() function
-            returns.
+            A converted object of the type as the least recently added Link's
+            unapply() function returns.
         """
         result = in_obj
         for link in list(reversed(self._chain)):
@@ -58,7 +58,7 @@ class Chain():
 class Link():
     ''' The object representing the function in a chain (Links).  Please
     implement both functions if nothing needs tobe done fill in apply or unapply
-    with pass appropriatly. '''
+    with pass appropriately. '''
     def __init__(self):
         pass
 
@@ -87,7 +87,7 @@ class Link():
 
 class IdentityLink(Link):
     """ a link whose apply and unapply functions simply return the same object
-    usefull for debugging or using an API that requires a chain """
+    useful for debugging or using an API that requires a chain """
 
     def apply(self, obj):
         """
@@ -106,7 +106,7 @@ class IdentityLink(Link):
         return obj
 
 class IdentityChain(Chain):
-    """ Identity chain class, obly contains an Identity_Link """
+    """ Identity chain class, only contains an Identity_Link """
 
     def __init__(self):
         super().__init__()

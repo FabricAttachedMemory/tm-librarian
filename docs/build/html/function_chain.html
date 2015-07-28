@@ -110,7 +110,7 @@
   <div class="section" id="module-function_chain">
 <span id="function-chain-module"></span><h1>function_chain module<a class="headerlink" href="#module-function_chain" title="Permalink to this headline">¶</a></h1>
 <p>Module to ease the repeated applying of an arbitrary number of functions to
-object.  Usefull when doing conversion betwix things when you don&#8217;t want to
+object.  Useful when doing conversion betwix things when you don&#8217;t want to
 chain the API</p>
 <dl class="class">
 <dt id="function_chain.Chain">
@@ -163,7 +163,7 @@ returns.</dd>
 <dt id="function_chain.IdentityChain">
 <em class="property">class </em><code class="descclassname">function_chain.</code><code class="descname">IdentityChain</code><a class="headerlink" href="#function_chain.IdentityChain" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#function_chain.Chain" title="function_chain.Chain"><code class="xref py py-class docutils literal"><span class="pre">function_chain.Chain</span></code></a></p>
-<p>Identity chain class, obly contains an Identity_Link</p>
+<p>Identity chain class, only contains an Identity_Link</p>
 </dd></dl>
 
 <dl class="class">
@@ -171,7 +171,7 @@ returns.</dd>
 <em class="property">class </em><code class="descclassname">function_chain.</code><code class="descname">IdentityLink</code><a class="headerlink" href="#function_chain.IdentityLink" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference internal" href="#function_chain.Link" title="function_chain.Link"><code class="xref py py-class docutils literal"><span class="pre">function_chain.Link</span></code></a></p>
 <p>a link whose apply and unapply functions simply return the same object
-usefull for debugging or using an API that requires a chain</p>
+useful for debugging or using an API that requires a chain</p>
 <dl class="method">
 <dt id="function_chain.IdentityLink.apply">
 <code class="descname">apply</code><span class="sig-paren">(</span><em>obj</em><span class="sig-paren">)</span><a class="headerlink" href="#function_chain.IdentityLink.apply" title="Permalink to this definition">¶</a></dt>
@@ -194,7 +194,7 @@ usefull for debugging or using an API that requires a chain</p>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
 <p>The object representing the function in a chain (Links).  Please
 implement both functions if nothing needs tobe done fill in apply or unapply
-with pass appropriatly.</p>
+with pass appropriately.</p>
 <dl class="method">
 <dt id="function_chain.Link.apply">
 <code class="descname">apply</code><span class="sig-paren">(</span><em>obj</em><span class="sig-paren">)</span><a class="headerlink" href="#function_chain.Link.apply" title="Permalink to this definition">¶</a></dt>

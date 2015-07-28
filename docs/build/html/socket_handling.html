@@ -119,6 +119,13 @@
 <dt id="socket_handling.Client.connect">
 <code class="descname">connect</code><span class="sig-paren">(</span><em>host=''</em>, <em>port=9093</em><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.Client.connect" title="Permalink to this definition">¶</a></dt>
 <dd><p>Connect socket to port on host</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>host: the host to connect to
+port: the port to connect to</dd>
+<dt>Returns:</dt>
+<dd>Nothing</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
@@ -131,12 +138,31 @@
 <dl class="staticmethod">
 <dt id="socket_handling.Server.argparse_extend">
 <em class="property">static </em><code class="descname">argparse_extend</code><span class="sig-paren">(</span><em>parser</em><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.Server.argparse_extend" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>Method to add the arguments server expects to the parser</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>parser: the parse to add the arguments too.</dd>
+<dt>Returns:</dt>
+<dd>Nothing.</dd>
+</dl>
+</dd></dl>
 
 <dl class="method">
 <dt id="socket_handling.Server.serv">
 <code class="descname">serv</code><span class="sig-paren">(</span><em>handler</em>, <em>chain</em>, <em>interface=''</em><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.Server.serv" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd><p>&#8220;event-loop&#8221; for the server this is where the server starts
+listening and serving requests.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd><p class="first">handler: The handler for commands received by the server.
+chain: The chain to convert to strings from the socket into usable</p>
+<blockquote class="last">
+<div>ojects.</div></blockquote>
+</dd>
+<dt>Returns:</dt>
+<dd>Nothing.</dd>
+</dl>
+</dd></dl>
 
 </dd></dl>
 
@@ -144,24 +170,53 @@
 <dt id="socket_handling.SocketReadWrite">
 <em class="property">class </em><code class="descclassname">socket_handling.</code><code class="descname">SocketReadWrite</code><a class="headerlink" href="#socket_handling.SocketReadWrite" title="Permalink to this definition">¶</a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Object that will read and write from a socket
+used primarily as a base class for the Client and Server
+objects</p>
 <dl class="method">
 <dt id="socket_handling.SocketReadWrite.recv_all">
 <code class="descname">recv_all</code><span class="sig-paren">(</span><em>sock=None</em><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.SocketReadWrite.recv_all" title="Permalink to this definition">¶</a></dt>
-<dd><p>Receive the whole message</p>
+<dd><p>Receive the whole message and decode it to a python3 string.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>sock: the socket to receive data from.</dd>
+<dt>Returns:</dt>
+<dd>The python3 string that was recieved from the socket.</dd>
+</dl>
 </dd></dl>
 
 <dl class="method">
 <dt id="socket_handling.SocketReadWrite.send">
 <code class="descname">send</code><span class="sig-paren">(</span><em>string</em>, <em>sock=None</em><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.SocketReadWrite.send" title="Permalink to this definition">¶</a></dt>
-<dd><p>Send this string</p>
+<dd><p>Encode and send end string along the socket.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>string: the python3 string to be sent
+sock: The socket to send the string on.</dd>
+<dt>Returns:</dt>
+<dd>Nothing.</dd>
+</dl>
 </dd></dl>
 
 <dl class="method">
 <dt id="socket_handling.SocketReadWrite.send_recv">
 <code class="descname">send_recv</code><span class="sig-paren">(</span><em>string</em>, <em>sock=None</em><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.SocketReadWrite.send_recv" title="Permalink to this definition">¶</a></dt>
 <dd><p>Send and receive all data.</p>
+<dl class="docutils">
+<dt>Args:</dt>
+<dd>string: String to be sent.
+sock: The socket to send, then receive from.</dd>
+<dt>Returns:</dt>
+<dd>The string received as a response to what was sent.</dd>
+</dl>
 </dd></dl>
 
+</dd></dl>
+
+<dl class="function">
+<dt id="socket_handling.main">
+<code class="descclassname">socket_handling.</code><code class="descname">main</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#socket_handling.main" title="Permalink to this definition">¶</a></dt>
+<dd><p>Run simple echo server to exercise the module</p>
 </dd></dl>
 
 </div>
