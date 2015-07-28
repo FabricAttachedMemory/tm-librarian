@@ -36,7 +36,7 @@ class LibrarianFSd(Operations):
         'st_mtime':     1436739200,
     }
 
-    def __init__(self, source):
+    def __init__(self, source, node_id):
         '''Validate parameters'''
         self.torms = source
         elems = source.split(':')
@@ -46,12 +46,24 @@ class LibrarianFSd(Operations):
             self.port = int(elems[1])
         except Exception as e:
             self.port = 9093
-        self.lcp = LibrarianCommandProtocol()
+
+        # Calls to fuse.fuse_get_context() were...disappointing.
+        # Fake it for now.  The umask dance is Pythonic, unfortunately.
+        umask = os.umask(0)
+        os.umask(umask)
+        context = {
+            'uid': os.geteuid(),
+            'gid': os.getegid(),
+            'pid': os.getpid(),
+            'umask': umask,
+            'node_id': node_id,
+        }
+        self.lcp = LibrarianCommandProtocol(context)
 
     # start with mount/unmount.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
 
-    def init(self, root):
+    def init(self, root, **kwargs):
         try:
             self.tormsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tormsock.connect((self.host, self.port))
@@ -117,11 +129,7 @@ class LibrarianFSd(Operations):
         except Exception as e:
             set_trace()
             raise FuseOSError(errno.EINVAL)
-
-        if rsp is None: # see comments elsewhere on JSON(None) in Python
-            print('Far side groks not', cmd['command'])
-            raise FuseOSError(errno.ENOTTY)
-        return rsp
+        return rsp  # None is now legal, let the caller interpret it.
 
     # Higher-level FS operations
 
@@ -300,7 +308,6 @@ class LibrarianFSd(Operations):
                         name=shelf_name,
                         size_bytes=length,
                         id=listrsp['id'])
-        set_trace()
         rsp = self.librarian(req)
         if not 'size_bytes' in rsp:
             raise FuseOSError(errno.EINVAL)
@@ -326,8 +333,8 @@ class LibrarianFSd(Operations):
         set_trace()
         return self.flush(path, fh)
 
-def main(mountpoint, source):
-    FUSE(LibrarianFSd(source), mountpoint, foreground=True)
+def main(source, mountpoint, node_id):
+    FUSE(LibrarianFSd(source, node_id), mountpoint, foreground=True)
 
 if __name__ == '__main__':
-    main(sys.argv[2], sys.argv[1])  # source mountpoint
+    main(*sys.argv[1:])  # source mountpoint node_id

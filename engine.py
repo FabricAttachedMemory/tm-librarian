@@ -183,7 +183,7 @@ class LibrarianCommandEngine(object):
             return shelf
 
         books_needed = new_book_count - shelf.book_count
-        node_id = self._cmdict['requestor']['node_id']
+        node_id = self._cmdict['context']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
             freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
@@ -308,6 +308,7 @@ class LibrarianCommandEngine(object):
             msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         except Exception as e:       # idiot checks
+            set_trace()
             msg = 'UNEXPECTED ERROR @ %s[%d]: %s' %  (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         raise RuntimeError(msg)
@@ -337,14 +338,15 @@ if __name__ == '__main__':
         pprint(data)
         print()
 
-    requestor = {
-        'node_id': 1,
+    context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
-        'pid': os.getpid()
+        'pid': os.getpid(),
+        'umask': os.umask(),
+        'node_id': 1,
     }
 
-    lcp = LibrarianCommandProtocol(requestor)
+    lcp = LibrarianCommandProtocol(context)
     print(lcp.commandset)
 
     # For self test, look at prettier results than dictionaries.
