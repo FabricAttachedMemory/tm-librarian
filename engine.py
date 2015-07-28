@@ -198,16 +198,16 @@ class LibrarianCommandEngine(object):
                     shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
                 thisbos = self.db.create_bos(thisbos)
         elif books_needed < 0:
-            books_needed = -books_needed    # it all reads so much better
-            assert len(bos) >= books_needs, 'Book removal problem'
-            set_trace()
-            while books_needed > 0:
+            books_2bdel = -books_needed    # it all reads so much better
+            assert len(bos) >= books_2bdel, 'Book removal problem'
+            while books_2bdel > 0:
                 thisbos = bos.pop()
-                db.delete_bos(thisbos)
-                book = db.get_book_by_id(thisbos.book_id)
+                self.db.delete_bos(thisbos)
+                book = self.db.get_book_by_id(thisbos.book_id)
                 book.allocated = TMBook.ALLOC_ZOMBIE
-                db.modify_book(book)
-                books_needed -= 1
+                book.matchfields = ('allocated')
+                self.db.modify_book(book)
+                books_2bdel -= 1
         else:
             self.db.rollback()
             raise RuntimeError('Bad code path in shelf_resize()')
@@ -338,11 +338,13 @@ if __name__ == '__main__':
         pprint(data)
         print()
 
+    umask = os.umask(0)
+    os.umask(umask)
     context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
         'pid': os.getpid(),
-        'umask': os.umask(),
+        'umask': umask,
         'node_id': 1,
     }
 
@@ -399,7 +401,14 @@ if __name__ == '__main__':
 
     # These commands should all fail if shelf is not open to "me".
 
-    shelf.size_bytes = (70 * lce.book_size) / 2  # 35 times book size
+    shelf.size_bytes = (70 * lce.book_size)
+    recvd = lcp('resize_shelf', shelf)
+    shelf = lce(recvd)
+    pp(recvd, shelf)
+    if shelf is None:
+        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
+
+    shelf.size_bytes = (50 * lce.book_size)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)

@@ -98,9 +98,9 @@ def load_book_data(inifile):
                 section2books[section].append(book)
                 lza += book_size_bytes
         return book_size_bytes, section2books
-    except configparse.NoOptionError:
+    except configparser.NoOptionError:
         pass
- 
+
     # No short cuts, grind it out.
     config.remove_section(section)
     nvm_end_prev = -1
