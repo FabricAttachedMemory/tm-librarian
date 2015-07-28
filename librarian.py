@@ -11,7 +11,7 @@ from pdb import set_trace
 from backend_sqlite3 import LibrarianDBackendSQLite3 as LBE
 from engine import LibrarianCommandEngine as LCE
 from socket_handling import Server
-from librarian_chain import Librarian_Chain
+from librarian_chain import LibrarianChain
 
 # Initialize argparse for local stuff, then have each module add
 # its arguments, then go.
@@ -21,14 +21,14 @@ parser.add_argument('--verbose',
                      type=int,
                      default=0)
 
-for obj in (LBE, LCE, Server, Librarian_Chain ):
+for obj in (LBE, LCE, Server, LibrarianChain ):
     obj.argparse_extend(parser)
 args = parser.parse_args()
 
 backend = LBE(args)
 lce = LCE(backend, args)
 server = Server(args)
-chain = Librarian_Chain(args)
+chain = LibrarianChain(args)
 
 try:
     server.serv(lce, chain)

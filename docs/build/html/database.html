@@ -1,0 +1,393 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>database module &mdash; Librarian 0 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="Librarian 0 documentation" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+
+        
+          <a href="index.html" class="icon icon-home"> Librarian
+        
+
+        
+        </a>
+
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+        
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul class="simple">
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">Librarian</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>database module</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/database.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="module-database">
+<span id="database-module"></span><h1>database module<a class="headerlink" href="#module-database" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="database.LibrarianDBackendSQL">
+<em class="property">class </em><code class="descclassname">database.</code><code class="descname">LibrarianDBackendSQL</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<dl class="staticmethod">
+<dt id="database.LibrarianDBackendSQL.argparse_extend">
+<em class="property">static </em><code class="descname">argparse_extend</code><span class="sig-paren">(</span><em>parser</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.argparse_extend" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.check_tables">
+<code class="descname">check_tables</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.check_tables" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.close">
+<code class="descname">close</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.close" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.create_bos">
+<code class="descname">create_bos</code><span class="sig-paren">(</span><em>bos</em>, <em>commit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.create_bos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Insert one new bos into &#8220;books_on_shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>bos_data - list of bos data to insert</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd><dl class="first last docutils">
+<dt>status: success = 0</dt>
+<dd>failure = -1</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.create_shelf">
+<code class="descname">create_shelf</code><span class="sig-paren">(</span><em>shelf</em>, <em>commit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.create_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Insert one new shelf into &#8220;shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>shelf_data - list of shelf data to insert</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>shelf_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.delete_bos">
+<code class="descname">delete_bos</code><span class="sig-paren">(</span><em>bos</em>, <em>commit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.delete_bos" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete one bos from &#8220;books_on_shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>bos_data - list of bos data</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>bos_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.delete_shelf">
+<code class="descname">delete_shelf</code><span class="sig-paren">(</span><em>shelf</em>, <em>commit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.delete_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delete one shelf from &#8220;shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>shelf_id - id of shelf to delete</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>shelf_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_book_all">
+<code class="descname">get_book_all</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_book_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve all books from &#8220;books&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>None</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>book_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_book_by_id">
+<code class="descname">get_book_by_id</code><span class="sig-paren">(</span><em>book_id</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_book_by_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve one book from &#8220;books&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>book_id - id of book to get</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>book_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_book_by_node">
+<code class="descname">get_book_by_node</code><span class="sig-paren">(</span><em>node_id</em>, <em>allocated_value</em>, <em>num_books</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_book_by_node" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve book(s) from &#8220;books&#8221; table using node
+Input&#8212;</p>
+<blockquote>
+<div>node_id - id of node to filter on
+status - status of book to filter on
+num_rows - max number of rows to return</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>book_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_bos_all">
+<code class="descname">get_bos_all</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_bos_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve all bos from &#8220;books_on_shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>None</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>bos_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_bos_by_book_id">
+<code class="descname">get_bos_by_book_id</code><span class="sig-paren">(</span><em>book_id</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_bos_by_book_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve all bos entries from &#8220;books_on_shelves&#8221; table
+given a book_id.
+Input&#8212;</p>
+<blockquote>
+<div>book_id - book identifier</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>bos_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_bos_by_shelf_id">
+<code class="descname">get_bos_by_shelf_id</code><span class="sig-paren">(</span><em>shelf_id</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_bos_by_shelf_id" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve all bos entries from &#8220;books_on_shelves&#8221; table
+given a shelf_id.
+Input&#8212;</p>
+<blockquote>
+<div>shelf_id - shelf identifier</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>bos_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_nvm_parameters">
+<code class="descname">get_nvm_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_nvm_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns duple(book_size, total_nvm)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_shelf">
+<code class="descname">get_shelf</code><span class="sig-paren">(</span><em>shelf</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve one shelf from &#8220;shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>shelf_id - id of shelf to get</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>shelf_id or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_shelf_all">
+<code class="descname">get_shelf_all</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_shelf_all" title="Permalink to this definition">¶</a></dt>
+<dd><p>Retrieve all shelves from &#8220;shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>None</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>shelf_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.get_version">
+<code class="descname">get_version</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.get_version" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.modify_book">
+<code class="descname">modify_book</code><span class="sig-paren">(</span><em>book</em>, <em>commit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.modify_book" title="Permalink to this definition">¶</a></dt>
+<dd><p>Modify book data in &#8220;books&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>book_data - list of new book data</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>book_data or error message</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="database.LibrarianDBackendSQL.modify_shelf">
+<code class="descname">modify_shelf</code><span class="sig-paren">(</span><em>shelf</em>, <em>commit=False</em><span class="sig-paren">)</span><a class="headerlink" href="#database.LibrarianDBackendSQL.modify_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Modify shelf data in &#8220;shelves&#8221; table.
+Input&#8212;</p>
+<blockquote>
+<div>shelf_data - list of new shelf data</div></blockquote>
+<dl class="docutils">
+<dt>Output&#8212;</dt>
+<dd>shelf_data or error message</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2015, Rocky Craig Greg Pearson Justin Vreeland.
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

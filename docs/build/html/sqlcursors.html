@@ -1,0 +1,249 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>sqlcursors module &mdash; Librarian 0 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="Librarian 0 documentation" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+
+        
+          <a href="index.html" class="icon icon-home"> Librarian
+        
+
+        
+        </a>
+
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+        
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul class="simple">
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">Librarian</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>sqlcursors module</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/sqlcursors.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="module-sqlcursors">
+<span id="sqlcursors-module"></span><h1>sqlcursors module<a class="headerlink" href="#module-sqlcursors" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="sqlcursors.SQLcursor">
+<em class="property">class </em><code class="descclassname">sqlcursors.</code><code class="descname">SQLcursor</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLcursor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>Abstract Base Class, or mostly an interface.  Inherit from this
+and define a DBconect() method that sets _conn and _cursor.</p>
+<dl class="method">
+<dt id="sqlcursors.SQLcursor.DBconnect">
+<code class="descname">DBconnect</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLcursor.DBconnect" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLcursor.DELETE">
+<code class="descname">DELETE</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLcursor.DELETE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLcursor.INSERT">
+<code class="descname">INSERT</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLcursor.INSERT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLcursor.UPDATE">
+<code class="descname">UPDATE</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLcursor.UPDATE" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="sqlcursors.SQLcursor.iterclass">
+<code class="descname">iterclass</code><a class="headerlink" href="#sqlcursors.SQLcursor.iterclass" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLcursor.schema">
+<code class="descname">schema</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLcursor.schema" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="sqlcursors.SQLiteCursor">
+<em class="property">class </em><code class="descclassname">sqlcursors.</code><code class="descname">SQLiteCursor</code><span class="sig-paren">(</span><em>**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLiteCursor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#sqlcursors.SQLcursor" title="sqlcursors.SQLcursor"><code class="xref py py-class docutils literal"><span class="pre">sqlcursors.SQLcursor</span></code></a></p>
+<dl class="method">
+<dt id="sqlcursors.SQLiteCursor.DBconnect">
+<code class="descname">DBconnect</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLiteCursor.DBconnect" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLiteCursor.DELETE">
+<code class="descname">DELETE</code><span class="sig-paren">(</span><em>table</em>, <em>where</em>, <em>values</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLiteCursor.DELETE" title="Permalink to this definition">¶</a></dt>
+<dd><p>Values are a COMPLETE tuple following ordered schema</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLiteCursor.INSERT">
+<code class="descname">INSERT</code><span class="sig-paren">(</span><em>table</em>, <em>values</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLiteCursor.INSERT" title="Permalink to this definition">¶</a></dt>
+<dd><p>Values are a COMPLETE tuple following ordered schema</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLiteCursor.UPDATE">
+<code class="descname">UPDATE</code><span class="sig-paren">(</span><em>table</em>, <em>setclause</em>, <em>values</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLiteCursor.UPDATE" title="Permalink to this definition">¶</a></dt>
+<dd><p>setclause is effective key=val, key=val sequence</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="sqlcursors.SQLiteCursor.schema">
+<code class="descname">schema</code><span class="sig-paren">(</span><em>table</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.SQLiteCursor.schema" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="class">
+<dt id="sqlcursors.Schema">
+<em class="property">class </em><code class="descclassname">sqlcursors.</code><code class="descname">Schema</code><span class="sig-paren">(</span><em>cursor</em>, <em>table</em>, <em>SQLschema</em><span class="sig-paren">)</span><a class="headerlink" href="#sqlcursors.Schema" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2015, Rocky Craig Greg Pearson Justin Vreeland.
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

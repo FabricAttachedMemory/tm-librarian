@@ -1,35 +1,64 @@
-#!/usr/bin/python3 -tt
+""" Chain module for use by the librarian """
 from function_chain import Link, Chain
 import json
 
-# seperating these for now but maybe have a std_link library? inside of the
-# function chain module?
-# instance or class? class? who cares really
-class Json_Link(Link):
+class JsonLink(Link):
+    """ Link that converts from dictionaries to json and vise-versa """
 
     def apply(self, obj):
+        """ dictionary -> JSON
+
+        Args:
+            obj: Json dictionary
+
+        Returns:
+            JSON string
+        """
         return json.dumps(obj)
 
     def unapply(self, obj):
+        """ JSON -> dictionary
+
+        Args:
+            obj: JSON string
+
+        Returns:
+            Python dictionary object
+        """
         return json.loads(obj)
 
 
-class Encode_Link(Link):
-
+class EncodeLink(Link):
+    """ Encode and decode strings to pass to a socket """
     def apply(self, obj):
+        """ Apply aencoding python string -> byte string
+        Args:
+            obj: Python3 string
+
+        Returns:
+            Byte string to be use with Socket.send()
+        """
         return str.encode(obj)
 
     def unapply(self, obj):
+        """ Decode encoding
+        Args:
+            obj: Byte string, like from Socket.recv()
+
+        Returns:
+            Python3 string
+        """
         return obj.decode("utf-8")
 
 
-class Librarian_Chain(Chain):
+class LibrarianChain(Chain):
+    """ Chain for use with librarian code """
 
     @staticmethod
     def argparse_extend(parser):
-     pass
+        """ does nothing """
+        pass
 
     def __init__(self, args):
-        super().add_link(Json_Link())
-        # temporarily removed to preserve current server code
-        #super().add_link(Encode_Link())
+        super().__init__()
+        super().add_link(JsonLink())

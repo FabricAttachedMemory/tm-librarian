@@ -1,0 +1,8 @@
+#!/bin/bash
+# -f replaces all the old files
+# not really 100% needed but It's easier to run it now than
+# remembering when we add a file
+sphinx-apidoc -f -o ./source ../
+
+# build html, puts it in the html directory
+make html

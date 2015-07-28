@@ -1,0 +1,335 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>engine module &mdash; Librarian 0 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+
+  
+    <link rel="top" title="Librarian 0 documentation" href="index.html"/> 
+
+  
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        
+
+        
+          <a href="index.html" class="icon icon-home"> Librarian
+        
+
+        
+        </a>
+
+        
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+        
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+          
+          
+              <ul class="simple">
+</ul>
+
+          
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">Librarian</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>engine module</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/engine.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document">
+            
+  <div class="section" id="module-engine">
+<span id="engine-module"></span><h1>engine module<a class="headerlink" href="#module-engine" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="engine.LibrarianCommandEngine">
+<em class="property">class </em><code class="descclassname">engine.</code><code class="descname">LibrarianCommandEngine</code><span class="sig-paren">(</span><em>backend</em>, <em>optargs=None</em>, <em>cooked=False</em><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<dl class="staticmethod">
+<dt id="engine.LibrarianCommandEngine.argparse_extend">
+<em class="property">static </em><code class="descname">argparse_extend</code><span class="sig-paren">(</span><em>parser</em><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.argparse_extend" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="engine.LibrarianCommandEngine.book_size">
+<code class="descname">book_size</code><a class="headerlink" href="#engine.LibrarianCommandEngine.book_size" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_close_shelf">
+<code class="descname">cmd_close_shelf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_close_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Close a shelf against access by a node.
+In (dict)&#8212;</p>
+<blockquote>
+<div>shelf_id</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>TMShelf object</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_create_shelf">
+<code class="descname">cmd_create_shelf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_create_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new shelf
+In (dict)&#8212;</p>
+<blockquote>
+<div>name</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>shelf data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_destroy_shelf">
+<code class="descname">cmd_destroy_shelf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_destroy_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Destroy a shelf and free any books associated with it.
+In (dict)&#8212;</p>
+<blockquote>
+<div>shelf_id
+node_id
+uid
+gid</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>shelf data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_get_shelf_zaddr">
+<code class="descname">cmd_get_shelf_zaddr</code><span class="sig-paren">(</span><em>cmd_data</em><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_get_shelf_zaddr" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>In (dict)&#8212;</dt>
+<dd>?</dd>
+<dt>Out (dict) &#8212;</dt>
+<dd>?</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_list_book">
+<code class="descname">cmd_list_book</code><span class="sig-paren">(</span><em>cmd_data</em><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_list_book" title="Permalink to this definition">¶</a></dt>
+<dd><p>List a given book
+In (dict)&#8212;</p>
+<blockquote>
+<div>book_id</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>book data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_list_bos">
+<code class="descname">cmd_list_bos</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_list_bos" title="Permalink to this definition">¶</a></dt>
+<dd><p>List all the books on a given shelf.
+In (dict)&#8212;</p>
+<blockquote>
+<div>shelf_id</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>bos data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_list_shelf">
+<code class="descname">cmd_list_shelf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_list_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>List a given shelf.
+In (dict)&#8212;</p>
+<blockquote>
+<div>name</div></blockquote>
+<dl class="docutils">
+<dt>Out (TMShelf object) &#8212;</dt>
+<dd>TMShelf object</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_list_shelves">
+<code class="descname">cmd_list_shelves</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_list_shelves" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_open_shelf">
+<code class="descname">cmd_open_shelf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_open_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Open a shelf for access by a node.
+In (dict)&#8212;</p>
+<blockquote>
+<div>name</div></blockquote>
+<dl class="docutils">
+<dt>Out &#8212;</dt>
+<dd>TMShelf object</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_resize_shelf">
+<code class="descname">cmd_resize_shelf</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_resize_shelf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Resize given shelf given a shelf and new size in bytes.
+In (dict)&#8212;</p>
+<blockquote>
+<div>name
+id
+size_bytes</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>shelf data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="engine.LibrarianCommandEngine.cmd_version">
+<code class="descname">cmd_version</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#engine.LibrarianCommandEngine.cmd_version" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return librarian version
+In (dict)&#8212;</p>
+<blockquote>
+<div>None</div></blockquote>
+<dl class="docutils">
+<dt>Out (dict) &#8212;</dt>
+<dd>librarian version</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="engine.LibrarianCommandEngine.commandset">
+<code class="descname">commandset</code><a class="headerlink" href="#engine.LibrarianCommandEngine.commandset" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="engine.LibrarianCommandEngine.total_nvm">
+<code class="descname">total_nvm</code><a class="headerlink" href="#engine.LibrarianCommandEngine.total_nvm" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2015, Rocky Craig Greg Pearson Justin Vreeland.
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>
