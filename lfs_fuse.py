@@ -1,4 +1,4 @@
-#!/usr/bin/python -tt
+#!/usr/bin/python3 -tt
 
 # From Stavros
 
@@ -18,7 +18,7 @@ def prentry(func):
     def new_func(*args, **kwargs):
         # args[0] is usually 'self', so ...
         tmp = ', '.join([str(a) for a in args[1:]])
-        print '%s(%s)' % (func.__name__, tmp)
+        print('%s(%s)' % (func.__name__, tmp))
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
@@ -44,7 +44,7 @@ class LibrarianFSd(Operations):
         self.host = elems[0]
         try:
             self.port = int(elems[1])
-        except Exception, e:
+        except Exception as e:
             self.port = 9093
         self.lcp = LibrarianCommandProtocol()
 
@@ -55,19 +55,20 @@ class LibrarianFSd(Operations):
         try:
             self.tormsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.tormsock.connect((self.host, self.port))
-        except Exception, e:
+        except Exception as e:
             set_trace()
             raise FuseOSError(errno.EHOSTUNREACH)
+       # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
     def destroy(self, root):    # ditto
         try:
             self.tormsock.shutdown(socket.SHUT_RDWR)
             self.tormsock.close()
-        except socket.error, e:
+        except socket.error as e:
             if e.errno != errno.ENOTCONN:
                 set_trace()
                 pass
-        except Exception, e:
+        except Exception as e:
             set_trace()
             pass
         del self.tormsock
@@ -89,7 +90,7 @@ class LibrarianFSd(Operations):
     # Second level: tenant group
     # Third level:  shelves
 
-    def librarian(self, cmd, trace=True):
+    def librarian(self, cmd, trace=False):
         '''Dictionary in, dictionary out'''
         if trace:
             set_trace()
@@ -97,28 +98,35 @@ class LibrarianFSd(Operations):
             cmd['command']  # idiot check: is it a dict with this keyword
             cmdJS = json.dumps(cmd)
             cmdJSenc = cmdJS.encode()
-        except Exception, e:
+        except KeyError:
+            print('Bad originating command', cmd)
+            raise FuseOSError(errno.EBADR)
+        except Exception as e:
             set_trace()
             raise FuseOSError(errno.EINVAL)
 
         try:
             self.tormsock.send(cmdJSenc)
             rspJSenc = self.tormsock.recv(4096)
-        except Exception, e:
+        except Exception as e:
             raise FuseOSError(errno.EIO)
 
         try:
             rspJS = rspJSenc.decode()
             rsp = json.loads(rspJS)
-        except Exception, e:
+        except Exception as e:
             set_trace()
             raise FuseOSError(errno.EINVAL)
 
+        if rsp is None: # see comments elsewhere on JSON(None) in Python
+            print('Far side groks not', cmd['command'])
+            raise FuseOSError(errno.ENOTTY)
         return rsp
 
     # Higher-level FS operations
 
-    # Called early on nearly all accesses
+    # Called early on nearly all accesses.  Returns os.lstat() equivalent
+    # or OSError(errno.ENOENT)
     @prentry
     def getattr(self, path, fh=None):
         if not fh is None:      # dir listings no dice, only open files
@@ -136,42 +144,42 @@ class LibrarianFSd(Operations):
             tmp.update(self._basetimes)
             return tmp
 
-        set_trace()
-        req1 = { 'command':  'list_shelf', 'name': shelf_name }
-        req2 = self.lcp('list_shelf', name=shelf_name)
-        rsp = self.librarian(req2)
+        req = self.lcp('list_shelf', name=shelf_name)
+        rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
 
         tmp = {
+                'st_ctime':     rsp['ctime'],
+                'st_mtime':     rsp['mtime'],
                 'st_uid':       42,
                 'st_gid':       42,
                 'st_mode':      int('0100777', 8),  # regular file, 777
                 'st_nlink':     1,
                 'st_size':      rsp['size_bytes']
               }
-        tmp.update(self._basetimes)
         return tmp
 
     @prentry
     def readdir(self, path, fh):
         if path != '/':
             raise FuseOSError(errno.ENOENT)
-        rsp = self.librarian({'cmd': 'listshelfall'})
+        rsp = self.librarian({'command': 'list_shelves'})
+        yield '.'
+        for shelf in rsp:
+           yield shelf['name']
 
-        dirents = ['.', ]
-        for shelf in rsp['shelves']:
-            dirents.append(shelf['shelf_name'])
-        for r in dirents:
-            yield r
-
+    # os.getaccess(path, mode): returns nothing (None), or
+    # raise EACCESS.
     @prentry
     def access(self, path, mode):   # returned nothing, but maybe 0?
-        junk = self.getattr(path)
-        # noop but need to compare attrs against mode, see access(2)
-        return 0    # or a raise
+        try:
+            attrs = self.getattr(path)
+        except Exception as e:
+            raise FuseOSError(errno.EACCES)
+        # FIXME: compare mode to attrs
 
     @prentry
     def chmod(self, path, mode):
@@ -233,7 +241,7 @@ class LibrarianFSd(Operations):
             self._basetimes['st_atime'] = times[0]
             self._basetimes['st_mtime'] = times[1]
             return 0    # os.utime
-        except Exception, e:
+        except Exception as e:
             pass
         raise FuseOSError(errno.ENOTSUP)
 
@@ -241,16 +249,15 @@ class LibrarianFSd(Operations):
     # ============
 
     @prentry
-    def open(self, path, flags):
+    def open(self, path, flags, **kwargs):
+        if kwargs:
+            set_trace() # looking for filehandles?  See FUSE docs
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian({
-                                'cmd':          'openshelf',
-                                'shelf_name':   shelf_name,
-                                'res_owner':  'UncleTouchy'
-                             })
+        req = self.lcp('open_shelf', name=shelf_name)
+        rsp = self.librarian(req)
         try:
-            return rsp['shelf_id']
-        except KeyError, e:
+            return rsp['id']
+        except Exception as e:
             raise FuseOSError(errno.ENOENT)
 
     # from shell: touch | truncate /lfs/nofilebythisname
@@ -260,15 +267,11 @@ class LibrarianFSd(Operations):
         if fi is not None:
             set_trace()
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian({
-                    'cmd':          'createshelf',
-                    'shelf_name':   shelf_name,
-                    'shelf_owner':  'UncleTouchy'
-                },
-                trace=False)
-        if rsp['shelf_name'] is None:
+        req = self.lcp('create_shelf', name=shelf_name)
+        rsp = self.librarian(req, trace=False)
+        if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
-        return rsp['shelf_id']
+        return rsp['id']
 
     @prentry
     def read(self, path, length, offset, fh):
@@ -283,15 +286,22 @@ class LibrarianFSd(Operations):
         return os.write(fh, buf)
 
     @prentry
-    def truncate(self, path, length, fh=None):  # example returned nothing?
-        if fh is not None:
+    # it was opened before this, but where is the fd (aka shelf id)?
+    # Example code shows an explicit open by name in here.
+    # example returned nothing?
+    def truncate(self, path, length, **kwargs):
+        if kwargs:
             set_trace()
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian({
-                    'cmd':          'resizeshelf',
-                    'shelf_name':   shelf_name,
-                    'size_bytes':   length
-                })
+        req = self.lcp('list_shelf', name=shelf_name)
+        listrsp = self.librarian(req)
+
+        req = self.lcp('resize_shelf',
+                        name=shelf_name,
+                        size_bytes=length,
+                        id=listrsp['id'])
+        set_trace()
+        rsp = self.librarian(req)
         if not 'size_bytes' in rsp:
             raise FuseOSError(errno.EINVAL)
         return 0
@@ -303,12 +313,11 @@ class LibrarianFSd(Operations):
     @prentry
     def release(self, path, fh):    # fh == shelfid
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian({
-                    'cmd':          'closeshelf',
-                    'shelf_name':   shelf_name,
-                    'res_owner':    'UncleTouchy'
-                })
-        if rsp['shelf_name'] != shelf_name:
+        req = self.lcp('close_shelf', id=fh)
+        rsp = self.librarian(req)
+        try:
+            assert rsp['name'] == shelf_name
+        except Exception as e:
             raise FuseOSError(errno.EEXIST)
         return 0    # os.close...
 

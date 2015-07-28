@@ -275,9 +275,10 @@ class LibrarianCommandEngine(object):
 
     def _obj2dict(self, resp):
         if resp is None:
-            return {'command': self._cmdict['command']}
-        set_trace()
-        pass
+            return None # see comment elsewhere about JSON(None) in Python
+        if isinstance(resp, list):
+            return [ r.dict for r in resp ] # generator didn't work?
+        return resp.dict
 
     def __call__(self, cmdict):
         errmsg = ''
@@ -285,7 +286,15 @@ class LibrarianCommandEngine(object):
             self._cmdict = cmdict
             handler = self._handlers[self._cmdict['command']]
         except KeyError as e:
-            set_trace()
+            # This comment might go better in the module that imports json.
+            # From StackOverflow: NULL is not zero. It is not a value, per se:
+            # it is a value outside the domain of the variable's type,
+            # indicating missing or unknown data.  There is only one way to
+            # represent null in JSON. Per the specs (RFC 4627 and json.org):
+            # 2.1.  Values.  A JSON value MUST be an object, array, number,
+            # or string, OR one of the following three literal names:
+            # false null true
+            # Python's json handler turns None into 'null' and vice verse.
             errmsg = 'Bad lookup on "%s"' % str(e)
             return None
 
