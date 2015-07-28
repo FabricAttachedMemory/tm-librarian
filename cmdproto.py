@@ -28,6 +28,10 @@ class LibrarianCommandProtocol(object):
             doc='list shelf details by shelf name',
             parms=('name', ),
         ),
+        'list_shelf_books': GO(
+            doc='list books on a shelf',
+            parms=('name', ),
+        ),
         'list_shelves': GO(
             doc='list all shelf names',
             parms=None,

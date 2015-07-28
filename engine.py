@@ -136,6 +136,16 @@ class LibrarianCommandEngine(object):
             assert book, 'Book allocation modify failed'
         return self.db.delete_shelf(shelf, commit=True)
 
+    def _cmd_list_shelf_books(self, shelf):
+        assert shelf.id, '%s is not open' % shelf.name
+        bos = self.db.get_bos_by_shelf_id(shelf.id)
+
+        # consistency checks
+        assert len(bos) == shelf.book_count, (
+            '%s book count mismatch' % shelf.name)
+        assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+            '%s size metadata mismatch' % shelf.name)
+        return bos
 
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
@@ -146,24 +156,21 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-
-        # Gonna need book details sooner or later.  Since resizing should
-        # be reasonably infrequent, do some consistency checking now.
-        # Save the idiot checking until later.
-
-        shelf = TMShelf(self._cmdict)   # just for the....
-        shelf.matchfields = ('id')
-        shelf = self.db.get_shelf(shelf)
+        newshelf = TMShelf(self._cmdict)   # just for the....
+        assert newshelf.id, '%s not open for resize' % newshelf.name
+        newshelf.matchfields = ('id')
+        shelf = self.db.get_shelf(newshelf)
         if shelf is None:
             return None
 
-        bos = self.db.get_bos_by_shelf_id(shelf.id)
+        bos = self._cmd_list_shelf_books(shelf)
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
 
         # other consistency checks
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
+
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
@@ -274,15 +281,6 @@ class LibrarianCommandEngine(object):
         except Exception as e:
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
-    def _obj2dict(self, resp):
-        if resp is None:
-            return None # see comment elsewhere about JSON(None) in Python
-        if isinstance(resp, list):
-            return [ r.dict for r in resp ] # generator didn't work?
-        if isinstance(resp, dict):
-            return resp
-        return resp.dict
-
     def __call__(self, cmdict):
         errmsg = ''
         try:
@@ -315,9 +313,19 @@ class LibrarianCommandEngine(object):
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         finally:    # whether it worked or not
             if errmsg:
-                ret = { 'error': errmsg }
+                ret = { 'error': errmsg }   # FIXME: should be an object
 
-            return ret if self._cooked else self._obj2dict(ret)
+            if self._cooked:    # for self-test
+                return ret
+
+            # for the net
+            if ret is None:
+                return None # see comment elsewhere about JSON(None)
+            if isinstance(ret, list):
+                return [ r.dict for r in ret ] # generator didn't work?
+            if isinstance(ret, dict):
+                return ret
+            return ret.dict
 
     @property
     def commandset(self):
@@ -411,15 +419,15 @@ if __name__ == '__main__':
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None:
-        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
+    if shelf is None or 'error' in shelf:
+        raise SystemExit('Shelf ' + name + ' has disappeared (resize up)')
 
     shelf.size_bytes = (50 * lce.book_size)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None:
-        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
+        raise SystemExit('Shelf ' + name + ' has disappeared (resize down)')
 
     recvd = lcp('close_shelf', shelf)
     shelf = lce(recvd)

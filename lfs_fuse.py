@@ -37,7 +37,7 @@ class LibrarianFSd(Operations):
         'st_mtime':     1436739200,
     }
 
-    _mode_default_file = int('0100666', 8),  # isfile, 666
+    _mode_default_file = int('0100666', 8)  # isfile, 666
 
     def __init__(self, source, node_id):
         '''Validate parameters'''
@@ -133,7 +133,7 @@ class LibrarianFSd(Operations):
             set_trace()
             rsp = { 'error': 'LFSd: %s' % str(e) }
 
-        if 'error' in rsp:
+        if rsp and 'error' in rsp:
             print('%s failed: %s' % (cmd['command'], rsp['error']))
             raise FuseOSError(errno.ESTALE)    # Unique in this code
         return rsp  # None is now legal, let the caller interpret it.
@@ -170,21 +170,21 @@ class LibrarianFSd(Operations):
         # from same node.
         shelf = TMShelf(rsp)
         mode = self._mode_default_file  # gotta start somewhere
-        if shelf.book_count:
+        if False and shelf.book_count:
             set_trace()
             bos = self.db.get_bos_by_shelf_id(shelf.id)
             book = self.db.get_book_by_id(bos[0].book_id)
-            if book.node_id != self._cmdict['context']['node_id']:
-                mode = int('0100444', 8)
+            if book.node_id != self.lcp._context['node_id']:
+                mode = int('0100111', 8)
 
         tmp = {
-                'st_ctime':     rsp['ctime'],
-                'st_mtime':     rsp['mtime'],
+                'st_ctime':     shelf.ctime,
+                'st_mtime':     shelf.mtime,
                 'st_uid':       42,
                 'st_gid':       42,
                 'st_mode':      mode,
                 'st_nlink':     1,
-                'st_size':      rsp['size_bytes']
+                'st_size':      shelf.size_bytes
               }
         return tmp
 
@@ -232,13 +232,20 @@ class LibrarianFSd(Operations):
         raise FuseOSError(errno.ENOTSUP)
 
     @prentry
-    def statfs(self, path):
-        raise FuseOSError(errno.ENOTSUP)
-        full_path = self._full_path(path)
-        stv = os.statvfs(full_path)
-        return dict((key, getattr(stv, key)) for key in ('f_bavail', 'f_bfree',
-            'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
-            'f_frsize', 'f_namemax'))
+    def statfs(self, path): # "df" command; example used statVfs
+        # path is don't care. Using stuff from bodemo
+        return {
+            'f_bavail':     100,    # free blocks for unpriv users
+            'f_bfree':      100,    # total free DATA blocks
+            'f_blocks':     200,    # total DATA blocks
+            'f_bsize':      65536,  # optimal transfer block size
+            'f_favail':     100,    # free inodes for unpriv users
+            'f_ffree':      100,    # total free file inodes
+            'f_files':      200,    # total number of inodes
+            'f_flag':       63,     # mount flags
+            'f_frsize':     0,      # fragment size
+            'f_namemax':    255,    # maximum filename length
+        }
 
     @prentry
     def unlink(self, path):
