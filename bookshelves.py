@@ -73,7 +73,7 @@ class BookShelfStuff(object):      # could become a mixin
     @property
     def dict(self):
         d = {}
-        for k in self._sorted:
+        for k in set(self.__slots__) - set(self._MFname):
             val = getattr(self, k)
             d[k] = val
         return d

@@ -62,8 +62,9 @@ class LibrarianCommandEngine(object):
         shelf = TMShelf(self._cmdict)
         shelf.matchfields = ('name', )
         shelf = self.db.get_shelf(shelf)
-        if shelf is not None:
-            assert self._nbooks(shelf.size_bytes) == shelf.book_count, '%s size metadata mismatch' % shelf.name
+        if shelf is not None:   # consistency checks
+            assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+                '%s size metadata mismatch' % shelf.name)
         return shelf
 
     def cmd_list_shelves(self):
@@ -278,6 +279,8 @@ class LibrarianCommandEngine(object):
             return None # see comment elsewhere about JSON(None) in Python
         if isinstance(resp, list):
             return [ r.dict for r in resp ] # generator didn't work?
+        if isinstance(resp, dict):
+            return resp
         return resp.dict
 
     def __call__(self, cmdict):
@@ -299,19 +302,22 @@ class LibrarianCommandEngine(object):
             return None
 
         try:
+            errmsg = ''
             assert not errmsg, errmsg
             ret = handler(self)
-            return ret if self._cooked else self._obj2dict(ret)
         except AssertionError as e:     # consistency checks
-            msg = str(e)
-        except RuntimeError as e:       # idiot checks
-            msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
+            errmsg = str(e)
+        except (AttributeError, RuntimeError) as e: # idiot checks
+            errmsg = 'INTERNAL ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        except Exception as e:       # idiot checks
-            set_trace()
-            msg = 'UNEXPECTED ERROR @ %s[%d]: %s' %  (
+        except Exception as e:          # the Unknown Idiot
+            errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        raise RuntimeError(msg)
+        finally:    # whether it worked or not
+            if errmsg:
+                ret = { 'error': errmsg }
+
+            return ret if self._cooked else self._obj2dict(ret)
 
     @property
     def commandset(self):

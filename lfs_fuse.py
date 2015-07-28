@@ -12,6 +12,7 @@ from pdb import set_trace
 
 from fuse import FUSE, FuseOSError, Operations
 
+from bookshelves import TMShelf
 from cmdproto import LibrarianCommandProtocol
 
 def prentry(func):
@@ -35,6 +36,8 @@ class LibrarianFSd(Operations):
         'st_ctime':     1436739200,
         'st_mtime':     1436739200,
     }
+
+    _mode_default_file = int('0100666', 8),  # isfile, 666
 
     def __init__(self, source, node_id):
         '''Validate parameters'''
@@ -128,7 +131,11 @@ class LibrarianFSd(Operations):
             rsp = json.loads(rspJS)
         except Exception as e:
             set_trace()
-            raise FuseOSError(errno.EINVAL)
+            rsp = { 'error': 'LFSd: %s' % str(e) }
+
+        if 'error' in rsp:
+            print('%s failed: %s' % (cmd['command'], rsp['error']))
+            raise FuseOSError(errno.ESTALE)    # Unique in this code
         return rsp  # None is now legal, let the caller interpret it.
 
     # Higher-level FS operations
@@ -145,7 +152,7 @@ class LibrarianFSd(Operations):
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
-                'st_mode':      int('0041777', 8),  # directory, sticky, 777
+                'st_mode':      int('0041777', 8),  # isdir, sticky, 777
                 'st_nlink':     1,
                 'st_size':      4096
             }
@@ -159,12 +166,23 @@ class LibrarianFSd(Operations):
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
 
+        # Calculate mode on the fly.  For now, all books must come
+        # from same node.
+        shelf = TMShelf(rsp)
+        mode = self._mode_default_file  # gotta start somewhere
+        if shelf.book_count:
+            set_trace()
+            bos = self.db.get_bos_by_shelf_id(shelf.id)
+            book = self.db.get_book_by_id(bos[0].book_id)
+            if book.node_id != self._cmdict['context']['node_id']:
+                mode = int('0100444', 8)
+
         tmp = {
                 'st_ctime':     rsp['ctime'],
                 'st_mtime':     rsp['mtime'],
                 'st_uid':       42,
                 'st_gid':       42,
-                'st_mode':      int('0100777', 8),  # regular file, 777
+                'st_mode':      mode,
                 'st_nlink':     1,
                 'st_size':      rsp['size_bytes']
               }
@@ -190,7 +208,7 @@ class LibrarianFSd(Operations):
         # FIXME: compare mode to attrs
 
     @prentry
-    def chmod(self, path, mode):
+    def chmod(self, path, mode, **kwargs):
         raise FuseOSError(errno.ENOTSUP)
 
     @prentry
