@@ -1,13 +1,13 @@
 #!/usr/bin/python3 -tt
 #---------------------------------------------------------------------------
-# Librarian database interface module for SQL backends
+# Librarian database interface module for SQL backends.  Originally
+# written against SQLite but it's so generic it might be okay
+# for Maria.  I'm not sure about Postgres but it should be close.
 #---------------------------------------------------------------------------
 
 import time
 
 from bookshelves import TMBook, TMShelf, TMBos
-
-from sqlcursors import SQLiteCursor
 
 from pdb import set_trace
 
@@ -17,28 +17,14 @@ class LibrarianDBackendSQL(object):
 
     @staticmethod
     def argparse_extend(parser):
-        # group = parser.add_mutually_exclusive_group()
-        parser.add_argument('--db_file',
-                           help='SQLite3 database backing store file',
-                           required=True)
+        pass
 
     def __init__(self, args):
-        self._cur = SQLiteCursor(db_file=args.db_file)
+        raise NotImplementedError
 
-    # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
-    # hole-filling.  Explicitly setting id overrides that.  Break it out
-    # in case we switch to a UUID or something else.
+    # Broken out in case we switch to a UUID or something else.
     def _getnextid(self, table):
-        self._cur.execute('SELECT MAX(id) FROM %s' % table)
-        id = self._cur.fetchone()
-        if isinstance(id[0], int):
-            return id[0] + 1
-        # no rows? double check
-        self._cur.execute('SELECT COUNT(id) FROM %s' % table)
-        id = self._cur.fetchone()[0]
-        if id == 0:
-            return 1    # first id is non-zero
-        raise RuntimeError('Cannot calculate nextid for %s' % table)
+        return self._cur.getnextid(table)
 
     #
     # DB globals
@@ -148,14 +134,9 @@ class LibrarianDBackendSQL(object):
             Output---
               book_data or error message
         """
-        print("get all books from db")
-        try:
-            db_query = "SELECT * FROM books ORDER BY book_id"
-            self._cur.execute(db_query)
-            book_data = self._cur.fetchall()
-            return(book_data)
-        except sqlite3.Error:
-            return("get_book_all: error retrieving all books")
+        self._cur.execute('SELECT * FROM books ORDER BY book_id')
+        self._cur.iterclass = TMBook
+        return [ r for r in self._cur ]
 
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
@@ -273,14 +254,9 @@ class LibrarianDBackendSQL(object):
             Output---
               bos_data or error message
         """
-        print("get all bos from db")
-        try:
-            db_query = "SELECT * FROM books_on_shelves"
-            self._cur.execute(db_query)
-            bos_data = self._cur.fetchall()
-            return(bos_data)
-        except sqlite3.Error:
-            return("get_bos_all: error retrieving all bos")
+        self._cur.execute('SELECT * FROM books_on_shelves')
+        self._cur.iterclass = TMBos
+        return [ r for r in self._cur ]
 
     def delete_bos(self, bos, commit=False):
         """ Delete one bos from "books_on_shelves" table.
@@ -295,55 +271,24 @@ class LibrarianDBackendSQL(object):
             self._cur.commit()
         return(bos)
 
-    #
-    # Testing - SQLite 3
-    #
-
-    def check_tables(self):
-        print("check_tables()")
-
-        # select all shelves by name, no dupes#
-
-        total_tables = 0
-        table_names = []
-        tables_to_ignore = ["sqlite_sequence"]
-        db_query = """
-            SELECT name FROM sqlite_master
-            WHERE type='table' ORDER BY Name
-            """
-        self._cur.execute(db_query)
-        tables = map(lambda t: t[0], self._cur.fetchall())
-
-        for table in tables:
-
-            if (table in tables_to_ignore):
-                continue
-
-            db_query = "PRAGMA table_info(%s)" % (table)
-            self._cur.execute(db_query)
-            number_of_columns = len(self._cur.fetchall())
-
-            db_query = "PRAGMA table_info(%s)" % (table)
-            self._cur.execute(db_query)
-            columns = self._cur.fetchall()
-
-            db_query = "SELECT Count() FROM %s" % (table)
-            self._cur.execute(db_query)
-            number_of_rows = self._cur.fetchone()[0]
-
-            print("Table: %s (columns = %d, rows = %d)" %
-                  (table, number_of_columns, number_of_rows))
-
-            for column in columns:
-                print("  ", column)
-
-            table_names.append(table)
-            total_tables += 1
-
-        print("Total number of tables: %d" % total_tables)
-
     def close(self):
         self._cur.close()
+
+###########################################################################
+
+from sqlcursors import SQLite3Cursor
+
+class LibrarianDBackendSQLite3(LibrarianDBackendSQL):
+
+    @staticmethod
+    def argparse_extend(parser):
+        # group = parser.add_mutually_exclusive_group()
+        parser.add_argument('--db_file',
+                           help='SQLite3 database backing store file',
+                           required=True)
+
+    def __init__(self, args):
+        self._cur = SQLite3Cursor(db_file=args.db_file)
 
 ###########################################################################
 

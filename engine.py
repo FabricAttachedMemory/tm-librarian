@@ -344,7 +344,7 @@ if __name__ == '__main__':
     from argparse import Namespace
     from pprint import pprint
 
-    from database import LibrarianDBackendSQL
+    from database import LibrarianDBackendSQLite3
 
     def pp(recvd, data):
         print('Command:', dict(recvd))
@@ -369,7 +369,7 @@ if __name__ == '__main__':
     # Namespace is the end result of an argparse sequence.
     args = Namespace(db_file=sys.argv[1])
     lce = LibrarianCommandEngine(
-                    LibrarianDBackendSQL(args),
+                    LibrarianDBackendSQLite3(args),
                     cooked=True)
     print(lce.commandset)
 
@@ -419,7 +419,7 @@ if __name__ == '__main__':
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None or 'error' in shelf:
+    if shelf is None:
         raise SystemExit('Shelf ' + name + ' has disappeared (resize up)')
 
     shelf.size_bytes = (50 * lce.book_size)

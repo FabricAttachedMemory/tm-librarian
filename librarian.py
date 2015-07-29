@@ -8,7 +8,7 @@ import sys
 
 from pdb import set_trace
 
-from database import LibrarianDBackendSQL as LBE
+from database import LibrarianDBackendSQLite3 as LBE
 from engine import LibrarianCommandEngine as LCE
 from socket_handling import Server
 from librarian_chain import Librarian_Chain

@@ -68,19 +68,22 @@ class SQLcursor(object):
     }
 
     def DBconnect(self, *args):
-        raise NotImplementedError   # Left as an exercise to the reader
+        raise NotImplementedError
 
     def schema(self, *args):
-        raise NotImplementedError   # Left as an exercise to the reader
+        raise NotImplementedError
+
+    def check_tables(self):
+        raise NotImplementedError
 
     def INSERT(self, *args):
-        raise NotImplementedError   # Left as an exercise to the reader
+        raise NotImplementedError
 
     def UPDATE(self, *args):
-        raise NotImplementedError   # Left as an exercise to the reader
+        raise NotImplementedError
 
     def DELETE(self, *args):
-        raise NotImplementedError   # Left as an exercise to the reader
+        raise NotImplementedError
 
     def __init__(self, **kwargs):
         for k in self._defaults:
@@ -180,10 +183,11 @@ class SQLcursor(object):
         return exec_wrapper
 
 ###########################################################################
+# Some of this might elevate nicely to SQLcursor
 
 import sqlite3
 
-class SQLiteCursor(SQLcursor):
+class SQLite3Cursor(SQLcursor):
 
     _SQLshowtables = 'SELECT name FROM main.sqlite_master WHERE type="table";'
     _SQLshowschema = 'PRAGMA table_info({});'
@@ -245,6 +249,65 @@ class SQLiteCursor(SQLcursor):
             self.rollback()
             raise AssertionError('DELETE FROM %s %sfailed' % (table, values))
         # DO NOT COMMIT, give caller a chance for multiples or rollback
+
+    #
+    # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
+    # hole-filling.  Explicitly setting id overrides that.
+    #
+    def getnextid(self, table):
+        self.execute('SELECT MAX(id) FROM %s' % table)
+        id = self.fetchone()
+        if isinstance(id[0], int):
+            return id[0] + 1
+        # no rows? double check
+        self.execute('SELECT COUNT(id) FROM %s' % table)
+        id = self.fetchone()[0]
+        if id == 0:
+            return 1    # first id is non-zero
+        raise RuntimeError('Cannot calculate nextid for %s' % table)
+
+    #
+    # Testing - SQLite 3
+    #
+
+    def check_tables(self):
+        print("Checking data tables()")
+
+        total_tables = 0
+        table_names = []
+        tables_to_ignore = ( 'sqlite_sequence', )
+        self.execute("""SELECT name FROM sqlite_master
+                             WHERE type='table'
+                             ORDER BY Name""")
+        tables =  [t[0] for t in self.fetchall() if
+                    t[0] not in tables_to_ignore ]
+
+        set_trace()
+        for table in tables:
+
+            db_query = "PRAGMA table_info(%s)" % (table)
+            self.execute(db_query)
+            number_of_columns = len(self.fetchall())
+
+            db_query = "PRAGMA table_info(%s)" % (table)
+            self.execute(db_query)
+            columns = self.fetchall()
+
+            db_query = "SELECT Count() FROM %s" % (table)
+            self.execute(db_query)
+            number_of_rows = self.fetchone()[0]
+
+            print("Table: %s (columns = %d, rows = %d)" %
+                  (table, number_of_columns, number_of_rows))
+
+            for column in columns:
+                print("  ", column)
+
+            table_names.append(table)
+            total_tables += 1
+
+        print("Total number of tables: %d" % total_tables)
+
 
 ###########################################################################
 
