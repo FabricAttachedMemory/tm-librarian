@@ -10,8 +10,9 @@ import math
 import sys
 from pdb import set_trace
 
-from bookshelves import TMBook, TMShelf, TMBos
+from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
+from genericobj import GenericObject
 
 class LibrarianCommandEngine(object):
 
@@ -62,8 +63,9 @@ class LibrarianCommandEngine(object):
         shelf = TMShelf(self._cmdict)
         shelf.matchfields = ('name', )
         shelf = self.db.get_shelf(shelf)
-        if shelf is not None:
-            assert self._nbooks(shelf.size_bytes) == shelf.book_count, '%s size metadata mismatch' % shelf.name
+        if shelf is not None:   # consistency checks
+            assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+                '%s size metadata mismatch' % shelf.name)
         return shelf
 
     def cmd_list_shelves(self):
@@ -135,6 +137,16 @@ class LibrarianCommandEngine(object):
             assert book, 'Book allocation modify failed'
         return self.db.delete_shelf(shelf, commit=True)
 
+    def _cmd_list_shelf_books(self, shelf):
+        assert shelf.id, '%s is not open' % shelf.name
+        bos = self.db.get_bos_by_shelf_id(shelf.id)
+
+        # consistency checks
+        assert len(bos) == shelf.book_count, (
+            '%s book count mismatch' % shelf.name)
+        assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+            '%s size metadata mismatch' % shelf.name)
+        return bos
 
     def cmd_resize_shelf(self):
         """ Resize given shelf given a shelf and new size in bytes.
@@ -145,24 +157,21 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-
-        # Gonna need book details sooner or later.  Since resizing should
-        # be reasonably infrequent, do some consistency checking now.
-        # Save the idiot checking until later.
-
-        shelf = TMShelf(self._cmdict)   # just for the....
-        shelf.matchfields = ('id')
-        shelf = self.db.get_shelf(shelf)
+        newshelf = TMShelf(self._cmdict)   # just for the....
+        assert newshelf.id, '%s not open for resize' % newshelf.name
+        newshelf.matchfields = ('id')
+        shelf = self.db.get_shelf(newshelf)
         if shelf is None:
             return None
 
-        bos = self.db.get_bos_by_shelf_id(shelf.id)
+        bos = self._cmd_list_shelf_books(shelf)
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
 
         # other consistency checks
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
+
         new_size_bytes = int(self._cmdict['size_bytes'])
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
@@ -188,7 +197,7 @@ class LibrarianCommandEngine(object):
             seq_num = shelf.book_count
             freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
             assert len(freebooks) == books_needed, (
-                'ENOSPC on node %d' % node_id)
+                'ENOSPC on node %d for "%s"' % (node_id, shelf.name))
             for book in freebooks: # Mark book in use and create BOS entry
                 book.allocated = TMBook.ALLOC_INUSE
                 book.matchfields = 'allocated'
@@ -273,13 +282,6 @@ class LibrarianCommandEngine(object):
         except Exception as e:
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
-    def _obj2dict(self, resp):
-        if resp is None:
-            return None # see comment elsewhere about JSON(None) in Python
-        if isinstance(resp, list):
-            return [ r.dict for r in resp ] # generator didn't work?
-        return resp.dict
-
     def __call__(self, cmdict):
         errmsg = ''
         try:
@@ -299,38 +301,51 @@ class LibrarianCommandEngine(object):
             return None
 
         try:
+            errmsg = ''
             assert not errmsg, errmsg
             ret = handler(self)
-            return ret if self._cooked else self._obj2dict(ret)
         except AssertionError as e:     # consistency checks
-            msg = str(e)
-        except RuntimeError as e:       # idiot checks
-            msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
+            errmsg = str(e)
+        except (AttributeError, RuntimeError) as e: # idiot checks
+            errmsg = 'INTERNAL ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        except Exception as e:       # idiot checks
-            set_trace()
-            msg = 'UNEXPECTED ERROR @ %s[%d]: %s' %  (
+        except Exception as e:          # the Unknown Idiot
+            errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        raise RuntimeError(msg)
+        finally:    # whether it worked or not
+            if errmsg:
+                ret = GenericObject(error=errmsg)
+
+            if self._cooked:    # for self-test
+                return ret
+
+            # for the net
+            if ret is None:
+                return None # see comment elsewhere about JSON(None)
+            if isinstance(ret, list):
+                return [ r.dict for r in ret ] # generator didn't work?
+            if isinstance(ret, dict):
+                return ret
+            return ret.dict
 
     @property
     def commandset(self):
         return tuple(sorted(self._handlers.keys()))
 
 ###########################################################################
+# Use LCP to construct command dictionaries from fixed data.  Those
+# dictionaries are what would be "received" from real clients.
+# Exercises are written against an SQLite3 database so create it
+# beforehand with book_register.py.
 
 if __name__ == '__main__':
-    '''"recvd" is commands/data that would be received from a client.'''
 
-    # Use LCP to construct command dictionaries from fixed data.  Those
-    # dictionaries are what would be "received" from real clients
-    # (like TMTetris) use to turn thought into action..
 
     import os
-    from argparse import Namespace
+    from argparse import Namespace # the result of an argparse sequence.
     from pprint import pprint
 
-    from database import LibrarianDBackendSQL
+    from backend_sqlite3 import LibrarianDBackendSQLite3
 
     def pp(recvd, data):
         print('Command:', dict(recvd))
@@ -338,8 +353,8 @@ if __name__ == '__main__':
         pprint(data)
         print()
 
-    umask = os.umask(0)
-    os.umask(umask)
+    umask = os.umask(0) # The Pythonic way to get the current umask.
+    os.umask(umask)     # FIXME: move this into...somewhere?
     context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
@@ -352,10 +367,9 @@ if __name__ == '__main__':
     print(lcp.commandset)
 
     # For self test, look at prettier results than dictionaries.
-    # Namespace is the end result of an argparse sequence.
     args = Namespace(db_file=sys.argv[1])
     lce = LibrarianCommandEngine(
-                    LibrarianDBackendSQL(args),
+                    LibrarianDBackendSQLite3(args),
                     cooked=True)
     print(lce.commandset)
 
@@ -384,7 +398,7 @@ if __name__ == '__main__':
     shelf = lce(recvd)
     pp(recvd, shelf)
 
-    recvd = lcp('list_shelf', shelf)    # a pre-existing object with 'name'
+    recvd = lcp('list_shelf', shelf)    # a shelf object with 'name'
     shelf = lce(recvd)
     pp(recvd, shelf)
 
@@ -393,39 +407,39 @@ if __name__ == '__main__':
     assert len(shelves) >= 4, 'not good'
     pp(recvd, shelf)
 
+    # Some FS operations (in FuSE) first require an open shelf.  The
+    # determination of that state is simple: does it have a shelf id?
     recvd = lcp('open_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None:
         raise SystemExit('Shelf ' + name + ' has disappeared (open)')
 
-    # These commands should all fail if shelf is not open to "me".
-
     shelf.size_bytes = (70 * lce.book_size)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None:
-        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
+    if shelf is None or hasattr(shelf, 'error'):
+        raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     shelf.size_bytes = (50 * lce.book_size)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None:
-        raise SystemExit('Shelf ' + name + ' has disappeared (resize)')
+    if shelf is None or hasattr(shelf, 'error'):
+        raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     recvd = lcp('close_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None:
-        raise SystemExit('Shelf ' + name + ' has disappeared (close)')
+    if shelf is None or hasattr(shelf, 'error'):
+        raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     # destroy shelf is just based on the name
     recvd = lcp('destroy_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None:
-        raise SystemExit('Shelf ' + name + ' has disappeared (destroy)')
+    if shelf is None or hasattr(shelf, 'error'):
+        raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     raise SystemExit(0)

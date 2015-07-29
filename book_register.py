@@ -10,8 +10,8 @@ import sys
 import configparser
 from pdb import set_trace
 
-from bookshelves import TMBook, TMShelf, TMBos
-from sqlcursors import SQLiteCursor
+from book_shelf_bos import TMBook, TMShelf, TMBos
+from backend_sqlite3 import SQLite3assist
 
 #--------------------------------------------------------------------------
 
@@ -223,7 +223,7 @@ if __name__ == '__main__':
             os.unlink(fname)
     else:
         fname = ':memory:'
-    cur = SQLiteCursor(db_file=fname)
+    cur = SQLite3assist(db_file=fname)
 
     book_size_bytes, section2books = load_book_data(sys.argv[1])
     create_empty_db(cur)

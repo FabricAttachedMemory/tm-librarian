@@ -1,6 +1,7 @@
 #!/usr/bin/python3 -tt
 
 """ Module to handle socket communication for Librarian and Clients """
+import errno
 import socket
 import select
 
@@ -182,13 +183,30 @@ class Server(SocketReadWrite):
                             print('Processing ',
                                 s.getpeername(), str(cmdict))
                     result = handler(cmdict)
-                    self.send(chain.forward_traverse(result), s)
+                except RuntimeError as e:   # handler self-detected fault
+                    print('HANDLER: ', str(e))
+                    result = None
                 except TypeError as e:
-                    print('READABLE: Usually bad JSON, sometimes socket death')
+                    print('SOCKET CLIENT: socket death, maybe bad JSON')
+                    result = None
                 except Exception as e:
-                    print('READABLE: ', str(e))
+                    print('SOCKET CLIENT: ', str(e))
+                    result = None
                     set_trace()
                     pass
+                finally:
+                    try:    # socket may have died by now
+                        self.send(chain.forward_traverse(result), s)
+                    except OSError as e:
+                        if e.errno != errno.EBADF:
+                            print('SOCKET CLIENT: final reply: ', str(e))
+                            set_trace()
+                            pass
+                    except Exception as e:
+                        print('SOCKET CLIENT: final reply: ', str(e))
+                        set_trace()
+                        pass
+
 
 if __name__ == "__main__":
     """ Run simple echo server to exercise the module """

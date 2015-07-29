@@ -73,7 +73,7 @@ class BookShelfStuff(object):      # could become a mixin
     @property
     def dict(self):
         d = {}
-        for k in self._sorted:
+        for k in set(self.__slots__) - set(self._MFname):
             val = getattr(self, k)
             d[k] = val
         return d
@@ -165,9 +165,9 @@ class TMBos(BookShelfStuff):
 
 if __name__ == '__main__':
 
-    from sqlcursors import SQLiteCursor
+    from backend_sqlite3 import SQLite3assist
 
-    cur = SQLiteCursor()    # no args == :memory:
+    cur = SQLite3assist()    # no args == :memory:
 
     book1 = TMBook()
     print(book1)
