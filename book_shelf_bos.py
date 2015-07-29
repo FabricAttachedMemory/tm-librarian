@@ -165,9 +165,9 @@ class TMBos(BookShelfStuff):
 
 if __name__ == '__main__':
 
-    from sqlcursors import SQLite3Cursor
+    from backend_sqlite3 import SQLite3assist
 
-    cur = SQLiteCursor()    # no args == :memory:
+    cur = SQLite3assist()    # no args == :memory:
 
     book1 = TMBook()
     print(book1)

@@ -344,7 +344,7 @@ if __name__ == '__main__':
     from argparse import Namespace
     from pprint import pprint
 
-    from database import LibrarianDBackendSQLite3
+    from backend_sqlite3 import LibrarianDBackendSQLite3
 
     def pp(recvd, data):
         print('Command:', dict(recvd))
