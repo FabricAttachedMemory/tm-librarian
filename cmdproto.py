@@ -9,7 +9,7 @@ from collections import OrderedDict
 from pdb import set_trace
 from pprint import pprint
 
-from genericobj import GenericObject as GO;
+from genericobj import GenericObject as GO
 
 class LibrarianCommandProtocol(object):
     '''__call__ will take a full tuple, kwargs, or a dict.'''
@@ -63,20 +63,14 @@ class LibrarianCommandProtocol(object):
 
     }   # _commands
 
-    # Helper routine.  It used to have more callers.
-    @staticmethod
-    def _emitparms(cmd, go):
-        respdict = OrderedDict((('command', cmd), ))
-        respdict['parms'] = go.parms
-        return respdict
+    # "Context" title is from FuSE.  In the C FuSE libary, the context is
+    # (uid, gid, pid, umask, private_data) where private_data is the return
+    # from the FuSE "init" call (NOT Python's __init__).  For the librarian,
+    # add node_id to that list.
 
-    # "Context" name is from FuSE, I had originally called it "requestor".
-    # FuSE context is (uid, gid, pid, umask, private_data) # where
-    # private_data is the return of the FuSE init call (NOT __init__).
-    # I'll add noded_id to that list.  Validation will be rough.
     def __init__(self, context):
         self._context = context
-        self._auth = { }
+        self._auth = { }    # coming sooner or later :-)
 
     def __call__(self, command, *args, **kwargs):
         '''Accept additional parameters as positional args, keywords,
@@ -95,7 +89,10 @@ class LibrarianCommandProtocol(object):
             if args:    # Gotta have them all, unless...
                 arg0 = args[0]
                 if str(arg0) == 'help':
-                    return self._emitparms(command, go)
+                    respdict = OrderedDict((('command', command), ))
+                    respdict['parms'] = go.parms
+                    return respdict
+
                 # It might be an object.  Try duck typing first.
                 try:
                     for p in go.parms:
@@ -140,7 +137,7 @@ class LibrarianCommandProtocol(object):
 
 if __name__ == '__main__':
 
-    from bookshelves import TMShelf
+    from book_shelf_bos import TMShelf
 
     lcp = LibrarianCommandProtocol()
 

@@ -10,7 +10,7 @@ import sys
 import configparser
 from pdb import set_trace
 
-from bookshelves import TMBook, TMShelf, TMBos
+from book_shelf_bos import TMBook, TMShelf, TMBos
 from sqlcursors import SQLiteCursor
 
 #--------------------------------------------------------------------------

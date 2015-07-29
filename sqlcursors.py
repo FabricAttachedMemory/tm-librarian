@@ -183,7 +183,8 @@ class SQLcursor(object):
         return exec_wrapper
 
 ###########################################################################
-# Some of this might elevate nicely to SQLcursor
+# Some of this might elevate nicely to SQLcursor.  The primmary concern
+# is cursor.rowcount, which doesn't seemt to be valid after SELECT.
 
 import sqlite3
 
@@ -239,7 +240,7 @@ class SQLite3Cursor(SQLcursor):
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
     # FIXME: move fields2qmarks in here (makes sense), then just pass
-    # pass the data object?  Or do schema manips belong "one level up" ?
+    # the data object?  Or do schema manips belong "one level up" ?
     def DELETE(self, table, where, values):
         '''Values are a COMPLETE tuple following ordered schema'''
         assert values, 'missing values for DELETE'
@@ -315,7 +316,7 @@ if __name__ == '__main__':
 
     import time
     from book_register import create_empty_db
-    from bookshelves import TMBook, TMShelf, TMBos
+    from book_shelf_bos import TMBook, TMShelf, TMBos
 
     print("--> Setup empty database, create and check table schemas")
     cur = SQLiteCursor()

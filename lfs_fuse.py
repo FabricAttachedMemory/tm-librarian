@@ -12,7 +12,7 @@ from pdb import set_trace
 
 from fuse import FUSE, FuseOSError, Operations
 
-from bookshelves import TMShelf
+from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 
 def prentry(func):

@@ -7,7 +7,7 @@
 
 import time
 
-from bookshelves import TMBook, TMShelf, TMBos
+from book_shelf_bos import TMBook, TMShelf, TMBos
 
 from pdb import set_trace
 
