@@ -8,12 +8,14 @@
 import os
 import sys
 import configparser
+import argparse
 from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from backend_sqlite3 import SQLite3assist
 
 #--------------------------------------------------------------------------
+
 
 def usage(msg):
     print(msg, file=sys.stderr)
@@ -39,6 +41,7 @@ nvm_size can have additional multiplier B (books)
 
 #--------------------------------------------------------------------------
 
+
 def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
     if suffix not in 'BMGT':
@@ -57,6 +60,7 @@ def multiplier(instr, section, book_size_bytes=0):
     return rsize * book_size_bytes
 
 #--------------------------------------------------------------------------
+
 
 def load_book_data(inifile):
 
@@ -141,6 +145,7 @@ def load_book_data(inifile):
 
 #---------------------------------------------------------------------------
 
+
 def create_empty_db(cur):
 
     table_create = """
@@ -214,18 +219,23 @@ def create_empty_db(cur):
 
 if __name__ == '__main__':
 
-    force = len(sys.argv) > 1 and sys.argv[1] == '-f' and bool(sys.argv.pop(1))
-    if len(sys.argv) > 2:
-        fname = sys.argv[2]
-        if os.path.isfile(fname):
-            if not force:
-                raise SystemError('%s exists' % fname)
-            os.unlink(fname)
-    else:
-        fname = ':memory:'
-    cur = SQLite3assist(db_file=fname)
+    parser = argparse.ArgumentParser(
+        description='Create database and populate books from .ini file')
+    parser.add_argument('-f', dest="force", action='store_true',
+                        help='force overwrite of given database file')
+    parser.add_argument('-d', dest='dfile', default=':memory:',
+                        help='database file to create')
+    parser.add_argument('-i', dest='ifile', required=True,
+                        help='book ini file')
+    args = parser.parse_args()
 
-    book_size_bytes, section2books = load_book_data(sys.argv[1])
+    if args.force is False and os.path.isfile(args.dfile):
+        raise SystemError('database file exists: %s' % args.dfile)
+    elif args.force is True and os.path.isfile(args.dfile):
+        os.unlink(args.dfile)
+
+    cur = SQLite3assist(db_file=args.dfile)
+    book_size_bytes, section2books = load_book_data(args.ifile)
     create_empty_db(cur)
 
     total_nvm_bytes = 0
@@ -237,7 +247,8 @@ if __name__ == '__main__':
         cur.commit()    # every section; about 1000 in a real TM node
 
     cur.execute('INSERT INTO globals VALUES(?, ?, ?)',
-        ('LIBRARIAN 0.98', book_size_bytes, total_nvm_bytes))
+                ('LIBRARIAN 0.98', book_size_bytes, total_nvm_bytes))
+
     cur.commit()
 
     cur.close()
