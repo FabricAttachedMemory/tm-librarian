@@ -14,15 +14,13 @@ from librarian_chain import LibrarianChain
 # its arguments, then go.
 parser = argparse.ArgumentParser(description='The Machine Librarian')
 parser.add_argument('--verbose',
-                     help='level of runtime output, larger == more',
-                     type=int,
-                     default=0)
+                    help='level of runtime output, larger == more',
+                    type=int,
+                    default=0)
+
+
 def main():
     """ Librarain main """
-    # Initialize argparse for local stuff, then have each module add
-    # its arguments, then go.
-    parser = argparse.ArgumentParser(description='The Machine Librarian')
-
     for obj in (LBE, LCE, Server, LibrarianChain):
         obj.argparse_extend(parser)
     args = parser.parse_args()
