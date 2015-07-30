@@ -6,6 +6,7 @@ import select
 
 from pdb import set_trace
 
+
 class SocketReadWrite():
     """ Object that will read and write from a socket
     used primarily as a base class for the Client and Server
@@ -93,7 +94,7 @@ class SocketReadWrite():
 
         # maybe do a proper error but w/e all of this will be replaced
         # by a proper event loop eventually
-        if sock == None:
+        if sock is None:
             return None
 
         self.send(string, sock)
@@ -155,25 +156,24 @@ class Server(SocketReadWrite):
     def __del__(self):
         super().__del__()
 
-    # the default processor is an identity processor so it's probably
+    # The default processor is an identity processor so it's probably
     # a requirement to have this, it could just initialize and use a brand
-    # new processor which is exactly what somone who didn't want processing
-    # would provide
+    # new processor which is exactly what someone who didn't want processing
+    # would provide.
 
     # "Weird" event loop exit behavior is explained in Python source:
-    # https://github.com/python/cpython/blob/Master/modules/socketmodule.c#L2530
-    # The remote side of a socket may get closed at any time, whether gracefuli
+    # https://github.com/python/cpython/blob/
+    #     Master/modules/socketmodule.c#L2530
+    # The remote side of a socket may get closed at any time, whether graceful
     # or not.  Linux sees it first, before the Python socket module (duh).  A
     # system-call read on a dead socket yields EBADF.  Python tries to do the
     # same thing.  In pure C, The right thing to do is close the socket;
     # however, the kernel may release the fd for reuse BEFORE the syscall
-    # returns.   The Python socket module still has the old fd, so on the
+    # returns.  The Python socket module still has the old fd, so on the
     # first EBADF, "socketmodule" first puts -1 in the internal Python
     # fd which will force EBADF.  Finally it closes the real socket fd.
     # Hence the explicit searches for fileno == -1 below.
 
-    def serv(self, handler, chain, interface = ''):
-    # would provid
     def serv(self, handler, chain, interface=''):
         """ "event-loop" for the server this is where the server starts
         listening and serving requests.
@@ -201,19 +201,20 @@ class Server(SocketReadWrite):
                 print('Waiting for request(s)')
                 timeout = 5.0
             else:
-                timeout = 20.0 # hits the cleanup loop
+                timeout = 20.0  # hits the cleanup loop
 
             readable, _, _ = select.select(to_read, [], [], timeout)
 
             # Is it a new connection?
             try:
                 if self._sock in readable:
-                    if self.verbose: print('New connection')
+                    if self.verbose:
+                        print('New connection')
                     (conn, _) = self._sock.accept()
                     to_read.append(conn)
-                    readable.remove(self._sock) # and fall through for others
+                    readable.remove(self._sock)  # and fall through for others
             except ValueError:
-                if verbose:
+                if self.verbose:
                     print('SELECT: socket closed from afar, maybe no FIN/RST')
                 continue
             except Exception as e:
@@ -228,10 +229,10 @@ class Server(SocketReadWrite):
                     if self.verbose:
                         if self.verbose == 1:
                             print('Processing ',
-                                s.getpeername(), cmdict['command'])
+                                  s.getpeername(), cmdict['command'])
                         else:
                             print('Processing ',
-                                s.getpeername(), str(cmdict))
+                                  s.getpeername(), str(cmdict))
                     result = handler(cmdict)
                 except RuntimeError as e:   # handler self-detected fault
                     print('HANDLER: ', str(e))
@@ -286,4 +287,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
