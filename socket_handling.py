@@ -3,11 +3,12 @@
 import errno
 import socket
 import select
+import time
 
 from pdb import set_trace
 
 
-class SocketReadWrite():
+class SocketReadWrite(object):
     """ Object that will read and write from a socket
     used primarily as a base class for the Client and Server
     objects """
@@ -15,13 +16,16 @@ class SocketReadWrite():
     _sock = None
 
     def __init__(self):
-        self._sock = socket.socket()
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.setblocking(False)
+
 
     def __del__(self):
+        self._sock.shutdown(socket.SHUT_RDWR)
         self._sock.close()
 
-    # should be static helper in base class called by child class
-    def send(self, string, sock=None):
+    @staticmethod
+    def send_all(string, sock):
         """ Encode and send end string along the socket.
 
         Args:
@@ -32,14 +36,15 @@ class SocketReadWrite():
                 Nothing.
         """
 
-        if sock is None:
-            sock = self._sock
+        return sock.sendall(str.encode(string))
 
-        sock.send(str.encode(string))
+    _bufsz = 4096
 
-    # should be static helper in base class called by child class
-    def recv_all(self, sock=None):
+    @classmethod
+    def recv_all(cls, sock):
         """ Receive the whole message and decode it to a python3 string.
+            The hope is that a message does not end on a bufsz boundary
+            or this will hang.
 
         Args:
             sock: the socket to receive data from.
@@ -48,57 +53,32 @@ class SocketReadWrite():
             The python3 string that was recieved from the socket.
         """
 
-        if sock is None:
-            sock = self._sock
+        in_delta = sock.recv(cls._bufsz).decode("utf-8").strip()
+        in_json = in_delta
 
-        in_json = ""
-        in_delta = sock.recv(1024).decode("utf-8").strip()
-        in_json += in_delta
-
-        while not len(in_delta) != 1024:
-            in_delta = sock.recv(1024).decode("utf-8").strip()
+        while len(in_delta) == cls._bufsz:
+            in_delta = sock.recv(cls._bufsz).decode("utf-8").strip()
             in_json += in_delta
-
-        # should never have to worry about this
-        # python will set the descriptor to -1 when it closes stopping us from
-        # having to read 0. But this is select/socket behavior so we need to
-        # account for it.
-        if len(in_json) == 0:
-            sock.close()
-            return None
 
         return in_json
 
-    # should be static helper in base class called by child class
-    def send_recv(self, string, sock=None):
+    @classmethod
+    def send_recv(cls, outstring, sock):
         """ Send and receive all data.
 
         Args:
-            string: String to be sent.
+            outstring: String to be sent.
             sock: The socket to send, then receive from.
 
         Returns:
             The string received as a response to what was sent.
         """
 
-        if sock is None:
-            sock = self._sock
-
-        if len(string) == 0:
-            sock.close()
+        if not outstring:
             return None
 
-        # This kills the socket
-        if string == "":
-            return None
-
-        # maybe do a proper error but w/e all of this will be replaced
-        # by a proper event loop eventually
-        if sock is None:
-            return None
-
-        self.send(string, sock)
-        return self.recv_all(sock)
+        cls.send_all(string, sock)
+        return cls.recv_all(sock)
 
 
 class Client(SocketReadWrite):
@@ -189,75 +169,87 @@ class Server(SocketReadWrite):
         self._sock.bind((interface, self._port))
         self._sock.listen(10)
 
+        # When a socket is closed, getpeername() fails.  Save the peername
+        # ASAP, and do it here because sockets have __slots__
+        sock2peer = { }
         to_read = [self._sock]
-
+        t0 = time.time()
+        xlimit = 2000
+        transactions = 0
         while True:
 
-            # There are few enough connections to where this should
-            # not be a performance problem.
-            to_read = [sock for sock in to_read if sock.fileno() != -1]
-
             if self.verbose:
-                print('Waiting for request(s)')
-                timeout = 5.0
-            else:
-                timeout = 20.0  # hits the cleanup loop
-
-            readable, _, _ = select.select(to_read, [], [], timeout)
-
-            # Is it a new connection?
+                print('Waiting for request...')
             try:
-                if self._sock in readable:
-                    if self.verbose:
-                        print('New connection')
-                    (conn, _) = self._sock.accept()
-                    to_read.append(conn)
-                    readable.remove(self._sock)  # and fall through for others
-            except ValueError:
-                if self.verbose:
-                    print('SELECT: socket closed from afar, maybe no FIN/RST')
-                continue
+                readable, _, _ = select.select(to_read, [], [], 10.0)
             except Exception as e:
-                print('SELECT: ', str(e))
-                set_trace()
+                # Usually ValueError on a negative fd from a remote close
+                dead = [sock for sock in to_read if sock.fileno() == -1]
+                assert self._sock not in dead, 'Server socket has died'
+                for d in dead:
+                    if d in to_read:    # avoid error
+                        to_read.remove(d)
+                    del sock2peer[d]
+                continue
+
+            if not readable:    # timeout; reset counters
+                transactions = 0
+                t0 = time.time()
                 continue
 
             for s in readable:
+                transactions += 1
+
+                if transactions > xlimit:
+                    deltat = time.time() - t0
+                    tps = int(float(transactions) / deltat)
+                    print('%d transactions/second' % tps)
+                    transactions = 0
+                    t0 = time.time()
+
+                if s is self._sock: # New connection, save name now
+                    try:
+                        (conn, peername) = self._sock.accept()
+                        sock2peer[conn] = '{0}:{1}'.format(*peername)
+                        to_read.append(conn)
+                        if self.verbose:
+                            print('New connection')
+                    except Exception as e:
+                        pass
+                    continue
+
                 try:
                     in_string = self.recv_all(s)
+                    assert in_string, 'Null command'
                     cmdict = chain.reverse_traverse(in_string)
                     if self.verbose:
                         if self.verbose == 1:
-                            print('Processing ',
-                                  s.getpeername(), cmdict['command'])
+                            print('Processing ', sock2peer[s], cmdict['command'])
                         else:
-                            print('Processing ',
-                                  s.getpeername(), str(cmdict))
+                            print('Processing ', sock2peer[s], str(cmdict))
                     result = handler(cmdict)
-                except RuntimeError as e:   # handler self-detected fault
-                    print('HANDLER: ', str(e))
+                except Exception as e:   # self-detected
                     result = None
-                except TypeError as e:
-                    print('SOCKET CLIENT: socket death, maybe bad JSON')
-                    result = None
-                except Exception as e:
-                    print('SOCKET CLIENT: ', str(e))
-                    result = None
-                    set_trace()
-                    pass
+                    if e.__class__ in (AssertionError, RuntimeError):
+                        msg = str(e) # self-detected at lower levels
+                    elif isinstance(e, TypeError):
+                        msg = 'socket death'
+                    elif isinstance(e, ValueError):
+                        msg = 'unparseable command >>> %s <<<' % in_str
+                    else:
+                        msg = 'UNEXPECTED %s' % str(e)
+                    print('%s: %s' % (sock2peer[s], msg))
                 finally:
                     try:    # socket may have died by now
-                        self.send(chain.forward_traverse(result), s)
+                        self.send_all(chain.forward_traverse(result), s)
                     except OSError as e:
-                        if e.errno != errno.EBADF:
-                            print('SOCKET CLIENT: final reply: ', str(e))
-                            set_trace()
-                            pass
+                        if e.errno == errno.EPIPE: print(
+                            '%s: closed by client' % sock2peer[s])
+                        elif e.errno != errno.EBADF:
+                            print('%s: closed earlier' % sock2peer[s])
+                        s.close()
                     except Exception as e:
-                        print('SOCKET CLIENT: final reply: ', str(e))
-                        set_trace()
-                        pass
-
+                        print('SEND to %s failed: %s' % (sock2peer[s], str(e)))
 
 def main():
     """ Run simple echo server to exercise the module """
