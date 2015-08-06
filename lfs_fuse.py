@@ -16,6 +16,7 @@ from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 
 def prentry(func):
+    # return func
     def new_func(*args, **kwargs):
         # args[0] is usually 'self', so ...
         tmp = ', '.join([str(a) for a in args[1:]])
@@ -207,6 +208,60 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.EACCES)
         # FIXME: compare mode to attrs
 
+    #----------------------------------------------------------------------
+    # Extended attributes: apt-get install attr, then man 5 attr.  Legal
+    # namespaces are (user, system, trusted, security).  Anyone can
+    # see "user", but the others take CAP_SYS_ADMIN.  Currently only
+    # "user" works, even with sudo, not sure why.  Or if it matters.
+
+    @prentry
+    def getxattr(self, path, attr, position=0):
+        """Called with a specific namespace.name attr.  Can return either
+           a bytes array OR an int."""
+        if position:
+            set_trace()
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('list_shelf', name=shelf_name)
+        if not req:
+            raise FuseOSError(errno.ENOENT)
+        tmp = attr[::-1]
+        return bytes(tmp.encode())
+
+    @prentry
+    def listxattr(self, path):
+        """getfattr(1), which calls listxattr(2).  Return a list of
+           NS<dot>NAME, not their values."""
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('list_shelf', name=shelf_name)
+        if not req:
+            raise FuseOSError(errno.ENOENT)
+        return 'system.that', 'user.then', 'trusted.that', 'security.not', 'user.now'
+
+    @prentry
+    def setxattr(self, path, attr, valbytes, options, position=0):
+        # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('list_shelf', name=shelf_name)
+        if not req:
+            raise FuseOSError(errno.ENOENT)
+        try:
+            if attr == 'user.igroup':
+                igroup = int(valbytes)
+                assert 0 <= igroup <= 127
+            else:
+                raise ValueError
+        except Exception:
+            raise FuseOSError(errno.EINVAL)
+
+    @prentry
+    def removexattr(self, path, attr):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def ioctl(self, *args, **kwargs):
+        set_trace()
+        raise FuseOSError(errno.ENOTSUP)
+
     @prentry
     def chmod(self, path, mode, **kwargs):
         raise FuseOSError(errno.ENOTSUP)
@@ -359,7 +414,12 @@ class LibrarianFSd(Operations):
         return self.flush(path, fh)
 
 def main(source, mountpoint, node_id):
-    FUSE(LibrarianFSd(source, node_id), mountpoint, foreground=True)
+    try:
+        FUSE(LibrarianFSd(source, node_id),
+            mountpoint,
+            allow_other=True, foreground=True)
+    except Exception as e:
+        raise SystemExit('fusermount probably failed, retry in foreground')
 
 if __name__ == '__main__':
     main(*sys.argv[1:])  # source mountpoint node_id
