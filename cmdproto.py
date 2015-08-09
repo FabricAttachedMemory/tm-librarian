@@ -49,8 +49,8 @@ class LibrarianCommandProtocol(object):
             parms = ('name', 'id', 'size_bytes' ),
         ),
         'close_shelf': GO(
-            doc='close shelf and tear down node access',
-            parms=('id', ),
+            doc='close shelf and end node access',
+            parms=('name', 'id', ),
         ),
         'destroy_shelf': GO(
             doc='destroy shelf and free reserved books',
@@ -59,6 +59,18 @@ class LibrarianCommandProtocol(object):
         'list_book': GO(
             doc='list book details by book id',
             parms=('id', ),
+        ),
+        'get_xattr': GO(
+            doc='get extended attribute for a shelf',
+            parms=('id', 'xattr'),
+        ),
+        'list_xattr': GO(
+            doc='get current extended attribute names for a shelf',
+            parms=('id', 'xattr', 'value'),
+        ),
+        'set_xattr': GO(
+            doc='set extended attribute for a shelf',
+            parms=('id', 'xattr', 'value'),
         ),
 
     }   # _commands

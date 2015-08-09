@@ -207,6 +207,20 @@ def create_empty_db(cur):
     cur.execute(table_create)
     cur.commit()
 
+    table_create = """
+        CREATE TABLE shelf_xattrs (
+        shelf_id INT,
+        xattr TEXT,
+        value TEXT
+        )
+        """
+    cur.execute(table_create)
+    cur.commit()
+
+    cur.execute('''CREATE UNIQUE INDEX IDX_xattrs
+                   ON shelves_xattrs (shelf_id, xattr)''')
+    cur.commit()
+
     # Idiot checks
     book = TMBook()
     assert book.schema == cur.schema('books'), 'Bad schema: books'

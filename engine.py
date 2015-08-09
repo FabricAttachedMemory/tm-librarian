@@ -51,19 +51,30 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        return self.db.create_shelf(TMShelf(self._cmdict), commit=True)
+        shelf = TMShelf(self._cmdict)
+        ret = self.db.create_shelf(shelf, commit=True)
+        # open_count is 0 now, but a flush/release screws it up
+        return ret
 
-    def cmd_list_shelf(self):        # By name only
+    def cmd_list_shelf(self, name_only=True):
         """ List a given shelf.
             In (dict)---
                 name
+                optional id
             Out (TMShelf object) ---
                 TMShelf object
         """
         shelf = TMShelf(self._cmdict)
-        shelf.matchfields = ('name', )
+        if name_only:
+            shelf.matchfields = ('name', )
+        else:
+            assert shelf.id, '%s not already open' % shelf.name
+            shelf.matchfields = ('name', 'id')
         shelf = self.db.get_shelf(shelf)
-        if shelf is not None:   # consistency checks
+        if shelf is None:
+            if not name_only:
+                raise AssertionError('no such shelf %s' % shelf.name)
+        else:   # consistency checks
             assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
                 '%s size metadata mismatch' % shelf.name)
         return shelf
@@ -78,9 +89,7 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
-        shelf = self.cmd_list_shelf()   # lookup by name
-        if shelf is None:
-            return None
+        shelf = self.cmd_list_shelf()
         shelf.open_count += 1
         shelf.matchfields = 'open_count'
         self.db.modify_shelf(shelf, commit=True)
@@ -96,15 +105,14 @@ class LibrarianCommandEngine(object):
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
-        shelf = TMShelf(self._cmdict)
-        shelf.matchfields = ('id')
-        shelf = self.db.get_shelf(shelf)
-        if shelf is None:
-            return None
-
-        shelf.open_count -= 1
-        shelf.matchfields = 'open_count'
-        self.db.modify_shelf(shelf, commit=True)
+        set_trace()
+        shelf = self.cmd_list_shelf(name_only=False)
+        assert shelf.open_count >= 0, '%s negative open count' % shelf.name
+        # FIXME: == 0 occurs right after a create.  What's up?
+        if shelf.open_count > 0:
+            shelf.open_count -= 1
+            shelf.matchfields = 'open_count'
+            self.db.modify_shelf(shelf, commit=True)
         return shelf
 
     def cmd_destroy_shelf(self):
@@ -118,9 +126,7 @@ class LibrarianCommandEngine(object):
                 shelf data
         """
         # Do my own join, start with lookup by name
-        shelf = self.cmd_list_shelf()
-        if shelf is None:
-            return None
+        shelf = self.cmd_list_shelf(name_only=False)
         # FIXME: make this an assertion, wedge a "force" option in somewhere
         if shelf.open_count:
             print('%s open count is %d' % (shelf.name, shelf.open_count),
@@ -137,7 +143,7 @@ class LibrarianCommandEngine(object):
             assert book, 'Book allocation modify failed'
         return self.db.delete_shelf(shelf, commit=True)
 
-    def _cmd_list_shelf_books(self, shelf):
+    def _list_shelf_books(self, shelf):
         assert shelf.id, '%s is not open' % shelf.name
         bos = self.db.get_bos_by_shelf_id(shelf.id)
 
@@ -149,7 +155,7 @@ class LibrarianCommandEngine(object):
         return bos
 
     def cmd_resize_shelf(self):
-        """ Resize given shelf given a shelf and new size in bytes.
+        """ Resize given shelf to new size in bytes.
             In (dict)---
                 name
                 id
@@ -157,14 +163,9 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        newshelf = TMShelf(self._cmdict)   # just for the....
-        assert newshelf.id, '%s not open for resize' % newshelf.name
-        newshelf.matchfields = ('id')
-        shelf = self.db.get_shelf(newshelf)
-        if shelf is None:
-            return None
+        shelf = self.cmd_list_shelf(name_only=False)
 
-        bos = self._cmd_list_shelf_books(shelf)
+        bos = self._list_shelf_books(shelf)
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
 
@@ -259,6 +260,22 @@ class LibrarianCommandEngine(object):
         """
         shelf_id = self._cmdict['shelf_id']
         bos = db.get_bos_by_shelf_id(shelf_id)
+
+    def cmd_get_xattr(self):
+        """ Retrieve name/value pair for an extendend attribute of a shelf.
+            In (dict)---
+                name
+                id
+                xattr
+            Out (dict) ---
+                value
+        """
+        shelf = self.cmd_list_shelf()
+        if shelf is None:
+            return None
+        set_trace()
+        value = self.db.get_xattr(shelf, self._cmdict['xattr'])
+        return value
 
     _handlers = { }
 

@@ -56,6 +56,11 @@ class objstr(object):
                 return True
             return False
 
+    # for (re)conversion to send back across the wire
+    @property
+    def dict(self):
+        return self.__dict__
+
 ###########################################################################
 # If you just want an object.
 
