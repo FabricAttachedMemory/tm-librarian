@@ -102,6 +102,13 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.EINVAL)
         return shelf_name
 
+    def valid_shelf(self, path): # FIXME: use this eslewhere?
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('list_shelf', name=shelf_name)
+        if not req:
+            raise FuseOSError(errno.ENOENT)
+        return shelf_name
+
     # First level:  tenants
     # Second level: tenant group
     # Third level:  shelves
@@ -214,53 +221,59 @@ class LibrarianFSd(Operations):
     # see "user", but the others take CAP_SYS_ADMIN.  Currently only
     # "user" works, even with sudo, not sure why.  Or if it matters.
 
+    _shelf2xattrs = { }
+
     @prentry
     def getxattr(self, path, attr, position=0):
         """Called with a specific namespace.name attr.  Can return either
            a bytes array OR an int."""
         if position:
             set_trace()
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
-        tmp = attr[::-1]
-        return bytes(tmp.encode())
+        shelf_name = self.valid_shelf(path)
+        rsp = self.librarian({
+                'command': 'get_xattr',
+                'name': shelf_name,
+                'xattr': attr
+        })
+        if rsp is None:
+            raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
+        return rsp
 
     @prentry
-    def listxattr(self, path):
+    def listxattr(self, path, *args, **kwargs):
         """getfattr(1), which calls listxattr(2).  Return a list of
            NS<dot>NAME, not their values."""
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
-        return 'system.that', 'user.then', 'trusted.that', 'security.not', 'user.now'
+        shelf_name = self.valid_shelf(path)
+        try:
+            return list(self._shelf2xattrs[shelf_name].keys())
+        except KeyError as e:
+            return None
 
     @prentry
     def setxattr(self, path, attr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
+        if options:
+            set_trace() # haven't actually seen it yet
+        shelf_name = self.valid_shelf(path)
+        for bad in ('"', "'", '{', '}'):
+            if bad in valbytes:
+                raise FuseOSError(errno.EDOMAIN) # FIXME: is it binary?
+        rsp = self.librarian({
+                'command': 'set_xattr',
+                'name': shelf_name,
+                'xattr': attr,
+                'value': value
+        })
+        if rsp is None:
+            raise FuseOSError(errno.ENOTTY)
+
+    @prentry
+    def removexattr(self, path):
+        shelf_name = self.valid_shelf(path)
         try:
-            if attr == 'user.igroup':
-                igroup = int(valbytes)
-                assert 0 <= igroup <= 127
-            else:
-                raise ValueError
-        except Exception:
-            raise FuseOSError(errno.EINVAL)
-
-    @prentry
-    def removexattr(self, path, attr):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def ioctl(self, *args, **kwargs):
-        set_trace()
-        raise FuseOSError(errno.ENOTSUP)
+            del self._shelf2xattrs[shelf_name][attr]
+        except KeyError as e:
+            raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
 
     @prentry
     def chmod(self, path, mode, **kwargs):
@@ -400,7 +413,7 @@ class LibrarianFSd(Operations):
     @prentry
     def release(self, path, fh):    # fh == shelfid
         shelf_name = self.path2shelf(path)
-        req = self.lcp('close_shelf', id=fh)
+        req = self.lcp('close_shelf', name=shelf_name, id=fh)
         rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
