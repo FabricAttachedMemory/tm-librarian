@@ -276,7 +276,8 @@ class LibrarianDBackendSQL(object):
         self._cur.execute(
             'SELECT value FROM shelf_xattrs WHERE shelf_id=? AND xattr=?',
             (shelf.id, xattr))
-        return self._cur.fetchone()[0]
+        tmp = self._cur.fetchone()
+        return tmp if tmp is None else tmp[0]
 
     def close(self):
         self._cur.close()

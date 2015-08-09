@@ -210,17 +210,16 @@ class Server(SocketReadWrite):
                 if s is self._sock: # New connection, save name now
                     try:
                         (conn, peername) = self._sock.accept()
-                        sock2peer[conn] = '{0}:{1}'.format(*peername)
                         to_read.append(conn)
-                        if self.verbose:
-                            print('New connection')
+                        sock2peer[conn] = '{0}:{1}'.format(*peername)
+                        print('%s: new connection' % sock2peer[conn])
                     except Exception as e:
                         pass
                     continue
 
                 try:
                     in_string = self.recv_all(s)
-                    assert in_string, 'Null command'
+                    assert in_string, 'null command'
                     cmdict = chain.reverse_traverse(in_string)
                     if self.verbose:
                         if self.verbose == 1:

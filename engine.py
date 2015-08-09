@@ -105,7 +105,6 @@ class LibrarianCommandEngine(object):
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
-        set_trace()
         shelf = self.cmd_list_shelf(name_only=False)
         assert shelf.open_count >= 0, '%s negative open count' % shelf.name
         # FIXME: == 0 occurs right after a create.  What's up?
@@ -273,9 +272,7 @@ class LibrarianCommandEngine(object):
         shelf = self.cmd_list_shelf()
         if shelf is None:
             return None
-        set_trace()
-        value = self.db.get_xattr(shelf, self._cmdict['xattr'])
-        return value
+        return self.db.get_xattr(shelf, self._cmdict['xattr'])
 
     _handlers = { }
 
