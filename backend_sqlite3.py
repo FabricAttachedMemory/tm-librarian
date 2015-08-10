@@ -2,6 +2,8 @@
 # Some of this might elevate nicely to SQLassist.  The primmary concern
 # is cursor.rowcount, which doesn't seemt to be valid after SELECT.
 
+from pdb import set_trace
+
 import sqlite3
 
 from sqlassist import SQLassist
@@ -52,7 +54,6 @@ class SQLite3assist(SQLassist):
         sql = 'UPDATE %s SET %s' % (table, setclause)
         self.execute(sql, values)
         if self.rowcount != 1:
-            set_trace()
             self.rollback()
             raise AssertionError('UPDATE %s failed' % table)
         # DO NOT COMMIT, give caller a chance for multiples or rollback

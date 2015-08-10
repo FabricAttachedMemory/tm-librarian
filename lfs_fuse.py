@@ -102,6 +102,13 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.EINVAL)
         return shelf_name
 
+    def valid_shelf(self, path): # FIXME: use this eslewhere?
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('list_shelf', name=shelf_name)
+        if not req:
+            raise FuseOSError(errno.ENOENT)
+        return shelf_name
+
     # First level:  tenants
     # Second level: tenant group
     # Third level:  shelves
@@ -220,47 +227,59 @@ class LibrarianFSd(Operations):
            a bytes array OR an int."""
         if position:
             set_trace()
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
-        tmp = attr[::-1]
-        return bytes(tmp.encode())
+        shelf_name = self.valid_shelf(path)
+        rsp = self.librarian({
+                'command': 'get_xattr',
+                'name': shelf_name,
+                'xattr': attr
+        })
+        if rsp is None:
+            raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
+        value = rsp['value']
+        return value if isinstance(value, int) else bytes(value.encode())
 
     @prentry
-    def listxattr(self, path):
+    def listxattr(self, path, *args, **kwargs):
         """getfattr(1), which calls listxattr(2).  Return a list of
            NS<dot>NAME, not their values."""
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
-        return 'system.that', 'user.then', 'trusted.that', 'security.not', 'user.now'
+        shelf_name = self.valid_shelf(path)
+        try:
+            return list(self._shelf2xattrs[shelf_name].keys())
+        except KeyError as e:
+            return None
+
+    _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
 
     @prentry
     def setxattr(self, path, attr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
+        if options:
+            set_trace() # haven't actually seen it yet
+        shelf_name = self.valid_shelf(path)
+        for bad in self._badjson:
+            if bad in valbytes:
+                raise FuseOSError(errno.EDOMAIN)
         try:
-            if attr == 'user.igroup':
-                igroup = int(valbytes)
-                assert 0 <= igroup <= 127
-            else:
-                raise ValueError
-        except Exception:
-            raise FuseOSError(errno.EINVAL)
+            value = int(valbytes)
+        except ValueError as e:
+            value = valbytes.decode()
+
+        rsp = self.librarian({
+                'command': 'set_xattr',
+                'name': shelf_name,
+                'xattr': attr,
+                'value': value
+        })
+        if rsp is not None: # unexpected
+            raise FuseOSError(errno.ENOTTY)
 
     @prentry
-    def removexattr(self, path, attr):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def ioctl(self, *args, **kwargs):
-        set_trace()
-        raise FuseOSError(errno.ENOTSUP)
+    def removexattr(self, path):
+        shelf_name = self.valid_shelf(path)
+        try:
+            del self._shelf2xattrs[shelf_name][attr]
+        except KeyError as e:
+            raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
 
     @prentry
     def chmod(self, path, mode, **kwargs):
@@ -306,7 +325,7 @@ class LibrarianFSd(Operations):
     def unlink(self, path):
         shelf_name = self.path2shelf(path)
         rsp = self.librarian({
-                                'cmd':          'destroyshelf',
+                                'cmd':          'destroy_shelf',
                                 'shelf_name':   shelf_name,
                              })
         return 0
@@ -400,7 +419,7 @@ class LibrarianFSd(Operations):
     @prentry
     def release(self, path, fh):    # fh == shelfid
         shelf_name = self.path2shelf(path)
-        req = self.lcp('close_shelf', id=fh)
+        req = self.lcp('close_shelf', name=shelf_name, id=fh)
         rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
