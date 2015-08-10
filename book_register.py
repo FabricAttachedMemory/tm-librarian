@@ -235,12 +235,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description='Create database and populate books from .ini file')
+    parser.add_argument(dest='ifile', help='book .ini file')
     parser.add_argument('-f', dest="force", action='store_true',
                         help='force overwrite of given database file')
     parser.add_argument('-d', dest='dfile', default=':memory:',
                         help='database file to create')
-    parser.add_argument('-i', dest='ifile', required=True,
-                        help='book ini file')
     args = parser.parse_args()
 
     if args.force is False and os.path.isfile(args.dfile):
