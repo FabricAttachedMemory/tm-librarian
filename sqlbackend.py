@@ -8,9 +8,9 @@
 
 import time
 
-from book_shelf_bos import TMBook, TMShelf, TMBos
-
 from pdb import set_trace
+
+from book_shelf_bos import TMBook, TMShelf, TMBos
 
 #--------------------------------------------------------------------------
 
@@ -56,18 +56,18 @@ class LibrarianDBackendSQL(object):
 
     def _modify_table(self, table, obj, localmods, commit):
         assert hasattr(obj, 'id'), 'object ineligible for this routine'
-        assert obj.matchfields, 'Missing field(s) for matching'
+        objid = ('id', )
 
-        # id will be the WHERE clause and thus must come last
-        id = ('id', )
-        cantmatch = localmods + id
-        tmp = set(obj.matchfields).intersection(set(cantmatch))
-        assert not tmp, 'Bad matchfields %s' % str(tmp)
+        # objid will be the WHERE clause and thus must come last
+        if obj.matchfields:
+            cantmatch = localmods + objid
+            tmp = set(obj.matchfields).intersection(set(cantmatch))
+            assert not tmp, 'Bad matchfields %s' % str(tmp)
 
         fields = obj.matchfields + localmods
         qmarks = self._fields2qmarks(fields, ', ')
         setwhere = '%s WHERE id=?' % qmarks
-        self._cur.UPDATE(table, setwhere, obj.tuple(fields + id))
+        self._cur.UPDATE(table, setwhere, obj.tuple(fields + objid))
         if commit:
             self._cur.commit()
         return obj
@@ -90,6 +90,23 @@ class LibrarianDBackendSQL(object):
         """
         shelf.mtime = int(time.time())
         return self._modify_table('shelves', shelf, ('mtime', ), commit)
+
+    def modify_xattr(self, shelf, xattr, value, commit=True):
+        """ Modify data in "shelf_xattrs" table.  Known to exist:
+            Input---
+              shelf: maily for the shelf id
+              xattr: existing key
+              value: new value
+            Output---
+              None or error exception
+        """
+        self._cur.UPDATE('shelf_xattrs',
+            'value=? WHERE shelf_id=? AND xattr=?',
+            (value, shelf.id, xattr))
+        if commit:
+            self._cur.commit()
+        shelf.matchfields = ()    # time only
+        self.modify_shelf(shelf, commit=commit)
 
     #
     # DB books
@@ -272,12 +289,22 @@ class LibrarianDBackendSQL(object):
             self._cur.commit()
         return(bos)
 
-    def get_xattr(self, shelf, xattr):
+    def get_xattr(self, shelf, xattr, exists_only=False):
+        if exists_only:
+            self._cur.execute(
+                'SELECT COUNT() FROM shelf_xattrs WHERE shelf_id=? AND xattr=?',
+                    (shelf.id, xattr))
+            return self._cur.fetchone()[0] == 1
+        # Get the whole thing
         self._cur.execute(
             'SELECT value FROM shelf_xattrs WHERE shelf_id=? AND xattr=?',
-            (shelf.id, xattr))
+                (shelf.id, xattr))
         tmp = self._cur.fetchone()
         return tmp if tmp is None else tmp[0]
+
+    def create_xattr(self, shelf, xattr, value):
+        self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
+        self._cur.commit()
 
     def close(self):
         self._cur.close()

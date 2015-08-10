@@ -226,7 +226,6 @@ class LibrarianCommandEngine(object):
         shelf = self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-
     def cmd_get_shelf_zaddr(cmd_data):
         """
             In (dict)---
@@ -272,7 +271,27 @@ class LibrarianCommandEngine(object):
         shelf = self.cmd_list_shelf()
         if shelf is None:
             return None
-        return self.db.get_xattr(shelf, self._cmdict['xattr'])
+        value = self.db.get_xattr(shelf, self._cmdict['xattr'])
+        return { 'value': value }
+
+    def cmd_set_xattr(self):
+        """ Set/update name/value pair for an extended attribute of a shelf.
+            In (dict)---
+                name
+                id
+                xattr
+                value
+            Out (dict) ---
+                None or raise error
+        """
+        # XATTR_CREATE/REPLACE option is not being set on the other side
+        shelf = self.cmd_list_shelf()
+        assert shelf is not None, 'No such shelf'
+        if self.db.get_xattr(shelf, self._cmdict['xattr'], exists_only=True):
+            return self.db.modify_xattr(
+                shelf, self._cmdict['xattr'], self._cmdict['value'])
+        return self.db.create_xattr(
+            shelf, self._cmdict['xattr'], self._cmdict['value'])
 
     _handlers = { }
 
