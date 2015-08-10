@@ -1,86 +1,41 @@
 ---------------------------------------------------------------------------
-L4TM NVM Ecosystem
+Description
 ---------------------------------------------------------------------------
 
-* This is just an initial attempt to clarify deliverables, needs work
+The Librarian is an application that runs on the Top of Rack Management
+Server (TORMS) and manages all the information associated with books and
+shelves.
 
-These are the NVM related components owned by the L4TM team.
+A book is the smallest NVM allocation unit the Libraraian handles. Each node
+will host a set of books managed by the Librarian.
 
-    The delivery points are:
-
-        - TMQ (put a bow around this and replace with QFE when ready)
-        - Qemu Fabric Experience (Qemu, res2hot and libpregion replacement)
-        - TMAS with GenZ/NVM and Top of Rack Server implemented
-        - Real Hardware with GenZ/NVM and Top of Rack Server present
-
-Librarian - aka "Wholesale Memory Broker"
-
-    - python3
-    - sqlite3 database
-    - json messages
-    - L4TM/Debian packaged ?
-
-Librarian Client(s)
-
-    - one per node
-    - python3
-    - json messages
-    - REPL interface
-    - FUSE interface
-    - L4TM/Debian packaged ?
-    - used for initial testing of Librarian
-    - used for debugging Librarian going forward
-
-Firewall Manager
-
-    - python3
-    - json messages
-    - L4TM/Debian packaged ?
-
-Wholesale Filesystem
-
-    - C
-    - psuedo filesystem in kernel
-    - kernel module
-    - L4TM/Debian packaged
-    - talks to Librarian using JSON wrapped packages
-
-Aperture Manager
-
-    - C
-    - kernel module
-    - general GenZ driver
-    - L4TM/Debian packaged
-
-Libpregion (or replacement)
-
-    - define functionality required ?
+A shelf is a management mechanism used by the Librarian to track groups
+of books being used by a specific process.
 
 ---------------------------------------------------------------------------
-Librarian Issues/Questions
+Setup and Execution
 ---------------------------------------------------------------------------
 
-1. How does the Librarian find out if a node goes down?
-
-2. If a node goes down what does the Librarian do with any shelf reservations belonging to the node?
-
-3. What happens if an NVDIMM board goes down?
-
----------------------------------------------------------------------------
-Style
----------------------------------------------------------------------------
-
-Capture some of the agreed upon coding style decisions.
-
-Python
-
-    - variable naming
-    - function comments
-    - preamble
-    - run pep8 and pylint on code
+- Install L4TM onto target system
+- Install dependencies (TBD)
+- Install Librarian package "apt-get install librarian" (TBD)
+- Create books .ini file describing desired NVM layout
+- Create initial books database using book_register.py utilty and .ini file
+- Start librarian.py server with newly created book database
+- Interact with the Librarian using the REPL or FUSE interfaces
 
 ---------------------------------------------------------------------------
-Node/Book registration
+Environnments
+---------------------------------------------------------------------------
+
+The Librarian will be used in several environments.
+
+- QEMU Fabric Experience (simulated NVM using ivshmem)
+- TMAS with GenZ/NVM and Top of Rack Server implemented
+- Real Hardware with GenZ/NVM and Top of Rack Server present
+
+---------------------------------------------------------------------------
+Book Registration
 ---------------------------------------------------------------------------
 
 There will need to be a process for registering books with the Librarian.
@@ -89,20 +44,19 @@ NVM being hosted by that node. The node will then contact the librarian
 and register the NVM.
 
 Initially, a static file will be used to describe the NVM hosted by each
-node. The Librarian will read this file at startup and populate the books
-database with the data.
+node and a utility will be used to build an initial book database for use
+by the Librarian.
 
-The data file will be in a basic "ini" file format, which can be parsed
-using the python3 "configparser" module. The layout will consist of a
-global section which lists the total number of nodes and a book size, then
+The data file will be in a basic "ini" file format. The layout will consist
+of a global section which lists the total number of nodes and a book size, then
 a section for each node which lists the node ID, total NVM size and LZA base
 address for the NVM.
 
-Example:
+Example 1:
 
     [global]
-    node_cnt = 5
-    book_size = 8G
+    node_count = 5
+    book_size_bytes = 8G
     [node01]
     node_id = 0x0A0A0A0A0A0A0A0A
     lza_base = 0x0000000000000000
@@ -124,24 +78,43 @@ Example:
     lza_base = 0x0000004000000000
     nvm_size = 64G
 
+There is also a short form that can be used if each node is symetric and
+there are no gaps in LZA addresses:
+
+Example 2:
+
+    [global]
+    node_count = 80
+    book_size_bytes = 8G
+    bytes_per_node = 4T
+
 Where:
 
-    [global]    - (STR) global section name
-    node_cnt    - (INT) total number of nodes
-    book_size   - (INT) book size (M = Megabytes and G = Gigabytes)
-    [node##]    - (STR) unique section name
-    node_id     - (INT) unique global node ID for SoC
-    lza_base    - (INT) logical GenZ base address for NVM hosted by node
-    nvm_size    - (INT) total size of NVM hosted by node
+    [global]        - (STR) global section name
+    node_count      - (INT) total number of nodes
+    book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
+    [node##]        - (STR) unique section name
+    node_id         - (INT) unique global node ID for SoC
+    lza_base        - (INT) logical GenZ base address for NVM hosted by node
+    nvm_size        - (INT) total size of NVM hosted by node
+    bytes_per_node  - (INT) total NVM per node in bytes
+
+Value modifiers:
+
+    book_size_bytes and nvm_size also support suffix multipliers:
+
+        M = MB (size * 1024 * 1024)
+        G = GB (size * 1024 * 1024 * 1024)
+        T = TB (size * 1024 * 1024 * 1024 * 1024)
+        B = books (nvm_size only)    
 
 Assumptions:
 
-    + NVM on each node is a continiuous block with respect to GenZ addressing
-    + "node_cnt" matches the number of "[node#]" sections present in file
-    + "nvm_size" is a multiple of "book_size"
-    + nodes are in increasing order based on "lza_base"
-    + "lza_base" plus "nvm_size" does not overlap next node "lza_base"
-    + there can be gaps between the end of one nodes NVM and the start of another nodes NVM
+    - "node_cnt" matches the number of "[node#]" sections present in file
+    - "nvm_size" is a multiple of "book_size"
+    - nodes are in increasing order based on "lza_base"
+    - "lza_base" plus "nvm_size" does not overlap next node "lza_base"
+    - there can be gaps between the end of one nodes NVM and the start of another nodes NVM
 
 ---------------------------------------------------------------------------
 Debian packaging of Librarian
@@ -150,498 +123,76 @@ Debian packaging of Librarian
 The librarian and all supporting files/documentation should be delivered
 in a Debian/hLinux package.
 
-- which files
-- where are they delivered
+TBD
 
 ---------------------------------------------------------------------------
-Identity Manager
+Librarian Server
 ---------------------------------------------------------------------------
 
-Do we need to have some type of identity management function built into the Librarian
-for the iterim, to convert node local user/group IDs into a global ID?
+  Librarian.py          - main librarian module
+    backend_sqlite3.py  - sqlite3 interface module
+      sqlassist.py      - generic sql database helper
+    engine.py           - process supported librarian commands
+      book_shelf_bos.py - book, shelf, bos class and methods
+      cmdproto.py       - command definition for server and client
+      genericobj.py     - base object class with dictionary helper
+    socket_handling.py  - server/client socket handling
+    librarian_chain.py  - chain conversion functions for librarian
+      function_chain.py - generic function chain helper
 
 ---------------------------------------------------------------------------
-Testing
+Librarian REPL interface
 ---------------------------------------------------------------------------
 
-Each python module with have a "main" section that will have a set of tests
-that can be run to verify the basic functionality of the module.
+This interface can be used to interactively send commands to the Librarian
+for testing and debug.
 
-Will also need a set of tests to verify the complete Librarian:
-
-+ Performance - create some test to measure transactions per second or something
-  that we can use as a performance baseline. This might include a single client
-  issuing commands or multiple clients issuing commands in parallel.
-
-+ Functionality - create a set of commands we can run through the Librarian to
-  verify it's working as expected.
-
-+ Errors - create a set of tests to check error/boundary conditions.
+    repl_client.py            - main librarian interactive interface module
+        socket_handling.py    - server/client socket handling
+        librarian_chain.py    - chain conversion functions for librarian
+            function_chain.py - generic function chain helper
+        cmdproto              - command definition for server and client
 
 ---------------------------------------------------------------------------
-Librarian server/client design
+Librarian FUSE interface
 ---------------------------------------------------------------------------
 
-+ Librarian Server (runs on Top-of-Rack Server)
+This interface will be used by applications to allocate NVM, it indirectly
+interfaces with the Librarian to manage NVM related operations. It can also
+be used interactively to test or query the Librarian and to pre-initialize
+NVM for use by an application.
 
-  [Main]   - (librarian.py) main python modules,
-  [Socket] - (socket_handling.py) initialize/read/write socket
-  [TLS]    - (?) wrap socket in TLS
-  [JSON]   - (json_handler.py) convert dictionary to JSAON and back
-  [Engine] - (engine.py) receive input from socket, verify and execute commands
-  [DB]     - (database.py) initialize/read/write data to database
-  [Books]  - (book_register.py) load fake node/book data from file
+    lfs_fuse.py           - main librarian filesystem interface module
+        book_shelf_bos.py - book, shelf, bos class and methods
+        cmdproto          - command definition for server and client
 
-  [Main] --> [Books]
-  [Main] --> [Socket] <--> [JSON] <--> [Engine] <--> [DB]
-             [Socket] <--> [TLS]
-
-+ Librarian client(s) (runs on modes)
-
-  [Main]   - main python module, includes either the REPL or FUSE interface
-  [REPL]   - read/evaluate/print/loop interface
-  [FUSE]   - filesystem interface
-  [Engine] - receive input from interface, verify and build commands to send
-  [JSON]   - convert dictionary to JSON and back
-  [Socket] - initialize/read/write/cleanup socket
-
-  [Main] --> [REPL] or [FUSE] <--> [Engine] <--> [JSON]
-                                   [Engine] <--> [Socket]
 ---------------------------------------------------------------------------
-FUSE interface
+Books Allocation Alogrithm
 ---------------------------------------------------------------------------
 
-Add a description here of how we'll use the FUSE filesystem as an interface
-to the Librarian.
+The default book allocation algorithm will randomly allocate books from the
+same node the request is received from. Books are deallocated from a shelf
+on a LIFO basis.
 
-One idea is to start with the FUSE kernel module as a prototype for our
-Wholesale Filesystem. It could talk to the FUSE user portion using the existing
-protocols which could then talk to the Librarian.
+A "precise create" option will also be implemented to support single
+NVM allocation using a given interleave group.
+
+Extended file attributes associated with a shelf will provide allocation
+specific details to the Librarian.
 
 ---------------------------------------------------------------------------
 Librarian supported commands
 ---------------------------------------------------------------------------
 
-These commands will be implemented in the "Engine" module of the Librarian.
-
-"version" - Query Librarian for version information.
-
-    Description:
-
-        +
-
-    Errors:
-
-        + None
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        { 
-            "command":"version"                     # command to execute
-        }
-
-    Data out (json):
-
-        {
-            "version":"<STR>"                       # librarian version string
-        }
-
-
-"create_shelf" - Create a new shelf.
-
-    Description:
-
-        + new shelf starts with zero books and zero size
-        + only root can create shelf
-
-    Errors:
-
-        +
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        {
-            "command":"create_shelf"                # command to execute
-        }
-
-    Data out (json):
-
-        {
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "size_bytes":"<INT>",                   # total size of NVM on shelf
-            "book_count":"<INT>",                   # number of books on shelf
-            "open_count":"<INT>",                   # node open count
-            "c_time":"<REAL>",                      # creation time
-            "m_time":"<REAL>"                       # modification time
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"open_shelf" - Open an existing shelf for use.
-
-    Description:
-
-        + increment shelf open count
-        + only root can open shelf
-
-    Errors:
-
-        + shelf does not exist
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        {
-            "command":"open_shelf",                 # command to execute
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "node_id":"<INT>",                      # unique ID for node
-            "uid":"<INT>",                          # user ID
-            "gid":"<INT>"                           # group ID
-        }
-
-    Data out (json):
-
-        {
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "size_bytes":"<INT>",                   # total size of NVM on shelf
-            "book_count":"<INT>",                   # number of books on shelf
-            "open_count":"<INT>",                   # node open count
-            "c_time":"<REAL>",                      # creation time
-            "m_time":"<REAL>"                       # modification time
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"close_shelf" - Close an existing shelf.
-
-    Description:
-
-        + decrement shelf open count
-        + only root can close shelf
-
-    Errors:
-
-        + shelf does not exist
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        {
-            "command":"close_shelf",                # command to execute
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "node_id":"<INT>",                      # unique ID for node
-            "uid":"<INT>",                          # user ID
-            "gid":"<INT>"                           # group ID
-        }
-
-    Data out (json):
-
-        {
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "size_bytes":"<INT>",                   # total size of NVM on shelf
-            "book_count":"<INT>",                   # number of books on shelf
-            "open_count":"<INT>",                   # node open count
-            "c_time":"<REAL>",                      # creation time
-            "m_time":"<REAL>"                       # modification time
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"destroy_shelf" - Remove shelf
-
-    Description:
-
-        + remove shelf
-        + free any existing books on shelf
-        + only root can close shelf
-
-    Errors:
-
-        + shelf does not exist
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        {
-            "command":"destroy_shelf",              # command to execute
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "node_id":"<INT>",                      # unique ID for node
-            "uid":"<INT>",                          # user ID
-            "gid":"<INT>"                           # group ID
-        }
-
-    Data out (json):
-
-        {
-            "success":"Shelf destroyed"             # success message
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"resize_shelf" - Change the size of the NVM available on the shelf.
-
-    Description:
-
-        + add or remove books on shelf so size has NVM backing
-        + create BOS for each book put on shelf
-        + remove BOS for each book removed from shelf
-        + only root can resize shelf
-        + update shelf to reflect size, books and modification time
-
-    Errors:
-
-        + shelf does not exist
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        {
-            "command":"resize_shelf",               # command to execute
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "node_id":"<INT>",                      # unique ID for node
-            "size_bytes":"<INT>",                   # total size of NVM on shelf
-            "book_count":"<INT>",                   # number of books on shelf
-            "open_count":"<INT>",                   # node open count
-            "c_time":"<REAL>",                      # creation time
-            "m_time":"<REAL>"                       # modification time
-        }
-
-    Data out (json):
-
-        {
-            "shelf_id":"<INT>",                     # unique ID to identify this shelf
-            "size_bytes":"<INT>",                   # total size of NVM on shelf
-            "book_count":"<INT>",                   # number of books on shelf
-            "open_count":"<INT>",                   # node open count
-            "c_time":"<REAL>",                      # creation time
-            "m_time":"<REAL>"                       # modification time
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"get_shelf_zaddr" - Request global zaddr for shelf
-
-    Description:
-
-        +
-
-    Errors:
-
-        +
-
-    Questions/Issues:
-
-        + need to understand this one better
-
-    Data in (json):
-
-        {
-            "command":"get_shelf_zaddr",                # command to execute
-        }
-
-    Data out (json):
-
-        {
-            "error":"Command not implemented"       # not implemented yet
-        }
-
----------------------------------------------------------------------------
-Librarian supported debug commands
----------------------------------------------------------------------------
-
-"list_book" - List book data stored in database.
-
-    Description:
-
-        + select book by book_id
-
-    Errors:
-
-        + book does not exist
-
-    Questions/Issues:
-
-        +
-
-    Data in (json):
-
-        {
-            "command":"list_book",                  # command to execute
-            "book_id":"<INT>"                       # unique book ID
-        }
-
-    Data out (json):
-
-        {
-            "book_id":"<INT>",                      # unique identifier for book
-            "node_id":"<INT>",                      # unique node ID
-            "status":"<INT>",                       # status of book (0 = unused, 1 = used in shelf(s))
-            "attributes":"<INT>",                   # book attributes
-            "size_bytes":"<INT>"                    # book size in bytes
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"list_shelf" - List shelf data stored in database.
-
-    Description:
-
-        +  maybe a list of shelf handles to list, if shelf_handle == 0 then return them all?
-
-    Errors:
-
-        + shelf does not exist
-
-    Questions/Issues:
-
-        + expand parameters so one or more books can be listed
-
-    Data in (json):
-
-        {
-            "command":"list_shelf",                 # command to execute
-            "shelf_id":"<INT>"                      # shelf handle (maybe one for each shelf you want returned?)
-        }
-
-    Data out (json):
-
-        {
-            "shelf_id":"<INT>",                     # unique ID for shelf
-            "size_bytes":"<INT>",                   # total size of NVM on shelf
-            "book_count":"<INT>",                   # number of books on shelf
-            "open_count":"<INT>",                   # node open count
-            "c_time":"<REAL>",                      # creation time
-            "m_time":"<REAL>"                       # modification time
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
-
-
-"list_bos" - List books on a given shelf
-
-    Description:
-
-        +  list of books
-
-    Errors:
-
-        + shelf does not exist
-
-    Questions/Issues:
-
-        + expand parameters so one or more books can be listed
-
-    Data in (json):
-
-        {
-            "command":"list_bos",                   # command to execute
-            "shelf_id":"<INT>"                      # unique ID for shelf
-        }
-
-    Data out (json):
-
-        {
-            "shelf_id":"<INT>",                     # unique ID for shelf
-            "book_id":"<INT>",                      # unique ID for book
-            "seq_num":"<INT>"                       # sequence number of book as added to shelf (1..N)
-        }
-
-        or on error:
-
-        {
-            "error":"<STR>"                         # error message on failure
-        }
+The authoritative librarian command definition resides in the
+cmdproto.py file.
 
 ---------------------------------------------------------------------------
 Database schema
 ---------------------------------------------------------------------------
 
-"books" - All available books
-
-    book_id <INT>          - (primary key) unique identifier for book (LZA address)
-    node_id <INT>          - unique ID for each SoC node
-    status <INT>           - status of book (0 = unused, 1 = used in shelf(s))
-    attributes <INT>       - book attributes, such as proximity
-    size_bytes <INT>       - book size in bytes
-
-    Assumptions:
-        +
-    
-"shelves" - All currently allocated shelves
-
-    shelf_id <INT>         - (primary key) unique identifier for shelf
-    size_bytes <INT>       - current size in bytes, zero if no books allocated
-    book_count <INT>       - current number of books on shelf
-    open_count <INT>       - current number of opens
-    c_time <REAL>          - creation time of shelf
-    m_time <REAL>          - last modification time of shelf
-
-    Assumptions:
-        + a shelf can have many users that have it open
-        + it's important to track the order in which books where added to shelf, so books can be deleted in LIFO order
-
-"books_on_shelf" - All books allocated to shelves
-
-    shelf_id <INT>         - a unique identifier for shelf
-    book_id <INT>          - unique identifier for book (LZA address)
-    seq_num <INT>          - order number in which this book was added to shelf (1..N)
-
-    Assumptions:
-        + a book can be used on one or more shelves
-        + a book can be used more than once on a shelf
+The authoritative librarian database schema definition resides in
+the book_register.py file. Some schema data is also replicated in the
+book_shelf_bos.py file.
 
 ---------------------------------------------------------------------------
