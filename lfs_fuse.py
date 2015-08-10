@@ -282,30 +282,6 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
 
     @prentry
-    def chmod(self, path, mode, **kwargs):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def chown(self, path, uid, gid):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def readlink(self, path):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def mknod(self, path, mode, dev):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def rmdir(self, path):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def mkdir(self, path, mode):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
     def statfs(self, path): # "df" command; example used statVfs
         # path is don't care. Using stuff from bodemo
         return {
@@ -331,18 +307,6 @@ class LibrarianFSd(Operations):
         return 0
 
     @prentry
-    def symlink(self, name, target):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def rename(self, old, new):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def link(self, target, name):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
     def utimens(self, path, times=None):
         try:
             self._basetimes['st_atime'] = times[0]
@@ -352,13 +316,18 @@ class LibrarianFSd(Operations):
             pass
         raise FuseOSError(errno.ENOTSUP)
 
+    @prentry
+    def rename(self, old, new):
+        raise FuseOSError(errno.ENOTSUP)
+
+    #
     # File methods
-    # ============
+    #
 
     @prentry
     def open(self, path, flags, **kwargs):
-        if kwargs:
-            set_trace() # looking for filehandles?  See FUSE docs
+        # looking for filehandles?  See FUSE docs
+        assert not kwargs, 'open() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
         req = self.lcp('open_shelf', name=shelf_name)
         rsp = self.librarian(req)
@@ -371,8 +340,8 @@ class LibrarianFSd(Operations):
     # return os.open()
     @prentry
     def create(self, path, mode, fi=None):
-        if fi is not None:
-            set_trace()
+        assert not flags, 'create(%s) with flags not implemented' % str(flags)
+        assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
         req = self.lcp('create_shelf', name=shelf_name)
         rsp = self.librarian(req, trace=False)
@@ -397,8 +366,7 @@ class LibrarianFSd(Operations):
     # Example code shows an explicit open by name in here.
     # example returned nothing?
     def truncate(self, path, length, **kwargs):
-        if kwargs:
-            set_trace()
+        assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
         req = self.lcp('list_shelf', name=shelf_name)
         listrsp = self.librarian(req)
@@ -413,10 +381,6 @@ class LibrarianFSd(Operations):
         return 0
 
     @prentry
-    def flush(self, path, fh):      # fh == shelfid
-        return 0
-
-    @prentry
     def release(self, path, fh):    # fh == shelfid
         shelf_name = self.path2shelf(path)
         req = self.lcp('close_shelf', name=shelf_name, id=fh)
@@ -428,9 +392,48 @@ class LibrarianFSd(Operations):
         return 0    # os.close...
 
     @prentry
+    def flush(self, path, fh):      # fh == shelfid
+        raise FuseOSError(errno.NOTSUP)
+
+    @prentry
     def fsync(self, path, fdatasync, fh):
-        set_trace()
-        return self.flush(path, fh)
+        raise FuseOSError(errno.NOTSUP)
+
+    #
+    # Not gonna happen
+    #
+
+    @prentry
+    def chmod(self, path, mode, **kwargs):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def chown(self, path, uid, gid):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def readlink(self, path):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def mknod(self, path, mode, dev):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def rmdir(self, path):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def mkdir(self, path, mode):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def symlink(self, name, target):
+        raise FuseOSError(errno.ENOTSUP)
+
+    @prentry
+    def link(self, target, name):
+        raise FuseOSError(errno.ENOTSUP)
 
 def main(source, mountpoint, node_id):
     try:
