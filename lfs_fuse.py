@@ -221,8 +221,6 @@ class LibrarianFSd(Operations):
     # see "user", but the others take CAP_SYS_ADMIN.  Currently only
     # "user" works, even with sudo, not sure why.  Or if it matters.
 
-    _shelf2xattrs = { }
-
     @prentry
     def getxattr(self, path, attr, position=0):
         """Called with a specific namespace.name attr.  Can return either
@@ -237,7 +235,8 @@ class LibrarianFSd(Operations):
         })
         if rsp is None:
             raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
-        return rsp
+        value = rsp['value']
+        return value if isinstance(value, int) else bytes(value.encode())
 
     @prentry
     def listxattr(self, path, *args, **kwargs):
@@ -249,22 +248,29 @@ class LibrarianFSd(Operations):
         except KeyError as e:
             return None
 
+    _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
+
     @prentry
     def setxattr(self, path, attr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
             set_trace() # haven't actually seen it yet
         shelf_name = self.valid_shelf(path)
-        for bad in ('"', "'", '{', '}'):
+        for bad in self._badjson:
             if bad in valbytes:
-                raise FuseOSError(errno.EDOMAIN) # FIXME: is it binary?
+                raise FuseOSError(errno.EDOMAIN)
+        try:
+            value = int(valbytes)
+        except ValueError as e:
+            value = valbytes.decode()
+
         rsp = self.librarian({
                 'command': 'set_xattr',
                 'name': shelf_name,
                 'xattr': attr,
                 'value': value
         })
-        if rsp is None:
+        if rsp is not None: # unexpected
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
@@ -319,7 +325,7 @@ class LibrarianFSd(Operations):
     def unlink(self, path):
         shelf_name = self.path2shelf(path)
         rsp = self.librarian({
-                                'cmd':          'destroyshelf',
+                                'cmd':          'destroy_shelf',
                                 'shelf_name':   shelf_name,
                              })
         return 0
