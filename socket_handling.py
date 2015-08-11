@@ -256,9 +256,9 @@ class Server(SocketReadWrite):
                     peer.inbuf = ''
                     if self.verbose:
                         if self.verbose == 1:
-                            print('Processing ', peer.name, cmdict['command'])
+                            print('%s: %s' % (peer.name, cmdict['command']))
                         else:
-                            print('Processing ', peer.name, str(cmdict))
+                            print('%s: %s' % ( peer.name, str(cmdict)))
                     result = handler(cmdict)
                 except Exception as e:
                     result = None
