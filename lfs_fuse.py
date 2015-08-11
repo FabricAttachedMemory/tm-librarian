@@ -227,13 +227,13 @@ class LibrarianFSd(Operations):
            a bytes array OR an int."""
         if position:
             set_trace()
-        shelf_name = self.valid_shelf(path)
 
         # "ls" starts with simple getattr but then comes here for
         # security.selinux, system.posix_acl_access, and posix_acl_default.
-        # Save the round trips.
+        # ls -l can also do the same thing on '/'.  Save the round trips.
 
         try:
+            shelf_name = self.valid_shelf(path) # can "raise"
             assert attr.startswith('user.')
             rsp = self.librarian({
                 'command': 'get_xattr',
