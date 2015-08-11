@@ -11,7 +11,7 @@ import cmdproto
 #--------------------------------------------------------------------------
 
 
-def main():
+def main(serverhost='localhost'):
     """ Main function for the REPL client this functions connects to the
     server waits for user input and then sends/recvs commands from ther server
     """
@@ -26,9 +26,9 @@ def main():
     lcp = cmdproto.LibrarianCommandProtocol(auth)
 
     chain = LibrarianChain(None)
-    client = socket_handling.Client()   # socket_handling.py
+    client = socket_handling.Client()
     try:
-        client.connect()
+        client.connect(host=serverhost)
         print('Connected')
     except Exception as e:
         print(str(e), '; falling back to local print')
@@ -66,10 +66,10 @@ def main():
         if client is None:
             print('LOCAL:', out_string)
         else:
-            print(client.send_recv(out_string))
+            print(client.send_recv(out_string, client._sock))   # I know
         print()
 
 if __name__ == '__main__':
-    import os
+    import os, sys
 
-    main()
+    main(sys.argv[1])

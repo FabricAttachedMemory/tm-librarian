@@ -72,7 +72,7 @@ class SocketReadWrite(object):
         if not outstring:
             return None
 
-        cls.send_all(string, sock)
+        cls.send_all(outstring, sock)
         return cls.recv_chunk(sock)
 
 
@@ -86,7 +86,7 @@ class Client(SocketReadWrite):
     def __del__(self):
         super().__del__()
 
-    def connect(self, host='', port=9093):
+    def connect(self, host='localhost', port=9093):
         """ Connect socket to port on host
 
         Args:
@@ -97,7 +97,14 @@ class Client(SocketReadWrite):
             Nothing
         """
 
-        self._sock.connect((host, port))
+        try:
+            self._sock.connect((host, port))
+        except OSError as e:
+            if e.errno == errno.EINPROGRESS:
+                # socket is non-blocking but connection is not complete.
+                # So far only happens with repl client.  Weird.
+                if host == 'localhost':
+                    raise
 
 
 class Server(SocketReadWrite):
