@@ -20,7 +20,7 @@ def prentry(func):
     def new_func(*args, **kwargs):
         # args[0] is usually 'self', so ...
         tmp = ', '.join([str(a) for a in args[1:]])
-        print('%s(%s)' % (func.__name__, tmp))
+        print('%s(%s)' % (func.__name__, tmp[:60]))
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
@@ -228,15 +228,23 @@ class LibrarianFSd(Operations):
         if position:
             set_trace()
         shelf_name = self.valid_shelf(path)
-        rsp = self.librarian({
+
+        # "ls" starts with simple getattr but then comes here for
+        # security.selinux, system.posix_acl_access, and posix_acl_default.
+        # Save the round trips.
+
+        try:
+            assert attr.startswith('user.')
+            rsp = self.librarian({
                 'command': 'get_xattr',
                 'name': shelf_name,
                 'xattr': attr
-        })
-        if rsp is None:
+            })
+            value = rsp['value']
+            assert value
+            return value if isinstance(value, int) else bytes(value.encode())
+        except Exception as e:
             raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
-        value = rsp['value']
-        return value if isinstance(value, int) else bytes(value.encode())
 
     @prentry
     def listxattr(self, path, *args, **kwargs):
@@ -271,6 +279,7 @@ class LibrarianFSd(Operations):
                 'value': value
         })
         if rsp is not None: # unexpected
+            set_trace()
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
@@ -387,17 +396,17 @@ class LibrarianFSd(Operations):
         rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
+            return 0    # os.close...
         except Exception as e:
             raise FuseOSError(errno.EEXIST)
-        return 0    # os.close...
 
     @prentry
     def flush(self, path, fh):      # fh == shelfid
-        raise FuseOSError(errno.NOTSUP)
+        return 0
 
     @prentry
     def fsync(self, path, fdatasync, fh):
-        raise FuseOSError(errno.NOTSUP)
+        raise FuseOSError(errno.ENOTSUP)
 
     #
     # Not gonna happen
