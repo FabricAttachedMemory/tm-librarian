@@ -2,6 +2,11 @@
 from function_chain import Link, Chain
 import json
 
+from pdb import set_trace
+
+class BadChainConversion(Exception):
+    pass
+
 class JsonLink(Link):
     """ Link that converts from dictionaries to json and vise-versa """
 
@@ -25,7 +30,10 @@ class JsonLink(Link):
         Returns:
             Python dictionary object
         """
-        return json.loads(obj)
+        try:
+            return json.loads(obj)
+        except Exception as e:
+            raise BadChainConversion(str(e))
 
 
 class EncodeLink(Link):

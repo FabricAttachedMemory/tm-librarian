@@ -5,8 +5,10 @@ import socket
 import select
 import time
 
-from genericobj import GenericObject
 from pdb import set_trace
+
+from genericobj import GenericObject
+from librarian_chain import BadChainConversion
 
 
 class SocketReadWrite(object):
@@ -177,6 +179,22 @@ class Server(SocketReadWrite):
         t0 = time.time()
         xlimit = 2000
         transactions = 0
+
+        def send_result(s, peer, result):
+            if self.verbose:
+                print('%s: sending %s' % (peer.name,
+                    'NULL' if result is None else '%s bytes' % len(result)))
+            try:    # socket may have died by now
+                self.send_all(chain.forward_traverse(result), s)
+            except OSError as e:
+                if e.errno == errno.EPIPE: print(
+                    '%s: closed by client' % peer.name)
+                elif e.errno != errno.EBADF:
+                    print('%s: closed earlier' % peer.name)
+                s.close()
+            except Exception as e:
+                print('SEND to %s failed: %s' % (peer.name, str(e)))
+
         while True:
 
             if self.verbose:
@@ -193,7 +211,13 @@ class Server(SocketReadWrite):
                     del sock2peer[d]
                 continue
 
-            if not readable:    # timeout; reset counters
+            if not readable:    # timeout: respond to partials, reset counters
+                for s in to_read:
+                    peer = sock2peer.get(s, False)
+                    if peer and peer.inbuf:    # No more is coming
+                        print('%s: reset inbuf' % peer.name)
+                        peer.inbuf = ''
+                        send_result(None, peer, s)
                 transactions = 0
                 t0 = time.time()
                 continue
@@ -214,7 +238,7 @@ class Server(SocketReadWrite):
                         to_read.append(conn)
                         sock2peer[conn] = GenericObject(
                             name='{0}:{1}'.format(*peername),
-                            buffer=''
+                            inbuf=''
                         )
                         print('%s: new connection' % sock2peer[conn].name)
                     except Exception as e:
@@ -225,40 +249,36 @@ class Server(SocketReadWrite):
                     # Accumulate partial messages until a parse works.
                     # FIXME: chain should return tuple of (cmdict, leftovers)
                     peer = sock2peer[s]
+                    in_string = ''      # in case the recv bombs
                     in_string = self.recv_all(s)
-                    assert in_string, 'null command'
-                    peer.buffer += in_string
-                    cmdict = chain.reverse_traverse(peer.buffer)
+                    peer.inbuf += in_string
+                    cmdict = chain.reverse_traverse(peer.inbuf)
                     # Since it parsed, the message is complete.
-                    peer.buffer = ''
+                    peer.inbuf = ''
                     if self.verbose:
                         if self.verbose == 1:
                             print('Processing ', peer.name, cmdict['command'])
                         else:
                             print('Processing ', peer.name, str(cmdict))
                     result = handler(cmdict)
-                except Exception as e:   # self-detected
+                except Exception as e:
                     result = None
-                    if e.__class__ in (AssertionError, RuntimeError):
+                    if isinstance(e, BadChainConversion):
+                        if in_string:
+                            print('%s: appended %d more bytes' % (
+                                peer.name, len(in_string)))
+                            continue
+                        msg = 'null command'
+                    elif e.__class__ in (AssertionError, RuntimeError):
                         msg = str(e) # self-detected at lower levels
                     elif isinstance(e, TypeError):
                         msg = 'socket death'
-                    elif isinstance(e, ValueError):
-                        msg = 'unparseable command >>> %s <<<' % peer.buffer
                     else:
                         msg = 'UNEXPECTED %s' % str(e)
                     print('%s: %s' % (peer.name, msg))
-                finally:
-                    try:    # socket may have died by now
-                        self.send_all(chain.forward_traverse(result), s)
-                    except OSError as e:
-                        if e.errno == errno.EPIPE: print(
-                            '%s: closed by client' % peer.name)
-                        elif e.errno != errno.EBADF:
-                            print('%s: closed earlier' % peer.name)
-                        s.close()
-                    except Exception as e:
-                        print('SEND to %s failed: %s' % (peer.name, str(e)))
+
+                # NO "finally": it circumvents "continue" in error clause(s)
+                send_result(s, peer, result)
 
 def main():
     """ Run simple echo server to exercise the module """

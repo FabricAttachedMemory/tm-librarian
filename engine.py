@@ -330,6 +330,7 @@ class LibrarianCommandEngine(object):
             # or string, OR one of the following three literal names:
             # false null true
             # Python's json handler turns None into 'null' and vice verse.
+            set_trace()
             errmsg = 'Bad lookup on "%s"' % str(e)
             return None
 
