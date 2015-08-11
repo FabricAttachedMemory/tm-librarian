@@ -4,7 +4,10 @@ import json
 
 from pdb import set_trace
 
-class BadChainConversion(Exception):
+class BadChainApply(Exception):
+    pass
+
+class BadChainUnapply(Exception):
     pass
 
 class JsonLink(Link):
@@ -19,7 +22,10 @@ class JsonLink(Link):
         Returns:
             JSON string
         """
-        return json.dumps(obj)
+        try:
+            return json.dumps(obj)
+        except Exception as e:
+            raise BadChainApply(str(e))
 
     def unapply(self, obj):
         """ JSON -> dictionary
@@ -33,7 +39,7 @@ class JsonLink(Link):
         try:
             return json.loads(obj)
         except Exception as e:
-            raise BadChainConversion(str(e))
+            raise BadChainUnapply(str(e))
 
 
 class EncodeLink(Link):

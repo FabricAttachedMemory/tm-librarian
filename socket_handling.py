@@ -8,7 +8,7 @@ import time
 from pdb import set_trace
 
 from genericobj import GenericObject
-from librarian_chain import BadChainConversion
+from librarian_chain import BadChainUnapply
 
 
 class SocketReadWrite(object):
@@ -44,10 +44,9 @@ class SocketReadWrite(object):
     _bufsz = 4096
 
     @classmethod
-    def recv_all(cls, sock):
-        """ Receive the whole message and decode it to a python3 string.
-            The hope is that a message does not end on a bufsz boundary
-            or this will hang.
+    def recv_chunk(cls, sock):
+        """ Receive the next part of a message and decode it to a
+            python3 string. FIXME what about chain() stuff?
 
         Args:
             sock: the socket to receive data from.
@@ -56,14 +55,7 @@ class SocketReadWrite(object):
             The python3 string that was recieved from the socket.
         """
 
-        in_delta = sock.recv(cls._bufsz).decode("utf-8").strip()
-        in_json = in_delta
-
-        while len(in_delta) == cls._bufsz:
-            in_delta = sock.recv(cls._bufsz).decode("utf-8").strip()
-            in_json += in_delta
-
-        return in_json
+        return sock.recv(cls._bufsz).decode("utf-8").strip()
 
     @classmethod
     def send_recv(cls, outstring, sock):
@@ -81,7 +73,7 @@ class SocketReadWrite(object):
             return None
 
         cls.send_all(string, sock)
-        return cls.recv_all(sock)
+        return cls.recv_chunk(sock)
 
 
 class Client(SocketReadWrite):
@@ -250,7 +242,7 @@ class Server(SocketReadWrite):
                     # FIXME: chain should return tuple of (cmdict, leftovers)
                     peer = sock2peer[s]
                     in_string = ''      # in case the recv bombs
-                    in_string = self.recv_all(s)
+                    in_string = self.recv_chunk(s)
                     peer.inbuf += in_string
                     cmdict = chain.reverse_traverse(peer.inbuf)
                     # Since it parsed, the message is complete.
@@ -263,7 +255,7 @@ class Server(SocketReadWrite):
                     result = handler(cmdict)
                 except Exception as e:
                     result = None
-                    if isinstance(e, BadChainConversion):
+                    if isinstance(e, BadChainUnapply):
                         if in_string:
                             print('%s: appended %d more bytes' % (
                                 peer.name, len(in_string)))
