@@ -323,11 +323,11 @@ class LibrarianFSd(Operations):
             return 0    # os.utime
         except Exception as e:
             pass
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def rename(self, old, new):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     #
     # File methods
@@ -371,6 +371,11 @@ class LibrarianFSd(Operations):
         return os.write(fh, buf)
 
     @prentry
+    def fallocate(self, path, length, **kwargs):
+        set_trace()
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
     # it was opened before this, but where is the fd (aka shelf id)?
     # Example code shows an explicit open by name in here.
     # example returned nothing?
@@ -406,7 +411,7 @@ class LibrarianFSd(Operations):
 
     @prentry
     def fsync(self, path, fdatasync, fh):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     #
     # Not gonna happen
@@ -414,35 +419,35 @@ class LibrarianFSd(Operations):
 
     @prentry
     def chmod(self, path, mode, **kwargs):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def chown(self, path, uid, gid):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def readlink(self, path):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def mknod(self, path, mode, dev):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def rmdir(self, path):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def mkdir(self, path, mode):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def symlink(self, name, target):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def link(self, target, name):
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
 def main(source, mountpoint, node_id):
     try:
