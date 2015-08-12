@@ -38,7 +38,6 @@ class SocketReadWrite(object):
         Returns:
                 Nothing.
         """
-
         return sock.sendall(str.encode(string))
 
     _bufsz = 4096
@@ -180,11 +179,13 @@ class Server(SocketReadWrite):
         transactions = 0
 
         def send_result(s, peer, result):
-            if self.verbose:
-                print('%s: sending %s' % (peer.name,
-                    'NULL' if result is None else '%s bytes' % len(result)))
             try:    # socket may have died by now
-                self.send_all(chain.forward_traverse(result), s)
+                bytesout = chain.forward_traverse(result)
+                if self.verbose:
+                    print('%s: sending %s' % (peer.name,
+                        'NULL' if result is None
+                               else '%d bytes' % len(bytesout)))
+                self.send_all(bytesout, s)
             except OSError as e:
                 if e.errno == errno.EPIPE: print(
                     '%s: closed by client' % peer.name)
@@ -192,7 +193,8 @@ class Server(SocketReadWrite):
                     print('%s: closed earlier' % peer.name)
                 s.close()
             except Exception as e:
-                print('SEND to %s failed: %s' % (peer.name, str(e)))
+                print('SEND to %s failed: %s' % (peer.name, str(e)),
+                      file=sys.stderr)
 
         while True:
 
