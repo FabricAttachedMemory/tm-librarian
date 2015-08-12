@@ -7,6 +7,9 @@ import time
 
 from pdb import set_trace
 
+from genericobj import GenericObject
+from librarian_chain import BadChainUnapply
+
 
 class SocketReadWrite(object):
     """ Object that will read and write from a socket
@@ -35,16 +38,14 @@ class SocketReadWrite(object):
         Returns:
                 Nothing.
         """
-
         return sock.sendall(str.encode(string))
 
     _bufsz = 4096
 
     @classmethod
-    def recv_all(cls, sock):
-        """ Receive the whole message and decode it to a python3 string.
-            The hope is that a message does not end on a bufsz boundary
-            or this will hang.
+    def recv_chunk(cls, sock):
+        """ Receive the next part of a message and decode it to a
+            python3 string. FIXME what about chain() stuff?
 
         Args:
             sock: the socket to receive data from.
@@ -53,14 +54,7 @@ class SocketReadWrite(object):
             The python3 string that was recieved from the socket.
         """
 
-        in_delta = sock.recv(cls._bufsz).decode("utf-8").strip()
-        in_json = in_delta
-
-        while len(in_delta) == cls._bufsz:
-            in_delta = sock.recv(cls._bufsz).decode("utf-8").strip()
-            in_json += in_delta
-
-        return in_json
+        return sock.recv(cls._bufsz).decode("utf-8").strip()
 
     @classmethod
     def send_recv(cls, outstring, sock):
@@ -77,8 +71,8 @@ class SocketReadWrite(object):
         if not outstring:
             return None
 
-        cls.send_all(string, sock)
-        return cls.recv_all(sock)
+        cls.send_all(outstring, sock)
+        return cls.recv_chunk(sock)
 
 
 class Client(SocketReadWrite):
@@ -91,7 +85,7 @@ class Client(SocketReadWrite):
     def __del__(self):
         super().__del__()
 
-    def connect(self, host='', port=9093):
+    def connect(self, host='localhost', port=9093):
         """ Connect socket to port on host
 
         Args:
@@ -102,7 +96,14 @@ class Client(SocketReadWrite):
             Nothing
         """
 
-        self._sock.connect((host, port))
+        try:
+            self._sock.connect((host, port))
+        except OSError as e:
+            if e.errno == errno.EINPROGRESS:
+                # socket is non-blocking but connection is not complete.
+                # So far only happens with repl client.  Weird.
+                if host == 'localhost':
+                    raise
 
 
 class Server(SocketReadWrite):
@@ -176,6 +177,25 @@ class Server(SocketReadWrite):
         t0 = time.time()
         xlimit = 2000
         transactions = 0
+
+        def send_result(s, peer, result):
+            try:    # socket may have died by now
+                bytesout = chain.forward_traverse(result)
+                if self.verbose:
+                    print('%s: sending %s' % (peer.name,
+                        'NULL' if result is None
+                               else '%d bytes' % len(bytesout)))
+                self.send_all(bytesout, s)
+            except OSError as e:
+                if e.errno == errno.EPIPE: print(
+                    '%s: closed by client' % peer.name)
+                elif e.errno != errno.EBADF:
+                    print('%s: closed earlier' % peer.name)
+                s.close()
+            except Exception as e:
+                print('SEND to %s failed: %s' % (peer.name, str(e)),
+                      file=sys.stderr)
+
         while True:
 
             if self.verbose:
@@ -192,7 +212,13 @@ class Server(SocketReadWrite):
                     del sock2peer[d]
                 continue
 
-            if not readable:    # timeout; reset counters
+            if not readable:    # timeout: respond to partials, reset counters
+                for s in to_read:
+                    peer = sock2peer.get(s, False)
+                    if peer and peer.inbuf:    # No more is coming
+                        print('%s: reset inbuf' % peer.name)
+                        peer.inbuf = ''
+                        send_result(None, peer, s)
                 transactions = 0
                 t0 = time.time()
                 continue
@@ -211,44 +237,49 @@ class Server(SocketReadWrite):
                     try:
                         (conn, peername) = self._sock.accept()
                         to_read.append(conn)
-                        sock2peer[conn] = '{0}:{1}'.format(*peername)
-                        print('%s: new connection' % sock2peer[conn])
+                        sock2peer[conn] = GenericObject(
+                            name='{0}:{1}'.format(*peername),
+                            inbuf=''
+                        )
+                        print('%s: new connection' % sock2peer[conn].name)
                     except Exception as e:
                         pass
                     continue
 
                 try:
-                    in_string = self.recv_all(s)
-                    assert in_string, 'null command'
-                    cmdict = chain.reverse_traverse(in_string)
+                    # Accumulate partial messages until a parse works.
+                    # FIXME: chain should return tuple of (cmdict, leftovers)
+                    peer = sock2peer[s]
+                    in_string = ''      # in case the recv bombs
+                    in_string = self.recv_chunk(s)
+                    peer.inbuf += in_string
+                    cmdict = chain.reverse_traverse(peer.inbuf)
+                    # Since it parsed, the message is complete.
+                    peer.inbuf = ''
                     if self.verbose:
                         if self.verbose == 1:
-                            print('Processing ', sock2peer[s], cmdict['command'])
+                            print('%s: %s' % (peer.name, cmdict['command']))
                         else:
-                            print('Processing ', sock2peer[s], str(cmdict))
+                            print('%s: %s' % ( peer.name, str(cmdict)))
                     result = handler(cmdict)
-                except Exception as e:   # self-detected
+                except Exception as e:
                     result = None
-                    if e.__class__ in (AssertionError, RuntimeError):
+                    if isinstance(e, BadChainUnapply):
+                        if in_string:
+                            print('%s: appended %d more bytes' % (
+                                peer.name, len(in_string)))
+                            continue
+                        msg = 'null command'
+                    elif e.__class__ in (AssertionError, RuntimeError):
                         msg = str(e) # self-detected at lower levels
                     elif isinstance(e, TypeError):
                         msg = 'socket death'
-                    elif isinstance(e, ValueError):
-                        msg = 'unparseable command >>> %s <<<' % in_str
                     else:
                         msg = 'UNEXPECTED %s' % str(e)
-                    print('%s: %s' % (sock2peer[s], msg))
-                finally:
-                    try:    # socket may have died by now
-                        self.send_all(chain.forward_traverse(result), s)
-                    except OSError as e:
-                        if e.errno == errno.EPIPE: print(
-                            '%s: closed by client' % sock2peer[s])
-                        elif e.errno != errno.EBADF:
-                            print('%s: closed earlier' % sock2peer[s])
-                        s.close()
-                    except Exception as e:
-                        print('SEND to %s failed: %s' % (sock2peer[s], str(e)))
+                    print('%s: %s' % (peer.name, msg))
+
+                # NO "finally": it circumvents "continue" in error clause(s)
+                send_result(s, peer, result)
 
 def main():
     """ Run simple echo server to exercise the module """

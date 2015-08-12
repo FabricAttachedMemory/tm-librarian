@@ -20,7 +20,7 @@ def prentry(func):
     def new_func(*args, **kwargs):
         # args[0] is usually 'self', so ...
         tmp = ', '.join([str(a) for a in args[1:]])
-        print('%s(%s)' % (func.__name__, tmp))
+        print('%s(%s)' % (func.__name__, tmp[:60]))
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
@@ -109,6 +109,12 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.ENOENT)
         return shelf_name
 
+    fd2shelf_id = { }
+
+    @staticmethod
+    def shadowpath(shelf_name):
+        return '/tmp/shadow/%s' % shelf_name
+
     # First level:  tenants
     # Second level: tenant group
     # Third level:  shelves
@@ -122,7 +128,7 @@ class LibrarianFSd(Operations):
             cmdJS = json.dumps(cmd)
             cmdJSenc = cmdJS.encode()
         except KeyError:
-            print('Bad originating command', cmd)
+            print('Bad original command', cmd)
             raise FuseOSError(errno.EBADR)
         except Exception as e:
             set_trace()
@@ -142,8 +148,9 @@ class LibrarianFSd(Operations):
             rsp = { 'error': 'LFSd: %s' % str(e) }
 
         if rsp and 'error' in rsp:
-            print('%s failed: %s' % (cmd['command'], rsp['error']))
-            raise FuseOSError(errno.ESTALE)    # Unique in this code
+            print('%s failed: %s' % (cmd['command'], rsp['error']),
+                  file=sys.stderr)
+            raise FuseOSError(rsp['errno'])
         return rsp  # None is now legal, let the caller interpret it.
 
     # Higher-level FS operations
@@ -227,16 +234,24 @@ class LibrarianFSd(Operations):
            a bytes array OR an int."""
         if position:
             set_trace()
-        shelf_name = self.valid_shelf(path)
-        rsp = self.librarian({
+
+        # "ls" starts with simple getattr but then comes here for
+        # security.selinux, system.posix_acl_access, and posix_acl_default.
+        # ls -l can also do the same thing on '/'.  Save the round trips.
+
+        try:
+            shelf_name = self.valid_shelf(path) # can "raise"
+            assert attr.startswith('user.')
+            rsp = self.librarian({
                 'command': 'get_xattr',
                 'name': shelf_name,
                 'xattr': attr
-        })
-        if rsp is None:
+            })
+            value = rsp['value']
+            assert value
+            return value if isinstance(value, int) else bytes(value.encode())
+        except Exception as e:
             raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
-        value = rsp['value']
-        return value if isinstance(value, int) else bytes(value.encode())
 
     @prentry
     def listxattr(self, path, *args, **kwargs):
@@ -271,6 +286,7 @@ class LibrarianFSd(Operations):
                 'value': value
         })
         if rsp is not None: # unexpected
+            set_trace()
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
@@ -280,30 +296,6 @@ class LibrarianFSd(Operations):
             del self._shelf2xattrs[shelf_name][attr]
         except KeyError as e:
             raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
-
-    @prentry
-    def chmod(self, path, mode, **kwargs):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def chown(self, path, uid, gid):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def readlink(self, path):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def mknod(self, path, mode, dev):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def rmdir(self, path):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def mkdir(self, path, mode):
-        raise FuseOSError(errno.ENOTSUP)
 
     @prentry
     def statfs(self, path): # "df" command; example used statVfs
@@ -322,25 +314,20 @@ class LibrarianFSd(Operations):
         }
 
     @prentry
-    def unlink(self, path):
+    def unlink(self, path, *args, **kwargs):
+        assert not args and not kwargs, 'Unexpected args'
         shelf_name = self.path2shelf(path)
         rsp = self.librarian({
-                                'cmd':          'destroy_shelf',
-                                'shelf_name':   shelf_name,
+                                'command': 'destroy_shelf',
+                                'name':     shelf_name,
                              })
+        assert rsp['id'] not in self.fd2shelf_id.values()
+        try:
+            os.unlink(self.shadowpath(shelf_name))
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
         return 0
-
-    @prentry
-    def symlink(self, name, target):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def rename(self, old, new):
-        raise FuseOSError(errno.ENOTSUP)
-
-    @prentry
-    def link(self, target, name):
-        raise FuseOSError(errno.ENOTSUP)
 
     @prentry
     def utimens(self, path, times=None):
@@ -350,35 +337,48 @@ class LibrarianFSd(Operations):
             return 0    # os.utime
         except Exception as e:
             pass
-        raise FuseOSError(errno.ENOTSUP)
+        raise FuseOSError(errno.ENOSYS)
 
+    @prentry
+    def rename(self, old, new):
+        raise FuseOSError(errno.ENOSYS)
+
+    #
     # File methods
-    # ============
+    #
 
     @prentry
     def open(self, path, flags, **kwargs):
-        if kwargs:
-            set_trace() # looking for filehandles?  See FUSE docs
+        # looking for filehandles?  See FUSE docs
+        assert not kwargs, 'open() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
         req = self.lcp('open_shelf', name=shelf_name)
         rsp = self.librarian(req)
         try:
-            return rsp['id']
+            shelf_id = rsp['id']
+            fd = os.open(self.shadowpath(shelf_name), flags)
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
+        self.fd2shelf_id[fd] = shelf_id
+        return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
     # return os.open()
     @prentry
     def create(self, path, mode, fi=None):
-        if fi is not None:
-            set_trace()
+        assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
         req = self.lcp('create_shelf', name=shelf_name)
         rsp = self.librarian(req, trace=False)
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
-        return rsp['id']
+        try:
+            shelf_id = rsp['id']
+            fd = os.open(self.shadowpath(shelf_name), mode + os.O_CREAT)
+        except Exception as e:
+            raise FuseOSError(errno.ENOENT)
+        self.fd2shelf_id[fd] = shelf_id
+        return fd
 
     @prentry
     def read(self, path, length, offset, fh):
@@ -393,12 +393,16 @@ class LibrarianFSd(Operations):
         return os.write(fh, buf)
 
     @prentry
+    def fallocate(self, path, length, **kwargs):
+        set_trace()
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
     # it was opened before this, but where is the fd (aka shelf id)?
     # Example code shows an explicit open by name in here.
     # example returned nothing?
-    def truncate(self, path, length, **kwargs):
-        if kwargs:
-            set_trace()
+    def truncate(self, path, length, *args, **kwargs):
+        assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
         req = self.lcp('list_shelf', name=shelf_name)
         listrsp = self.librarian(req)
@@ -410,27 +414,64 @@ class LibrarianFSd(Operations):
         rsp = self.librarian(req)
         if not 'size_bytes' in rsp:
             raise FuseOSError(errno.EINVAL)
-        return 0
+        return os.truncate(self.shadowpath(shelf_name), length)
+
+    @prentry
+    def release(self, path, fh):    # fh == shelfid
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('close_shelf', name=shelf_name,
+                        id=self.fd2shelf_id[fh])
+        rsp = self.librarian(req)
+        try:
+            assert rsp['name'] == shelf_name
+            del self.fd2shelf_id[fh]
+            return 0    # os.close...
+        except Exception as e:
+            raise FuseOSError(errno.EEXIST)
 
     @prentry
     def flush(self, path, fh):      # fh == shelfid
         return 0
 
     @prentry
-    def release(self, path, fh):    # fh == shelfid
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('close_shelf', name=shelf_name, id=fh)
-        rsp = self.librarian(req)
-        try:
-            assert rsp['name'] == shelf_name
-        except Exception as e:
-            raise FuseOSError(errno.EEXIST)
-        return 0    # os.close...
+    def fsync(self, path, fdatasync, fh):
+        raise FuseOSError(errno.ENOSYS)
+
+    #
+    # Not gonna happen
+    #
 
     @prentry
-    def fsync(self, path, fdatasync, fh):
-        set_trace()
-        return self.flush(path, fh)
+    def chmod(self, path, mode, **kwargs):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def chown(self, path, uid, gid):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def readlink(self, path):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def mknod(self, path, mode, dev):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def rmdir(self, path):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def mkdir(self, path, mode):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def symlink(self, name, target):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def link(self, target, name):
+        raise FuseOSError(errno.ENOSYS)
 
 def main(source, mountpoint, node_id):
     try:

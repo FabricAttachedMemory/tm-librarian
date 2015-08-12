@@ -65,16 +65,21 @@ class LibrarianCommandEngine(object):
                 TMShelf object
         """
         shelf = TMShelf(self._cmdict)
+        self.errno = errno.EINVAL
+        assert shelf.name, 'Command has no shelf name'
         if name_only:
             shelf.matchfields = ('name', )
         else:
-            assert shelf.id, '%s not already open' % shelf.name
+            self.errno = errno.BADF
+            assert shelf.id, '%s not open' % shelf.name
             shelf.matchfields = ('name', 'id')
         shelf = self.db.get_shelf(shelf)
         if shelf is None:
             if not name_only:
+                self.errno = errno.ENOENT
                 raise AssertionError('no such shelf %s' % shelf.name)
         else:   # consistency checks
+            self.errno = errno.EREMOTEIO
             assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
                 '%s size metadata mismatch' % shelf.name)
         return shelf
@@ -106,6 +111,7 @@ class LibrarianCommandEngine(object):
         # todo: ensure open count does not go below zero
 
         shelf = self.cmd_list_shelf(name_only=False)
+        self.errno = errno.EBADFD
         assert shelf.open_count >= 0, '%s negative open count' % shelf.name
         # FIXME: == 0 occurs right after a create.  What's up?
         if shelf.open_count > 0:
@@ -125,28 +131,31 @@ class LibrarianCommandEngine(object):
                 shelf data
         """
         # Do my own join, start with lookup by name
-        shelf = self.cmd_list_shelf(name_only=False)
-        # FIXME: make this an assertion, wedge a "force" option in somewhere
-        if shelf.open_count:
-            print('%s open count is %d' % (shelf.name, shelf.open_count),
-                  file=sys.stderr)
+        shelf = self.cmd_list_shelf()
+        self.errno = errno.EBUSY
+        assert not shelf.open_count, '%s open count = %d' % (
+            shelf.name, shelf.open_count)
 
         bos = self.db.get_bos_by_shelf_id(shelf.id)
         for thisbos in bos:
             self.db.delete_bos(thisbos)
             book = self.db.get_book_by_id(thisbos.book_id)
+            self.errno = errno.ENOENT
             assert book, 'Book lookup failed'
             book.allocated = TMBook.ALLOC_ZOMBIE
             book.matchfields = 'allocated'
             book = self.db.modify_book(book)
+            self.errno = errno.ENOENT
             assert book, 'Book allocation modify failed'
         return self.db.delete_shelf(shelf, commit=True)
 
     def _list_shelf_books(self, shelf):
-        assert shelf.id, '%s is not open' % shelf.name
+        self.errno = errno.EBADF
+        assert shelf.id, '%s not open' % shelf.name
         bos = self.db.get_bos_by_shelf_id(shelf.id)
 
         # consistency checks
+        self.errno = errno.EREMOTEIO
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
@@ -165,6 +174,7 @@ class LibrarianCommandEngine(object):
         shelf = self.cmd_list_shelf(name_only=False)
 
         bos = self._list_shelf_books(shelf)
+        self.errno = errno.EREMOTEIO
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
 
@@ -173,10 +183,12 @@ class LibrarianCommandEngine(object):
             '%s size metadata mismatch' % shelf.name)
 
         new_size_bytes = int(self._cmdict['size_bytes'])
+        self.errno = errno.EINVAL
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
         if bos:
             seqs = [ b.seq_num for b in bos ]
+            self.errno = errno.EBADFD
             assert set(seqs) == set(range(1, shelf.book_count + 1)), (
                 'Corrupt BOS sequence progression for %s' % shelf.name)
 
@@ -196,8 +208,9 @@ class LibrarianCommandEngine(object):
         if books_needed > 0:
             seq_num = shelf.book_count
             freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
+            self.errno = errno.ENOSPC
             assert len(freebooks) == books_needed, (
-                'ENOSPC on node %d for "%s"' % (node_id, shelf.name))
+                'out of space on node %d for "%s"' % (node_id, shelf.name))
             for book in freebooks: # Mark book in use and create BOS entry
                 book.allocated = TMBook.ALLOC_INUSE
                 book.matchfields = 'allocated'
@@ -208,6 +221,7 @@ class LibrarianCommandEngine(object):
                 thisbos = self.db.create_bos(thisbos)
         elif books_needed < 0:
             books_2bdel = -books_needed    # it all reads so much better
+            self.errno = errno.EREMOTEIO
             assert len(bos) >= books_2bdel, 'Book removal problem'
             while books_2bdel > 0:
                 thisbos = bos.pop()
@@ -219,6 +233,7 @@ class LibrarianCommandEngine(object):
                 books_2bdel -= 1
         else:
             self.db.rollback()
+            self.errno = errno.EREMOTEIO
             raise RuntimeError('Bad code path in shelf_resize()')
 
         shelf.book_count = new_book_count
@@ -286,6 +301,7 @@ class LibrarianCommandEngine(object):
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side
         shelf = self.cmd_list_shelf()
+        self.errno = errno.ENOENT
         assert shelf is not None, 'No such shelf'
         if self.db.get_xattr(shelf, self._cmdict['xattr'], exists_only=True):
             return self.db.modify_xattr(
@@ -300,7 +316,9 @@ class LibrarianCommandEngine(object):
             self.db = backend
             (self.__class__._book_size,
              self.__class__._total_nvm) = self.db.get_nvm_parameters()
+            self.errno = errno.EDOM
             assert self._book_size >= 1024*1024, 'Bad book size in DB'
+            self.errno = errno.ENOSPC
             assert self._total_nvm >= 16 * self._book_size, (
                 'Less than 16 books in NVM pool')
 
@@ -319,10 +337,11 @@ class LibrarianCommandEngine(object):
         errmsg = ''
         try:
             self._cmdict = cmdict
+            self.errno = 0
             handler = self._handlers[self._cmdict['command']]
         except KeyError as e:
             # This comment might go better in the module that imports json.
-            # From StackOverflow: NULL is not zero. It is not a value, per se:
+            # From StackOverflow: NULL is not zero. It's not a value, per se:
             # it is a value outside the domain of the variable's type,
             # indicating missing or unknown data.  There is only one way to
             # represent null in JSON. Per the specs (RFC 4627 and json.org):
@@ -330,12 +349,14 @@ class LibrarianCommandEngine(object):
             # or string, OR one of the following three literal names:
             # false null true
             # Python's json handler turns None into 'null' and vice verse.
+            set_trace()
             errmsg = 'Bad lookup on "%s"' % str(e)
             return None
 
         try:
-            errmsg = ''
             assert not errmsg, errmsg
+            errmsg = ''
+            self.errno = 0
             ret = handler(self)
         except AssertionError as e:     # consistency checks
             errmsg = str(e)
@@ -347,12 +368,9 @@ class LibrarianCommandEngine(object):
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         finally:    # whether it worked or not
             if errmsg:
-                ret = GenericObject(error=errmsg)
-
+                ret = GenericObject(error=errmsg, errno=self.errno)
             if self._cooked:    # for self-test
                 return ret
-
-            # for the net
             if ret is None:
                 return None # see comment elsewhere about JSON(None)
             if isinstance(ret, list):
