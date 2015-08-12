@@ -17,54 +17,70 @@ class SocketReadWrite(object):
     used primarily as a base class for the Client and Server
     objects """
 
-    _sock = None
-
-    def __init__(self, sock=None):
+    def __init__(self, sock=None, peertuple=None):
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self._sock = sock
+        if peertuple is None:
+            self._peer = ''
+            self._port = 0
+            self._str = ''
+        else:
+            self._peer, self._port = peertuple
+            self._str = '{0}:{1}'.format(*peertuple)
+        self.inbuf = ''
+        self.appended = 0
         self._sock.setblocking(False)   # always?
 
-    def __del__(self):
-        self._sock.shutdown(socket.SHUT_RDWR)
+    def __str__(self):
+        return self._str
+
+    def close(self):
+        try:
+            self._sock.shutdown(socket.SHUT_RDWR)
+        except Exception as e:
+            pass
         self._sock.close()
 
-    def fileno():
+    def fileno(self):
         '''Allows this object to be used in select'''
         return self._sock.fileno()
 
-    @staticmethod
-    def send_all(string, sock):
-        """ Encode and send end string along the socket.
+    def send_all(self, outstr):
+        """ Encode and send outstr along the socket.
 
         Args:
-            string: the python3 string to be sent
+            outstr: the python3 string to be sent
             sock: The socket to send the string on.
 
         Returns:
                 Nothing.
         """
-        return sock.sendall(str.encode(string))
+        # FIXME: accept a "chain" in init
+        return self._sock.sendall(str.encode(outstr))
 
     _bufsz = 4096
 
-    @classmethod
-    def recv_chunk(cls, sock):
+    def recv_chunk(self):
         """ Receive the next part of a message and decode it to a
             python3 string. FIXME what about chain() stuff?
-
         Args:
-            sock: the socket to receive data from.
-
         Returns:
-            The python3 string that was recieved from the socket.
         """
 
-        return sock.recv(cls._bufsz).decode("utf-8").strip()
+        # FIXME: accept a "chain" in init, then I can do the
+        # chain decode/error loop in here.
+        last = len(self.inbuf)
+        self.inbuf += self._sock.recv(self._bufsz).decode("utf-8").strip()
+        self.appended = len(self.inbuf) - last
+        print('%s: received %d bytes' % (self._str, self.appended))
 
-    @classmethod
-    def send_recv(cls, outstring, sock):
+    def clear(self):
+        self.inbuf = ''
+        self.appended = 0
+
+    def send_recv(self, outstring):
         """ Send and receive all data.
 
         Args:
@@ -78,8 +94,8 @@ class SocketReadWrite(object):
         if not outstring:
             return None
 
-        cls.send_all(outstring, sock)
-        return cls.recv_chunk(sock)
+        self.send_all(outstring)
+        self.recv_chunk()
 
 
 class Client(SocketReadWrite):
@@ -136,7 +152,12 @@ class Server(SocketReadWrite):
         super().__init__()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._port = args.port
+        self._sock.bind(('', self._port))
+        self._sock.listen(20)
         self.verbose = args.verbose
+
+    def accept(self):
+        return self._sock.accept()
 
     # The default processor is an identity processor so it's probably
     # a requirement to have this, it could just initialize and use a brand
@@ -156,7 +177,7 @@ class Server(SocketReadWrite):
     # fd which will force EBADF.  Finally it closes the real socket fd.
     # Hence the explicit searches for fileno == -1 below.
 
-    def serv(self, handler, chain, interface=''):
+    def serv(self, handler, chain):
         """ "event-loop" for the server this is where the server starts
         listening and serving requests.
 
@@ -168,36 +189,30 @@ class Server(SocketReadWrite):
             Nothing.
         """
 
-        self._sock.bind((interface, self._port))
-        self._sock.listen(10)
-
-        # When a socket is closed, getpeername() fails.  Save the peername
-        # ASAP, and do it here because sockets have __slots__
-        sock2peer = { }
-        to_read = [self._sock]
+        to_read = [self]
         t0 = time.time()
         xlimit = 2000
         transactions = 0
 
-        def send_result(s, peer, result):
+        # FIXME: put "chain" in SocketRW, move this routine into that class
+        def send_result(s, result):
             try:    # socket may have died by now
                 bytesout = chain.forward_traverse(result)
                 if self.verbose:
-                    print('%s: sending %s' % (peer.name,
+                    print('%s: sending %s' % (s,
                         'NULL' if result is None
                                else '%d bytes' % len(bytesout)))
-                self.send_all(bytesout, s)
+                s.send_all(bytesout)
             except OSError as e:
                 if e.errno == errno.EPIPE:
                     msg = 'closed by client'
                 elif e.errno != errno.EBADF:
                     msg = 'closed earlier'
-                print ('%s: %s' % (peer.name, msg), file=sys.stderr)
+                print ('%s: %s' % (s, msg), file=sys.stderr)
                 to_read.remove(s)
-                del sock2peer[s]
                 s.close()
             except Exception as e:
-                print('%s: SEND failed: %s' % (peer.name, str(e)),
+                print('%s: SEND failed: %s' % (s, str(e)),
                       file=sys.stderr)
 
         while True:
@@ -209,20 +224,18 @@ class Server(SocketReadWrite):
             except Exception as e:
                 # Usually ValueError on a negative fd from a remote close
                 dead = [sock for sock in to_read if sock.fileno() == -1]
-                assert self._sock not in dead, 'Server socket has died'
+                assert self not in dead, 'Server socket has died'
                 for d in dead:
                     if d in to_read:    # avoid error
                         to_read.remove(d)
-                    del sock2peer[d]
                 continue
 
-            if not readable:    # timeout: respond to partials, reset counters
+            if not readable: # timeout: respond to partials, reset counters
                 for s in to_read:
-                    peer = sock2peer.get(s, False)
-                    if peer and peer.inbuf:    # No more is coming
-                        print('%s: reset inbuf' % peer.name)
-                        peer.inbuf = ''
-                        send_result(None, peer, s)
+                    if s.inbuf:    # No more is coming FIXME: too harsh?
+                        print('%s: reset inbuf' % s)
+                        s.inbuf = ''
+                        send_result(s, None)
                 transactions = 0
                 t0 = time.time()
                 continue
@@ -237,41 +250,36 @@ class Server(SocketReadWrite):
                     transactions = 0
                     t0 = time.time()
 
-                if s is self._sock: # New connection, save name now
+                if s is self: # New connection
                     try:
-                        (conn, peername) = self._sock.accept()
-                        to_read.append(conn)
-                        sock2peer[conn] = GenericObject(
-                            name='{0}:{1}'.format(*peername),
-                            inbuf=''
-                        )
-                        print('%s: new connection' % sock2peer[conn].name)
+                        (sock, peertuple) = self.accept()
+                        newsock = SocketReadWrite(
+                            sock=sock, peertuple=peertuple)
+                        to_read.append(newsock)
+                        print('%s: new connection' % newsock)
                     except Exception as e:
                         pass
                     continue
 
                 try:
                     # Accumulate partial messages until a parse works.
-                    # FIXME: chain should return tuple of (cmdict, leftovers)
-                    peer = sock2peer[s]
-                    in_string = ''      # in case the recv bombs
-                    in_string = self.recv_chunk(s)
-                    peer.inbuf += in_string
-                    cmdict = chain.reverse_traverse(peer.inbuf)
+                    # FIXME: chain should return tuple (cmdict, leftovers)
+
+                    s.recv_chunk()
+                    cmdict = chain.reverse_traverse(s.inbuf)
                     # Since it parsed, the message is complete.
-                    peer.inbuf = ''
+                    # FIXME: give "chain" to socket class, do this there
+                    s.clear()
                     if self.verbose:
                         if self.verbose == 1:
-                            print('%s: %s' % (peer.name, cmdict['command']))
+                            print('%s: %s' % (s, cmdict['command']))
                         else:
-                            print('%s: %s' % ( peer.name, str(cmdict)))
+                            print('%s: %s' % (s, str(cmdict)))
                     result = handler(cmdict)
                 except Exception as e:
                     result = None
                     if isinstance(e, BadChainUnapply):
-                        if in_string:
-                            print('%s: appended %d bytes to inbuf' % (
-                                peer.name, len(in_string)))
+                        if s.appended:  # got more this last pass
                             continue
                         msg = 'null command'
                     elif e.__class__ in (AssertionError, RuntimeError):
@@ -280,10 +288,10 @@ class Server(SocketReadWrite):
                         msg = 'socket death'
                     else:
                         msg = 'UNEXPECTED %s' % str(e)
-                    print('%s: %s' % (peer.name, msg))
+                    print('%s: %s' % (s, msg))
 
                 # NO "finally": it circumvents "continue" in error clause(s)
-                send_result(s, peer, result)
+                send_result(s, result)
 
 def main():
     """ Run simple echo server to exercise the module """

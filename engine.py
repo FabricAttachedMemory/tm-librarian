@@ -70,7 +70,7 @@ class LibrarianCommandEngine(object):
         if name_only:
             shelf.matchfields = ('name', )
         else:
-            self.errno = errno.BADF
+            self.errno = errno.EBADF
             assert shelf.id, '%s not open' % shelf.name
             shelf.matchfields = ('name', 'id')
         shelf = self.db.get_shelf(shelf)
