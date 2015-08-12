@@ -109,6 +109,12 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.ENOENT)
         return shelf_name
 
+    fd2shelf_id = { }
+
+    @staticmethod
+    def shadowpath(shelf_name):
+        return '/tmp/shadow/%s' % shelf_name
+
     # First level:  tenants
     # Second level: tenant group
     # Third level:  shelves
@@ -122,7 +128,7 @@ class LibrarianFSd(Operations):
             cmdJS = json.dumps(cmd)
             cmdJSenc = cmdJS.encode()
         except KeyError:
-            print('Bad originating command', cmd)
+            print('Bad original command', cmd)
             raise FuseOSError(errno.EBADR)
         except Exception as e:
             set_trace()
@@ -142,8 +148,9 @@ class LibrarianFSd(Operations):
             rsp = { 'error': 'LFSd: %s' % str(e) }
 
         if rsp and 'error' in rsp:
-            print('%s failed: %s' % (cmd['command'], rsp['error']))
-            raise FuseOSError(errno.ESTALE)    # Unique in this code
+            print('%s failed: %s' % (cmd['command'], rsp['error']),
+                  file=sys.stderr)
+            raise FuseOSError(rsp['errno'])
         return rsp  # None is now legal, let the caller interpret it.
 
     # Higher-level FS operations
@@ -307,12 +314,19 @@ class LibrarianFSd(Operations):
         }
 
     @prentry
-    def unlink(self, path):
+    def unlink(self, path, *args, **kwargs):
+        assert not args and not kwargs, 'Unexpected args'
         shelf_name = self.path2shelf(path)
         rsp = self.librarian({
-                                'cmd':          'destroy_shelf',
-                                'shelf_name':   shelf_name,
+                                'command': 'destroy_shelf',
+                                'name':     shelf_name,
                              })
+        assert rsp['id'] not in self.fd2shelf_id.values()
+        try:
+            os.unlink(self.shadowpath(shelf_name))
+        except OSError as e:
+            if e.errno != errno.ENOENT:
+                raise
         return 0
 
     @prentry
@@ -341,22 +355,30 @@ class LibrarianFSd(Operations):
         req = self.lcp('open_shelf', name=shelf_name)
         rsp = self.librarian(req)
         try:
-            return rsp['id']
+            shelf_id = rsp['id']
+            fd = os.open(self.shadowpath(shelf_name), flags)
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
+        self.fd2shelf_id[fd] = shelf_id
+        return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
     # return os.open()
     @prentry
     def create(self, path, mode, fi=None):
-        assert not flags, 'create(%s) with flags not implemented' % str(flags)
         assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
         req = self.lcp('create_shelf', name=shelf_name)
         rsp = self.librarian(req, trace=False)
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
-        return rsp['id']
+        try:
+            shelf_id = rsp['id']
+            fd = os.open(self.shadowpath(shelf_name), mode + os.O_CREAT)
+        except Exception as e:
+            raise FuseOSError(errno.ENOENT)
+        self.fd2shelf_id[fd] = shelf_id
+        return fd
 
     @prentry
     def read(self, path, length, offset, fh):
@@ -379,7 +401,7 @@ class LibrarianFSd(Operations):
     # it was opened before this, but where is the fd (aka shelf id)?
     # Example code shows an explicit open by name in here.
     # example returned nothing?
-    def truncate(self, path, length, **kwargs):
+    def truncate(self, path, length, *args, **kwargs):
         assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
         req = self.lcp('list_shelf', name=shelf_name)
@@ -392,15 +414,17 @@ class LibrarianFSd(Operations):
         rsp = self.librarian(req)
         if not 'size_bytes' in rsp:
             raise FuseOSError(errno.EINVAL)
-        return 0
+        return os.truncate(self.shadowpath(shelf_name), length)
 
     @prentry
     def release(self, path, fh):    # fh == shelfid
         shelf_name = self.path2shelf(path)
-        req = self.lcp('close_shelf', name=shelf_name, id=fh)
+        req = self.lcp('close_shelf', name=shelf_name,
+                        id=self.fd2shelf_id[fh])
         rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
+            del self.fd2shelf_id[fh]
             return 0    # os.close...
         except Exception as e:
             raise FuseOSError(errno.EEXIST)
