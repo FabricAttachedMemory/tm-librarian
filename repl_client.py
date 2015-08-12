@@ -26,7 +26,7 @@ def main(serverhost='localhost'):
     lcp = cmdproto.LibrarianCommandProtocol(auth)
 
     chain = LibrarianChain(None)
-    client = socket_handling.Client()
+    client = socket_handling.Client(selectable=False)
     try:
         client.connect(host=serverhost)
         print('Connected')
@@ -66,7 +66,10 @@ def main(serverhost='localhost'):
         if client is None:
             print('LOCAL:', out_string)
         else:
-            print(client.send_recv(out_string, client._sock))   # I know
+            client.send_recv(out_string)
+            rspdict = chain.reverse_traverse(client.inbuf)  # better, but...
+            client.clear()                                  # ...still clunky
+            pprint(rspdict)
         print()
 
 if __name__ == '__main__':

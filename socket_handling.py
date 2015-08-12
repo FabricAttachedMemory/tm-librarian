@@ -17,7 +17,7 @@ class SocketReadWrite(object):
     used primarily as a base class for the Client and Server
     objects """
 
-    def __init__(self, sock=None, peertuple=None):
+    def __init__(self, sock=None, peertuple=None, selectable=True):
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
@@ -31,7 +31,7 @@ class SocketReadWrite(object):
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbuf = ''
         self.appended = 0
-        self._sock.setblocking(False)   # always?
+        self._sock.setblocking(not selectable)
 
     def __str__(self):
         return self._str
@@ -101,11 +101,8 @@ class SocketReadWrite(object):
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
 
-    def __init__(self):
-        super().__init__()
-
-    def __del__(self):
-        super().__del__()
+    def __init__(self, selectable=True):
+        super().__init__(selectable=selectable)
 
     def connect(self, host='localhost', port=9093):
         """ Connect socket to port on host
