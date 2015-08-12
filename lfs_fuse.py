@@ -113,7 +113,7 @@ class LibrarianFSd(Operations):
 
     @staticmethod
     def shadowpath(shelf_name):
-        return '/tmp/shadow/%s' % shelf_name
+        return '/var/lib/lfs/shadow/%s' % shelf_name
 
     # First level:  tenants
     # Second level: tenant group
@@ -382,19 +382,16 @@ class LibrarianFSd(Operations):
 
     @prentry
     def read(self, path, length, offset, fh):
-        set_trace()
         os.lseek(fh, offset, os.SEEK_SET)
         return os.read(fh, length)
 
     @prentry
     def write(self, path, buf, offset, fh):
-        set_trace()
         os.lseek(fh, offset, os.SEEK_SET)
         return os.write(fh, buf)
 
     @prentry
     def fallocate(self, path, length, **kwargs):
-        set_trace()
         raise FuseOSError(errno.ENOSYS)
 
     @prentry
