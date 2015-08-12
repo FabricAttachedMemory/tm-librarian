@@ -3,6 +3,7 @@
 import errno
 import socket
 import select
+import sys
 import time
 
 from pdb import set_trace
@@ -18,14 +19,20 @@ class SocketReadWrite(object):
 
     _sock = None
 
-    def __init__(self):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._sock.setblocking(False)
-
+    def __init__(self, sock=None):
+        if sock is None:
+            self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        else:
+            self._sock = sock
+        self._sock.setblocking(False)   # always?
 
     def __del__(self):
         self._sock.shutdown(socket.SHUT_RDWR)
         self._sock.close()
+
+    def fileno():
+        '''Allows this object to be used in select'''
+        return self._sock.fileno()
 
     @staticmethod
     def send_all(string, sock):
@@ -77,7 +84,6 @@ class SocketReadWrite(object):
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
-    _sock = None
 
     def __init__(self):
         super().__init__()
@@ -126,16 +132,11 @@ class Server(SocketReadWrite):
                             type=int,
                             default=9093)
 
-    _sock = None
-
     def __init__(self, args):
         super().__init__()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._port = args.port
         self.verbose = args.verbose
-
-    def __del__(self):
-        super().__del__()
 
     # The default processor is an identity processor so it's probably
     # a requirement to have this, it could just initialize and use a brand
@@ -187,13 +188,16 @@ class Server(SocketReadWrite):
                                else '%d bytes' % len(bytesout)))
                 self.send_all(bytesout, s)
             except OSError as e:
-                if e.errno == errno.EPIPE: print(
-                    '%s: closed by client' % peer.name)
+                if e.errno == errno.EPIPE:
+                    msg = 'closed by client'
                 elif e.errno != errno.EBADF:
-                    print('%s: closed earlier' % peer.name)
+                    msg = 'closed earlier'
+                print ('%s: %s' % (peer.name, msg), file=sys.stderr)
+                to_read.remove(s)
+                del sock2peer[s]
                 s.close()
             except Exception as e:
-                print('SEND to %s failed: %s' % (peer.name, str(e)),
+                print('%s: SEND failed: %s' % (peer.name, str(e)),
                       file=sys.stderr)
 
         while True:
@@ -266,7 +270,7 @@ class Server(SocketReadWrite):
                     result = None
                     if isinstance(e, BadChainUnapply):
                         if in_string:
-                            print('%s: appended %d more bytes' % (
+                            print('%s: appended %d bytes to inbuf' % (
                                 peer.name, len(in_string)))
                             continue
                         msg = 'null command'
