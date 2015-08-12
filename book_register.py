@@ -33,9 +33,16 @@ nvm_size = N
 [node02]
 :
 
+For autoprovisioning, only the global section is needed:
+
+[global]
+node_count = C
+book_size_bytes = S
+nvm_size_per_node = N
+
 book_size_bytes and nvm_size can have multipliers M/G/T (binary bytes)
 
-nvm_size can have additional multiplier B (books)
+nvm_size and nvm_size_per_node can also have multiplier B (books)
 """)
     raise SystemExit(msg)
 
@@ -77,12 +84,16 @@ def load_book_data(inifile):
     node_count = int(config.get(section, 'node_count'))
     book_size_bytes = multiplier(
         config.get(section, 'book_size_bytes'), section)
+    M1 = 2 << 20
+    if  book_size_bytes < M1 or book_size_bytes > 8192 * M1:
+        raise SystemExit('book_size bytes is out of range [1M, 8G]')
 
-    # If optional item 'bytes_per_node' is there, loop it out.
+    # If optional item 'nvm_size_per_node' is there, loop it out and quit.
 
     try:
         bytes_per_node = multiplier(
-            config.get(section, 'bytes_per_node'), section)
+            config.get(section, 'nvm_size_per_node'), section,
+                       book_size_bytes)
         if bytes_per_node % book_size_bytes != 0:
             usage('[global] bytes_per_node not multiple of book size')
         books_per_node = int(bytes_per_node / book_size_bytes)
@@ -102,6 +113,7 @@ def load_book_data(inifile):
                 section2books[section].append(book)
                 lza += book_size_bytes
         return book_size_bytes, section2books
+
     except configparser.NoOptionError:
         pass
 
