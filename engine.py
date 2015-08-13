@@ -289,6 +289,19 @@ class LibrarianCommandEngine(object):
         value = self.db.get_xattr(shelf, self._cmdict['xattr'])
         return { 'value': value }
 
+    def cmd_list_xattrs(self):
+        """ Retrieve names of all extendend attributes of a shelf.
+            In (dict)---
+                name
+            Out (list) ---
+                value
+        """
+        shelf = self.cmd_get_shelf()
+        if shelf is None:
+            return None
+        value = self.db.list_xattrs(shelf)
+        return { 'value': value }
+
     def cmd_set_xattr(self):
         """ Set/update name/value pair for an extended attribute of a shelf.
             In (dict)---

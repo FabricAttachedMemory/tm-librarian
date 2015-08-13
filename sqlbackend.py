@@ -302,6 +302,12 @@ class LibrarianDBackendSQL(object):
         tmp = self._cur.fetchone()
         return tmp if tmp is None else tmp[0]
 
+    def list_xattrs(self, shelf):
+        self._cur.execute(
+            'SELECT xattr FROM shelf_xattrs WHERE shelf_id=?', (shelf.id,))
+        tmp = [ f[0] for f in self._cur.fetchall() ]
+        return tmp
+
     def create_xattr(self, shelf, xattr, value):
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
         self._cur.commit()
