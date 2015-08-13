@@ -62,15 +62,19 @@ class LibrarianCommandProtocol(object):
         ),
         'get_xattr': GO(
             doc='get extended attribute for a shelf',
-            parms=('id', 'xattr'),
+            parms=('name', 'xattr'),
         ),
         'list_xattr': GO(
             doc='get current extended attribute names for a shelf',
-            parms=('id', 'xattr', 'value'),
+            parms=('name', 'xattr', 'value'),
         ),
         'set_xattr': GO(
             doc='set extended attribute for a shelf',
-            parms=('id', 'xattr', 'value'),
+            parms=('name', 'xattr', 'value'),
+        ),
+        'remove_xattr': GO(
+            doc='remove an extended attribute for a shelf',
+            parms=('name', 'xattr'),
         ),
 
     }   # _commands
