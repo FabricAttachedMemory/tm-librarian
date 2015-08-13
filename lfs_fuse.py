@@ -44,14 +44,6 @@ def prentry(func):
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
-    # No protocol or DB support yet, just fake it for all of them.
-
-    _basetimes = {
-        'st_atime':     time.time(),
-        'st_ctime':     time.time(),
-        'st_mtime':     time.time(),
-    }
-
     _mode_default_file = int('0100666', 8)  # isfile, 666
 
     def __init__(self, source, node_id):
@@ -158,18 +150,22 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if not fh is None:      # dir listings no dice, only open files
             set_trace()
             pass
-        shelf_name = self.path2shelf(path, needShelf=False)
-        if not shelf_name:   # '/'
+        if path == '/':
+            now = int(time.time())
+            shelves = self.librarian({'command': 'list_shelves'})
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
                 'st_mode':      int('0041777', 8),  # isdir, sticky, 777
-                'st_nlink':     1,
-                'st_size':      4096
+                'st_nlink':     len(shelves) + 2,   # account for '.' and '..'
+                'st_size':      4096,
+                'st_atime':     now,
+                'st_ctime':     now,
+                'st_mtime':     now,
             }
-            tmp.update(self._basetimes)
             return tmp
 
+        shelf_name = self.path2shelf(path)
         req = self.lcp('get_shelf', name=shelf_name)
         rsp = self.librarian(req)
         try:
@@ -205,6 +201,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.ENOENT)
         rsp = self.librarian({'command': 'list_shelves'})
         yield '.'
+        yield '..'
         for shelf in rsp:
            yield shelf['name']
 
@@ -320,7 +317,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def utimens(self, path, times=None):
-        shelf_name = self.path2shelf(path, needShelf=False)
+        shelf_name = self.path2shelf(path)  # bomb here on '/'
         if times is not None:
             times = tuple(map(int, times))
             if abs(int(time.time() - times[1])) < 3:    # "now" on this system
