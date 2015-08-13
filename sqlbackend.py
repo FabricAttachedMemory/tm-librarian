@@ -82,13 +82,20 @@ class LibrarianDBackendSQL(object):
         return self._modify_table('books', book, (), commit)
 
     def modify_shelf(self, shelf, commit=False):
-        """ Modify shelf data in "shelves" table.
+        """ Modify shelf data in "shelves" table.  Usually, modify
+            the mtime with any other attributes.
             Input---
               shelf_data - list of new shelf data
             Output---
               shelf_data or error message
         """
-        shelf.mtime = int(time.time())
+        now = int(time.time())
+        if shelf.matchfields == ('mtime', ):    # called from set_am_time
+            shelf.matchfields = ()              # only modify mtime...
+            if not shelf.mtime:                 # ...if explicitly set...
+                shelf.mtime = now               # ...else now is fine
+        else:
+            shelf.mtime = now                   # Normal operation
         return self._modify_table('shelves', shelf, ('mtime', ), commit)
 
     def modify_xattr(self, shelf, xattr, value, commit=True):

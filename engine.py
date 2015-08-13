@@ -248,7 +248,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 ?
         """
-        return '{"error":"Command not implemented"}'
+        return '{"errmsg":"Command not implemented"}'
 
     def cmd_get_book(cmd_data):
         """ List a given book
@@ -322,6 +322,21 @@ class LibrarianCommandEngine(object):
         return self.db.create_xattr(
             shelf, self._cmdict['xattr'], self._cmdict['value'])
 
+    def cmd_set_am_time(self):
+        """ Set access and modified times, usually of a shelf but
+            maybe also the librarian itself.  For now we ignore atime.
+            In (dict)---
+                name
+                atime
+                mtime
+            Out (list) ---
+                None or error
+        """
+        shelf = self.cmd_get_shelf()
+        shelf.matchfields = 'mtime' # special case
+        shelf.mtime = self._cmdict['mtime']
+        self.db.modify_shelf(shelf, commit=True)
+
     _handlers = { }
 
     def __init__(self, backend, optargs=None, cooked=False):
@@ -362,10 +377,9 @@ class LibrarianCommandEngine(object):
             # or string, OR one of the following three literal names:
             # false null true
             # Python's json handler turns None into 'null' and vice verse.
-            return {
-                'error':    'Bad lookup on "%s"' % str(e),
-                'errno':    errno.ENOSYS
-            }
+            errmsg = 'Bad lookup on "%s"' % str(e)
+            print('!' * 20, errmsg, file=sys.stderr)
+            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }
 
         try:
             assert not errmsg, errmsg
@@ -383,7 +397,7 @@ class LibrarianCommandEngine(object):
         finally:    # whether it worked or not
             if errmsg:
                 # Looks better _cooked
-                ret = GenericObject(error=errmsg, errno=self.errno)
+                ret = GenericObject(errmsg=errmsg, errno=self.errno)
             if self._cooked:    # for self-test
                 return ret
             if ret is None:
@@ -485,27 +499,27 @@ if __name__ == '__main__':
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None or hasattr(shelf, 'error'):
+    if shelf is None or hasattr(shelf, 'errmsgr'):
         raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     shelf.size_bytes = (50 * lce.book_size)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None or hasattr(shelf, 'error'):
+    if shelf is None or hasattr(shelf, 'errmsg'):
         raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     recvd = lcp('close_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None or hasattr(shelf, 'error'):
+    if shelf is None or hasattr(shelf, 'errmsg'):
         raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     # destroy shelf is just based on the name
     recvd = lcp('destroy_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
-    if shelf is None or hasattr(shelf, 'error'):
+    if shelf is None or hasattr(shelf, 'errmsg'):
         raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
     raise SystemExit(0)
