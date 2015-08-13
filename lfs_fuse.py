@@ -6,6 +6,7 @@ import errno
 import json
 import os
 import sys
+import time
 
 from pdb import set_trace
 
@@ -41,14 +42,14 @@ def prentry(func):
     new_func.__dict__.update(func.__dict__)
     return new_func
 
-class LibrarianFSd(Operations):
+class LibrarianFS(Operations):  # Name shows up in mount point
 
     # No protocol or DB support yet, just fake it for all of them.
 
     _basetimes = {
-        'st_atime':     1436739200,
-        'st_ctime':     1436739200,
-        'st_mtime':     1436739200,
+        'st_atime':     time.time(),
+        'st_ctime':     time.time(),
+        'st_mtime':     time.time(),
     }
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
@@ -89,17 +90,8 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.EHOSTUNREACH)
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
-    def destroy(self, root):    # ditto
-        try:
-            self.tormsock.shutdown(socket.SHUT_RDWR)
-            self.tormsock.close()
-        except socket.error as e:
-            if e.errno != errno.ENOTCONN:
-                set_trace()
-                pass
-        except Exception as e:
-            set_trace()
-            pass
+    def destroy(self, root):
+        self.tormsock.close()
         del self.tormsock
 
     # helpers
@@ -148,11 +140,11 @@ class LibrarianFSd(Operations):
             rsp = json.loads(self.torms.inbuf)
         except Exception as e:
             set_trace()
-            rsp = { 'error': 'LFSd: %s' % str(e) }
+            rsp = { 'errmsg': 'LFSd: %s' % str(e) }
         self.torms.clear()
 
-        if rsp and 'error' in rsp:
-            print('%s failed: %s' % (cmd['command'], rsp['error']),
+        if rsp and 'errmsg' in rsp:
+            print('%s failed: %s' % (cmd['command'], rsp['errmsg']),
                   file=sys.stderr)
             raise FuseOSError(rsp['errno'])
         return rsp  # None is now legal, let the caller interpret it.
@@ -328,21 +320,18 @@ class LibrarianFSd(Operations):
 
     @prentry
     def utimens(self, path, times=None):
-        try:
-            self._basetimes['st_atime'] = times[0]
-            self._basetimes['st_mtime'] = times[1]
-            return 0    # os.utime
-        except Exception as e:
-            pass
-        raise FuseOSError(errno.ENOSYS)
-
-    @prentry
-    def rename(self, old, new):
-        raise FuseOSError(errno.ENOSYS)
-
-    #
-    # File methods
-    #
+        shelf_name = self.path2shelf(path, needShelf=False)
+        if times is not None:
+            times = tuple(map(int, times))
+            if abs(int(time.time() - times[1])) < 3:    # "now" on this system
+                times = None
+        if times is None:
+            times = (0, 0)  # let librarian pick it
+        self.librarian(
+            self.lcp('set_am_time', name=shelf_name,
+                     atime=times[0],
+                     mtime=times[1]))
+        return 0    # os.utime
 
     @prentry
     def open(self, path, flags, **kwargs):
@@ -388,10 +377,6 @@ class LibrarianFSd(Operations):
         return os.write(fh, buf)
 
     @prentry
-    def fallocate(self, path, length, **kwargs):
-        raise FuseOSError(errno.ENOSYS)
-
-    @prentry
     # it was opened before this, but where is the fd (aka shelf id)?
     # Example code shows an explicit open by name in here.
     # example returned nothing?
@@ -431,9 +416,12 @@ class LibrarianFSd(Operations):
     def fsync(self, path, fdatasync, fh):
         raise FuseOSError(errno.ENOSYS)
 
-    #
-    # Not gonna happen
-    #
+    #######################################################################
+    # Not gonna happen...ever?
+
+    @prentry
+    def rename(self, old, new):
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def chmod(self, path, mode, **kwargs):
@@ -469,7 +457,7 @@ class LibrarianFSd(Operations):
 
 def main(source, mountpoint, node_id):
     try:
-        FUSE(LibrarianFSd(source, node_id),
+        FUSE(LibrarianFS(source, node_id),
             mountpoint,
             allow_other=True, foreground=True)
     except Exception as e:

@@ -76,6 +76,10 @@ class LibrarianCommandProtocol(object):
             doc='remove an extended attribute for a shelf',
             parms=('name', 'xattr'),
         ),
+        'set_am_time': GO(
+            doc='set access/modified times on a shelf',
+            parms=('name', 'atime', 'mtime'),
+        ),
 
     }   # _commands
 
