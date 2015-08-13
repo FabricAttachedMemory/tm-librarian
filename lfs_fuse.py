@@ -178,7 +178,7 @@ class LibrarianFSd(Operations):
             tmp.update(self._basetimes)
             return tmp
 
-        req = self.lcp('list_shelf', name=shelf_name)
+        req = self.lcp('get_shelf', name=shelf_name)
         rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
@@ -259,6 +259,7 @@ class LibrarianFSd(Operations):
     def listxattr(self, path):
         """getfattr(1) -d calls listxattr(2).  Return a list of names."""
         shelf_name = self.path2shelf(path)
+        set_trace()
         rsp = self.librarian(
                 self.lcp('list_xattr', name=shelf_name))
         value = rsp['value']
@@ -398,7 +399,7 @@ class LibrarianFSd(Operations):
     def truncate(self, path, length, *args, **kwargs):
         assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
+        req = self.lcp('get_shelf', name=shelf_name) # FIXME: common w/getattr()
         listrsp = self.librarian(req)
 
         req = self.lcp('resize_shelf',

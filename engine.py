@@ -56,7 +56,7 @@ class LibrarianCommandEngine(object):
         # open_count is 0 now, but a flush/release screws it up
         return ret
 
-    def cmd_list_shelf(self, name_only=True):
+    def cmd_get_shelf(self, name_only=True):
         """ List a given shelf.
             In (dict)---
                 name
@@ -94,7 +94,7 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
-        shelf = self.cmd_list_shelf()
+        shelf = self.cmd_get_shelf()
         shelf.open_count += 1
         shelf.matchfields = 'open_count'
         self.db.modify_shelf(shelf, commit=True)
@@ -110,7 +110,7 @@ class LibrarianCommandEngine(object):
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
-        shelf = self.cmd_list_shelf(name_only=False)
+        shelf = self.cmd_get_shelf(name_only=False)
         self.errno = errno.EBADFD
         assert shelf.open_count >= 0, '%s negative open count' % shelf.name
         # FIXME: == 0 occurs right after a create.  What's up?
@@ -131,7 +131,7 @@ class LibrarianCommandEngine(object):
                 shelf data
         """
         # Do my own join, start with lookup by name
-        shelf = self.cmd_list_shelf()
+        shelf = self.cmd_get_shelf()
         self.errno = errno.EBUSY
         assert not shelf.open_count, '%s open count = %d' % (
             shelf.name, shelf.open_count)
@@ -171,7 +171,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_list_shelf(name_only=False)
+        shelf = self.cmd_get_shelf(name_only=False)
 
         bos = self._list_shelf_books(shelf)
         self.errno = errno.EREMOTEIO
@@ -250,7 +250,7 @@ class LibrarianCommandEngine(object):
         """
         return '{"error":"Command not implemented"}'
 
-    def cmd_list_book(cmd_data):
+    def cmd_get_book(cmd_data):
         """ List a given book
             In (dict)---
                 book_id
@@ -283,7 +283,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 value
         """
-        shelf = self.cmd_list_shelf()
+        shelf = self.cmd_get_shelf()
         if shelf is None:
             return None
         value = self.db.get_xattr(shelf, self._cmdict['xattr'])
@@ -300,7 +300,7 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side
-        shelf = self.cmd_list_shelf()
+        shelf = self.cmd_get_shelf()
         self.errno = errno.ENOENT
         assert shelf is not None, 'No such shelf'
         if self.db.get_xattr(shelf, self._cmdict['xattr'], exists_only=True):
@@ -447,11 +447,11 @@ if __name__ == '__main__':
 
     # Two ways to get started
     name = 'xyzzy'
-    recvd = lcp('list_shelf', name=name)
+    recvd = lcp('get_shelf', name=name)
     shelf = lce(recvd)
     pp(recvd, shelf)
 
-    recvd = lcp('list_shelf', shelf)    # a shelf object with 'name'
+    recvd = lcp('get_shelf', shelf)    # a shelf object with 'name'
     shelf = lce(recvd)
     pp(recvd, shelf)
 

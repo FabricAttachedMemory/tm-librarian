@@ -24,8 +24,8 @@ class LibrarianCommandProtocol(object):
             doc='create new shelf',
             parms = ('name', ),
         ),
-        'list_shelf': GO(
-            doc='list shelf details by shelf name',
+        'get_shelf': GO(
+            doc='get shelf details by shelf name',
             parms=('name', ),
         ),
         'list_shelf_books': GO(
@@ -56,17 +56,17 @@ class LibrarianCommandProtocol(object):
             doc='destroy shelf and free reserved books',
             parms=('name', ),
         ),
-        'list_book': GO(
-            doc='list book details by book id',
+        'get_book': GO(
+            doc='get book details by book id',
             parms=('id', ),
         ),
         'get_xattr': GO(
             doc='get extended attribute for a shelf',
             parms=('name', 'xattr'),
         ),
-        'list_xattr': GO(
+        'list_xattrs': GO(
             doc='get current extended attribute names for a shelf',
-            parms=('name', 'xattr', 'value'),
+            parms=('name',),
         ),
         'set_xattr': GO(
             doc='set extended attribute for a shelf',
