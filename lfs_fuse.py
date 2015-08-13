@@ -259,9 +259,8 @@ class LibrarianFSd(Operations):
     def listxattr(self, path):
         """getfattr(1) -d calls listxattr(2).  Return a list of names."""
         shelf_name = self.path2shelf(path)
-        set_trace()
         rsp = self.librarian(
-                self.lcp('list_xattr', name=shelf_name))
+                self.lcp('list_xattrs', name=shelf_name))
         value = rsp['value']
         return value
 
