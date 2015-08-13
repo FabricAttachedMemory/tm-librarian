@@ -349,9 +349,10 @@ class LibrarianCommandEngine(object):
             # or string, OR one of the following three literal names:
             # false null true
             # Python's json handler turns None into 'null' and vice verse.
-            set_trace()
-            errmsg = 'Bad lookup on "%s"' % str(e)
-            return None
+            return {
+                'error':    'Bad lookup on "%s"' % str(e),
+                'errno':    errno.ENOSYS
+            }
 
         try:
             assert not errmsg, errmsg
@@ -368,6 +369,7 @@ class LibrarianCommandEngine(object):
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
         finally:    # whether it worked or not
             if errmsg:
+                # Looks better _cooked
                 ret = GenericObject(error=errmsg, errno=self.errno)
             if self._cooked:    # for self-test
                 return ret
