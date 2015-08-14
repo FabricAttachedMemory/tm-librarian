@@ -163,13 +163,13 @@ class Server(SocketReadWrite):
                             type=int,
                             default=9093)
 
-    def __init__(self, args):
-        super().__init__()
+    def __init__(self, parseargs, **kwargs):
+        super().__init__(**kwargs)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._port = args.port
+        self._port = parseargs.port
         self._sock.bind(('', self._port))
         self._sock.listen(20)
-        self.verbose = args.verbose
+        self.verbose = parseargs.verbose
 
     def accept(self):
         return self._sock.accept()
@@ -204,11 +204,6 @@ class Server(SocketReadWrite):
             Nothing.
         """
 
-        to_read = [self]
-        t0 = time.time()
-        xlimit = 2000
-        transactions = 0
-
         # FIXME: put "chain" in SocketRW, move this routine into that class
         def send_result(s, result):
             try:    # socket may have died by now
@@ -229,6 +224,13 @@ class Server(SocketReadWrite):
             except Exception as e:
                 print('%s: SEND failed: %s' % (s, str(e)),
                       file=sys.stderr)
+
+        to_read = [self]
+        XLO = 50
+        XHI = 2000
+        xlimit = XLO
+        transactions = 0
+        t0 = time.time()
 
         while True:
 
@@ -253,6 +255,7 @@ class Server(SocketReadWrite):
                         send_result(s, None)
                 transactions = 0
                 t0 = time.time()
+                xlimit = XLO
                 continue
 
             for s in readable:
@@ -262,6 +265,10 @@ class Server(SocketReadWrite):
                     deltat = time.time() - t0
                     tps = int(float(transactions) / deltat)
                     print('%d transactions/second' % tps)
+                    if xlimit < tps < XHI:
+                        xlimit *= 2
+                    elif XLO < tps < xlimit:
+                        xlimit /= 2
                     transactions = 0
                     t0 = time.time()
 
