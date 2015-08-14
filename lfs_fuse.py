@@ -85,7 +85,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         try:
             self.torms = socket_handling.Client(selectable=False) # blocking
             self.torms.connect(host=self.host, port=self.port)
-            print('Connected')
+            print('%s: connected' % self.torms)
         except Exception as e:
             raise FuseOSError(errno.EHOSTUNREACH)
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
@@ -133,13 +133,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         try:
             self.torms.send_recv(cmdJS)
-        except Exception as e:
-            raise FuseOSError(errno.EIO)
+        except (BrokenPipeError, Exception) as e:
+            raise FuseOSError(errno.EHOSTDOWN)
 
         try:
             rsp = json.loads(self.torms.inbuf)
         except Exception as e:
-            set_trace()
             rsp = { 'errmsg': 'LFSd: %s' % str(e) }
         self.torms.clear()
 
@@ -292,17 +291,20 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
-    def statfs(self, path): # "df" command; example used statVfs
+    def statfs(self, path): # "df" command; example used statVfs.
         globals = self.librarian(self.lcp('get_fs_stats'))
-        set_trace()
+        # A book is a block.  Let other commands do the math.
+        blocks = globals['books_total']
+        bfree = bavail = blocks - globals['books_used']
+        bsize =globals['book_size_bytes']
         return {
-            'f_bavail':     100,    # free blocks for unpriv users
-            'f_bfree':      100,    # total free DATA blocks
-            'f_blocks':     200,    # total DATA blocks
-            'f_bsize':      65536,  # optimal transfer block size
-            'f_favail':     100,    # free inodes for unpriv users
-            'f_ffree':      100,    # total free file inodes
-            'f_files':      200,    # total number of inodes
+            'f_bavail':     bavail, # free blocks for unpriv users
+            'f_bfree':      bfree,  # total free DATA blocks
+            'f_blocks':     blocks, # total DATA blocks
+            'f_bsize':      bsize,  # optimal transfer block size???
+            'f_favail':     bavail, # free inodes for unpriv users
+            'f_ffree':      bfree,  # total free file inodes
+            'f_files':      blocks, # total number of inodes
             'f_flag':       63,     # mount flags
             'f_frsize':     0,      # fragment size
             'f_namemax':    255,    # maximum filename length
@@ -465,7 +467,9 @@ def main(source, mountpoint, node_id):
     try:
         FUSE(LibrarianFS(source, node_id),
             mountpoint,
-            allow_other=True, foreground=True)
+            allow_other=True,
+            noatime=True,
+            foreground=True)
     except Exception as e:
         raise SystemExit('fusermount probably failed, retry in foreground')
 
