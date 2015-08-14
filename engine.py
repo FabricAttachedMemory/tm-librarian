@@ -405,6 +405,7 @@ class LibrarianCommandEngine(object):
             assert not errmsg, errmsg
             errmsg = ''
             self.errno = 0
+            ret = None
             ret = handler(self)
         except AssertionError as e:     # consistency checks
             errmsg = str(e)
