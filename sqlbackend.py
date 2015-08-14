@@ -31,14 +31,24 @@ class LibrarianDBackendSQL(object):
     # DB globals
     #
 
-    def get_version(self):
-        self._cur.execute('SELECT schema_version FROM globals')
-        return self._cur.fetchone()[0]
+    def get_globals(self, only=None):
+        if only == 'version':
+            self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
+            return self._cur.fetchone()[0]
+        self._cur.execute('SELECT * FROM globals LIMIT 1')
+        self._cur.iterclass = 'default'
+        for r in self._cur:
+            pass
+        self._cur.execute('SELECT COUNT() FROM books WHERE allocated > 0')
+        r.books_used = self._cur.fetchone()[0]
+        if r.books_used is None:    # empty DB
+            r.books_used = 0
+        return r
 
     def get_nvm_parameters(self):
         '''Returns duple(book_size, total_nvm)'''
         self._cur.execute(
-            'SELECT book_size_bytes, total_nvm_bytes FROM globals')
+            'SELECT book_size_bytes, nvm_bytes_total FROM globals')
         return self._cur.fetchone()
 
     #
@@ -317,6 +327,11 @@ class LibrarianDBackendSQL(object):
 
     def create_xattr(self, shelf, xattr, value):
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
+        self._cur.commit()
+
+    def delete_xattr(self, shelf, xattr):
+        self._cur.DELETE('shelf_xattrs', 'shelf_id=? AND xattr=?',
+                                         (shelf.id, xattr))
         self._cur.commit()
 
     def close(self):

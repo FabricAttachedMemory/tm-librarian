@@ -8,7 +8,6 @@ import time
 
 from pdb import set_trace
 
-from genericobj import GenericObject
 from librarian_chain import BadChainUnapply
 
 

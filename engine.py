@@ -20,20 +20,20 @@ class LibrarianCommandEngine(object):
     def argparse_extend(parser):
         pass
 
-    _book_size = 0
-    _total_nvm = 0  # read from DB
+    _book_size_bytes = 0
+    _nvm_bytes_total = 0  # read from DB
 
     @property
-    def book_size(self):
-        return self._book_size
+    def book_size_bytes(self):
+        return self._book_size_bytes
 
     @property
-    def total_nvm(self):
-        return self._total_nvm
+    def nvm_bytes_total(self):
+        return self._nvm_bytes_total
 
     @classmethod
     def _nbooks(cls, nbytes):
-        return int(math.ceil(float(nbytes) / float(cls._book_size)))
+        return int(math.ceil(float(nbytes) / float(cls._book_size_bytes)))
 
     def cmd_version(self):
         """ Return librarian version
@@ -42,7 +42,16 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 librarian version
         """
-        return self.db.get_version()
+        return self.db.get_globals(only='version')
+
+    def cmd_get_fs_stats(self):
+        """ Return globals
+            In (dict)---
+                None
+            Out (dict) ---
+                librarian version
+        """
+        return self.db.get_globals()
 
     def cmd_create_shelf(self):
         """ Create a new shelf
@@ -56,7 +65,7 @@ class LibrarianCommandEngine(object):
         # open_count is 0 now, but a flush/release screws it up
         return ret
 
-    def cmd_get_shelf(self, name_only=True):
+    def cmd_get_shelf(self, name_only=True, no_zombie=False):
         """ List a given shelf.
             In (dict)---
                 name
@@ -75,16 +84,21 @@ class LibrarianCommandEngine(object):
             shelf.matchfields = ('name', 'id')
         shelf = self.db.get_shelf(shelf)
         if shelf is None:
-            if not name_only:
-                self.errno = errno.ENOENT
-                raise AssertionError('no such shelf %s' % shelf.name)
+            if name_only:
+                return None
+            self.errno = errno.ENOENT
+            raise AssertionError('no such shelf %s' % shelf.name)
         else:   # consistency checks
             self.errno = errno.EREMOTEIO
             assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
                 '%s size metadata mismatch' % shelf.name)
+        if no_zombie and shelf.zombie:
+            self.errno = errno.EPERM
+            raise AssertionError('The zombie LIVES')
         return shelf
 
     def cmd_list_shelves(self):
+        '''This can return zombies'''
         return self.db.get_shelf_all()
 
     def cmd_open_shelf(self):
@@ -94,7 +108,7 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
-        shelf = self.cmd_get_shelf()
+        shelf = self.cmd_get_shelf(no_zombie=True)
         shelf.open_count += 1
         shelf.matchfields = 'open_count'
         self.db.modify_shelf(shelf, commit=True)
@@ -130,8 +144,8 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        # Do my own join, start with lookup by name
-        shelf = self.cmd_get_shelf()
+        # Do my own join, start with lookup by name.  Leave zombies alone.
+        shelf = self.cmd_get_shelf(no_zombie=True)
         self.errno = errno.EBUSY
         assert not shelf.open_count, '%s open count = %d' % (
             shelf.name, shelf.open_count)
@@ -147,7 +161,14 @@ class LibrarianCommandEngine(object):
             book = self.db.modify_book(book)
             self.errno = errno.ENOENT
             assert book, 'Book allocation modify failed'
-        return self.db.delete_shelf(shelf, commit=True)
+
+        xattrs = self.db.list_xattrs(shelf)
+        for xattr in xattrs:
+            self.db.delete_xattr(shelf, xattr)
+        shelf.name = '.%s.zmb' % shelf.name
+        shelf.matchfields = 'name'
+        return self.db.modify_shelf(shelf, commit=True)
+        # return self.db.delete_shelf(shelf, commit=True)
 
     def _list_shelf_books(self, shelf):
         self.errno = errno.EBADF
@@ -171,7 +192,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_get_shelf(name_only=False)
+        shelf = self.cmd_get_shelf(name_only=False, no_zombie=True)
 
         bos = self._list_shelf_books(shelf)
         self.errno = errno.EREMOTEIO
@@ -283,7 +304,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 value
         """
-        shelf = self.cmd_get_shelf()
+        shelf = self.cmd_get_shelf(no_zombie=True)
         if shelf is None:
             return None
         value = self.db.get_xattr(shelf, self._cmdict['xattr'])
@@ -296,7 +317,7 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 value
         """
-        shelf = self.cmd_get_shelf()
+        shelf = self.cmd_get_shelf(no_zombie=True)
         if shelf is None:
             return None
         value = self.db.list_xattrs(shelf)
@@ -313,7 +334,7 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side
-        shelf = self.cmd_get_shelf()
+        shelf = self.cmd_get_shelf(no_zombie=True)
         self.errno = errno.ENOENT
         assert shelf is not None, 'No such shelf'
         if self.db.get_xattr(shelf, self._cmdict['xattr'], exists_only=True):
@@ -332,7 +353,7 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 None or error
         """
-        shelf = self.cmd_get_shelf()
+        shelf = self.cmd_get_shelf(no_zombie=True)
         shelf.matchfields = 'mtime' # special case
         shelf.mtime = self._cmdict['mtime']
         self.db.modify_shelf(shelf, commit=True)
@@ -342,13 +363,12 @@ class LibrarianCommandEngine(object):
     def __init__(self, backend, optargs=None, cooked=False):
         try:
             self.db = backend
-            (self.__class__._book_size,
-             self.__class__._total_nvm) = self.db.get_nvm_parameters()
-            self.errno = errno.EDOM
-            assert self._book_size >= 1024*1024, 'Bad book size in DB'
-            self.errno = errno.ENOSPC
-            assert self._total_nvm >= 16 * self._book_size, (
-                'Less than 16 books in NVM pool')
+            globals = self.db.get_globals()
+            (self.__class__._book_size_bytes,
+             self.__class__._nvm_bytes_total) = (
+                globals.book_size_bytes,
+                globals.nvm_bytes_total
+            )
 
             # Skip 'cmd_' prefix
             tmp = dict( [ (name[4:], func)
@@ -495,14 +515,14 @@ if __name__ == '__main__':
     if shelf is None:
         raise SystemExit('Shelf ' + name + ' has disappeared (open)')
 
-    shelf.size_bytes = (70 * lce.book_size)
+    shelf.size_bytes = (70 * lce.book_size_bytes)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsgr'):
         raise SystemExit('Shelf ' + name + ' problems (resize down)')
 
-    shelf.size_bytes = (50 * lce.book_size)
+    shelf.size_bytes = (50 * lce.book_size_bytes)
     recvd = lcp('resize_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
