@@ -14,11 +14,11 @@ from fuse import FUSE, FuseOSError, Operations
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
-import socket, socket_handling
+import socket_handling
 
 # 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
 
-_perf = int(os.getenv('PERF', 0))
+_perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
 def prentry(func):
@@ -27,22 +27,14 @@ def prentry(func):
 
     def new_func(*args, **kwargs):
         self = args[0]
-        try:
-            self.torms._sock.settimeout(0.001)  # non-blocking
-            junk = self.torms._sock.recv(4096)
-        except socket.timeout:
-            junk = ''
-        except Exception as e:
-            raise FuseOSError(errno.EREMOTEIO)
-        finally:
-            self.torms._sock.settimeout(None)   # blocking
-        if junk:
-            print('OOB:', junk)
-            set_trace()
-
         if not _perf:
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
+        elif _perf < 2:
+            OOB = self.torms.recv_OOB()
+            if OOB:
+                set_trace() # something new and different
+                pass
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__

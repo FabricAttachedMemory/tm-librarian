@@ -105,6 +105,17 @@ class SocketReadWrite(object):
         self.send_all(outstring)
         self.recv_chunk()
 
+    def recv_OOB(self):
+        '''Check for an unsolicited inbound message when using
+           blocking sockets in a cmd/rsp pairing.'''
+        try:
+            self._sock.settimeout(0.001)  # non-blocking
+            OOB = self._sock.recv(self._bufsz).decode("utf-8").strip()
+        except socket.timeout:
+            OOB = ''
+        finally:
+            self._sock.settimeout(None)   # blocking
+        return OOB
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
