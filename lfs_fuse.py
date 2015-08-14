@@ -45,9 +45,17 @@ def prentry(func):
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
+    _mode_default_dir =  int('0040777', 8)  # isdir, 777
 
     def __init__(self, source, node_id):
         '''Validate parameters'''
+        path = self.shadowpath('')  # trailing '/': Looking for Mr. GoodDir
+        try:
+            stat = os.stat(path)    # a file will throw 'NotADirectory'
+            if stat.st_mode != self._mode_default_dir:
+                raise SystemExit('%s is not mode 777' % path)
+        except Exception as e:
+            raise SystemExit('Directory %s does not exist' % path)
         self.tormsURI = source
         elems = source.split(':')
         assert len(elems) <= 2
@@ -83,8 +91,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
     def destroy(self, root):
-        self.tormsock.close()
-        del self.tormsock
+        self.torms.close()
+        del self.torms
 
     # helpers
 
@@ -285,7 +293,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def statfs(self, path): # "df" command; example used statVfs
-        # path is don't care. Using stuff from bodemo
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        set_trace()
         return {
             'f_bavail':     100,    # free blocks for unpriv users
             'f_bfree':      100,    # total free DATA blocks

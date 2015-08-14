@@ -104,7 +104,7 @@ class Client(SocketReadWrite):
     def __init__(self, selectable=True):
         super().__init__(selectable=selectable)
 
-    def connect(self, host='localhost', port=9093):
+    def connect(self, host='localhost', port=9093, retry=True):
         """ Connect socket to port on host
 
         Args:
@@ -115,15 +115,27 @@ class Client(SocketReadWrite):
             Nothing
         """
 
-        try:
-            self._sock.connect((host, port))
-        except OSError as e:
-            if e.errno == errno.EINPROGRESS:
-                # socket is non-blocking but connection is not complete.
-                # So far only happens with repl client.  Weird.
-                if host == 'localhost':
-                    raise
+        while True:
+            try:
+                self._sock.connect((host, port))
+            except Exception as e:
+                if retry:
+                    print('Retrying connection...')
+                    time.sleep(2)
+                    continue
+                raise
+            try:
+                peertuple = self._sock.getpeername()
+            except Exception as e:
+                if retry:
+                    print('Retrying getpeername...')
+                    time.sleep(2)
+                    continue
+                raise
 
+            self._peer, self._port = peertuple
+            self._str = '{0}:{1}'.format(*peertuple)
+            return
 
 class Server(SocketReadWrite):
     """ A simple asynchronous server for the Librarian """
@@ -294,7 +306,6 @@ def main():
     """ Run simple echo server to exercise the module """
 
     import json
-    import time
 
     def echo_handler(string):
         """ Echo handler for use with testing server.

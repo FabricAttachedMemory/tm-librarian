@@ -20,6 +20,10 @@ class LibrarianCommandProtocol(object):
             doc='query librarian for version',
             parms=None,
         ),
+        'get_fs_stats':  GO(
+            doc='query global FS stats',
+            parms=None,
+        ),
         'create_shelf': GO(
             doc='create new shelf',
             parms = ('name', ),
