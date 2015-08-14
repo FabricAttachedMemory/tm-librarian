@@ -37,6 +37,8 @@ class SocketReadWrite(object):
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbuf = ''
         self.appended = 0
+        if self._perf:
+            self.verbose = 0
 
     def __str__(self):
         return self._str
@@ -164,12 +166,12 @@ class Server(SocketReadWrite):
                             default=9093)
 
     def __init__(self, parseargs, **kwargs):
+        self.verbose = parseargs.verbose
         super().__init__(**kwargs)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._port = parseargs.port
         self._sock.bind(('', self._port))
         self._sock.listen(20)
-        self.verbose = parseargs.verbose
 
     def accept(self):
         return self._sock.accept()
@@ -276,7 +278,9 @@ class Server(SocketReadWrite):
                     try:
                         (sock, peertuple) = self.accept()
                         newsock = SocketReadWrite(
-                            sock=sock, peertuple=peertuple)
+                            sock=sock,
+                            peertuple=peertuple,
+                            perf=self._perf)
                         to_read.append(newsock)
                         print('%s: new connection' % newsock)
                     except Exception as e:

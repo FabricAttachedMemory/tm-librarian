@@ -17,18 +17,22 @@ parser.add_argument('--verbose',
                     help='level of runtime output, larger == more',
                     type=int,
                     default=0)
+parser.add_argument('--perf',
+                    help='suppress output and some functions for perf runs, larger= more',
+                    type=int,
+                    default=0)
 
 
 def main():
-    """ Librarain main """
+    """ Librarian main """
     for obj in (LBE, LCE, Server, LibrarianChain):
         obj.argparse_extend(parser)
-    args = parser.parse_args()
+    parseargs = parser.parse_args()
 
-    backend = LBE(args)
-    lce = LCE(backend, args)
-    server = Server(args)
-    chain = LibrarianChain(args)
+    backend = LBE(parseargs)
+    lce = LCE(backend, parseargs)
+    server = Server(parseargs, perf=parseargs.perf)
+    chain = LibrarianChain(parseargs)
 
     try:
         server.serv(lce, chain)
