@@ -16,25 +16,33 @@ from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket, socket_handling
 
+# 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
+
+_perf = int(os.getenv('PERF', 0))
+
 # Decorator only for instance methods as it assumes args[0] == "self".
 def prentry(func):
+    if _perf > 1:
+        return func
+
     def new_func(*args, **kwargs):
         self = args[0]
         try:
-            self.torms._sock.settimeout(0.001)  # Just enough to non-block
+            self.torms._sock.settimeout(0.001)  # non-blocking
             junk = self.torms._sock.recv(4096)
         except socket.timeout:
             junk = ''
         except Exception as e:
             raise FuseOSError(errno.EREMOTEIO)
         finally:
-            self.torms._sock.settimeout(None)   # return to full blocking mode
+            self.torms._sock.settimeout(None)   # blocking
         if junk:
             print('OOB:', junk)
             set_trace()
 
-        tmp = ', '.join([str(a) for a in args[1:]])
-        print('%s(%s)' % (func.__name__, tmp[:60]))
+        if not _perf:
+            tmp = ', '.join([str(a) for a in args[1:]])
+            print('%s(%s)' % (func.__name__, tmp[:60]))
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
@@ -82,8 +90,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # influenced by FuSE builtin option.
 
     def init(self, root, **kwargs):
-        try:
-            self.torms = socket_handling.Client(selectable=False) # blocking
+        try:    # set up a blocking socket
+            self.torms = socket_handling.Client(
+                selectable=False, perf=_perf)
             self.torms.connect(host=self.host, port=self.port)
             print('%s: connected' % self.torms)
         except Exception as e:

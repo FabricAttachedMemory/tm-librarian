@@ -16,11 +16,18 @@ class SocketReadWrite(object):
     used primarily as a base class for the Client and Server
     objects """
 
-    def __init__(self, sock=None, peertuple=None, selectable=True):
+    def __init__(self, **kwargs):
+        peertuple = kwargs.get('peertuple', None)
+        self._perf = kwargs.get('perf', 0)
+        selectable = kwargs.get('selectable', True)
+        sock = kwargs.get('sock', None)
+
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self._sock = sock
+        self._sock.setblocking(not selectable)
+
         if peertuple is None:
             self._peer = ''
             self._port = 0
@@ -30,7 +37,6 @@ class SocketReadWrite(object):
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbuf = ''
         self.appended = 0
-        self._sock.setblocking(not selectable)
 
     def __str__(self):
         return self._str
@@ -73,7 +79,8 @@ class SocketReadWrite(object):
         last = len(self.inbuf)
         self.inbuf += self._sock.recv(self._bufsz).decode("utf-8").strip()
         self.appended = len(self.inbuf) - last
-        print('%s: received %d bytes' % (self._str, self.appended))
+        if not self._perf:
+            print('%s: received %d bytes' % (self._str, self.appended))
 
     def clear(self):
         self.inbuf = ''
@@ -100,8 +107,8 @@ class SocketReadWrite(object):
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
 
-    def __init__(self, selectable=True):
-        super().__init__(selectable=selectable)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def connect(self, host='localhost', port=9093, retry=True):
         """ Connect socket to port on host
