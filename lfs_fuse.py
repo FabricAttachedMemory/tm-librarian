@@ -5,8 +5,8 @@
 import errno
 import json
 import os
-import socket
 import sys
+import time
 
 from pdb import set_trace
 
@@ -14,13 +14,35 @@ from fuse import FUSE, FuseOSError, Operations
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
+import socket, socket_handling
 
+# 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
+
+_perf = int(os.getenv('PERF', 0))
+
+# Decorator only for instance methods as it assumes args[0] == "self".
 def prentry(func):
-    # return func
+    if _perf > 1:
+        return func
+
     def new_func(*args, **kwargs):
-        # args[0] is usually 'self', so ...
-        tmp = ', '.join([str(a) for a in args[1:]])
-        print('%s(%s)' % (func.__name__, tmp[:60]))
+        self = args[0]
+        try:
+            self.torms._sock.settimeout(0.001)  # non-blocking
+            junk = self.torms._sock.recv(4096)
+        except socket.timeout:
+            junk = ''
+        except Exception as e:
+            raise FuseOSError(errno.EREMOTEIO)
+        finally:
+            self.torms._sock.settimeout(None)   # blocking
+        if junk:
+            print('OOB:', junk)
+            set_trace()
+
+        if not _perf:
+            tmp = ', '.join([str(a) for a in args[1:]])
+            print('%s(%s)' % (func.__name__, tmp[:60]))
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
@@ -28,21 +50,21 @@ def prentry(func):
     new_func.__dict__.update(func.__dict__)
     return new_func
 
-class LibrarianFSd(Operations):
-
-    # No protocol or DB support yet, just fake it for all of them.
-
-    _basetimes = {
-        'st_atime':     1436739200,
-        'st_ctime':     1436739200,
-        'st_mtime':     1436739200,
-    }
+class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
+    _mode_default_dir =  int('0040777', 8)  # isdir, 777
 
     def __init__(self, source, node_id):
         '''Validate parameters'''
-        self.torms = source
+        path = self.shadowpath('')  # trailing '/': Looking for Mr. GoodDir
+        try:
+            stat = os.stat(path)    # a file will throw 'NotADirectory'
+            if stat.st_mode != self._mode_default_dir:
+                raise SystemExit('%s is not mode 777' % path)
+        except Exception as e:
+            raise SystemExit('Directory %s does not exist' % path)
+        self.tormsURI = source
         elems = source.split(':')
         assert len(elems) <= 2
         self.host = elems[0]
@@ -64,30 +86,22 @@ class LibrarianFSd(Operations):
         }
         self.lcp = LibrarianCommandProtocol(context)
 
-    # start with mount/unmount.  root is usually ('/', ) probably
+    # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
 
     def init(self, root, **kwargs):
-        try:
-            self.tormsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.tormsock.connect((self.host, self.port))
+        try:    # set up a blocking socket
+            self.torms = socket_handling.Client(
+                selectable=False, perf=_perf)
+            self.torms.connect(host=self.host, port=self.port)
+            print('%s: connected' % self.torms)
         except Exception as e:
-            set_trace()
             raise FuseOSError(errno.EHOSTUNREACH)
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
-    def destroy(self, root):    # ditto
-        try:
-            self.tormsock.shutdown(socket.SHUT_RDWR)
-            self.tormsock.close()
-        except socket.error as e:
-            if e.errno != errno.ENOTCONN:
-                set_trace()
-                pass
-        except Exception as e:
-            set_trace()
-            pass
-        del self.tormsock
+    def destroy(self, root):
+        self.torms.close()
+        del self.torms
 
     # helpers
 
@@ -100,13 +114,6 @@ class LibrarianFSd(Operations):
         shelf_name = elems[-1]        # if empty, original path was '/'
         if needShelf and not shelf_name:
             raise FuseOSError(errno.EINVAL)
-        return shelf_name
-
-    def valid_shelf(self, path): # FIXME: use this eslewhere?
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
-        if not req:
-            raise FuseOSError(errno.ENOENT)
         return shelf_name
 
     fd2shelf_id = { }
@@ -126,7 +133,6 @@ class LibrarianFSd(Operations):
         try:
             cmd['command']  # idiot check: is it a dict with this keyword
             cmdJS = json.dumps(cmd)
-            cmdJSenc = cmdJS.encode()
         except KeyError:
             print('Bad original command', cmd)
             raise FuseOSError(errno.EBADR)
@@ -135,20 +141,18 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.EINVAL)
 
         try:
-            self.tormsock.send(cmdJSenc)
-            rspJSenc = self.tormsock.recv(4096)
-        except Exception as e:
-            raise FuseOSError(errno.EIO)
+            self.torms.send_recv(cmdJS)
+        except (BrokenPipeError, Exception) as e:
+            raise FuseOSError(errno.EHOSTDOWN)
 
         try:
-            rspJS = rspJSenc.decode()
-            rsp = json.loads(rspJS)
+            rsp = json.loads(self.torms.inbuf)
         except Exception as e:
-            set_trace()
-            rsp = { 'error': 'LFSd: %s' % str(e) }
+            rsp = { 'errmsg': 'LFSd: %s' % str(e) }
+        self.torms.clear()
 
-        if rsp and 'error' in rsp:
-            print('%s failed: %s' % (cmd['command'], rsp['error']),
+        if rsp and 'errmsg' in rsp:
+            print('%s failed: %s' % (cmd['command'], rsp['errmsg']),
                   file=sys.stderr)
             raise FuseOSError(rsp['errno'])
         return rsp  # None is now legal, let the caller interpret it.
@@ -162,19 +166,23 @@ class LibrarianFSd(Operations):
         if not fh is None:      # dir listings no dice, only open files
             set_trace()
             pass
-        shelf_name = self.path2shelf(path, needShelf=False)
-        if not shelf_name:   # '/'
+        if path == '/':
+            now = int(time.time())
+            shelves = self.librarian({'command': 'list_shelves'})
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
                 'st_mode':      int('0041777', 8),  # isdir, sticky, 777
-                'st_nlink':     1,
-                'st_size':      4096
+                'st_nlink':     len(shelves) + 2,   # account for '.' and '..'
+                'st_size':      4096,
+                'st_atime':     now,
+                'st_ctime':     now,
+                'st_mtime':     now,
             }
-            tmp.update(self._basetimes)
             return tmp
 
-        req = self.lcp('list_shelf', name=shelf_name)
+        shelf_name = self.path2shelf(path)
+        req = self.lcp('get_shelf', name=shelf_name)
         rsp = self.librarian(req)
         try:
             assert rsp['name'] == shelf_name
@@ -209,6 +217,7 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.ENOENT)
         rsp = self.librarian({'command': 'list_shelves'})
         yield '.'
+        yield '..'
         for shelf in rsp:
            yield shelf['name']
 
@@ -227,6 +236,8 @@ class LibrarianFSd(Operations):
     # namespaces are (user, system, trusted, security).  Anyone can
     # see "user", but the others take CAP_SYS_ADMIN.  Currently only
     # "user" works, even with sudo, not sure why.  Or if it matters.
+    # Something (fusepy, I imagine) always calls getattr() first, so it's
+    # a reasonable assumption the shelf exists.
 
     @prentry
     def getxattr(self, path, attr, position=0):
@@ -240,13 +251,9 @@ class LibrarianFSd(Operations):
         # ls -l can also do the same thing on '/'.  Save the round trips.
 
         try:
-            shelf_name = self.valid_shelf(path) # can "raise"
-            assert attr.startswith('user.')
-            rsp = self.librarian({
-                'command': 'get_xattr',
-                'name': shelf_name,
-                'xattr': attr
-            })
+            shelf_name = self.path2shelf(path)
+            rsp = self.librarian(
+                self.lcp('get_xattr', name=shelf_name, xattr=attr))
             value = rsp['value']
             assert value
             return value if isinstance(value, int) else bytes(value.encode())
@@ -254,14 +261,13 @@ class LibrarianFSd(Operations):
             raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
 
     @prentry
-    def listxattr(self, path, *args, **kwargs):
-        """getfattr(1), which calls listxattr(2).  Return a list of
-           NS<dot>NAME, not their values."""
-        shelf_name = self.valid_shelf(path)
-        try:
-            return list(self._shelf2xattrs[shelf_name].keys())
-        except KeyError as e:
-            return None
+    def listxattr(self, path):
+        """getfattr(1) -d calls listxattr(2).  Return a list of names."""
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(
+                self.lcp('list_xattrs', name=shelf_name))
+        value = rsp['value']
+        return value
 
     _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
 
@@ -270,7 +276,8 @@ class LibrarianFSd(Operations):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
             set_trace() # haven't actually seen it yet
-        shelf_name = self.valid_shelf(path)
+        shelf_name = self.path2shelf(path)
+        assert attr.startswith('user.')
         for bad in self._badjson:
             if bad in valbytes:
                 raise FuseOSError(errno.EDOMAIN)
@@ -279,35 +286,34 @@ class LibrarianFSd(Operations):
         except ValueError as e:
             value = valbytes.decode()
 
-        rsp = self.librarian({
-                'command': 'set_xattr',
-                'name': shelf_name,
-                'xattr': attr,
-                'value': value
-        })
+        rsp = self.librarian(
+                self.lcp('set_xattr', name=shelf_name, xattr=attr, value=value))
         if rsp is not None: # unexpected
-            set_trace()
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
-    def removexattr(self, path):
-        shelf_name = self.valid_shelf(path)
-        try:
-            del self._shelf2xattrs[shelf_name][attr]
-        except KeyError as e:
-            raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
+    def removexattr(self, path, xattr):
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(
+            self.lcp('destroy_xattr', name=shelf_name, xattr=attr))
+        if rsp is not None: # unexpected
+            raise FuseOSError(errno.ENOTTY)
 
     @prentry
-    def statfs(self, path): # "df" command; example used statVfs
-        # path is don't care. Using stuff from bodemo
+    def statfs(self, path): # "df" command; example used statVfs.
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        # A book is a block.  Let other commands do the math.
+        blocks = globals['books_total']
+        bfree = bavail = blocks - globals['books_used']
+        bsize =globals['book_size_bytes']
         return {
-            'f_bavail':     100,    # free blocks for unpriv users
-            'f_bfree':      100,    # total free DATA blocks
-            'f_blocks':     200,    # total DATA blocks
-            'f_bsize':      65536,  # optimal transfer block size
-            'f_favail':     100,    # free inodes for unpriv users
-            'f_ffree':      100,    # total free file inodes
-            'f_files':      200,    # total number of inodes
+            'f_bavail':     bavail, # free blocks for unpriv users
+            'f_bfree':      bfree,  # total free DATA blocks
+            'f_blocks':     blocks, # total DATA blocks
+            'f_bsize':      bsize,  # optimal transfer block size???
+            'f_favail':     bavail, # free inodes for unpriv users
+            'f_ffree':      bfree,  # total free file inodes
+            'f_files':      blocks, # total number of inodes
             'f_flag':       63,     # mount flags
             'f_frsize':     0,      # fragment size
             'f_namemax':    255,    # maximum filename length
@@ -331,21 +337,18 @@ class LibrarianFSd(Operations):
 
     @prentry
     def utimens(self, path, times=None):
-        try:
-            self._basetimes['st_atime'] = times[0]
-            self._basetimes['st_mtime'] = times[1]
-            return 0    # os.utime
-        except Exception as e:
-            pass
-        raise FuseOSError(errno.ENOSYS)
-
-    @prentry
-    def rename(self, old, new):
-        raise FuseOSError(errno.ENOSYS)
-
-    #
-    # File methods
-    #
+        shelf_name = self.path2shelf(path)  # bomb here on '/'
+        if times is not None:
+            times = tuple(map(int, times))
+            if abs(int(time.time() - times[1])) < 3:    # "now" on this system
+                times = None
+        if times is None:
+            times = (0, 0)  # let librarian pick it
+        self.librarian(
+            self.lcp('set_am_time', name=shelf_name,
+                     atime=times[0],
+                     mtime=times[1]))
+        return 0    # os.utime
 
     @prentry
     def open(self, path, flags, **kwargs):
@@ -391,17 +394,13 @@ class LibrarianFSd(Operations):
         return os.write(fh, buf)
 
     @prentry
-    def fallocate(self, path, length, **kwargs):
-        raise FuseOSError(errno.ENOSYS)
-
-    @prentry
     # it was opened before this, but where is the fd (aka shelf id)?
     # Example code shows an explicit open by name in here.
     # example returned nothing?
     def truncate(self, path, length, *args, **kwargs):
         assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('list_shelf', name=shelf_name)
+        req = self.lcp('get_shelf', name=shelf_name) # FIXME: common w/getattr()
         listrsp = self.librarian(req)
 
         req = self.lcp('resize_shelf',
@@ -434,9 +433,12 @@ class LibrarianFSd(Operations):
     def fsync(self, path, fdatasync, fh):
         raise FuseOSError(errno.ENOSYS)
 
-    #
-    # Not gonna happen
-    #
+    #######################################################################
+    # Not gonna happen...ever?
+
+    @prentry
+    def rename(self, old, new):
+        raise FuseOSError(errno.ENOSYS)
 
     @prentry
     def chmod(self, path, mode, **kwargs):
@@ -472,9 +474,11 @@ class LibrarianFSd(Operations):
 
 def main(source, mountpoint, node_id):
     try:
-        FUSE(LibrarianFSd(source, node_id),
+        FUSE(LibrarianFS(source, node_id),
             mountpoint,
-            allow_other=True, foreground=True)
+            allow_other=True,
+            noatime=True,
+            foreground=True)
     except Exception as e:
         raise SystemExit('fusermount probably failed, retry in foreground')
 

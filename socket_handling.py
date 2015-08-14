@@ -8,7 +8,6 @@ import time
 
 from pdb import set_trace
 
-from genericobj import GenericObject
 from librarian_chain import BadChainUnapply
 
 
@@ -17,11 +16,18 @@ class SocketReadWrite(object):
     used primarily as a base class for the Client and Server
     objects """
 
-    def __init__(self, sock=None, peertuple=None, selectable=True):
+    def __init__(self, **kwargs):
+        peertuple = kwargs.get('peertuple', None)
+        self._perf = kwargs.get('perf', 0)
+        selectable = kwargs.get('selectable', True)
+        sock = kwargs.get('sock', None)
+
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self._sock = sock
+        self._sock.setblocking(not selectable)
+
         if peertuple is None:
             self._peer = ''
             self._port = 0
@@ -31,7 +37,6 @@ class SocketReadWrite(object):
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbuf = ''
         self.appended = 0
-        self._sock.setblocking(not selectable)
 
     def __str__(self):
         return self._str
@@ -74,7 +79,8 @@ class SocketReadWrite(object):
         last = len(self.inbuf)
         self.inbuf += self._sock.recv(self._bufsz).decode("utf-8").strip()
         self.appended = len(self.inbuf) - last
-        print('%s: received %d bytes' % (self._str, self.appended))
+        if not self._perf:
+            print('%s: received %d bytes' % (self._str, self.appended))
 
     def clear(self):
         self.inbuf = ''
@@ -101,10 +107,10 @@ class SocketReadWrite(object):
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
 
-    def __init__(self, selectable=True):
-        super().__init__(selectable=selectable)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    def connect(self, host='localhost', port=9093):
+    def connect(self, host='localhost', port=9093, retry=True):
         """ Connect socket to port on host
 
         Args:
@@ -115,15 +121,27 @@ class Client(SocketReadWrite):
             Nothing
         """
 
-        try:
-            self._sock.connect((host, port))
-        except OSError as e:
-            if e.errno == errno.EINPROGRESS:
-                # socket is non-blocking but connection is not complete.
-                # So far only happens with repl client.  Weird.
-                if host == 'localhost':
-                    raise
+        while True:
+            try:
+                self._sock.connect((host, port))
+            except Exception as e:
+                if retry:
+                    print('Retrying connection...')
+                    time.sleep(2)
+                    continue
+                raise
+            try:
+                peertuple = self._sock.getpeername()
+            except Exception as e:
+                if retry:
+                    print('Retrying getpeername...')
+                    time.sleep(2)
+                    continue
+                raise
 
+            self._peer, self._port = peertuple
+            self._str = '{0}:{1}'.format(*peertuple)
+            return
 
 class Server(SocketReadWrite):
     """ A simple asynchronous server for the Librarian """
@@ -294,7 +312,6 @@ def main():
     """ Run simple echo server to exercise the module """
 
     import json
-    import time
 
     def echo_handler(string):
         """ Echo handler for use with testing server.

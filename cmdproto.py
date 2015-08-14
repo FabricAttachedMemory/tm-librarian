@@ -20,12 +20,16 @@ class LibrarianCommandProtocol(object):
             doc='query librarian for version',
             parms=None,
         ),
+        'get_fs_stats':  GO(
+            doc='query global FS stats',
+            parms=None,
+        ),
         'create_shelf': GO(
             doc='create new shelf',
             parms = ('name', ),
         ),
-        'list_shelf': GO(
-            doc='list shelf details by shelf name',
+        'get_shelf': GO(
+            doc='get shelf details by shelf name',
             parms=('name', ),
         ),
         'list_shelf_books': GO(
@@ -56,21 +60,29 @@ class LibrarianCommandProtocol(object):
             doc='destroy shelf and free reserved books',
             parms=('name', ),
         ),
-        'list_book': GO(
-            doc='list book details by book id',
+        'get_book': GO(
+            doc='get book details by book id',
             parms=('id', ),
         ),
         'get_xattr': GO(
             doc='get extended attribute for a shelf',
-            parms=('id', 'xattr'),
+            parms=('name', 'xattr'),
         ),
-        'list_xattr': GO(
+        'list_xattrs': GO(
             doc='get current extended attribute names for a shelf',
-            parms=('id', 'xattr', 'value'),
+            parms=('name',),
         ),
         'set_xattr': GO(
             doc='set extended attribute for a shelf',
-            parms=('id', 'xattr', 'value'),
+            parms=('name', 'xattr', 'value'),
+        ),
+        'remove_xattr': GO(
+            doc='remove an extended attribute for a shelf',
+            parms=('name', 'xattr'),
+        ),
+        'set_am_time': GO(
+            doc='set access/modified times on a shelf',
+            parms=('name', 'atime', 'mtime'),
         ),
 
     }   # _commands

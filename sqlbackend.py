@@ -31,14 +31,24 @@ class LibrarianDBackendSQL(object):
     # DB globals
     #
 
-    def get_version(self):
-        self._cur.execute('SELECT schema_version FROM globals')
-        return self._cur.fetchone()[0]
+    def get_globals(self, only=None):
+        if only == 'version':
+            self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
+            return self._cur.fetchone()[0]
+        self._cur.execute('SELECT * FROM globals LIMIT 1')
+        self._cur.iterclass = 'default'
+        for r in self._cur:
+            pass
+        self._cur.execute('SELECT COUNT() FROM books WHERE allocated > 0')
+        r.books_used = self._cur.fetchone()[0]
+        if r.books_used is None:    # empty DB
+            r.books_used = 0
+        return r
 
     def get_nvm_parameters(self):
         '''Returns duple(book_size, total_nvm)'''
         self._cur.execute(
-            'SELECT book_size_bytes, total_nvm_bytes FROM globals')
+            'SELECT book_size_bytes, nvm_bytes_total FROM globals')
         return self._cur.fetchone()
 
     #
@@ -82,13 +92,20 @@ class LibrarianDBackendSQL(object):
         return self._modify_table('books', book, (), commit)
 
     def modify_shelf(self, shelf, commit=False):
-        """ Modify shelf data in "shelves" table.
+        """ Modify shelf data in "shelves" table.  Usually, modify
+            the mtime with any other attributes.
             Input---
               shelf_data - list of new shelf data
             Output---
               shelf_data or error message
         """
-        shelf.mtime = int(time.time())
+        now = int(time.time())
+        if shelf.matchfields == ('mtime', ):    # called from set_am_time
+            shelf.matchfields = ()              # only modify mtime...
+            if not shelf.mtime:                 # ...if explicitly set...
+                shelf.mtime = now               # ...else now is fine
+        else:
+            shelf.mtime = now                   # Normal operation
         return self._modify_table('shelves', shelf, ('mtime', ), commit)
 
     def modify_xattr(self, shelf, xattr, value, commit=True):
@@ -302,8 +319,19 @@ class LibrarianDBackendSQL(object):
         tmp = self._cur.fetchone()
         return tmp if tmp is None else tmp[0]
 
+    def list_xattrs(self, shelf):
+        self._cur.execute(
+            'SELECT xattr FROM shelf_xattrs WHERE shelf_id=?', (shelf.id,))
+        tmp = [ f[0] for f in self._cur.fetchall() ]
+        return tmp
+
     def create_xattr(self, shelf, xattr, value):
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
+        self._cur.commit()
+
+    def delete_xattr(self, shelf, xattr):
+        self._cur.DELETE('shelf_xattrs', 'shelf_id=? AND xattr=?',
+                                         (shelf.id, xattr))
         self._cur.commit()
 
     def close(self):
