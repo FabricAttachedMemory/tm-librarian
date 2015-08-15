@@ -3,7 +3,6 @@
 # From Stavros
 
 import errno
-import json
 import os
 import sys
 import time
@@ -15,6 +14,8 @@ from fuse import FUSE, FuseOSError, Operations
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket_handling
+from function_chain import BadChainForward, BadChainReverse
+from librarian_chain import LibrarianChain
 
 # 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
 
@@ -78,6 +79,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'node_id': node_id,
         }
         self.lcp = LibrarianCommandProtocol(context)
+        self.chain = LibrarianChain()
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
@@ -123,28 +125,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''Dictionary in, dictionary out'''
         try:
             cmd['command']  # is it a dict with this keyword
-            cmdJS = json.dumps(cmd)
-        except KeyError:
-            print('Bad original command', cmd)
-            raise FuseOSError(errno.EBADR)
-        except Exception as e:
-            set_trace()
-            raise FuseOSError(errno.EINVAL)
-
-        try:
-            self.torms.send_recv(cmdJS)
-        except (BrokenPipeError, Exception) as e:
+            rsp = self.torms.send_recv(cmd, self.chain)
+        except OSError as e:
             raise FuseOSError(errno.EHOSTDOWN)
-
-        try:
-            rsp = json.loads(self.torms.inbuf)
-        except ValueError as e:
-            set_trace()
-            pass
         except Exception as e:
-            set_trace()
+            raise SystemExit('Dummy: ' + str(e))
             rsp = { 'errmsg': 'LFS: %s' % str(e) }
-        self.torms.clear()
 
         if rsp and 'errmsg' in rsp:
             print('%s failed: %s' % (cmd['command'], rsp['errmsg']),
@@ -282,7 +268,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             value = valbytes.decode()
 
         rsp = self.librarian(
-                self.lcp('set_xattr', name=shelf_name, xattr=attr, value=value))
+                self.lcp('set_xattr', name=shelf_name,
+                         xattr=attr, value=value))
         if rsp is not None: # unexpected
             raise FuseOSError(errno.ENOTTY)
 

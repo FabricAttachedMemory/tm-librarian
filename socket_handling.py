@@ -153,7 +153,7 @@ class SocketReadWrite(object):
             The string received as a response to what was sent.
         """
 
-        self.send_all(bytes, chain)
+        self.send_all(obj, chain)
         return self.recv_chunk(chain)
 
     def send_OOB(self, OOBmsg):

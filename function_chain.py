@@ -45,7 +45,7 @@ class Chain(object):
                 result = link.forward(result)
             return result
         except Exception as e:
-            raise BadChainForward('Error in link index %d' % i)
+            raise BadChainForward('Error at link index %d' % i)
 
     def reverse_traverse(self, in_obj):
         """ Traverse the chain in reverse calling the reverse method of
@@ -57,7 +57,7 @@ class Chain(object):
 
         Returns:
             A converted object of the type as the least recently added Link's
-            unapply() function returns.
+            reverse () function returns.
         """
         result = in_obj
         try:
@@ -65,7 +65,7 @@ class Chain(object):
                 result = link.reverse(result)
             return result
         except Exception as e:
-            raise BadChainReverse('Error in link index %d' % i)
+            raise BadChainReverse('Error at link index %d' % i)
 
 class Link(object):
     ''' The object representing the function in a chain (Links).  Please

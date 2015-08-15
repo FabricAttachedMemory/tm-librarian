@@ -61,7 +61,7 @@ class LibrarianChain(Chain):
         """ does nothing """
         pass
 
-    def __init__(self, args):
+    def __init__(self, parseargs=None):
         super().__init__()
         self.append(JSONDumpsLoadsLink())
         self.append(StrEncDecLink())
