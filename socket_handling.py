@@ -2,7 +2,6 @@
 """ Module to handle socket communication for Librarian and Clients """
 
 import errno
-import re
 import socket
 import select
 import sys
@@ -21,7 +20,8 @@ class SocketReadWrite(object):
     _OOBprefix = '<@<'
     _OOBsuffix = '>@>'
     _OOBformat = _OOBprefix + '%s' + _OOBsuffix
-    _OOBmatch  = re.compile(_OOBprefix + '\(.*\)' + _OOBsuffix)
+    _OOBpreenc = _OOBprefix.encode()
+    _OOBsufenc = _OOBsuffix.encode()
 
     def __init__(self, **kwargs):
         self._perf = kwargs.get('perf', 0)
@@ -44,6 +44,7 @@ class SocketReadWrite(object):
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbytes = bytes()
+        self.inOOB = ''
         if self._perf:
             self.verbose = 0
 
@@ -99,7 +100,7 @@ class SocketReadWrite(object):
 
     _bufsz = 4096
 
-    def recv_chunk(self, chain=None):
+    def recv_chunk(self, chain=None, selectable=True):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
@@ -108,11 +109,15 @@ class SocketReadWrite(object):
 
         while True:
             last = len(self.inbytes)
+            if last:
+                print('INBYTES: %s' % self.inbytes.decode('utf-8'))
             try:
                 self.inbytes += self._sock.recv(self._bufsz)
             except BlockingIOError as e:
                 # Not ready.  get back on the select train
-                return None
+                if selectable:
+                    return None
+                continue
             except Exception as e:
                 set_trace() # socket death
                 raise
@@ -129,49 +134,33 @@ class SocketReadWrite(object):
             if chain is None:
                 return self.inbytes[last:]
 
-            try:    # If it parses, I can be done
-                result = chain.reverse_traverse(self.inbytes)
-                self.clear()
-                return result
-            except BadChainReverse:
-                if not appended:  # did NOT get more, check OOB
-                    set_trace()
-                    raise
+            while True:
+                try:    # If it traverses, I can be done
+                    result = chain.reverse_traverse(self.inbytes)
+                    self.clear()
+                    return result
+                except BadChainReverse:
+                    try:
+                        pre = self.inbytes.index(self._OOBpreenc)
+                        suf = self.inbytes.index(self._OOBsufenc) + 3
+                    except ValueError:
+                        if self.inbytes:
+                            set_trace()
+                        break # go back to reading loop
 
+                    self.inOOB += self.inbytes[pre:suf].decode('utf-8')
+                    self.inbytes = self.inbytes[0:pre] + self.inbytes[suf:]
+                    # and loop around to try the reverse_traverse again
 
     def clear(self):
         self.inbytes = bytes()
 
-    def send_recv(self, obj, chain=None):
-        """ Send and receive all data.
-
-        Args:
-            obj: String to be sent.
-            chain: the forward/reverse chains of translation
-
-        Returns:
-            The string received as a response to what was sent.
-        """
-
-        self.send_all(obj, chain)
-        return self.recv_chunk(chain)
+    def clearOOB(self):
+        self.inOOB = ''
 
     def send_OOB(self, OOBmsg):
-        OOBytes = (self.__OOBfmt % OOBmsg).encode()
-        set_trace()
+        OOBytes = (self._OOBformat % OOBmsg).encode()
         self.send_all(OOBytes)
-
-    def recv_OOB(self):
-        '''Check for an unsolicited inbound message when using
-           blocking sockets in a cmd/rsp pairing.'''
-        try:
-            self._sock.settimeout(0.001)  # non-blocking
-            OOB = self._sock.recv(self._bufsz)
-        except socket.timeout:
-            OOB = ''
-        finally:
-            self._sock.settimeout(None)   # blocking
-        return OOB
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
@@ -268,7 +257,7 @@ class Server(SocketReadWrite):
         Args:
             handler: The handler for commands received by the server.
             chain: The chain to convert to strings from the socket into usable
-                ojects.
+                objects.
         Returns:
             Nothing.
         """
@@ -345,7 +334,7 @@ class Server(SocketReadWrite):
                     continue
 
                 try:
-                    cmdict = s.recv_chunk(chain)
+                    cmdict = s.recv_chunk(chain=chain)
                     if cmdict is None:  # need more, not available now
                         continue
 

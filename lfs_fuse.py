@@ -31,13 +31,19 @@ def prentry(func):
         if not _perf:
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
-        if _perf < 2:
+        if False and  _perf < 2:
             OOB = self.torms.recv_OOB()
             if OOB:
                 print('>>>>>', OOB)
                 set_trace()
                 pass
-        return func(*args, **kwargs)
+        ret = func(*args, **kwargs)
+        if self.torms.inOOB:
+            print('\n!!!!!!!!!!!!!!!!!!!!!!!!! %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n ' %
+                  self.torms.inOOB)
+            self.torms.inOOB = ''
+        return ret
+
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
     new_func.__doc__ = func.__doc__
@@ -125,7 +131,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''Dictionary in, dictionary out'''
         try:
             cmd['command']  # is it a dict with this keyword
-            rsp = self.torms.send_recv(cmd, self.chain)
+            self.torms.send_all(cmd, chain=self.chain)
+            rsp = self.torms.recv_chunk(chain=self.chain, selectable=False)
         except OSError as e:
             raise FuseOSError(errno.EHOSTDOWN)
         except Exception as e:
