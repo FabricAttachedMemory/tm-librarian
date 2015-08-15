@@ -1,10 +1,12 @@
 #!/usr/bin/python3 -tt
 """ Main module  for the REPL client for the librarian """
-import socket_handling
-from librarian_chain import LibrarianChain
 
+import time
 from pdb import set_trace
 from pprint import pprint
+
+import socket_handling
+from librarian_chain import LibrarianChain
 
 import cmdproto
 
@@ -25,7 +27,7 @@ def main(serverhost='localhost'):
 
     lcp = cmdproto.LibrarianCommandProtocol(auth)
 
-    chain = LibrarianChain(None)
+    chain = LibrarianChain()
     client = socket_handling.Client(selectable=False)
     try:
         client.connect(host=serverhost)
@@ -48,6 +50,14 @@ def main(serverhost='localhost'):
             if command in ('adios', 'bye', 'exit', 'quit', 'q'):
                 break
 
+            if command == 'death_by_OOB':
+                cmdict = lcp('send_OOB', 'DEATH BY OOB')
+                set_trace()
+                while True:
+                    rspdict = client.send_recv(cmdict, chain)
+                    pprint(rspdict)
+                    time.sleep(0.5)
+
             # Two forms
             cmdict = lcp(command, *user_input_list)
             pprint(cmdict)
@@ -61,14 +71,12 @@ def main(serverhost='localhost'):
             print('Bad command:', str(e))
             continue
 
-        out_string = chain.forward_traverse(cmdict)
 
         if client is None:
+            out_string = chain.forward_traverse(cmdict)
             print('LOCAL:', out_string)
         else:
-            client.send_recv(out_string)
-            rspdict = chain.reverse_traverse(client.inbuf)  # better, but...
-            client.clear()                                  # ...still clunky
+            rspdict = client.send_recv(cmdict, chain)
             pprint(rspdict)
         print()
 
