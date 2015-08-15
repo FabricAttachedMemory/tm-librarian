@@ -2,27 +2,33 @@
 object.  Useful when doing conversion betwix things when you don't want to
 chain the API """
 
-class Chain():
-    """ A chain of objects representing functions to be applied in order """
-    _chain = []
+class BadChainForward(Exception):
+    pass
+
+class BadChainReverse(Exception):
+    pass
+
+class Chain(object):
+    """ A list of objects representing functions to be applied in order """
 
     def __init__(self):
-        pass
+        self.fwdlinks = []
+        self.revlinks = []
 
-    def __del__(self):
-        pass
-
-    def add_link(self, link):
-        """ Add a link to the chain
+    def append(self, newlink):
+        """ Add a link to the end of the forward chain
 
         Args:
             link: the Link object to be added to the chain
         """
-        self._chain.append(link)
+        assert isinstance(newlink, Link), 'New item is not of type "Link"'
+        self.fwdlinks.append(newlink)
+        self.revlinks.insert(0, newlink)
 
     def forward_traverse(self, in_obj):
-        """ Traverse the chain forward this calls the apply function of
-        each successive Link of the chain on in_obj.
+        """ Traverse the chain forward (in "append" order) calling the
+            forward() method of each successive Link of the chain
+            startig with in_obj.
 
         Args:
             in_obj: Object to be converted. Will be passed in order to the
@@ -34,13 +40,16 @@ class Chain():
 
         """
         result = in_obj
-        for link in self._chain:
-            result = link.apply(result)
-        return result
+        try:
+            for i, link in enumerate(self.fwdlinks):
+                result = link.forward(result)
+            return result
+        except Exception as e:
+            raise BadChainForward('Error at link index %d' % i)
 
     def reverse_traverse(self, in_obj):
-        """ Traverse the chain in reverse this calls the unapply function of
-        each successive Link of the chain on in_obj.
+        """ Traverse the chain in reverse calling the reverse method of
+        each Link starting with in_obj.
 
         Args:
             in_obj: Object to be converted. Will be passed in reverse order
@@ -48,24 +57,22 @@ class Chain():
 
         Returns:
             A converted object of the type as the least recently added Link's
-            unapply() function returns.
+            reverse () function returns.
         """
         result = in_obj
-        for link in list(reversed(self._chain)):
-            result = link.unapply(result)
-        return result
+        try:
+            for i, link in enumerate(self.revlinks):
+                result = link.reverse(result)
+            return result
+        except Exception as e:
+            raise BadChainReverse('Error at link index %d' % i)
 
-class Link():
+class Link(object):
     ''' The object representing the function in a chain (Links).  Please
-    implement both functions if nothing needs tobe done fill in apply or unapply
+    implement both functions if nothing needs tobe done fill in forward or reverse
     with pass appropriately. '''
-    def __init__(self):
-        pass
 
-    def __del__(self):
-        pass
-
-    def apply(self, obj):
+    def forward(self, obj):
         """ Calls function implemented here to obj
         Args:
             obj: the object to be modified
@@ -73,9 +80,9 @@ class Link():
         Returns:
             The modified object
         """
-        raise NotImplementedError
+        raise BadChainForward('Subclass this and write your own')
 
-    def unapply(self, obj):
+    def reverse(self, obj):
         """ Calls function implemented here to obj
         Args:
             obj: the object to be modified
@@ -83,13 +90,13 @@ class Link():
         Returns:
             The modified object
         """
-        raise NotImplementedError
+        raise BadChainReverse('Subclass this and write your own')
 
 class IdentityLink(Link):
-    """ a link whose apply and unapply functions simply return the same object
+    """ a link whose forward/reverse functions simply return the same object
     useful for debugging or using an API that requires a chain """
 
-    def apply(self, obj):
+    def forward(self, obj):
         """
         Args: obj
 
@@ -97,7 +104,7 @@ class IdentityLink(Link):
         """
         return obj
 
-    def unapply(self, obj):
+    def reverse(self, obj):
         """
         Args: obj
 
@@ -109,5 +116,4 @@ class IdentityChain(Chain):
     """ Identity chain class, only contains an Identity_Link """
 
     def __init__(self):
-        super().__init__()
-        super().add_link(IdentityLink())
+        self.append(IdentityLink())
