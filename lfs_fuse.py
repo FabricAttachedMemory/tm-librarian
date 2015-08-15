@@ -30,10 +30,11 @@ def prentry(func):
         if not _perf:
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
-        elif _perf < 2:
+        if _perf < 2:
             OOB = self.torms.recv_OOB()
             if OOB:
-                set_trace() # something new and different
+                print('>>>>>', OOB)
+                set_trace()
                 pass
         return func(*args, **kwargs)
     # Be a well-behaved decorator
@@ -118,12 +119,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Second level: tenant group
     # Third level:  shelves
 
-    def librarian(self, cmd, trace=False):
+    def librarian(self, cmd):
         '''Dictionary in, dictionary out'''
-        if trace:
-            set_trace()
         try:
-            cmd['command']  # idiot check: is it a dict with this keyword
+            cmd['command']  # is it a dict with this keyword
             cmdJS = json.dumps(cmd)
         except KeyError:
             print('Bad original command', cmd)
@@ -139,8 +138,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         try:
             rsp = json.loads(self.torms.inbuf)
+        except ValueError as e:
+            set_trace()
+            pass
         except Exception as e:
-            rsp = { 'errmsg': 'LFSd: %s' % str(e) }
+            set_trace()
+            rsp = { 'errmsg': 'LFS: %s' % str(e) }
         self.torms.clear()
 
         if rsp and 'errmsg' in rsp:
@@ -364,7 +367,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
         req = self.lcp('create_shelf', name=shelf_name)
-        rsp = self.librarian(req, trace=False)
+        rsp = self.librarian(req)
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
         try:
