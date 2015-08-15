@@ -24,8 +24,9 @@ class SocketReadWrite(object):
     _OOBmatch  = re.compile(_OOBprefix + '\(.*\)' + _OOBsuffix)
 
     def __init__(self, **kwargs):
-        peertuple = kwargs.get('peertuple', None)
         self._perf = kwargs.get('perf', 0)
+        self.verbose = kwargs.get('verbose', 0)
+        peertuple = kwargs.get('peertuple', None)
         selectable = kwargs.get('selectable', True)
         sock = kwargs.get('sock', None)
 
@@ -39,11 +40,10 @@ class SocketReadWrite(object):
             self._peer = ''
             self._port = 0
             self._str = ''
-        else:
+        else:   # A dead socket can't getpeername so cache it now
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbytes = bytes()
-        self.appended = 0
         if self._perf:
             self.verbose = 0
 
@@ -56,63 +56,110 @@ class SocketReadWrite(object):
         except Exception as e:
             pass
         self._sock.close()
+        self._sock = self._peer = self._port = self._str = None
 
     def fileno(self):
         '''Allows this object to be used in select'''
         return self._sock.fileno()
 
-    def send_all(self, outbytes):
-        """ Thin wrapper to send the bytes.
+    def send_all(self, obj, chain=None):
+        """ Send an object after optional transformation
 
         Args:
-            outstr: the python3 string to be sent
+            obj: the object to be sent
+            chain: the transformations from object to bytes
 
         Returns:
                Number of bytes sent.
         """
-        # FIXME: accept a "chain" in init
-        return self._sock.sendall(outbytes)
+
+        if chain is None:
+            outbytes = obj
+        else:
+            outbytes = chain.forward_traverse(obj)
+        if self.verbose:
+            print('%s: sending %s' % (s,
+                  'NULL' if result is None
+                   else '%d bytes' % len(outbytes)))
+        try:
+            return self._sock.sendall(outbytes)
+        except OSError as e:
+            if e.errno == errno.EPIPE:
+                msg = 'closed by client'
+            elif e.errno != errno.EBADF:
+                msg = 'closed earlier'
+            msg = '%s: %s' % (s, msg)
+            raise OSError(errno.ECONNABORTED, msg)
+        except Exception as e:
+            print('%s: send_all failed: %s' % (self, str(e)),
+                    file=sys.stderr)
+            set_trace()
+            pass
+            raise
 
     _bufsz = 4096
 
-    def recv_chunk(self):
+    def recv_chunk(self, chain=None):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
         Returns:
         """
 
-        # FIXME: accept a "chain" in init, then I can do the
-        # chain decode/error loop in here.
-        last = len(self.inbytes)
-        self.inbytes += self._sock.recv(self._bufsz)
-        self.appended = len(self.inbytes) - last
-        if not self._perf:
-            print('%s: received %d bytes' % (self._str, self.appended))
+        while True:
+            last = len(self.inbytes)
+            try:
+                self.inbytes += self._sock.recv(self._bufsz)
+            except BlockingIOError as e:
+                # Not ready.  get back on the select train
+                return None
+            except Exception as e:
+                set_trace() # socket death
+                raise
+
+            appended = len(self.inbytes) - last
+            if not self._perf:
+                print('%s: received %d bytes' % (self._str, appended))
+
+            if not appended:   # Far side is gone
+                msg = '%s: closed by remote' % str(self)
+                self.close()
+                raise OSError(errno.ECONNABORTED, msg)
+
+            if chain is None:
+                return self.inbytes[last:]
+
+            try:    # If it parses, I can be done
+                result = chain.reverse_traverse(self.inbytes)
+                self.clear()
+                return result
+            except BadChainReverse:
+                if not appended:  # did NOT get more, check OOB
+                    set_trace()
+                    raise
+
 
     def clear(self):
         self.inbytes = bytes()
-        self.appended = 0
 
-    def send_recv(self, outstring):
+    def send_recv(self, obj, chain=None):
         """ Send and receive all data.
 
         Args:
-            outstring: String to be sent.
-            sock: The socket to send, then receive from.
+            obj: String to be sent.
+            chain: the forward/reverse chains of translation
 
         Returns:
             The string received as a response to what was sent.
         """
 
-        if not outstring:
-            return None
-
-        self.send_all(outstring)
-        self.recv_chunk()
+        self.send_all(bytes, chain)
+        return self.recv_chunk(chain)
 
     def send_OOB(self, OOBmsg):
-        self.send_all(self.__OOBfmt % OOBmsg)
+        OOBytes = (self.__OOBfmt % OOBmsg).encode()
+        set_trace()
+        self.send_all(OOBytes)
 
     def recv_OOB(self):
         '''Check for an unsolicited inbound message when using
@@ -226,25 +273,14 @@ class Server(SocketReadWrite):
             Nothing.
         """
 
-        # FIXME: put "chain" in SocketRW, move this routine into that class
+        # Consolidate error handling.  Closure on "chain" and "clients"
         def send_result(s, result):
-            try:    # socket may have died by now
-                bytesout = chain.forward_traverse(result)
-                if self.verbose:
-                    print('%s: sending %s' % (s,
-                        'NULL' if result is None
-                               else '%d bytes' % len(bytesout)))
-                s.send_all(bytesout)
-            except OSError as e:
-                if e.errno == errno.EPIPE:
-                    msg = 'closed by client'
-                elif e.errno != errno.EBADF:
-                    msg = 'closed earlier'
-                print ('%s: %s' % (s, msg), file=sys.stderr)
+            try:
+                s.send_all(result, chain)
+            except Exception as e:
+                print(str(e), file=sys.stderr)
                 clients.remove(s)
                 s.close()
-            except Exception as e:
-                print('%s: SEND failed: %s' % (s, str(e)), file=sys.stderr)
 
         clients = []
         XLO = 50
@@ -300,7 +336,8 @@ class Server(SocketReadWrite):
                         newsock = SocketReadWrite(
                             sock=sock,
                             peertuple=peertuple,
-                            perf=self._perf)
+                            perf=self._perf,
+                            verbose=self.verbose)
                         clients.append(newsock)
                         print('%s: new connection' % newsock)
                     except Exception as e:
@@ -308,33 +345,29 @@ class Server(SocketReadWrite):
                     continue
 
                 try:
-                    # Accumulate partial messages until a parse works.
-                    # FIXME: give "chain" to recv_chunk, do this loop there
-                    # FIXME: chain should return tuple (cmdict, leftovers)
+                    cmdict = s.recv_chunk(chain)
+                    if cmdict is None:  # need more, not available now
+                        continue
 
-                    s.recv_chunk()
-                    cmdict = chain.reverse_traverse(s.inbytes)
-                    # Since it parsed, the message is complete.
-                    s.clear()
                     if self.verbose:
                         if self.verbose == 1:
                             print('%s: %s' % (s, cmdict['command']))
                         else:
                             print('%s: %s' % (s, str(cmdict)))
-                    OOBmsg = None
+                    result = OOBmsg = None
                     result, OOBmsg = handler(cmdict)
-                except Exception as e:
-                    result = None
-                    if isinstance(e, BadChainReverse):
-                        if s.appended:  # got more this last pass
-                            continue
-                        msg = 'null command'
-                    elif e.__class__ in (AssertionError, RuntimeError):
-                        msg = str(e) # self-detected at lower levels
+                except OSError as e:    # Socket has been closed
+                    print(str(e))
+                    clients.remove(s)
+                    continue
+                except Exception as e:  # Internal, lower level stuff
+                    if e.__class__ in (AssertionError, RuntimeError):
+                        msg = str(e)
                     elif isinstance(e, TypeError):
+                        set_trace() # might have gone away w/refactor
                         msg = 'socket death'
                     else:
-                        msg = 'UNEXPECTED %s' % str(e)
+                        msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
                     print('%s: %s' % (s, msg))
 
                 # NO "finally": it circumvents "continue" in error clause(s)

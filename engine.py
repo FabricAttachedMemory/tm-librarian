@@ -304,7 +304,8 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 value
         """
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
+        # Zombie is okay, they should be cleared.
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=False)
         if shelf is None:
             return None
         value = self.db.get_xattr(shelf, cmdict['xattr'])
