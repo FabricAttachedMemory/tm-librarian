@@ -84,6 +84,10 @@ class LibrarianCommandProtocol(object):
             doc='set access/modified times on a shelf',
             parms=('name', 'atime', 'mtime'),
         ),
+        'send_OOB': GO(
+            doc='send an out-of-band message to all connected clients',
+            parms=('msg', ),
+        ),
 
     }   # _commands
 
