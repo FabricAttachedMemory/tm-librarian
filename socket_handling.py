@@ -37,6 +37,8 @@ class SocketReadWrite(object):
             self._str = '{0}:{1}'.format(*peertuple)
         self.inbuf = ''
         self.appended = 0
+        if self._perf:
+            self.verbose = 0
 
     def __str__(self):
         return self._str
@@ -103,6 +105,17 @@ class SocketReadWrite(object):
         self.send_all(outstring)
         self.recv_chunk()
 
+    def recv_OOB(self):
+        '''Check for an unsolicited inbound message when using
+           blocking sockets in a cmd/rsp pairing.'''
+        try:
+            self._sock.settimeout(0.001)  # non-blocking
+            OOB = self._sock.recv(self._bufsz).decode("utf-8").strip()
+        except socket.timeout:
+            OOB = ''
+        finally:
+            self._sock.settimeout(None)   # blocking
+        return OOB
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
@@ -163,13 +176,13 @@ class Server(SocketReadWrite):
                             type=int,
                             default=9093)
 
-    def __init__(self, args):
-        super().__init__()
+    def __init__(self, parseargs, **kwargs):
+        self.verbose = parseargs.verbose
+        super().__init__(**kwargs)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._port = args.port
+        self._port = parseargs.port
         self._sock.bind(('', self._port))
         self._sock.listen(20)
-        self.verbose = args.verbose
 
     def accept(self):
         return self._sock.accept()
@@ -204,11 +217,6 @@ class Server(SocketReadWrite):
             Nothing.
         """
 
-        to_read = [self]
-        t0 = time.time()
-        xlimit = 2000
-        transactions = 0
-
         # FIXME: put "chain" in SocketRW, move this routine into that class
         def send_result(s, result):
             try:    # socket may have died by now
@@ -224,44 +232,57 @@ class Server(SocketReadWrite):
                 elif e.errno != errno.EBADF:
                     msg = 'closed earlier'
                 print ('%s: %s' % (s, msg), file=sys.stderr)
-                to_read.remove(s)
+                clients.remove(s)
                 s.close()
             except Exception as e:
                 print('%s: SEND failed: %s' % (s, str(e)),
                       file=sys.stderr)
+
+        clients = []
+        XLO = 50
+        XHI = 2000
+        xlimit = XLO
+        transactions = 0
+        t0 = time.time()
 
         while True:
 
             if self.verbose:
                 print('Waiting for request...')
             try:
-                readable, _, _ = select.select(to_read, [], [], 10.0)
+                readable, _, _ = select.select(
+                    [ self ] + clients, [], [], 10.0)
             except Exception as e:
                 # Usually ValueError on a negative fd from a remote close
-                dead = [sock for sock in to_read if sock.fileno() == -1]
-                assert self not in dead, 'Server socket has died'
+                assert self.fileno() != -1, 'Server socket has died'
+                dead = [sock for sock in clients if sock.fileno() == -1]
                 for d in dead:
-                    if d in to_read:    # avoid error
-                        to_read.remove(d)
+                    if d in clients:    # avoid error
+                        clients.remove(d)
                 continue
 
             if not readable: # timeout: respond to partials, reset counters
-                for s in to_read:
+                for s in clients:
                     if s.inbuf:    # No more is coming FIXME: too harsh?
                         print('%s: reset inbuf' % s)
                         s.inbuf = ''
                         send_result(s, None)
                 transactions = 0
                 t0 = time.time()
+                xlimit = XLO
                 continue
 
             for s in readable:
                 transactions += 1
 
-                if transactions > xlimit:
+                if self._perf and transactions > xlimit:
                     deltat = time.time() - t0
                     tps = int(float(transactions) / deltat)
                     print('%d transactions/second' % tps)
+                    if xlimit < tps < XHI:
+                        xlimit *= 2
+                    elif XLO < tps < xlimit:
+                        xlimit /= 2
                     transactions = 0
                     t0 = time.time()
 
@@ -269,8 +290,10 @@ class Server(SocketReadWrite):
                     try:
                         (sock, peertuple) = self.accept()
                         newsock = SocketReadWrite(
-                            sock=sock, peertuple=peertuple)
-                        to_read.append(newsock)
+                            sock=sock,
+                            peertuple=peertuple,
+                            perf=self._perf)
+                        clients.append(newsock)
                         print('%s: new connection' % newsock)
                     except Exception as e:
                         pass
@@ -290,7 +313,8 @@ class Server(SocketReadWrite):
                             print('%s: %s' % (s, cmdict['command']))
                         else:
                             print('%s: %s' % (s, str(cmdict)))
-                    result = handler(cmdict)
+                    OOBmsg = None
+                    result, OOBmsg = handler(cmdict)
                 except Exception as e:
                     result = None
                     if isinstance(e, BadChainUnapply):
@@ -307,6 +331,14 @@ class Server(SocketReadWrite):
 
                 # NO "finally": it circumvents "continue" in error clause(s)
                 send_result(s, result)
+
+                if OOBmsg:
+                    print('-' * 20, 'OOB:', OOBmsg)
+                    for c in clients:
+                        if str(c) != str(s):
+                            print(str(c))
+                            c.send_all('<@<%s>@>' % OOBmsg)
+
 
 def main():
     """ Run simple echo server to exercise the module """

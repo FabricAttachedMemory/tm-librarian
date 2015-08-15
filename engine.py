@@ -35,7 +35,7 @@ class LibrarianCommandEngine(object):
     def _nbooks(cls, nbytes):
         return int(math.ceil(float(nbytes) / float(cls._book_size_bytes)))
 
-    def cmd_version(self):
+    def cmd_version(self, cmdict):
         """ Return librarian version
             In (dict)---
                 None
@@ -44,7 +44,7 @@ class LibrarianCommandEngine(object):
         """
         return self.db.get_globals(only='version')
 
-    def cmd_get_fs_stats(self):
+    def cmd_get_fs_stats(self, cmdict):
         """ Return globals
             In (dict)---
                 None
@@ -53,19 +53,19 @@ class LibrarianCommandEngine(object):
         """
         return self.db.get_globals()
 
-    def cmd_create_shelf(self):
+    def cmd_create_shelf(self, cmdict):
         """ Create a new shelf
             In (dict)---
                 name
             Out (dict) ---
                 shelf data
         """
-        shelf = TMShelf(self._cmdict)
+        shelf = TMShelf(cmdict)
         ret = self.db.create_shelf(shelf, commit=True)
         # open_count is 0 now, but a flush/release screws it up
         return ret
 
-    def cmd_get_shelf(self, name_only=True, no_zombie=False):
+    def cmd_get_shelf(self, cmdict, name_only=True, no_zombie=False):
         """ List a given shelf.
             In (dict)---
                 name
@@ -73,7 +73,7 @@ class LibrarianCommandEngine(object):
             Out (TMShelf object) ---
                 TMShelf object
         """
-        shelf = TMShelf(self._cmdict)
+        shelf = TMShelf(cmdict)
         self.errno = errno.EINVAL
         assert shelf.name, 'Command has no shelf name'
         if name_only:
@@ -93,28 +93,28 @@ class LibrarianCommandEngine(object):
             assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
                 '%s size metadata mismatch' % shelf.name)
         if no_zombie and shelf.zombie:
-            self.errno = errno.EPERM
-            raise AssertionError('The zombie LIVES')
+            self.errno = errno.ESTALE
+            raise AssertionError('That zombie\'s dead, Jim')
         return shelf
 
-    def cmd_list_shelves(self):
+    def cmd_list_shelves(self, cmdict):
         '''This can return zombies'''
         return self.db.get_shelf_all()
 
-    def cmd_open_shelf(self):
+    def cmd_open_shelf(self, cmdict):
         """ Open a shelf for access by a node.
             In (dict)---
                 name
             Out ---
                 TMShelf object
         """
-        shelf = self.cmd_get_shelf(no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
         shelf.open_count += 1
         shelf.matchfields = 'open_count'
         self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-    def cmd_close_shelf(self):
+    def cmd_close_shelf(self, cmdict):
         """ Close a shelf against access by a node.
             In (dict)---
                 shelf_id
@@ -124,7 +124,7 @@ class LibrarianCommandEngine(object):
         # todo: check if node/user really has this shelf open
         # todo: ensure open count does not go below zero
 
-        shelf = self.cmd_get_shelf(name_only=False)
+        shelf = self.cmd_get_shelf(cmdict, name_only=False)
         self.errno = errno.EBADFD
         assert shelf.open_count >= 0, '%s negative open count' % shelf.name
         # FIXME: == 0 occurs right after a create.  What's up?
@@ -134,7 +134,7 @@ class LibrarianCommandEngine(object):
             self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-    def cmd_destroy_shelf(self):
+    def cmd_destroy_shelf(self, cmdict):
         """ Destroy a shelf and free any books associated with it.
             In (dict)---
                 shelf_id
@@ -145,7 +145,7 @@ class LibrarianCommandEngine(object):
                 shelf data
         """
         # Do my own join, start with lookup by name.  Leave zombies alone.
-        shelf = self.cmd_get_shelf(no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
         self.errno = errno.EBUSY
         assert not shelf.open_count, '%s open count = %d' % (
             shelf.name, shelf.open_count)
@@ -183,7 +183,7 @@ class LibrarianCommandEngine(object):
             '%s size metadata mismatch' % shelf.name)
         return bos
 
-    def cmd_resize_shelf(self):
+    def cmd_resize_shelf(self, cmdict):
         """ Resize given shelf to new size in bytes.
             In (dict)---
                 name
@@ -192,7 +192,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_get_shelf(name_only=False, no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, name_only=False, no_zombie=True)
 
         bos = self._list_shelf_books(shelf)
         self.errno = errno.EREMOTEIO
@@ -203,7 +203,7 @@ class LibrarianCommandEngine(object):
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
 
-        new_size_bytes = int(self._cmdict['size_bytes'])
+        new_size_bytes = int(cmdict['size_bytes'])
         self.errno = errno.EINVAL
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
@@ -225,7 +225,7 @@ class LibrarianCommandEngine(object):
             return shelf
 
         books_needed = new_book_count - shelf.book_count
-        node_id = self._cmdict['context']['node_id']
+        node_id = cmdict['context']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
             freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
@@ -262,7 +262,7 @@ class LibrarianCommandEngine(object):
         shelf = self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-    def cmd_get_shelf_zaddr(cmd_data):
+    def cmd_get_shelf_zaddr(cmd_data, cmdict):
         """
             In (dict)---
                 ?
@@ -271,7 +271,7 @@ class LibrarianCommandEngine(object):
         """
         return '{"errmsg":"Command not implemented"}'
 
-    def cmd_get_book(cmd_data):
+    def cmd_get_book(cmd_data, cmdict):
         """ List a given book
             In (dict)---
                 book_id
@@ -285,17 +285,17 @@ class LibrarianCommandEngine(object):
         recvd = dict(zip(book_columns, resp))
         return recvd
 
-    def cmd_list_bos(self):
+    def cmd_list_bos(self, cmdict):
         """ List all the books on a given shelf.
             In (dict)---
                 shelf_id
             Out (dict) ---
                 bos data
         """
-        shelf_id = self._cmdict['shelf_id']
+        shelf_id = cmdict['shelf_id']
         bos = db.get_bos_by_shelf_id(shelf_id)
 
-    def cmd_get_xattr(self):
+    def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
             In (dict)---
                 name
@@ -304,26 +304,26 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 value
         """
-        shelf = self.cmd_get_shelf(no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
         if shelf is None:
             return None
-        value = self.db.get_xattr(shelf, self._cmdict['xattr'])
+        value = self.db.get_xattr(shelf, cmdict['xattr'])
         return { 'value': value }
 
-    def cmd_list_xattrs(self):
+    def cmd_list_xattrs(self, cmdict):
         """ Retrieve names of all extendend attributes of a shelf.
             In (dict)---
                 name
             Out (list) ---
                 value
         """
-        shelf = self.cmd_get_shelf(no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
         if shelf is None:
             return None
         value = self.db.list_xattrs(shelf)
         return { 'value': value }
 
-    def cmd_set_xattr(self):
+    def cmd_set_xattr(self, cmdict):
         """ Set/update name/value pair for an extended attribute of a shelf.
             In (dict)---
                 name
@@ -334,16 +334,16 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side
-        shelf = self.cmd_get_shelf(no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
         self.errno = errno.ENOENT
         assert shelf is not None, 'No such shelf'
-        if self.db.get_xattr(shelf, self._cmdict['xattr'], exists_only=True):
+        if self.db.get_xattr(shelf, cmdict['xattr'], exists_only=True):
             return self.db.modify_xattr(
-                shelf, self._cmdict['xattr'], self._cmdict['value'])
+                shelf, cmdict['xattr'], cmdict['value'])
         return self.db.create_xattr(
-            shelf, self._cmdict['xattr'], self._cmdict['value'])
+            shelf, cmdict['xattr'], cmdict['value'])
 
-    def cmd_set_am_time(self):
+    def cmd_set_am_time(self, cmdict):
         """ Set access and modified times, usually of a shelf but
             maybe also the librarian itself.  For now we ignore atime.
             In (dict)---
@@ -353,12 +353,17 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 None or error
         """
-        shelf = self.cmd_get_shelf(no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
         shelf.matchfields = 'mtime' # special case
-        shelf.mtime = self._cmdict['mtime']
+        shelf.mtime = cmdict['mtime']
         self.db.modify_shelf(shelf, commit=True)
 
-    _handlers = { }
+    def cmd_send_OOB(self, cmdict):
+        return { 'OOBmsg': cmdict['msg'] }
+
+    #######################################################################
+
+    _commands = None
 
     def __init__(self, backend, optargs=None, cooked=False):
         try:
@@ -371,12 +376,11 @@ class LibrarianCommandEngine(object):
             )
 
             # Skip 'cmd_' prefix
-            tmp = dict( [ (name[4:], func)
+            self.__class__._commands = dict( [ (name[4:], func)
                         for (name, func) in self.__class__.__dict__.items() if
                             name.startswith('cmd_')
                         ]
             )
-            self._handlers.update(tmp)
             self._cooked = cooked   # return style: raw = dict, cooked = obj
         except Exception as e:
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
@@ -384,9 +388,9 @@ class LibrarianCommandEngine(object):
     def __call__(self, cmdict):
         errmsg = ''
         try:
-            self._cmdict = cmdict
             self.errno = 0
-            handler = self._handlers[self._cmdict['command']]
+            OOBmsg = None
+            command = self._commands[cmdict['command']]
         except KeyError as e:
             # This comment might go better in the module that imports json.
             # From StackOverflow: NULL is not zero. It's not a value, per se:
@@ -399,13 +403,14 @@ class LibrarianCommandEngine(object):
             # Python's json handler turns None into 'null' and vice verse.
             errmsg = 'Bad lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
-            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }
+            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, OOBmsg
 
         try:
             assert not errmsg, errmsg
             errmsg = ''
             self.errno = 0
-            ret = handler(self)
+            ret = None
+            ret = command(self, cmdict)
         except AssertionError as e:     # consistency checks
             errmsg = str(e)
         except (AttributeError, RuntimeError) as e: # idiot checks
@@ -414,23 +419,26 @@ class LibrarianCommandEngine(object):
         except Exception as e:          # the Unknown Idiot
             errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        finally:    # whether it worked or not
-            if errmsg:
-                # Looks better _cooked
+        finally:
+            if errmsg: # Looks better _cooked
                 ret = GenericObject(errmsg=errmsg, errno=self.errno)
-            if self._cooked:    # for self-test
-                return ret
-            if ret is None:
-                return None # see comment elsewhere about JSON(None)
-            if isinstance(ret, list):
-                return [ r.dict for r in ret ] # generator didn't work?
             if isinstance(ret, dict):
-                return ret
-            return ret.dict
+                OOBmsg = ret.get('OOBmsg', None)
+                if OOBmsg is not None:
+                    ret = None
+            if self._cooked:    # for self-test
+                return ret, OOBmsg
+            if ret is None:
+                return None, OOBmsg # see comment elsewhere about JSON(None)
+            if isinstance(ret, list):
+                return [ r.dict for r in ret ], OOBmsg
+            if isinstance(ret, dict):
+                return ret, OOBmsg
+            return ret.dict, OOBmsg
 
     @property
     def commandset(self):
-        return tuple(sorted(self._handlers.keys()))
+        return tuple(sorted(self._commands.keys()))
 
 ###########################################################################
 # Use LCP to construct command dictionaries from fixed data.  Those

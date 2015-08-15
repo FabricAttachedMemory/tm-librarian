@@ -14,11 +14,11 @@ from fuse import FUSE, FuseOSError, Operations
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
-import socket, socket_handling
+import socket_handling
 
 # 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
 
-_perf = int(os.getenv('PERF', 0))
+_perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
 def prentry(func):
@@ -27,22 +27,15 @@ def prentry(func):
 
     def new_func(*args, **kwargs):
         self = args[0]
-        try:
-            self.torms._sock.settimeout(0.001)  # non-blocking
-            junk = self.torms._sock.recv(4096)
-        except socket.timeout:
-            junk = ''
-        except Exception as e:
-            raise FuseOSError(errno.EREMOTEIO)
-        finally:
-            self.torms._sock.settimeout(None)   # blocking
-        if junk:
-            print('OOB:', junk)
-            set_trace()
-
         if not _perf:
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
+        if _perf < 2:
+            OOB = self.torms.recv_OOB()
+            if OOB:
+                print('>>>>>', OOB)
+                set_trace()
+                pass
         return func(*args, **kwargs)
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
@@ -126,12 +119,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Second level: tenant group
     # Third level:  shelves
 
-    def librarian(self, cmd, trace=False):
+    def librarian(self, cmd):
         '''Dictionary in, dictionary out'''
-        if trace:
-            set_trace()
         try:
-            cmd['command']  # idiot check: is it a dict with this keyword
+            cmd['command']  # is it a dict with this keyword
             cmdJS = json.dumps(cmd)
         except KeyError:
             print('Bad original command', cmd)
@@ -147,8 +138,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         try:
             rsp = json.loads(self.torms.inbuf)
+        except ValueError as e:
+            set_trace()
+            pass
         except Exception as e:
-            rsp = { 'errmsg': 'LFSd: %s' % str(e) }
+            set_trace()
+            rsp = { 'errmsg': 'LFS: %s' % str(e) }
         self.torms.clear()
 
         if rsp and 'errmsg' in rsp:
@@ -372,7 +367,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
         req = self.lcp('create_shelf', name=shelf_name)
-        rsp = self.librarian(req, trace=False)
+        rsp = self.librarian(req)
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
         try:
