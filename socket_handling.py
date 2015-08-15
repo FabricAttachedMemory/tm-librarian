@@ -1,6 +1,8 @@
 #!/usr/bin/python3 -tt
 """ Module to handle socket communication for Librarian and Clients """
+
 import errno
+import re
 import socket
 import select
 import sys
@@ -8,13 +10,18 @@ import time
 
 from pdb import set_trace
 
-from librarian_chain import BadChainUnapply
+from function_chain import BadChainReverse
 
 
 class SocketReadWrite(object):
     """ Object that will read and write from a socket
     used primarily as a base class for the Client and Server
     objects """
+
+    _OOBprefix = '<@<'
+    _OOBsuffix = '>@>'
+    _OOBformat = _OOBprefix + '%s' + _OOBsuffix
+    _OOBmatch  = re.compile(_OOBprefix + '\(.*\)' + _OOBsuffix)
 
     def __init__(self, **kwargs):
         peertuple = kwargs.get('peertuple', None)
@@ -35,7 +42,7 @@ class SocketReadWrite(object):
         else:
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
-        self.inbuf = ''
+        self.inbytes = bytes()
         self.appended = 0
         if self._perf:
             self.verbose = 0
@@ -54,38 +61,37 @@ class SocketReadWrite(object):
         '''Allows this object to be used in select'''
         return self._sock.fileno()
 
-    def send_all(self, outstr):
-        """ Encode and send outstr along the socket.
+    def send_all(self, outbytes):
+        """ Thin wrapper to send the bytes.
 
         Args:
             outstr: the python3 string to be sent
-            sock: The socket to send the string on.
 
         Returns:
-                Nothing.
+               Number of bytes sent.
         """
         # FIXME: accept a "chain" in init
-        return self._sock.sendall(str.encode(outstr))
+        return self._sock.sendall(outbytes)
 
     _bufsz = 4096
 
     def recv_chunk(self):
         """ Receive the next part of a message and decode it to a
-            python3 string. FIXME what about chain() stuff?
+            python3 string.
         Args:
         Returns:
         """
 
         # FIXME: accept a "chain" in init, then I can do the
         # chain decode/error loop in here.
-        last = len(self.inbuf)
-        self.inbuf += self._sock.recv(self._bufsz).decode("utf-8").strip()
-        self.appended = len(self.inbuf) - last
+        last = len(self.inbytes)
+        self.inbytes += self._sock.recv(self._bufsz)
+        self.appended = len(self.inbytes) - last
         if not self._perf:
             print('%s: received %d bytes' % (self._str, self.appended))
 
     def clear(self):
-        self.inbuf = ''
+        self.inbytes = bytes()
         self.appended = 0
 
     def send_recv(self, outstring):
@@ -105,12 +111,15 @@ class SocketReadWrite(object):
         self.send_all(outstring)
         self.recv_chunk()
 
+    def send_OOB(self, OOBmsg):
+        self.send_all(self.__OOBfmt % OOBmsg)
+
     def recv_OOB(self):
         '''Check for an unsolicited inbound message when using
            blocking sockets in a cmd/rsp pairing.'''
         try:
             self._sock.settimeout(0.001)  # non-blocking
-            OOB = self._sock.recv(self._bufsz).decode("utf-8").strip()
+            OOB = self._sock.recv(self._bufsz)
         except socket.timeout:
             OOB = ''
         finally:
@@ -235,8 +244,7 @@ class Server(SocketReadWrite):
                 clients.remove(s)
                 s.close()
             except Exception as e:
-                print('%s: SEND failed: %s' % (s, str(e)),
-                      file=sys.stderr)
+                print('%s: SEND failed: %s' % (s, str(e)), file=sys.stderr)
 
         clients = []
         XLO = 50
@@ -263,9 +271,9 @@ class Server(SocketReadWrite):
 
             if not readable: # timeout: respond to partials, reset counters
                 for s in clients:
-                    if s.inbuf:    # No more is coming FIXME: too harsh?
+                    if s.inbytes:    # No more is coming FIXME: too harsh?
                         print('%s: reset inbuf' % s)
-                        s.inbuf = ''
+                        s.clear()
                         send_result(s, None)
                 transactions = 0
                 t0 = time.time()
@@ -301,12 +309,12 @@ class Server(SocketReadWrite):
 
                 try:
                     # Accumulate partial messages until a parse works.
+                    # FIXME: give "chain" to recv_chunk, do this loop there
                     # FIXME: chain should return tuple (cmdict, leftovers)
 
                     s.recv_chunk()
-                    cmdict = chain.reverse_traverse(s.inbuf)
+                    cmdict = chain.reverse_traverse(s.inbytes)
                     # Since it parsed, the message is complete.
-                    # FIXME: give "chain" to socket class, do this there
                     s.clear()
                     if self.verbose:
                         if self.verbose == 1:
@@ -317,7 +325,7 @@ class Server(SocketReadWrite):
                     result, OOBmsg = handler(cmdict)
                 except Exception as e:
                     result = None
-                    if isinstance(e, BadChainUnapply):
+                    if isinstance(e, BadChainReverse):
                         if s.appended:  # got more this last pass
                             continue
                         msg = 'null command'
@@ -337,7 +345,7 @@ class Server(SocketReadWrite):
                     for c in clients:
                         if str(c) != str(s):
                             print(str(c))
-                            c.send_all('<@<%s>@>' % OOBmsg)
+                            c.send_OOB( OOBmsg)
 
 
 def main():

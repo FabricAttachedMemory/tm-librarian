@@ -4,16 +4,10 @@ import json
 
 from pdb import set_trace
 
-class BadChainApply(Exception):
-    pass
-
-class BadChainUnapply(Exception):
-    pass
-
-class JsonLink(Link):
+class JSONDumpsLoadsLink(Link):
     """ Link that converts from dictionaries to json and vise-versa """
 
-    def apply(self, obj):
+    def forward(self, obj):
         """ dictionary -> JSON
 
         Args:
@@ -22,12 +16,9 @@ class JsonLink(Link):
         Returns:
             JSON string
         """
-        try:
-            return json.dumps(obj)
-        except Exception as e:
-            raise BadChainApply(str(e))
+        return json.dumps(obj)
 
-    def unapply(self, obj):
+    def reverse(self, obj):
         """ JSON -> dictionary
 
         Args:
@@ -36,15 +27,12 @@ class JsonLink(Link):
         Returns:
             Python dictionary object
         """
-        try:
-            return json.loads(obj)
-        except Exception as e:
-            raise BadChainUnapply(str(e))
+        return json.loads(obj)
 
 
-class EncodeLink(Link):
+class StrEncDecLink(Link):
     """ Encode and decode strings to pass to a socket """
-    def apply(self, obj):
+    def forward(self, obj):
         """ Apply an encoding python string -> byte string
         Args:
             obj: Python3 string
@@ -54,7 +42,7 @@ class EncodeLink(Link):
         """
         return str.encode(obj)
 
-    def unapply(self, obj):
+    def reverse(self, obj):
         """ Decode encoding
         Args:
             obj: Byte string, like from Socket.recv()
@@ -75,4 +63,5 @@ class LibrarianChain(Chain):
 
     def __init__(self, args):
         super().__init__()
-        super().add_link(JsonLink())
+        self.append(JSONDumpsLoadsLink())
+        self.append(StrEncDecLink())
