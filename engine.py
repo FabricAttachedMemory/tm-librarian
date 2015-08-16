@@ -391,6 +391,7 @@ class LibrarianCommandEngine(object):
         try:
             self.errno = 0
             OOBmsg = None
+            context = cmdict['context']
             command = self._commands[cmdict['command']]
         except KeyError as e:
             # This comment might go better in the module that imports json.
@@ -429,13 +430,18 @@ class LibrarianCommandEngine(object):
                     ret = None
             if self._cooked:    # for self-test
                 return ret, OOBmsg
-            if ret is None:
-                return None, OOBmsg # see comment elsewhere about JSON(None)
-            if isinstance(ret, list):
-                return [ r.dict for r in ret ], OOBmsg
+
+            # Create a dict to which context will be added
             if isinstance(ret, dict):
-                return ret, OOBmsg
-            return ret.dict, OOBmsg
+                value = { 'value': ret }
+            elif isinstance(ret, list):
+                value = { 'value': [ r.dict for r in ret ] }
+            elif ret is None:
+                value = { 'value': None }
+            else:
+                value = { 'value': ret.dict }
+            value['context'] = context
+            return value, OOBmsg
 
     @property
     def commandset(self):
