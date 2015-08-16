@@ -14,8 +14,6 @@ from fuse import FUSE, FuseOSError, Operations
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket_handling
-from function_chain import BadChainForward, BadChainReverse
-from librarian_chain import LibrarianChain
 
 # 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
 
@@ -80,7 +78,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'node_id': node_id,
         }
         self.lcp = LibrarianCommandProtocol(context)
-        self.chain = LibrarianChain()
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
@@ -126,8 +123,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''Dictionary in, dictionary out'''
         try:
             cmd['command']  # is it a dict with this keyword
-            self.torms.send_all(cmd, chain=self.chain)
-            rsp = self.torms.recv_chunk(chain=self.chain, selectable=False)
+            self.torms.send_all(cmd)
+            rsp = self.torms.recv_chunk(selectable=False)
         except OSError as e:
             raise FuseOSError(errno.EHOSTDOWN)
         except Exception as e:
@@ -201,8 +198,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian({'command': 'list_shelves'})
         yield '.'
         yield '..'
-        for shelf in rsp:
-           yield shelf['name']
+        try:
+            for shelf in rsp:
+                yield shelf['name']
+        except Exception as e:
+            print(str(e))
+            set_trace()
+            raise
 
     # os.getaccess(path, mode): returns nothing (None), or
     # raise EACCESS.
@@ -300,7 +302,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         try:
             blocks = globals['books_total']
         except Exception as e:
-            set_trace()
             raise   # back out to fuse.py
         bfree = bavail = blocks - globals['books_used']
         bsize =globals['book_size_bytes']

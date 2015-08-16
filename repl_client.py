@@ -6,7 +6,6 @@ from pdb import set_trace
 from pprint import pprint
 
 import socket_handling
-from librarian_chain import LibrarianChain
 
 import cmdproto
 
@@ -27,7 +26,6 @@ def main(serverhost='localhost'):
 
     lcp = cmdproto.LibrarianCommandProtocol(auth)
 
-    chain = LibrarianChain()
     client = socket_handling.Client(selectable=False)
     try:
         client.connect(host=serverhost)
@@ -72,12 +70,11 @@ def main(serverhost='localhost'):
             continue
 
         if client is None:
-            out_string = chain.forward_traverse(cmdict)
-            print('LOCAL:', out_string)
+            pprint('LOCAL:', cmdict)
         else:
             while loop > 0:
-                client.send_all(cmdict, chain=chain)
-                rspdict = client.recv_chunk(chain=chain, selectable=False)
+                client.send_all(cmdict)
+                rspdict = client.recv_chunk(selectable=False)
                 pprint(loop, rspdict)
                 time.sleep(delay)
                 loop -= 1
