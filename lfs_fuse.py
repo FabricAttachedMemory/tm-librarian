@@ -119,23 +119,25 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Second level: tenant group
     # Third level:  shelves
 
-    def librarian(self, cmd):
+    def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
         try:
-            cmd['command']  # is it a dict with this keyword
-            self.torms.send_all(cmd)
+            # double-check: dict with two keywords?
+            cmdict['command'] and cmdict['context']
+            self.torms.send_all(cmdict)
             rsp = self.torms.recv_chunk(selectable=False)
+            assert frozenset(rsp.keys()) == frozenset(('context', 'value'))
         except OSError as e:
             raise FuseOSError(errno.EHOSTDOWN)
         except Exception as e:
-            raise SystemExit('Dummy: ' + str(e))
+            set_trace()
             rsp = { 'errmsg': 'LFS: %s' % str(e) }
 
         if rsp and 'errmsg' in rsp:
-            print('%s failed: %s' % (cmd['command'], rsp['errmsg']),
+            print('%s failed: %s' % (cmdict['command'], rsp['errmsg']),
                   file=sys.stderr)
             raise FuseOSError(rsp['errno'])
-        return rsp  # None is now legal, let the caller interpret it.
+        return rsp['value'] # None is legal, let the caller deal with it.
 
     # Higher-level FS operations
 
@@ -148,7 +150,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             pass
         if path == '/':
             now = int(time.time())
-            shelves = self.librarian({'command': 'list_shelves'})
+            shelves = self.librarian(self.lcp('list_shelves'))
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
@@ -162,8 +164,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             return tmp
 
         shelf_name = self.path2shelf(path)
-        req = self.lcp('get_shelf', name=shelf_name)
-        rsp = self.librarian(req)
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         try:
             assert rsp['name'] == shelf_name
         except Exception as e:
@@ -195,7 +196,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def readdir(self, path, fh):
         if path != '/':
             raise FuseOSError(errno.ENOENT)
-        rsp = self.librarian({'command': 'list_shelves'})
+        rsp = self.librarian(self.lcp('list_shelves'))
         yield '.'
         yield '..'
         try:
@@ -322,10 +323,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'Unexpected args'
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian({
-                                'command': 'destroy_shelf',
-                                'name':     shelf_name,
-                             })
+        rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
         assert rsp['id'] not in self.fd2shelf_id.values()
         try:
             os.unlink(self.shadowpath(shelf_name))
@@ -354,8 +352,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # looking for filehandles?  See FUSE docs
         assert not kwargs, 'open() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('open_shelf', name=shelf_name)
-        rsp = self.librarian(req)
+        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         try:
             shelf_id = rsp['id']
             fd = os.open(self.shadowpath(shelf_name), flags)
@@ -370,8 +367,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def create(self, path, mode, fi=None):
         assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('create_shelf', name=shelf_name)
-        rsp = self.librarian(req)
+        rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
         try:
@@ -399,9 +395,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def truncate(self, path, length, *args, **kwargs):
         assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('get_shelf', name=shelf_name) # FIXME: common w/getattr()
-        listrsp = self.librarian(req)
-
+        listrsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
                         name=shelf_name,
                         size_bytes=length,
