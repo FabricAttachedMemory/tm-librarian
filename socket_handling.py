@@ -114,12 +114,12 @@ class SocketReadWrite(object):
             try:
                 self.inbytes += self._sock.recv(self._bufsz)
             except BlockingIOError as e:
-                # Not ready.  get back on the select train
+                # Not ready.  Get back on the select train, or just re-recv?
                 if selectable:
                     return None
                 continue
             except Exception as e:
-                set_trace() # socket death
+                set_trace() # socket death?
                 raise
 
             appended = len(self.inbytes) - last
@@ -134,18 +134,25 @@ class SocketReadWrite(object):
             if chain is None:
                 return self.inbytes[last:]
 
+            retry = False
             while True:
                 try:    # If it traverses, I can be done
                     result = chain.reverse_traverse(self.inbytes)
                     self.clear()
                     return result
                 except BadChainReverse:
+                    if retry:
+                        set_trace()
+                        pass
                     try:
                         pre = self.inbytes.index(self._OOBpreenc)
                         suf = self.inbytes.index(self._OOBsufenc) + 3
                     except ValueError:
                         if self.inbytes:
-                            set_trace()
+                            # Not sure how this happens.  The one time it
+                            # did, there was a full command in inbytes.
+                            retry = True
+                            continue
                         break # go back to reading loop
 
                     self.inOOB += self.inbytes[pre:suf].decode('utf-8')

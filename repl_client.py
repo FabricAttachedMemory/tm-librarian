@@ -37,6 +37,8 @@ def main(serverhost='localhost'):
         client = None
 
     while True:
+        loop = 1
+        delay = 0.0
         user_input_list = input("command> ").split(' ')
         try:
             assert user_input_list, 'Missing command'
@@ -45,18 +47,16 @@ def main(serverhost='localhost'):
                 continue
             if command == 'help':
                 print(lcp.help)
+                print('loop count delay_secs real_command ...')
                 print('q or quit to end the session')
                 continue
             if command in ('adios', 'bye', 'exit', 'quit', 'q'):
                 break
 
-            if command == 'death_by_OOB':
-                cmdict = lcp('send_OOB', 'DEATH BY OOB')
-                set_trace()
-                while True:
-                    rspdict = client.send_recv(cmdict, chain)
-                    pprint(rspdict)
-                    time.sleep(0.5)
+            if command == 'loop':
+                loop = int(user_input_list.pop(0))
+                delay = float(user_input_list.pop(0))
+                command = user_input_list.pop(0)
 
             # Two forms
             cmdict = lcp(command, *user_input_list)
@@ -71,13 +71,16 @@ def main(serverhost='localhost'):
             print('Bad command:', str(e))
             continue
 
-
         if client is None:
             out_string = chain.forward_traverse(cmdict)
             print('LOCAL:', out_string)
         else:
-            rspdict = client.send_recv(cmdict, chain)
-            pprint(rspdict)
+            while loop > 0:
+                client.send_all(cmdict, chain=chain)
+                rspdict = client.recv_chunk(chain=chain, selectable=False)
+                pprint(loop, rspdict)
+                time.sleep(delay)
+                loop -= 1
         print()
 
 if __name__ == '__main__':
