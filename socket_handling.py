@@ -8,9 +8,7 @@ import sys
 import time
 
 from pdb import set_trace
-
-from function_chain import BadChainReverse
-
+from json import dumps, loads   # forward/outbound, reverse/inbound
 
 class SocketReadWrite(object):
     """ Object that will read and write from a socket
@@ -43,7 +41,7 @@ class SocketReadWrite(object):
         else:   # A dead socket can't getpeername so cache it now
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
-        self.inbytes = bytes()
+        self.instr = ''
         self.inOOB = ''
         if self._perf:
             self.verbose = 0
@@ -63,24 +61,23 @@ class SocketReadWrite(object):
         '''Allows this object to be used in select'''
         return self._sock.fileno()
 
-    def send_all(self, obj, chain=None):
+    def send_all(self, obj, JSON=True):
         """ Send an object after optional transformation
 
         Args:
             obj: the object to be sent
-            chain: the transformations from object to bytes
 
         Returns:
                Number of bytes sent.
         """
 
-        if chain is None:
-            outbytes = obj
+        if JSON:
+            outbytes = dumps(obj).encode()
         else:
-            outbytes = chain.forward_traverse(obj)
+            outbytes = obj.encode()
         if self.verbose:
             print('%s: sending %s' % (s,
-                  'NULL' if result is None
+                  'NULL' if obj is None
                    else '%d bytes' % len(outbytes)))
         try:
             return self._sock.sendall(outbytes)
@@ -100,7 +97,7 @@ class SocketReadWrite(object):
 
     _bufsz = 4096
 
-    def recv_chunk(self, chain=None, selectable=True):
+    def recv_chunk(self, selectable=True):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
@@ -108,11 +105,11 @@ class SocketReadWrite(object):
         """
 
         while True:
-            last = len(self.inbytes)
+            last = len(self.instr)
             if last:
-                print('INBYTES: %s' % self.inbytes.decode('utf-8'))
+                print('INBYTES: %s' % self.instr)
             try:
-                self.inbytes += self._sock.recv(self._bufsz)
+                self.instr += self._sock.recv(self._bufsz).decode('utf-8')
             except BlockingIOError as e:
                 # Not ready.  Get back on the select train, or just re-recv?
                 if selectable:
@@ -122,7 +119,7 @@ class SocketReadWrite(object):
                 set_trace() # socket death?
                 raise
 
-            appended = len(self.inbytes) - last
+            appended = len(self.instr) - last
             if not self._perf:
                 print('%s: received %d bytes' % (self._str, appended))
 
@@ -131,13 +128,13 @@ class SocketReadWrite(object):
                 self.close()
                 raise OSError(errno.ECONNABORTED, msg)
 
-            if chain is None:
-                return self.inbytes[last:]
-
             retry = False
             while True:
-                try:    # If it traverses, I can be done
-                    result = chain.reverse_traverse(self.inbytes)
+                if '}{' in self.instr:
+                    set_trace()
+                    pass
+                try:    # If it loads, this recv is complete
+                    result = loads(self.instr)
                     self.clear()
                     return result
                 except BadChainReverse:
@@ -145,29 +142,28 @@ class SocketReadWrite(object):
                         set_trace()
                         pass
                     try:
-                        pre = self.inbytes.index(self._OOBpreenc)
-                        suf = self.inbytes.index(self._OOBsufenc) + 3
+                        pre = self.instr.index(self._OOBprefix)
+                        suf = self.instr.index(self._OOBsuffix) + 3
                     except ValueError:
-                        if self.inbytes:
+                        if self.instr:
                             # Not sure how this happens.  The one time it
-                            # did, there was a full command in inbytes.
+                            # did, there was a full command in instr.
                             retry = True
                             continue
                         break # go back to reading loop
 
-                    self.inOOB += self.inbytes[pre:suf].decode('utf-8')
-                    self.inbytes = self.inbytes[0:pre] + self.inbytes[suf:]
+                    self.inOOB += self.instr[pre:suf]
+                    self.instr = self.instr[0:pre] + self.instr[suf:]
                     # and loop around to try the reverse_traverse again
 
     def clear(self):
-        self.inbytes = bytes()
+        self.instr = ''
 
     def clearOOB(self):
         self.inOOB = ''
 
     def send_OOB(self, OOBmsg):
-        OOBytes = (self._OOBformat % OOBmsg).encode()
-        self.send_all(OOBytes)
+        return self.send_all(self._OOBformat % OOBmsg, JSON=False)
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
@@ -257,22 +253,20 @@ class Server(SocketReadWrite):
     # fd which will force EBADF.  Finally it closes the real socket fd.
     # Hence the explicit searches for fileno == -1 below.
 
-    def serv(self, handler, chain):
+    def serv(self, handler):
         """ "event-loop" for the server this is where the server starts
         listening and serving requests.
 
         Args:
             handler: The handler for commands received by the server.
-            chain: The chain to convert to strings from the socket into usable
-                objects.
         Returns:
             Nothing.
         """
 
-        # Consolidate error handling.  Closure on "chain" and "clients"
+        # Consolidate error handling.  Closure on "clients"
         def send_result(s, result):
             try:
-                s.send_all(result, chain)
+                s.send_all(result)
             except Exception as e:
                 print(str(e), file=sys.stderr)
                 clients.remove(s)
@@ -303,7 +297,7 @@ class Server(SocketReadWrite):
 
             if not readable: # timeout: respond to partials, reset counters
                 for s in clients:
-                    if s.inbytes:    # No more is coming FIXME: too harsh?
+                    if s.instr:    # No more is coming FIXME: too harsh?
                         print('%s: reset inbuf' % s)
                         s.clear()
                         send_result(s, None)
@@ -341,7 +335,7 @@ class Server(SocketReadWrite):
                     continue
 
                 try:
-                    cmdict = s.recv_chunk(chain=chain)
+                    cmdict = s.recv_chunk()
                     if cmdict is None:  # need more, not available now
                         continue
 

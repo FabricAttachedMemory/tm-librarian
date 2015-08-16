@@ -8,7 +8,6 @@ from pdb import set_trace
 from backend_sqlite3 import LibrarianDBackendSQLite3 as LBE
 from engine import LibrarianCommandEngine as LCE
 from socket_handling import Server
-from librarian_chain import LibrarianChain
 
 # Initialize argparse for local stuff, then have each module add
 # its arguments, then go.
@@ -25,17 +24,16 @@ parser.add_argument('--perf',
 
 def main():
     """ Librarian main """
-    for obj in (LBE, LCE, Server, LibrarianChain):
+    for obj in (LBE, LCE, Server):
         obj.argparse_extend(parser)
     parseargs = parser.parse_args()
 
     backend = LBE(parseargs)
     lce = LCE(backend, parseargs)
     server = Server(parseargs, perf=parseargs.perf)
-    chain = LibrarianChain(parseargs)
 
     try:
-        server.serv(lce, chain)
+        server.serv(lce)
     except Exception as e:
         print(str(e))
 
