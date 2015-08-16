@@ -22,21 +22,16 @@ from librarian_chain import LibrarianChain
 _perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
+# Probably a better spot to place this.
 def prentry(func):
     if _perf > 1:
-        return func
+        return func # No print, no OOB check
 
     def new_func(*args, **kwargs):
         self = args[0]
         if not _perf:
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
-        if False and  _perf < 2:
-            OOB = self.torms.recv_OOB()
-            if OOB:
-                print('>>>>>', OOB)
-                set_trace()
-                pass
         ret = func(*args, **kwargs)
         if self.torms.inOOB:
             print('\n!!!!!!!!!!!!!!!!!!!!!!!!! %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n ' %
@@ -292,7 +287,21 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def statfs(self, path): # "df" command; example used statVfs.
         globals = self.librarian(self.lcp('get_fs_stats'))
         # A book is a block.  Let other commands do the math.
-        blocks = globals['books_total']
+
+        # Where a stress error occurs, jfdi is
+        # df /lfs
+        # ls -al /lfs
+        # touch /lfs/junk
+        # what comes in here is the response for ls -al, a list.
+        # not sure how this gets out of sync.  A two-stanza jfdi w/o
+        # touch does not get out of sync.  Now try a truncate and
+        # see if that goes out of sync, ie, it's the writes or is it
+        # just touch?
+        try:
+            blocks = globals['books_total']
+        except Exception as e:
+            set_trace()
+            raise   # back out to fuse.py
         bfree = bavail = blocks - globals['books_used']
         bsize =globals['book_size_bytes']
         return {
