@@ -28,6 +28,7 @@ def prentry(func):
     def new_func(*args, **kwargs):
         self = args[0]
         if not _perf:
+            print('----------------------------------')
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
         ret = func(*args, **kwargs)
@@ -122,22 +123,37 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
         try:
-            # double-check: dict with two keywords?
-            cmdict['command'] and cmdict['context']
+            # validate primary keys
+            command = cmdict['command']
+            seq = cmdict['context']['seq']
+            # tid = threading.get_ident()
+            # print('%s[%d:%d]' % (command, tid, seq))
+        except KeyError as e:
+            print(str(e))
+            raise FuseOSError(errno.ENOKEY)
+
+        value = { }
+        try:
             self.torms.send_all(cmdict)
             rsp = self.torms.recv_chunk(selectable=False)
-            assert frozenset(rsp.keys()) == frozenset(('context', 'value'))
+            value = rsp['value']
+            rspseq = rsp['context']['seq']
+            assert seq == rspseq, 'Not for me %s != %s' % (seq, rspseq)
         except OSError as e:
-            raise FuseOSError(errno.EHOSTDOWN)
+            value['errmsg'] = 'Communications error with librarian'
+            value['errno'] = errno.EHOSTDOWN
+        except KeyError as e:
+            value['errmsg'] = 'No key: %s' % str(e)
+            value['errno'] = errno.ENOKEY
         except Exception as e:
-            set_trace()
-            rsp = { 'errmsg': 'LFS: %s' % str(e) }
+            value['errmsg'] = str(e)
+            value['errno'] = errno.EREMOTEIO
 
-        if rsp and 'errmsg' in rsp:
-            print('%s failed: %s' % (cmdict['command'], rsp['errmsg']),
+        if value and 'errmsg' in value:
+            print('%s failed: %s' % (command, value['errmsg']),
                   file=sys.stderr)
-            raise FuseOSError(rsp['errno'])
-        return rsp['value'] # None is legal, let the caller deal with it.
+            raise FuseOSError(value['errno'])
+        return value # None is legal, let the caller deal with it.
 
     # Higher-level FS operations
 
@@ -471,7 +487,8 @@ def main(source, mountpoint, node_id):
             mountpoint,
             allow_other=True,
             noatime=True,
-            foreground=True)
+            foreground=True,
+            nothreads=True)
     except Exception as e:
         raise SystemExit('fusermount probably failed, retry in foreground')
 

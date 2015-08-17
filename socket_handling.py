@@ -115,8 +115,11 @@ class SocketReadWrite(object):
                 if selectable:
                     return None
                 continue
+            except ConnectionReset as e:
+                print(e, appended)
+                set_trace()
             except Exception as e:
-                set_trace() # socket death?
+                set_trace()
                 raise
 
             appended = len(self.instr) - last
