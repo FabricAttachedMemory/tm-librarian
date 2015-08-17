@@ -30,7 +30,8 @@ class SocketReadWrite(object):
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self._sock = sock
-        self._sock.setblocking(not selectable)
+        self._created_blocking = not selectable
+        self._sock.setblocking(self._created_blocking)
 
         if peertuple is None:
             self._peer = ''
@@ -131,13 +132,14 @@ class SocketReadWrite(object):
 
     _bufsz = 4096
 
-    def recv_chunk(self, selectable=True):
+    def recv_chunk(self):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
         Returns:
         """
 
+        appended = 0    # forward references from exceptions
         while True:
             if self.inOOB:  # make caller deal with OOB first
                 return None
@@ -150,21 +152,12 @@ class SocketReadWrite(object):
 
             # Is this a go around because the eatery below was exhausted, or di
             # it get re-entered after an early leave to consume some OOB?
-            appended = 0
-            if not last:
-                try:
-                    self.instr += self._sock.recv(self._bufsz).decode('utf-8')
-                except BlockingIOError as e:
-                    # Not ready.  Get back on the select train, or just re-recv?
-                    if selectable:
-                        return None
-                    continue
-                except ConnectionReset as e:
-                    set_trace()
-                    pass
-                except Exception as e:
-                    set_trace()
-                    raise
+            try:
+                print('Receiving')
+                retryok = True
+                if last:
+                    self._sock.settimeout(1.0)  # sort of puts me in blocking mode
+                self.instr += self._sock.recv(self._bufsz).decode('utf-8')
 
                 appended = len(self.instr) - last
                 if not self._perf:
@@ -175,6 +168,22 @@ class SocketReadWrite(object):
                     self.close()
                     raise OSError(errno.ECONNABORTED, msg)
 
+            except BlockingIOError as e:
+                # Not ready; only happens on a fresh read with non-blocking mode (ie,
+                # can't happen in timeout mode).  Get back to select, or just re-recv?
+                set_trace()
+                if not self._sock._created_blocking:
+                    return None
+                continue
+            except socket.timeout as e:
+                retryok = False
+                pass
+            except Exception as e:
+                self._sock.setblocking(self._created_blocking)
+                set_trace()
+                raise
+            self._sock.setblocking(self._created_blocking)  # undo timeout call
+
             partialOOB = ''
             while True:
                 try:    # If it loads, this recv is complete
@@ -184,6 +193,10 @@ class SocketReadWrite(object):
                 except ValueError as e:
                     # Bad JSON conversion.  Extract OOB and try JSON again,
                     # else "break" out of here back to select.  Start with prefix.
+                    badrange = str(e).split('(char')[1].strip() # might not be a range
+                    badrange = badrange.replace(')', '')
+                    badindex = int(badrange.split()[0].strip())
+
                     pre = self.instr.find(self._OOBprefix)
                     if pre != -1:
                         suf = self.instr.find(self._OOBsuffix, pre + 3) + 3
@@ -194,9 +207,8 @@ class SocketReadWrite(object):
                                 return None     # ...process the current OOBs
 
                         else: # OOB started.  Is there anything else?
-                            if pre == 0:
+                            if pre == 0 and retryok:
                                 # that's all there is in instr, need more
-                                needmore = True
                                 break
                             # clear it out of the way and retry JSON
                             set_trace()
@@ -204,16 +216,15 @@ class SocketReadWrite(object):
                             self.instr = self.instr[:pre]
                             continue
 
-                        if len(self.inOOB) > 50:    # go eat it
-                            return None
+                        if retryok:
+                            if self.inOOB and len(self.instr) < 10000 : # eat the OOB
+                                return None
                         continue
 
-                    # instr is a (partial) mess.  What can be done?
+                    # instr is a mess.  Is there any correct forward progress?
                     if self.inOOB:
-                        set_trace()
                         return None # finish this off
 
-                    # Two messages hasn't happened since I turned off threading.
                     # No sign of legal OOB, what about partial anything?  Chances
                     # are an OOB flood filled instr.  Reaching this point means
                     # there's no legal OOB start, what about an OOB end?
@@ -226,8 +237,9 @@ class SocketReadWrite(object):
                         set_trace()
                         self.instr = self.instr[suf +3:]
                         if self.instr:
-                            continue
-                        break
+                            continue    # try JSON parse
+                        if retryok:
+                            break
 
                     # No full prefix or suffix.  Is there any sign of JSON start?
                     # Since JSON messages are synchronous, other stuff is probably
@@ -238,15 +250,19 @@ class SocketReadWrite(object):
                         self.instr = self.instr[left:]
                         if self.instr:
                             continue
-                        break
+                        if retryok:
+                            break
 
-                    if fullread:
+                    if fullread and retryok:
                         # Ass-u-me more is coming: 1 in _bufz chance of being wrong
                         set_trace()
                         break
 
-                    self.instr = ''
-                    raise ImConfusedError
+                    # at this stage, it's not recoverable, but I don't
+                    # want to crash any exchange going on with client.
+                    # What if...
+                    set_trace()
+                    return None
 
                 except Exception as e:
                     set_trace()
@@ -432,7 +448,7 @@ class Server(SocketReadWrite):
                     result = OOBmsg = None
                     result, OOBmsg = handler(cmdict)
                 except ConnectionAbortedError as e:
-                    print(str(e), 'aborted')
+                    print(str(e))
                     clients.remove(s)
                     if s in to_write:
                         to_write.remove(s)

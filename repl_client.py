@@ -112,7 +112,7 @@ def main(serverhost='localhost'):
                 while loop == 'forever' or loop > 0:
                     print(loop) # need to see small indication of progress
                     client.send_all(cmdict)
-                    rspdict = client.recv_chunk(selectable=False)
+                    rspdict = client.recv_chunk()
                     if verbose:
                         pprint(rspdict['value'])
                     time.sleep(delay)

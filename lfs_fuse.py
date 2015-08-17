@@ -140,25 +140,29 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             self.torms.send_all(cmdict)
             rspdict = None
             while rspdict is None:
-                rspdict = self.torms.recv_chunk(selectable=False)
+                rspdict = self.torms.recv_chunk()
                 if self.torms.inOOB:
                     self.handleOOB()
+            if 'errmsg' in rspdict:
+                value['errmsg'] = rspdict['errmsg']
+                value['errno'] = rspdict['errno']
 
         except OSError as e:
             set_trace()
             value['errmsg'] = 'Communications error with librarian'
             value['errno'] = errno.EHOSTDOWN
         except MemoryError as e:    # OOB storm and internal error not pull instr
+            set_trace()
             value['errmsg'] = 'OOM BOOM'
             value['errno'] = errno.ENOMEM
         except Exception as e:
+            set_trace()
             value['errmsg'] = str(e)
             value['errno'] = errno.EREMOTEIO
 
-        if 'errmsg' in rspdict:
-            print('%s failed: %s' % (command, rspdict['errmsg']),
-                file=sys.stderr)
-            raise FuseOSError(rspdict['errno'])
+        if 'errmsg' in value:
+            print('%s failed: %s' % (command, value['errmsg']), file=sys.stderr)
+            raise FuseOSError(value['errno'])
 
         try:
             value = rspdict['value']
