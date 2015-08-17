@@ -294,6 +294,7 @@ class LibrarianCommandEngine(object):
         """
         shelf_id = cmdict['shelf_id']
         bos = db.get_bos_by_shelf_id(shelf_id)
+        return bos
 
     def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
@@ -358,6 +359,7 @@ class LibrarianCommandEngine(object):
         shelf.matchfields = 'mtime' # special case
         shelf.mtime = cmdict['mtime']
         self.db.modify_shelf(shelf, commit=True)
+        return None
 
     def cmd_send_OOB(self, cmdict):
         return { 'OOBmsg': cmdict['msg'] }

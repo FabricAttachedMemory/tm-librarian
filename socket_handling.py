@@ -68,7 +68,7 @@ class SocketReadWrite(object):
         """ Send an object after optional transformation
 
         Args:
-            obj: the object to be sent
+            obj: the object to be sent, None means work off backlog
 
         Returns:
                True or raised error.
@@ -80,25 +80,23 @@ class SocketReadWrite(object):
             outbytes = obj.encode()
         if self.verbose:
             print('%s: sending %s' % (self,
-                  'NULL' if obj is None
-                   else '%d bytes' % len(outbytes)))
+                'NULL' if obj is None
+                else '%d bytes' % len(outbytes)))
 
-        # socket.sendall will do that and return None on success.  If not
+        # socket.sendall will do so and return None on success.  If not,
         # an error is raised with no clue on byte count.  Do it myself.
-        self.outbytes.append(outbytes)
+        self.outbytes += outbytes
         try:
             while len(self.outbytes):
+                # This seems to throw errno 11 on its own, but just in case
+                # do it myself.  BTW, EAGAIN == EWOULDBLOCK
                 n = self._sock.send(self.outbytes)
                 if not n:
                     raise OSError(errno.EWOULDBLOCK, 'full')
                 self.outbytes = self.outbytes[n:]
             return True
-        except AttributeError as e:
-            set_trace() # AttributeError?  really?
-            raise OSError(errno.ECONNABORTED, str(self))
         except BlockingIOError as e:
             # Far side is full
-            set_trace()
             raise
         except OSError as e:
             if e.errno == errno.EPIPE:
@@ -145,31 +143,38 @@ class SocketReadWrite(object):
                 return None
             last = len(self.instr)
             if last:
-                print('INSTR: %s' % self.instr)
-            try:
-                self.instr += self._sock.recv(self._bufsz).decode('utf-8')
-            except BlockingIOError as e:
-                # Not ready.  Get back on the select train, or just re-recv?
-                if selectable:
-                    return None
-                continue
-            except ConnectionReset as e:
-                print(e, appended)
-                set_trace()
-            except Exception as e:
-                set_trace()
-                raise
+                if last > 60:
+                    print('INSTR: %d bytes' % last)
+                else:
+                    print('INSTR: %s' % self.instr)
 
-            appended = len(self.instr) - last
-            if not self._perf:
-                print('%s: received %d bytes' % (self._str, appended))
+            # Is this a go around because the eatery below was exhausted, or di
+            # it get re-entered after an early leave to consume some OOB?
+            appended = 0
+            if not last:
+                try:
+                    self.instr += self._sock.recv(self._bufsz).decode('utf-8')
+                except BlockingIOError as e:
+                    # Not ready.  Get back on the select train, or just re-recv?
+                    if selectable:
+                        return None
+                    continue
+                except ConnectionReset as e:
+                    set_trace()
+                    pass
+                except Exception as e:
+                    set_trace()
+                    raise
 
-            if not appended:   # Far side is gone
-                msg = '%s: closed by remote' % str(self)
-                self.close()
-                raise OSError(errno.ECONNABORTED, msg)
+                appended = len(self.instr) - last
+                if not self._perf:
+                    print('%s: received %d bytes' % (self._str, appended))
 
-            JSONretry = False
+                if not appended:   # Far side is gone
+                    msg = '%s: closed by remote' % str(self)
+                    self.close()
+                    raise OSError(errno.ECONNABORTED, msg)
+
             partialOOB = ''
             while True:
                 try:    # If it loads, this recv is complete
@@ -178,27 +183,35 @@ class SocketReadWrite(object):
                     return result
                 except ValueError as e:
                     # Bad JSON conversion.  Extract OOB and try JSON again,
-                    # else "break" out of here back to select.
+                    # else "break" out of here back to select.  Start with prefix.
                     pre = self.instr.find(self._OOBprefix)
                     if pre != -1:
                         suf = self.instr.find(self._OOBsuffix, pre + 3) + 3
                         if suf != -1:
                             self.inOOB.append(self.instr[pre + 3:suf - 3])
                             self.instr = self.instr[0:pre] + self.instr[suf:]
-                            if not self.instr:  # Nothing to try for JSON
-                                break
+                            if not self.instr:  # Nothing to try for JSON, so...
+                                return None     # ...process the current OOBs
 
                         else: # OOB started.  Is there anything else?
                             if pre == 0:
-                                # that's all there is, wait for more
-                                break   # JSON loop, return to select
+                                # that's all there is in instr, need more
+                                needmore = True
+                                break
+                            # clear it out of the way and retry JSON
+                            set_trace()
                             partialOOB = self.instr[pre:]
                             self.instr = self.instr[:pre]
+                            continue
 
-                        if len(self.inOOB) > 20:
-                            break   # go and eat it
-                        JSONretry += 1
+                        if len(self.inOOB) > 50:    # go eat it
+                            return None
                         continue
+
+                    # instr is a (partial) mess.  What can be done?
+                    if self.inOOB:
+                        set_trace()
+                        return None # finish this off
 
                     # Two messages hasn't happened since I turned off threading.
                     # No sign of legal OOB, what about partial anything?  Chances
@@ -216,24 +229,23 @@ class SocketReadWrite(object):
                             continue
                         break
 
-                    # No OOB headers at all.  Is there any sign of JSON start?  Since
-                    # JSON messages are synchronous, other stuff is probably partial
-                    # OOB fragments.
+                    # No full prefix or suffix.  Is there any sign of JSON start?
+                    # Since JSON messages are synchronous, other stuff is probably
+                    # partial OOB fragments.
                     left = self.instr.find('{')
                     if left != -1:
                         set_trace()
-                        if JSONretry:
-                            set_trace()
                         self.instr = self.instr[left:]
                         if self.instr:
                             continue
                         break
 
-                    if fullread:    # Ass-u-me more is coming
+                    if fullread:
+                        # Ass-u-me more is coming: 1 in _bufz chance of being wrong
                         set_trace()
                         break
 
-                    set_trace()
+                    self.instr = ''
                     raise ImConfusedError
 
                 except Exception as e:
@@ -375,9 +387,9 @@ class Server(SocketReadWrite):
                 xlimit = XLO
                 continue
 
-            if writeable:
-                set_trace()
-                pass
+            for w in writeable:
+                if w.send_all('', JSON=False):
+                    to_write.remove(w)
 
             for s in readable:
                 transactions += 1
@@ -419,9 +431,11 @@ class Server(SocketReadWrite):
                             print('%s: %s' % (s, str(cmdict)))
                     result = OOBmsg = None
                     result, OOBmsg = handler(cmdict)
-                except OSError as e:    # Socket has been closed
-                    print(str(e))
+                except ConnectionAbortedError as e:
+                    print(str(e), 'aborted')
                     clients.remove(s)
+                    if s in to_write:
+                        to_write.remove(s)
                     continue
                 except Exception as e:  # Internal, lower level stuff
                     if e.__class__ in (AssertionError, RuntimeError):
@@ -432,8 +446,6 @@ class Server(SocketReadWrite):
 
                 # NO "finally": it circumvents "continue" in error clause(s)
                 if not s.send_result(result):
-                    set_trace() # backlog it
-                    s.backlog.append(result)
                     to_write.append(s)
                     continue    # no need to check OOB for now
 
