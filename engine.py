@@ -535,7 +535,7 @@ if __name__ == '__main__':
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsgr'):
-        raise SystemExit('Shelf ' + name + ' problems (resize down)')
+        raise SystemExit('Shelf ' + name + ' problems (initial size)')
 
     shelf.size_bytes = (50 * lce.book_size_bytes)
     recvd = lcp('resize_shelf', shelf)
@@ -548,13 +548,13 @@ if __name__ == '__main__':
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsg'):
-        raise SystemExit('Shelf ' + name + ' problems (resize down)')
+        raise SystemExit('Shelf ' + name + ' problems (close shelf)')
 
     # destroy shelf is just based on the name
     recvd = lcp('destroy_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsg'):
-        raise SystemExit('Shelf ' + name + ' problems (resize down)')
+        raise SystemExit('Shelf ' + name + ' problems (destroy shelf)')
 
     raise SystemExit(0)

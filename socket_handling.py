@@ -60,6 +60,9 @@ class SocketReadWrite(object):
         '''Allows this object to be used in select'''
         return self._sock.fileno()
 
+    #----------------------------------------------------------------------
+    # Send stuff
+
     def send_all(self, obj, JSON=True):
         """ Send an object after optional transformation
 
@@ -81,7 +84,11 @@ class SocketReadWrite(object):
         try:
             return self._sock.sendall(outbytes)
         except AttributeError as e:
+            set_trace() # AttributeError?  really?
             raise OSError(errno.ECONNABORTED, str(self))
+        except BlockingIOError as e:
+            # Far side is full
+            raise
         except OSError as e:
             if e.errno == errno.EPIPE:
                 msg = 'closed by client'
@@ -96,6 +103,23 @@ class SocketReadWrite(object):
             pass
             raise
 
+    def send_result(self, result):
+        try:
+            return bool(self.send_all(result))
+        except Exception as e:  # could be blocking IO
+            print('%s: %s' % (self, str(e)), file=sys.stderr)
+            return False
+
+    def send_OOB(self, OOBmsg):
+        try:
+            return bool(self.send_all(self._OOBformat % OOBmsg, JSON=False))
+        except Exception as e:  # Probably BlockingIOError
+            print('%s: %s' % (self, str(e)), file=sys.stderr)
+            return False
+
+    #----------------------------------------------------------------------
+    # Receive stuff
+
     _bufsz = 4096
 
     def recv_chunk(self, selectable=True):
@@ -106,6 +130,8 @@ class SocketReadWrite(object):
         """
 
         while True:
+            if self.inOOB:  # make caller deal with OOB first
+                return None
             last = len(self.instr)
             if last:
                 print('INSTR: %s' % self.instr)
@@ -161,11 +187,42 @@ class SocketReadWrite(object):
                         JSONretry = True
                         continue
 
-                    # No sign of OOB.  Are there two messages jammed in?
-                    # This hasn't happend since I turned off threading.
+                    # Two messages hasn't happened since I turned off threading.
+                    # No sign of legal OOB, what about partial anything?  Chances
+                    # are an OOB flood filled instr.  Reaching this point means
+                    # there's no legal OOB start, what about an OOB end?
+
+                    fullread = appended == self._bufsz
+                    suf = self.instr.find(self._OOBsuffix)
+                    if suf != -1:   # kill it and try try again
+                        set_trace()
+                        self.instr = self.instr[suf +3:]
+                        if self.instr:
+                            continue
+                        break
+
+                    # No OOB headers at all.  Is there any sign of JSON start?  Since
+                    # JSON messages are synchronous, other stuff is probably partial
+                    # OOB fragments.
+                    left = self.instr.find('{')
+                    if left != -1:
+                        set_trace()
+                        if JSONretry:
+                            set_trace()
+                        self.instr = self.instr[left:]
+                        if self.instr:
+                            continue
+                        break
+
+                    if fullread:    # Ass-u-me more is coming
+                        break
+
                     set_trace()
                     raise ImConfusedError
 
+                except Exception as e:
+                    set_trace()
+                    raise ThisIsReallyBadError
 
     def clear(self):
         self.instr = ''
@@ -173,8 +230,6 @@ class SocketReadWrite(object):
     def clearOOB(self):
         self.inOOB = []
 
-    def send_OOB(self, OOBmsg):
-        return self.send_all(self._OOBformat % OOBmsg, JSON=False)
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
@@ -274,15 +329,6 @@ class Server(SocketReadWrite):
             Nothing.
         """
 
-        # Consolidate error handling.  Closure on "clients"
-        def send_result(s, result):
-            try:
-                s.send_all(result)
-            except Exception as e:
-                print(str(e), file=sys.stderr)
-                clients.remove(s)
-                s.close()
-
         clients = []
         XLO = 50
         XHI = 2000
@@ -364,8 +410,7 @@ class Server(SocketReadWrite):
                     print('%s: %s' % (s, msg))
 
                 # NO "finally": it circumvents "continue" in error clause(s)
-                send_result(s, result)
-
+                s.send_result(result)
                 if OOBmsg:
                     print('-' * 20, 'OOB:', OOBmsg)
                     for c in clients:
