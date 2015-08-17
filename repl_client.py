@@ -11,6 +11,18 @@ import cmdproto
 
 #--------------------------------------------------------------------------
 
+def gen_command(script_file=None):
+    if script_file is not None:
+        with open(script_file, 'r') as f:
+            script = f.readlines()
+        for line in script:
+            line = line.replace('\n', '')
+            if line and not line.startswith('#'):
+                yield line.split()
+            # and then fall into...
+    tmp = input("command> ").strip().split(' ')
+    assert tmp, 'Missing command'
+    yield tmp
 
 def main(serverhost='localhost'):
     """ Main function for the REPL client this functions connects to the
@@ -34,14 +46,14 @@ def main(serverhost='localhost'):
         print(str(e), '; falling back to local print')
         client = None
 
+    script_file = None
+    uigen = gen_command(script_file)
+    verbose = True
     while True:
         loop = 1
         delay = 0.0
-        verbose = True
-        scripting = False
         try:
-            user_input_list = input("command> ").split(' ')
-            assert user_input_list, 'Missing command'
+            user_input_list = next(uigen)
             command = user_input_list.pop(0)
             if not command:
                 continue
@@ -68,6 +80,9 @@ def main(serverhost='localhost'):
                     loop = int(loop)
                 delay = float(user_input_list.pop(0))
                 command = user_input_list.pop(0)
+            if command == 'script':
+                script_file = user_input_list.pop(0)
+                continue    # around to a StopIteration
 
             # Two forms
             cmdict = lcp(command, *user_input_list)
@@ -79,10 +94,15 @@ def main(serverhost='localhost'):
             #pprint(cmdict)
             #print()
 
+        except StopIteration:   # reset
+            uigen = gen_command(script_file)
+            script_file = None
+            continue
         except KeyboardInterrupt:
             break
         except Exception as e:
             print('Bad command:', str(e))
+            set_trace()
             continue
 
         if client is None:
