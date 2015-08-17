@@ -20,7 +20,7 @@ import socket_handling
 _perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
-# Probably a better spot to place this.
+# FIXME: find a better spot to place this.
 def prentry(func):
     if _perf > 1:
         return func # No print, no OOB check
@@ -79,6 +79,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
 
+    @prentry
     def init(self, root, **kwargs):
         try:    # set up a blocking socket
             self.torms = socket_handling.Client(
@@ -89,7 +90,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.EHOSTUNREACH)
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
-    def destroy(self, root):
+    @prentry
+    def destroy(self, root):    # fusermount -u
         self.torms.close()
         del self.torms
 
@@ -118,7 +120,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def handleOOB(self):
         for oob in self.torms.inOOB:
-            print('\n\t\t\t\t!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %s\n ' % oob)
+            print('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
         self.torms.clearOOB()
 
     def librarian(self, cmdict):
@@ -136,29 +138,37 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         value = { }
         try:
             self.torms.send_all(cmdict)
-            rspdict = self.torms.recv_chunk(selectable=False)
-            if self.torms.inOOB:
-                self.handleOOB()
+            rspdict = None
+            while rspdict is None:
+                rspdict = self.torms.recv_chunk(selectable=False)
+                if self.torms.inOOB:
+                    self.handleOOB()
+
+        except OSError as e:
+            set_trace()
+            value['errmsg'] = 'Communications error with librarian'
+            value['errno'] = errno.EHOSTDOWN
+        except MemoryError as e:    # OOB storm and internal error not pull instr
+            value['errmsg'] = 'OOM BOOM'
+            value['errno'] = errno.ENOMEM
+        except Exception as e:
+            value['errmsg'] = str(e)
+            value['errno'] = errno.EREMOTEIO
+
+        if 'errmsg' in rspdict:
+            print('%s failed: %s' % (command, rspdict['errmsg']),
+                file=sys.stderr)
+            raise FuseOSError(rspdict['errno'])
+
+        try:
             value = rspdict['value']
             rspseq = rspdict['context']['seq']
             if seq != rspseq:
                 msg = 'Response not for me %s != %s' % (seq, rspseq)
                 raise OSError(errno.EILSEQ, msg)
-        except OSError as e:
-            set_trace()
-            value['errmsg'] = 'Communications error with librarian'
-            value['errno'] = errno.EHOSTDOWN
         except KeyError as e:
-            value['errmsg'] = 'No key: %s' % str(e)
-            value['errno'] = errno.ENOKEY
-        except Exception as e:
-            value['errmsg'] = str(e)
-            value['errno'] = errno.EREMOTEIO
+            raise OSError(errno.ERANGE, 'Bad response format')
 
-        if 'errmsg' in value:
-            print('%s failed: %s' % (command, value['errmsg']),
-                  file=sys.stderr)
-            raise FuseOSError(value['errno'])
         return value # None is legal, let the caller deal with it.
 
     # Higher-level FS operations
