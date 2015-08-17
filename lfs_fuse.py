@@ -32,9 +32,6 @@ def prentry(func):
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
         ret = func(*args, **kwargs)
-        if self.torms.inOOB:
-            print('\n!!!!!!!!!!!!!!!!!!!!!!!!! %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n ' %
-            self.torms.clearOOB())
         return ret
 
     # Be a well-behaved decorator
@@ -119,6 +116,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Second level: tenant group
     # Third level:  shelves
 
+    def handleOOB(self):
+        for oob in self.torms.inOOB:
+            print('\n\t\t\t\t!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! %s\n ' % oob)
+        self.torms.clearOOB()
+
     def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
         try:
@@ -134,14 +136,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         value = { }
         try:
             self.torms.send_all(cmdict)
-            rsp = self.torms.recv_chunk(selectable=False)
-            value = rsp['value']
-            rspseq = rsp['context']['seq']
+            rspdict = self.torms.recv_chunk(selectable=False)
+            if self.torms.inOOB:
+                self.handleOOB()
+            value = rspdict['value']
+            rspseq = rspdict['context']['seq']
             if seq != rspseq:
-                print('Not for me %s != %s' % (seq, rspseq))
-                set_trace()
-                pass
+                msg = 'Response not for me %s != %s' % (seq, rspseq)
+                raise OSError(errno.EILSEQ, msg)
         except OSError as e:
+            set_trace()
             value['errmsg'] = 'Communications error with librarian'
             value['errno'] = errno.EHOSTDOWN
         except KeyError as e:
@@ -151,7 +155,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             value['errmsg'] = str(e)
             value['errno'] = errno.EREMOTEIO
 
-        if value and 'errmsg' in value:
+        if 'errmsg' in value:
             print('%s failed: %s' % (command, value['errmsg']),
                   file=sys.stderr)
             raise FuseOSError(value['errno'])

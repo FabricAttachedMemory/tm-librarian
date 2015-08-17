@@ -75,7 +75,7 @@ class SocketReadWrite(object):
         else:
             outbytes = obj.encode()
         if self.verbose:
-            print('%s: sending %s' % (s,
+            print('%s: sending %s' % (self,
                   'NULL' if obj is None
                    else '%d bytes' % len(outbytes)))
         try:
@@ -87,7 +87,7 @@ class SocketReadWrite(object):
                 msg = 'closed by client'
             elif e.errno != errno.EBADF:
                 msg = 'closed earlier'
-            msg = '%s: %s' % (s, msg)
+            msg = '%s: %s' % (self, msg)
             raise OSError(errno.ECONNABORTED, msg)
         except Exception as e:
             print('%s: send_all failed: %s' % (self, str(e)),
@@ -146,7 +146,7 @@ class SocketReadWrite(object):
                     if pre != -1:
                         suf = self.instr.find(self._OOBsuffix, pre + 3) + 3
                         if suf != -1:
-                            self.inOOB.append(self.instr[pre:suf])
+                            self.inOOB.append(self.instr[pre + 3:suf - 3])
                             self.instr = self.instr[0:pre] + self.instr[suf:]
                             if not self.instr:  # Nothing to try for JSON
                                 break
@@ -157,7 +157,7 @@ class SocketReadWrite(object):
                                 break   # JSON loop, return to select
                             partialOOB = self.instr[pre:]
                             self.instr = self.instr[:pre]
-                        
+
                         JSONretry = True
                         continue
 
@@ -360,8 +360,6 @@ class Server(SocketReadWrite):
                     if e.__class__ in (AssertionError, RuntimeError):
                         msg = str(e)
                     else:
-                        set_trace()
-                        # "name s is undefined" happens soon
                         msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
                     print('%s: %s' % (s, msg))
 
