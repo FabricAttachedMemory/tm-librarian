@@ -18,8 +18,6 @@ class SocketReadWrite(object):
     _OOBprefix = '<@<'
     _OOBsuffix = '>@>'
     _OOBformat = _OOBprefix + '%s' + _OOBsuffix
-    _OOBpreenc = _OOBprefix.encode()
-    _OOBsufenc = _OOBsuffix.encode()
 
     def __init__(self, **kwargs):
         self._perf = kwargs.get('perf', 0)
@@ -42,7 +40,7 @@ class SocketReadWrite(object):
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
         self.instr = ''
-        self.inOOB = ''
+        self.inOOB = []
         if self._perf:
             self.verbose = 0
 
@@ -55,7 +53,8 @@ class SocketReadWrite(object):
         except Exception as e:
             pass
         self._sock.close()
-        self._sock = self._peer = self._port = self._str = None
+        self._sock = None       # Force AttributeError on methods
+        self._str += ' (closed)'
 
     def fileno(self):
         '''Allows this object to be used in select'''
@@ -81,6 +80,8 @@ class SocketReadWrite(object):
                    else '%d bytes' % len(outbytes)))
         try:
             return self._sock.sendall(outbytes)
+        except AttributeError as e:
+            raise OSError(errno.ECONNABORTED, str(self))
         except OSError as e:
             if e.errno == errno.EPIPE:
                 msg = 'closed by client'
@@ -107,7 +108,7 @@ class SocketReadWrite(object):
         while True:
             last = len(self.instr)
             if last:
-                print('INBYTES: %s' % self.instr)
+                print('INSTR: %s' % self.instr)
             try:
                 self.instr += self._sock.recv(self._bufsz).decode('utf-8')
             except BlockingIOError as e:
@@ -131,39 +132,46 @@ class SocketReadWrite(object):
                 self.close()
                 raise OSError(errno.ECONNABORTED, msg)
 
-            retry = False
+            JSONretry = False
+            partialOOB = ''
             while True:
-                if '}{' in self.instr:
-                    set_trace()
-                    pass
                 try:    # If it loads, this recv is complete
                     result = loads(self.instr)
-                    self.clear()
+                    self.instr = partialOOB
                     return result
-                except BadChainReverse:
-                    if retry:
-                        set_trace()
-                        pass
-                    try:
-                        pre = self.instr.index(self._OOBprefix)
-                        suf = self.instr.index(self._OOBsuffix) + 3
-                    except ValueError:
-                        if self.instr:
-                            # Not sure how this happens.  The one time it
-                            # did, there was a full command in instr.
-                            retry = True
-                            continue
-                        break # go back to reading loop
+                except ValueError as e:
+                    # Bad JSON conversion.  Extract OOB and try JSON again,
+                    # else "break" out of here back to select.
+                    pre = self.instr.find(self._OOBprefix)
+                    if pre != -1:
+                        suf = self.instr.find(self._OOBsuffix, pre + 3) + 3
+                        if suf != -1:
+                            self.inOOB.append(self.instr[pre:suf])
+                            self.instr = self.instr[0:pre] + self.instr[suf:]
+                            if not self.instr:  # Nothing to try for JSON
+                                break
 
-                    self.inOOB += self.instr[pre:suf]
-                    self.instr = self.instr[0:pre] + self.instr[suf:]
-                    # and loop around to try the reverse_traverse again
+                        else: # OOB started.  Is there anything else?
+                            if pre == 0:
+                                # that's all there is, wait for more
+                                break   # JSON loop, return to select
+                            partialOOB = self.instr[pre:]
+                            self.instr = self.instr[:pre]
+                        
+                        JSONretry = True
+                        continue
+
+                    # No sign of OOB.  Are there two messages jammed in?
+                    # This hasn't happend since I turned off threading.
+                    set_trace()
+                    raise ImConfusedError
+
 
     def clear(self):
         self.instr = ''
 
     def clearOOB(self):
-        self.inOOB = ''
+        self.inOOB = []
 
     def send_OOB(self, OOBmsg):
         return self.send_all(self._OOBformat % OOBmsg, JSON=False)
@@ -298,12 +306,7 @@ class Server(SocketReadWrite):
                         clients.remove(d)
                 continue
 
-            if not readable: # timeout: respond to partials, reset counters
-                for s in clients:
-                    if s.instr:    # No more is coming FIXME: too harsh?
-                        print('%s: reset inbuf' % s)
-                        s.clear()
-                        send_result(s, None)
+            if not readable: # timeout: reset counters
                 transactions = 0
                 t0 = time.time()
                 xlimit = XLO
@@ -356,10 +359,9 @@ class Server(SocketReadWrite):
                 except Exception as e:  # Internal, lower level stuff
                     if e.__class__ in (AssertionError, RuntimeError):
                         msg = str(e)
-                    elif isinstance(e, TypeError):
-                        set_trace() # might have gone away w/refactor
-                        msg = 'socket death'
                     else:
+                        set_trace()
+                        # "name s is undefined" happens soon
                         msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
                     print('%s: %s' % (s, msg))
 
@@ -371,8 +373,7 @@ class Server(SocketReadWrite):
                     for c in clients:
                         if str(c) != str(s):
                             print(str(c))
-                            c.send_OOB( OOBmsg)
-
+                            c.send_OOB(OOBmsg)
 
 def main():
     """ Run simple echo server to exercise the module """

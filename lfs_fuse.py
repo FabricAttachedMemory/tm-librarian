@@ -34,8 +34,7 @@ def prentry(func):
         ret = func(*args, **kwargs)
         if self.torms.inOOB:
             print('\n!!!!!!!!!!!!!!!!!!!!!!!!! %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n ' %
-                  self.torms.inOOB)
-            self.torms.inOOB = ''
+            self.torms.clearOOB())
         return ret
 
     # Be a well-behaved decorator
@@ -138,7 +137,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             rsp = self.torms.recv_chunk(selectable=False)
             value = rsp['value']
             rspseq = rsp['context']['seq']
-            assert seq == rspseq, 'Not for me %s != %s' % (seq, rspseq)
+            if seq != rspseq:
+                print('Not for me %s != %s' % (seq, rspseq))
+                set_trace()
+                pass
         except OSError as e:
             value['errmsg'] = 'Communications error with librarian'
             value['errno'] = errno.EHOSTDOWN
@@ -171,7 +173,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'st_uid':       42,
                 'st_gid':       42,
                 'st_mode':      int('0041777', 8),  # isdir, sticky, 777
-                'st_nlink':     len(shelves) + 2,   # account for '.' and '..'
+                'st_nlink':     len(shelves) + 2,   # '.' and '..'
                 'st_size':      4096,
                 'st_atime':     now,
                 'st_ctime':     now,
