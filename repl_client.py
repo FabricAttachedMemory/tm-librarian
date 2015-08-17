@@ -1,10 +1,11 @@
 #!/usr/bin/python3 -tt
 """ Main module  for the REPL client for the librarian """
-import socket_handling
-from librarian_chain import LibrarianChain
 
+import time
 from pdb import set_trace
 from pprint import pprint
+
+import socket_handling
 
 import cmdproto
 
@@ -25,7 +26,6 @@ def main(serverhost='localhost'):
 
     lcp = cmdproto.LibrarianCommandProtocol(auth)
 
-    chain = LibrarianChain(None)
     client = socket_handling.Client(selectable=False)
     try:
         client.connect(host=serverhost)
@@ -35,41 +35,73 @@ def main(serverhost='localhost'):
         client = None
 
     while True:
-        user_input_list = input("command> ").split(' ')
+        loop = 1
+        delay = 0.0
+        verbose = True
+        scripting = False
         try:
+            user_input_list = input("command> ").split(' ')
             assert user_input_list, 'Missing command'
             command = user_input_list.pop(0)
             if not command:
                 continue
             if command == 'help':
                 print(lcp.help)
+                print('\nAux commands:')
+                print('loop count|"forever" delay_secs real_command ...')
+                print('script filename execute commands from filename')
+                print('quiet|verbose control printing of response')
                 print('q or quit to end the session')
                 continue
+
             if command in ('adios', 'bye', 'exit', 'quit', 'q'):
                 break
+            if command == 'quiet':
+                verbose = False
+                continue
+            if command == 'verbose':
+                verbose = True
+                continue
+            if command == 'loop':
+                loop = user_input_list.pop(0)
+                if loop != 'forever':
+                    loop = int(loop)
+                delay = float(user_input_list.pop(0))
+                command = user_input_list.pop(0)
 
             # Two forms
             cmdict = lcp(command, *user_input_list)
-            pprint(cmdict)
-            print()
+            if verbose:
+                print()
+                pprint(cmdict)
 
             #cmdict = lcp(command, *user_input_list, auth=auth)
             #pprint(cmdict)
             #print()
 
+        except KeyboardInterrupt:
+            break
         except Exception as e:
             print('Bad command:', str(e))
             continue
 
-        out_string = chain.forward_traverse(cmdict)
-
         if client is None:
-            print('LOCAL:', out_string)
+            pprint('LOCAL:', cmdict)
         else:
-            client.send_recv(out_string)
-            rspdict = chain.reverse_traverse(client.inbuf)  # better, but...
-            client.clear()                                  # ...still clunky
-            pprint(rspdict)
+            try:
+                while loop == 'forever' or loop > 0:
+                    print(loop) # need to see small indication of progress
+                    client.send_all(cmdict)
+                    rspdict = client.recv_chunk(selectable=False)
+                    if verbose:
+                        pprint(rspdict['value'])
+                    time.sleep(delay)
+                    if isinstance(loop, int):
+                        loop -= 1
+            except Exception as e:
+                print('Oops: ', str(e), '\n')
+            except KeyboardInterrupt:
+                pass
         print()
 
 if __name__ == '__main__':

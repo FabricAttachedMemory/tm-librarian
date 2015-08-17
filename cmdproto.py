@@ -98,7 +98,7 @@ class LibrarianCommandProtocol(object):
 
     def __init__(self, context):
         self._context = context
-        self._auth = { }    # coming sooner or later :-)
+        self._context['seq'] = 0
 
     def __call__(self, command, *args, **kwargs):
         '''Accept additional parameters as positional args, keywords,
@@ -106,7 +106,11 @@ class LibrarianCommandProtocol(object):
         go = self._commands[command]    # natural keyerror is fine here
 
         assert not (args and kwargs), 'Pos/keyword args are mutually exclusive'
-        respdict = OrderedDict((('command', command), ))
+        self._context['seq'] += 1
+        respdict = OrderedDict((
+            ('command', command),
+            ('context', self._context),
+        ))
 
         # Polymorphism.  Careful: passing a sring makes args[0] a tuple
         if args and isinstance(args[0], dict):
@@ -137,7 +141,6 @@ class LibrarianCommandProtocol(object):
             else:
                 assert go.parms is None, 'Missing parameter(s)'
 
-            respdict['context'] = self._context
             return respdict
 
         except AssertionError as e:

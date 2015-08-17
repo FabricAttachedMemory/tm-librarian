@@ -14,30 +14,30 @@ from fuse import FUSE, FuseOSError, Operations
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket_handling
-from function_chain import BadChainForward, BadChainReverse
-from librarian_chain import LibrarianChain
 
 # 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
 
 _perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
+# Probably a better spot to place this.
 def prentry(func):
     if _perf > 1:
-        return func
+        return func # No print, no OOB check
 
     def new_func(*args, **kwargs):
         self = args[0]
         if not _perf:
+            print('----------------------------------')
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
-        if _perf < 2:
-            OOB = self.torms.recv_OOB()
-            if OOB:
-                print('>>>>>', OOB)
-                set_trace()
-                pass
-        return func(*args, **kwargs)
+        ret = func(*args, **kwargs)
+        if self.torms.inOOB:
+            print('\n!!!!!!!!!!!!!!!!!!!!!!!!! %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n ' %
+                  self.torms.inOOB)
+            self.torms.inOOB = ''
+        return ret
+
     # Be a well-behaved decorator
     new_func.__name__ = func.__name__
     new_func.__doc__ = func.__doc__
@@ -79,7 +79,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'node_id': node_id,
         }
         self.lcp = LibrarianCommandProtocol(context)
-        self.chain = LibrarianChain()
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
@@ -121,22 +120,40 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Second level: tenant group
     # Third level:  shelves
 
-    def librarian(self, cmd):
+    def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
         try:
-            cmd['command']  # is it a dict with this keyword
-            rsp = self.torms.send_recv(cmd, self.chain)
-        except OSError as e:
-            raise FuseOSError(errno.EHOSTDOWN)
-        except Exception as e:
-            raise SystemExit('Dummy: ' + str(e))
-            rsp = { 'errmsg': 'LFS: %s' % str(e) }
+            # validate primary keys
+            command = cmdict['command']
+            seq = cmdict['context']['seq']
+            # tid = threading.get_ident()
+            # print('%s[%d:%d]' % (command, tid, seq))
+        except KeyError as e:
+            print(str(e))
+            raise FuseOSError(errno.ENOKEY)
 
-        if rsp and 'errmsg' in rsp:
-            print('%s failed: %s' % (cmd['command'], rsp['errmsg']),
+        value = { }
+        try:
+            self.torms.send_all(cmdict)
+            rsp = self.torms.recv_chunk(selectable=False)
+            value = rsp['value']
+            rspseq = rsp['context']['seq']
+            assert seq == rspseq, 'Not for me %s != %s' % (seq, rspseq)
+        except OSError as e:
+            value['errmsg'] = 'Communications error with librarian'
+            value['errno'] = errno.EHOSTDOWN
+        except KeyError as e:
+            value['errmsg'] = 'No key: %s' % str(e)
+            value['errno'] = errno.ENOKEY
+        except Exception as e:
+            value['errmsg'] = str(e)
+            value['errno'] = errno.EREMOTEIO
+
+        if value and 'errmsg' in value:
+            print('%s failed: %s' % (command, value['errmsg']),
                   file=sys.stderr)
-            raise FuseOSError(rsp['errno'])
-        return rsp  # None is now legal, let the caller interpret it.
+            raise FuseOSError(value['errno'])
+        return value # None is legal, let the caller deal with it.
 
     # Higher-level FS operations
 
@@ -149,7 +166,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             pass
         if path == '/':
             now = int(time.time())
-            shelves = self.librarian({'command': 'list_shelves'})
+            shelves = self.librarian(self.lcp('list_shelves'))
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
@@ -163,8 +180,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             return tmp
 
         shelf_name = self.path2shelf(path)
-        req = self.lcp('get_shelf', name=shelf_name)
-        rsp = self.librarian(req)
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         try:
             assert rsp['name'] == shelf_name
         except Exception as e:
@@ -196,11 +212,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def readdir(self, path, fh):
         if path != '/':
             raise FuseOSError(errno.ENOENT)
-        rsp = self.librarian({'command': 'list_shelves'})
+        rsp = self.librarian(self.lcp('list_shelves'))
         yield '.'
         yield '..'
-        for shelf in rsp:
-           yield shelf['name']
+        try:
+            for shelf in rsp:
+                yield shelf['name']
+        except Exception as e:
+            print(str(e))
+            set_trace()
+            raise
 
     # os.getaccess(path, mode): returns nothing (None), or
     # raise EACCESS.
@@ -285,7 +306,20 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def statfs(self, path): # "df" command; example used statVfs.
         globals = self.librarian(self.lcp('get_fs_stats'))
         # A book is a block.  Let other commands do the math.
-        blocks = globals['books_total']
+
+        # Where a stress error occurs, jfdi is
+        # df /lfs
+        # ls -al /lfs
+        # touch /lfs/junk
+        # what comes in here is the response for ls -al, a list.
+        # not sure how this gets out of sync.  A two-stanza jfdi w/o
+        # touch does not get out of sync.  Now try a truncate and
+        # see if that goes out of sync, ie, it's the writes or is it
+        # just touch?
+        try:
+            blocks = globals['books_total']
+        except Exception as e:
+            raise   # back out to fuse.py
         bfree = bavail = blocks - globals['books_used']
         bsize =globals['book_size_bytes']
         return {
@@ -305,10 +339,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'Unexpected args'
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian({
-                                'command': 'destroy_shelf',
-                                'name':     shelf_name,
-                             })
+        rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
         assert rsp['id'] not in self.fd2shelf_id.values()
         try:
             os.unlink(self.shadowpath(shelf_name))
@@ -337,8 +368,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # looking for filehandles?  See FUSE docs
         assert not kwargs, 'open() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('open_shelf', name=shelf_name)
-        rsp = self.librarian(req)
+        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         try:
             shelf_id = rsp['id']
             fd = os.open(self.shadowpath(shelf_name), flags)
@@ -353,8 +383,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def create(self, path, mode, fi=None):
         assert fi is None, 'create(%s) with FI not implemented' % str(fi)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('create_shelf', name=shelf_name)
-        rsp = self.librarian(req)
+        rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
         try:
@@ -382,9 +411,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def truncate(self, path, length, *args, **kwargs):
         assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
-        req = self.lcp('get_shelf', name=shelf_name) # FIXME: common w/getattr()
-        listrsp = self.librarian(req)
-
+        listrsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
                         name=shelf_name,
                         size_bytes=length,
@@ -460,7 +487,8 @@ def main(source, mountpoint, node_id):
             mountpoint,
             allow_other=True,
             noatime=True,
-            foreground=True)
+            foreground=True,
+            nothreads=True)
     except Exception as e:
         raise SystemExit('fusermount probably failed, retry in foreground')
 
