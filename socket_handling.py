@@ -41,6 +41,7 @@ class SocketReadWrite(object):
             self._str = '{0}:{1}'.format(*peertuple)
         self.instr = ''
         self.inOOB = []
+        self.outbytes = bytes()
         if self._perf:
             self.verbose = 0
 
@@ -70,7 +71,7 @@ class SocketReadWrite(object):
             obj: the object to be sent
 
         Returns:
-               Number of bytes sent.
+               True or raised error.
         """
 
         if JSON:
@@ -81,13 +82,23 @@ class SocketReadWrite(object):
             print('%s: sending %s' % (self,
                   'NULL' if obj is None
                    else '%d bytes' % len(outbytes)))
+
+        # socket.sendall will do that and return None on success.  If not
+        # an error is raised with no clue on byte count.  Do it myself.
+        self.outbytes.append(outbytes)
         try:
-            return self._sock.sendall(outbytes)
+            while len(self.outbytes):
+                n = self._sock.send(self.outbytes)
+                if not n:
+                    raise OSError(errno.EWOULDBLOCK, 'full')
+                self.outbytes = self.outbytes[n:]
+            return True
         except AttributeError as e:
             set_trace() # AttributeError?  really?
             raise OSError(errno.ECONNABORTED, str(self))
         except BlockingIOError as e:
             # Far side is full
+            set_trace()
             raise
         except OSError as e:
             if e.errno == errno.EPIPE:
@@ -105,14 +116,14 @@ class SocketReadWrite(object):
 
     def send_result(self, result):
         try:
-            return bool(self.send_all(result))
+            return self.send_all(result)
         except Exception as e:  # could be blocking IO
             print('%s: %s' % (self, str(e)), file=sys.stderr)
             return False
 
     def send_OOB(self, OOBmsg):
         try:
-            return bool(self.send_all(self._OOBformat % OOBmsg, JSON=False))
+            return self.send_all(self._OOBformat % OOBmsg, JSON=False)
         except Exception as e:  # Probably BlockingIOError
             print('%s: %s' % (self, str(e)), file=sys.stderr)
             return False
@@ -184,7 +195,9 @@ class SocketReadWrite(object):
                             partialOOB = self.instr[pre:]
                             self.instr = self.instr[:pre]
 
-                        JSONretry = True
+                        if len(self.inOOB) > 20:
+                            break   # go and eat it
+                        JSONretry += 1
                         continue
 
                     # Two messages hasn't happened since I turned off threading.
@@ -193,6 +206,8 @@ class SocketReadWrite(object):
                     # there's no legal OOB start, what about an OOB end?
 
                     fullread = appended == self._bufsz
+                    if fullread:
+                        set_trace()
                     suf = self.instr.find(self._OOBsuffix)
                     if suf != -1:   # kill it and try try again
                         set_trace()
@@ -215,6 +230,7 @@ class SocketReadWrite(object):
                         break
 
                     if fullread:    # Ass-u-me more is coming
+                        set_trace()
                         break
 
                     set_trace()
@@ -335,14 +351,15 @@ class Server(SocketReadWrite):
         xlimit = XLO
         transactions = 0
         t0 = time.time()
+        to_write = []
 
         while True:
 
             if self.verbose:
                 print('Waiting for request...')
             try:
-                readable, _, _ = select.select(
-                    [ self ] + clients, [], [], 10.0)
+                readable, writeable, _ = select.select(
+                    [ self ] + clients, to_write, [], 10.0)
             except Exception as e:
                 # Usually ValueError on a negative fd from a remote close
                 assert self.fileno() != -1, 'Server socket has died'
@@ -352,11 +369,15 @@ class Server(SocketReadWrite):
                         clients.remove(d)
                 continue
 
-            if not readable: # timeout: reset counters
+            if not readable and not writeable: # timeout: reset counters
                 transactions = 0
                 t0 = time.time()
                 xlimit = XLO
                 continue
+
+            if writeable:
+                set_trace()
+                pass
 
             for s in readable:
                 transactions += 1
@@ -410,7 +431,12 @@ class Server(SocketReadWrite):
                     print('%s: %s' % (s, msg))
 
                 # NO "finally": it circumvents "continue" in error clause(s)
-                s.send_result(result)
+                if not s.send_result(result):
+                    set_trace() # backlog it
+                    s.backlog.append(result)
+                    to_write.append(s)
+                    continue    # no need to check OOB for now
+
                 if OOBmsg:
                     print('-' * 20, 'OOB:', OOBmsg)
                     for c in clients:

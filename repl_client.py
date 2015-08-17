@@ -119,6 +119,7 @@ def main(serverhost='localhost'):
                     if isinstance(loop, int):
                         loop -= 1
             except Exception as e:
+                set_trace()
                 print('Oops: ', str(e), '\n')
             except KeyboardInterrupt:
                 pass
