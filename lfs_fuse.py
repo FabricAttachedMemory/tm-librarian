@@ -20,7 +20,7 @@ import socket_handling
 _perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
-# Probably a better spot to place this.
+# FIXME: find a better spot to place this.
 def prentry(func):
     if _perf > 1:
         return func # No print, no OOB check
@@ -32,10 +32,6 @@ def prentry(func):
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
         ret = func(*args, **kwargs)
-        if self.torms.inOOB:
-            print('\n!!!!!!!!!!!!!!!!!!!!!!!!! %s !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n ' %
-                  self.torms.inOOB)
-            self.torms.inOOB = ''
         return ret
 
     # Be a well-behaved decorator
@@ -83,6 +79,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
 
+    @prentry
     def init(self, root, **kwargs):
         try:    # set up a blocking socket
             self.torms = socket_handling.Client(
@@ -93,7 +90,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.EHOSTUNREACH)
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
-    def destroy(self, root):
+    @prentry
+    def destroy(self, root):    # fusermount -u
         self.torms.close()
         del self.torms
 
@@ -120,6 +118,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Second level: tenant group
     # Third level:  shelves
 
+    def handleOOB(self):
+        for oob in self.torms.inOOB:
+            print('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
+        self.torms.clearOOB()
+
     def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
         try:
@@ -135,24 +138,41 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         value = { }
         try:
             self.torms.send_all(cmdict)
-            rsp = self.torms.recv_chunk(selectable=False)
-            value = rsp['value']
-            rspseq = rsp['context']['seq']
-            assert seq == rspseq, 'Not for me %s != %s' % (seq, rspseq)
+            rspdict = None
+            while rspdict is None:
+                rspdict = self.torms.recv_chunk()
+                if self.torms.inOOB:
+                    self.handleOOB()
+            if 'errmsg' in rspdict:
+                value['errmsg'] = rspdict['errmsg']
+                value['errno'] = rspdict['errno']
+
         except OSError as e:
+            set_trace()
             value['errmsg'] = 'Communications error with librarian'
             value['errno'] = errno.EHOSTDOWN
-        except KeyError as e:
-            value['errmsg'] = 'No key: %s' % str(e)
-            value['errno'] = errno.ENOKEY
+        except MemoryError as e:    # OOB storm and internal error not pull instr
+            set_trace()
+            value['errmsg'] = 'OOM BOOM'
+            value['errno'] = errno.ENOMEM
         except Exception as e:
+            set_trace()
             value['errmsg'] = str(e)
             value['errno'] = errno.EREMOTEIO
 
-        if value and 'errmsg' in value:
-            print('%s failed: %s' % (command, value['errmsg']),
-                  file=sys.stderr)
+        if 'errmsg' in value:
+            print('%s failed: %s' % (command, value['errmsg']), file=sys.stderr)
             raise FuseOSError(value['errno'])
+
+        try:
+            value = rspdict['value']
+            rspseq = rspdict['context']['seq']
+            if seq != rspseq:
+                msg = 'Response not for me %s != %s' % (seq, rspseq)
+                raise OSError(errno.EILSEQ, msg)
+        except KeyError as e:
+            raise OSError(errno.ERANGE, 'Bad response format')
+
         return value # None is legal, let the caller deal with it.
 
     # Higher-level FS operations
@@ -171,7 +191,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'st_uid':       42,
                 'st_gid':       42,
                 'st_mode':      int('0041777', 8),  # isdir, sticky, 777
-                'st_nlink':     len(shelves) + 2,   # account for '.' and '..'
+                'st_nlink':     len(shelves) + 2,   # '.' and '..'
                 'st_size':      4096,
                 'st_atime':     now,
                 'st_ctime':     now,

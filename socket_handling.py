@@ -18,8 +18,6 @@ class SocketReadWrite(object):
     _OOBprefix = '<@<'
     _OOBsuffix = '>@>'
     _OOBformat = _OOBprefix + '%s' + _OOBsuffix
-    _OOBpreenc = _OOBprefix.encode()
-    _OOBsufenc = _OOBsuffix.encode()
 
     def __init__(self, **kwargs):
         self._perf = kwargs.get('perf', 0)
@@ -32,7 +30,8 @@ class SocketReadWrite(object):
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self._sock = sock
-        self._sock.setblocking(not selectable)
+        self._created_blocking = not selectable
+        self.safe_setblocking()
 
         if peertuple is None:
             self._peer = ''
@@ -41,34 +40,48 @@ class SocketReadWrite(object):
         else:   # A dead socket can't getpeername so cache it now
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
-        self.instr = ''
-        self.inOOB = ''
+        self.clear()
+        self.inOOB = []
+        self.outbytes = bytes()
         if self._perf:
             self.verbose = 0
 
     def __str__(self):
         return self._str
 
+    def safe_setblocking(self, value=None):
+        '''If None, restore to created value, else use specified value'''
+        if self._sock is not None:
+            if value is None:
+                value = self._created_blocking
+            self._sock.setblocking(bool(value))
+
     def close(self):
+        if self._sock is None:
+            return
         try:
             self._sock.shutdown(socket.SHUT_RDWR)
-        except Exception as e:
+        except Exception as e:  # already closed, whatever
             pass
         self._sock.close()
-        self._sock = self._peer = self._port = self._str = None
+        self._sock = None       # Force AttributeError on methods
+        self._str += ' (closed)'
 
     def fileno(self):
         '''Allows this object to be used in select'''
-        return self._sock.fileno()
+        return -1 if self._sock is None else self._sock.fileno()
+
+    #----------------------------------------------------------------------
+    # Send stuff
 
     def send_all(self, obj, JSON=True):
         """ Send an object after optional transformation
 
         Args:
-            obj: the object to be sent
+            obj: the object to be sent, None means work off backlog
 
         Returns:
-               Number of bytes sent.
+               True or raised error.
         """
 
         if JSON:
@@ -76,18 +89,35 @@ class SocketReadWrite(object):
         else:
             outbytes = obj.encode()
         if self.verbose:
-            print('%s: sending %s' % (s,
-                  'NULL' if obj is None
-                   else '%d bytes' % len(outbytes)))
+            print('%s: sending %s' % (self,
+                'NULL' if obj is None
+                else '%d bytes' % len(outbytes)))
+
+        # socket.sendall will do so and return None on success.  If not,
+        # an error is raised with no clue on byte count.  Do it myself.
+        self.outbytes += outbytes
         try:
-            return self._sock.sendall(outbytes)
+            while len(self.outbytes):
+                # This seems to throw errno 11 on its own, but just in case
+                # do it myself.  BTW, EAGAIN == EWOULDBLOCK
+                n = self._sock.send(self.outbytes)
+                if not n:
+                    raise OSError(errno.EWOULDBLOCK, 'full')
+                self.outbytes = self.outbytes[n:]
+            return True
+        except BlockingIOError as e:
+            # Far side is full
+            raise
         except OSError as e:
             if e.errno == errno.EPIPE:
                 msg = 'closed by client'
             elif e.errno != errno.EBADF:
                 msg = 'closed earlier'
-            msg = '%s: %s' % (s, msg)
+            msg = '%s: %s' % (self, msg)
             raise OSError(errno.ECONNABORTED, msg)
+        except AttributeError as e:
+            # During retry of a closed socket.  FIXME: delay the close?
+            raise OSError(errno.ECONNABORTED, 'Socket closed on prior error')
         except Exception as e:
             print('%s: send_all failed: %s' % (self, str(e)),
                     file=sys.stderr)
@@ -95,78 +125,182 @@ class SocketReadWrite(object):
             pass
             raise
 
+    def send_result(self, result):
+        try:
+            return self.send_all(result)
+        except Exception as e:  # could be blocking IO
+            print('%s: %s' % (self, str(e)), file=sys.stderr)
+            return False
+
+    def send_OOB(self, OOBmsg):
+        try:
+            return self.send_all(self._OOBformat % OOBmsg, JSON=False)
+        except Exception as e:  # Probably BlockingIOError
+            print('%s: %s' % (self, str(e)), file=sys.stderr)
+            return False
+
+    #----------------------------------------------------------------------
+    # Receive stuff
+
     _bufsz = 4096
 
-    def recv_chunk(self, selectable=True):
+    def recv_chunk(self):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
         Returns:
         """
 
+        appended = 0    # forward references from exceptions
         while True:
+            if self.inOOB:  # make caller deal with OOB first
+                return None
             last = len(self.instr)
-            if last:
-                print('INBYTES: %s' % self.instr)
+            if last and not self._perf:
+                if last > 60:
+                    print('INSTR: %d bytes' % last)
+                else:
+                    print('INSTR: %s' % self.instr)
+
+            # Is this a go around because the eatery below was exhausted,
+            # or did it get re-entered after an early leave to consume OOB?
             try:
+                retryok = True
+                if last:    # maybe trying to finish off a fragment
+                    self._sock.settimeout(1.0)  # akin to blocking mode
                 self.instr += self._sock.recv(self._bufsz).decode('utf-8')
+
+                appended = len(self.instr) - last
+                if not self._perf:
+                    print('%s: received %d bytes' % (self._str, appended))
+
+                if not appended:   # Far side is gone
+                    msg = '%s: closed by remote' % str(self)
+                    self.close()    # May lead to AttributeError below
+                    raise OSError(errno.ECONNABORTED, msg)
+
+            except ConnectionAbortedError as e: # see two lines up
+                raise
             except BlockingIOError as e:
-                # Not ready.  Get back on the select train, or just re-recv?
-                if selectable:
+                # Not ready; only happens on a fresh read with non-blocking
+                # mode (ie, can't happen in timeout mode).  Get back to
+                # select, or just re-recv?
+                set_trace()
+                if not self._sock._created_blocking:
                     return None
                 continue
-            except ConnectionReset as e:
-                print(e, appended)
-                set_trace()
+            except socket.timeout as e:
+                retryok = False
+                pass
             except Exception as e:
-                set_trace()
+                # AttributeError is ops on closed socket.  Other stuff
+                # can just go through.
+                if self._sock is None:
+                    raise OSError(errno.ECONNABORTED, str(self))
+                self.safe_setblocking() # just in case it's live
                 raise
+            self.safe_setblocking()  # undo timeout
 
-            appended = len(self.instr) - last
-            if not self._perf:
-                print('%s: received %d bytes' % (self._str, appended))
-
-            if not appended:   # Far side is gone
-                msg = '%s: closed by remote' % str(self)
-                self.close()
-                raise OSError(errno.ECONNABORTED, msg)
-
-            retry = False
+            partialOOB = ''
             while True:
-                if '}{' in self.instr:
-                    set_trace()
-                    pass
                 try:    # If it loads, this recv is complete
                     result = loads(self.instr)
-                    self.clear()
+                    self.instr = partialOOB
                     return result
-                except BadChainReverse:
-                    if retry:
-                        set_trace()
-                        pass
-                    try:
-                        pre = self.instr.index(self._OOBprefix)
-                        suf = self.instr.index(self._OOBsuffix) + 3
-                    except ValueError:
-                        if self.instr:
-                            # Not sure how this happens.  The one time it
-                            # did, there was a full command in instr.
-                            retry = True
-                            continue
-                        break # go back to reading loop
+                except ValueError as e:
+                    # Bad JSON conversion.  Extract OOB and try JSON again,
+                    # else "break" out of here back to select.  Start with
+                    # prefix.  Note: JSON complaint is not always a range,
+                    # and "ValueError" can have different complaints:
+                    # "Unterminated string" from a looooong argument
 
-                    self.inOOB += self.instr[pre:suf]
-                    self.instr = self.instr[0:pre] + self.instr[suf:]
-                    # and loop around to try the reverse_traverse again
+                    badrange = str(e).split('(char')[1].strip()
+                    badrange = badrange.replace(')', '')
+                    badindex = int(badrange.split()[0].strip())
+                    incompleteJSON = str(e).startswith('Unterminated string')
+                    fullread = appended == self._bufsz
+
+                    if not incompleteJSON:
+                        set_trace() # what IS the message with OOB flood?
+
+                    pre = self.instr.find(self._OOBprefix)
+                    if pre != -1:
+                        suf = self.instr.find(self._OOBsuffix, pre + 3) + 3
+                        if suf != -1:
+                            self.inOOB.append(self.instr[pre + 3:suf - 3])
+                            self.instr = self.instr[0:pre] + self.instr[suf:]
+                            if not self.instr:  # Nothing for JSON, so...
+                                return None     # ...eat the current OOBs
+
+                        else: # OOB started.  Is there anything else?
+                            if pre == 0 and retryok:
+                                # that's all there is in instr, need more
+                                break
+                            # clear it out of the way and retry JSON
+                            set_trace()
+                            partialOOB = self.instr[pre:]
+                            self.instr = self.instr[:pre]
+                            continue
+
+                        if retryok:
+                            if self.inOOB and len(self.instr) < 10000:
+                                return None # eat the OOB
+                        continue
+
+                    # instr is a partial something.  Is there any correct
+                    # forward progress at the moment?
+                    if self.inOOB:
+                        return None # finish this off
+
+                    # No sign of full/start OOB, what seems to be partial?
+                    # setxattr can easily go past _bufsiz, or perhaps an OOB
+                    # OOB flood filled instr.  Is there an OOB end?
+
+                    if not incompleteJSON:
+                        suf = self.instr.find(self._OOBsuffix)
+                        if suf != -1:   # kill it and try try again
+                            set_trace()
+                            self.instr = self.instr[suf +3:]
+                            if self.instr:
+                                continue    # try JSON parse
+                            if retryok:
+                                break
+
+                    # No full prefix or suffix.  Is there any sign of JSON
+                    # start?  Since JSON messages are synchronous, other
+                    # stuff is probably partial OOB fragments.
+                    leftcurly = self.instr.find('{')
+                    if leftcurly != -1:
+                        if leftcurly:   # Move it down
+                            self.instr = self.instr[leftcurly:]
+                            if self.instr:
+                                continue    # try again
+                        if retryok:
+                            break
+
+                    if fullread and retryok:
+                    # 1 in _bufz chance there's NOT more
+                        set_trace()
+                        break
+
+                    # at this stage, it's not recoverable, but I don't
+                    # want to crash any exchange going on with client.
+                    # What if...
+                    set_trace()
+                    if not retryok:
+                        self.clear()
+                    return None
+
+                except Exception as e:
+                    set_trace()
+                    raise ThisIsReallyBadError
 
     def clear(self):
         self.instr = ''
 
     def clearOOB(self):
-        self.inOOB = ''
+        self.inOOB = []
 
-    def send_OOB(self, OOBmsg):
-        return self.send_all(self._OOBformat % OOBmsg, JSON=False)
 
 class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
@@ -266,29 +400,21 @@ class Server(SocketReadWrite):
             Nothing.
         """
 
-        # Consolidate error handling.  Closure on "clients"
-        def send_result(s, result):
-            try:
-                s.send_all(result)
-            except Exception as e:
-                print(str(e), file=sys.stderr)
-                clients.remove(s)
-                s.close()
-
         clients = []
         XLO = 50
         XHI = 2000
         xlimit = XLO
         transactions = 0
         t0 = time.time()
+        to_write = []
 
         while True:
 
             if self.verbose:
                 print('Waiting for request...')
             try:
-                readable, _, _ = select.select(
-                    [ self ] + clients, [], [], 10.0)
+                readable, writeable, _ = select.select(
+                    [ self ] + clients, to_write, [], 10.0)
             except Exception as e:
                 # Usually ValueError on a negative fd from a remote close
                 assert self.fileno() != -1, 'Server socket has died'
@@ -298,16 +424,15 @@ class Server(SocketReadWrite):
                         clients.remove(d)
                 continue
 
-            if not readable: # timeout: respond to partials, reset counters
-                for s in clients:
-                    if s.instr:    # No more is coming FIXME: too harsh?
-                        print('%s: reset inbuf' % s)
-                        s.clear()
-                        send_result(s, None)
+            if not readable and not writeable: # timeout: reset counters
                 transactions = 0
                 t0 = time.time()
                 xlimit = XLO
                 continue
+
+            for w in writeable:
+                if w.send_all('', JSON=False):
+                    to_write.remove(w)
 
             for s in readable:
                 transactions += 1
@@ -349,30 +474,33 @@ class Server(SocketReadWrite):
                             print('%s: %s' % (s, str(cmdict)))
                     result = OOBmsg = None
                     result, OOBmsg = handler(cmdict)
-                except OSError as e:    # Socket has been closed
+                except ConnectionAbortedError as e:
                     print(str(e))
                     clients.remove(s)
+                    if s in to_write:
+                        to_write.remove(s)
                     continue
                 except Exception as e:  # Internal, lower level stuff
                     if e.__class__ in (AssertionError, RuntimeError):
                         msg = str(e)
-                    elif isinstance(e, TypeError):
-                        set_trace() # might have gone away w/refactor
-                        msg = 'socket death'
                     else:
                         msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
                     print('%s: %s' % (s, msg))
+                    set_trace()
+                    raise
 
                 # NO "finally": it circumvents "continue" in error clause(s)
-                send_result(s, result)
+                if not s.send_result(result):
+                    to_write.append(s)
+                    continue    # no need to check OOB for now
 
                 if OOBmsg:
                     print('-' * 20, 'OOB:', OOBmsg)
                     for c in clients:
                         if str(c) != str(s):
-                            print(str(c))
-                            c.send_OOB( OOBmsg)
-
+                            if not self._perf:
+                                print(str(c))
+                            c.send_OOB(OOBmsg)
 
 def main():
     """ Run simple echo server to exercise the module """

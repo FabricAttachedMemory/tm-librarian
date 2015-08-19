@@ -1,0 +1,6 @@
+# Simple script for repl_client
+
+# df
+
+list_shelves
+get_fs_stats

@@ -294,6 +294,7 @@ class LibrarianCommandEngine(object):
         """
         shelf_id = cmdict['shelf_id']
         bos = db.get_bos_by_shelf_id(shelf_id)
+        return bos
 
     def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
@@ -358,6 +359,7 @@ class LibrarianCommandEngine(object):
         shelf.matchfields = 'mtime' # special case
         shelf.mtime = cmdict['mtime']
         self.db.modify_shelf(shelf, commit=True)
+        return None
 
     def cmd_send_OOB(self, cmdict):
         return { 'OOBmsg': cmdict['msg'] }
@@ -535,7 +537,7 @@ if __name__ == '__main__':
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsgr'):
-        raise SystemExit('Shelf ' + name + ' problems (resize down)')
+        raise SystemExit('Shelf ' + name + ' problems (initial size)')
 
     shelf.size_bytes = (50 * lce.book_size_bytes)
     recvd = lcp('resize_shelf', shelf)
@@ -548,13 +550,13 @@ if __name__ == '__main__':
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsg'):
-        raise SystemExit('Shelf ' + name + ' problems (resize down)')
+        raise SystemExit('Shelf ' + name + ' problems (close shelf)')
 
     # destroy shelf is just based on the name
     recvd = lcp('destroy_shelf', shelf)
     shelf = lce(recvd)
     pp(recvd, shelf)
     if shelf is None or hasattr(shelf, 'errmsg'):
-        raise SystemExit('Shelf ' + name + ' problems (resize down)')
+        raise SystemExit('Shelf ' + name + ' problems (destroy shelf)')
 
     raise SystemExit(0)
