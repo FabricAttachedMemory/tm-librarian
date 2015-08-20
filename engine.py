@@ -438,6 +438,8 @@ class LibrarianCommandEngine(object):
                 value = { 'value': ret }
             elif isinstance(ret, list):
                 value = { 'value': [ r.dict for r in ret ] }
+            elif isinstance(ret, str):
+                value = { 'value': ret }
             elif ret is None:
                 value = { 'value': None }
             else:
