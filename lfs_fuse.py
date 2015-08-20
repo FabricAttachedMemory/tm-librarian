@@ -9,7 +9,7 @@ import time
 
 from pdb import set_trace
 
-from fuse import FUSE, FuseOSError, Operations
+from fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
@@ -63,8 +63,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         except Exception as e:
             self.port = 9093
 
-        # Calls to fuse.fuse_get_context() were...disappointing.
-        # Fake it for now.  The umask dance is Pythonic, unfortunately.
+        # Fake it to start.  The umask dance is Pythonic, unfortunately.
         umask = os.umask(0)
         os.umask(umask)
         context = {
@@ -125,6 +124,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
+        context = cmdict['context']
+        (context['uid'],
+         context['gid'],
+         context['pid']) = fuse_get_context()
+        # if context['gid'] not in (1000, 1001): a little harsh
+            # raise FuseOSError(errno.EPERM)
         try:
             # validate primary keys
             command = cmdict['command']
