@@ -36,12 +36,14 @@ def main(serverhost='localhost'):
     """Optionally connect to the server, then wait for user input to
        send to the server, printing out the response."""
 
+    global verbose
+
     # Right now it's just identification, not auth[entication|orization]
     context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
         'pid': os.getpid(),
-        'node_id': 999
+        'node_id': 1
     }
     lcp = cmdproto.LibrarianCommandProtocol(context)
 
@@ -53,14 +55,28 @@ def main(serverhost='localhost'):
         print(str(e), '; falling back to local print')
         client = None
 
-    script = None
-    loop = 1
-    delay = 0.0
-    verbose = True
-    uigen = setup_command_generator()
+    def reset():    # local helper
+        nonlocal delay, loop, script, uigen
+        script = None
+        loop = 1
+        delay = 0.0
+        uigen = setup_command_generator()
+
+    def substitute_vars(uil, prevrsp):
+        for i in range(1, len(uil)):
+            arg = uil[i]
+            if arg[0] == '$':
+                var = arg[1:]
+                uil[i] = 'NONE'
+                if 'value' in prevrsp:
+                    uil[i] = str(prevrsp['value'].get(var, 'NONE'))
+
+    reset()
+    rspdict = None
     while True:
         try:
             user_input_list = next(uigen)
+            substitute_vars(user_input_list, rspdict)
             command = user_input_list[0]
 
             # Directives
@@ -85,6 +101,9 @@ def main(serverhost='localhost'):
                 uigen = setup_command_generator(
                     uil_repeat=user_input_list[3:])
                 continue
+            if command == 'response':
+                pprint(rspdict)
+                continue
             if command == 'script':
                 script = user_input_list[1]
                 uigen = setup_command_generator(script=script)
@@ -97,7 +116,9 @@ def main(serverhost='localhost'):
                 pprint(cmdict)
             if client:
                 client.send_all(cmdict)
-                rspdict = client.recv_chunk()
+                rspdict = client.recv_all()
+                if 'errmsg' in rspdict:
+                    pprint(rspdict)
                 if verbose:
                     pprint(rspdict['value'])
             print()
@@ -114,18 +135,19 @@ def main(serverhost='localhost'):
                 if loop > 0:
                     uigen = setup_command_generator(script=script)
                     continue
-                script = None
-            loop = 1
-            delay = 0.0
-            uigen = setup_command_generator()
+            reset()
+        except KeyError as e:
+            print('Unknown command: %s' % ' '.join(user_input_list))
+            reset()
         except EOFError:            # Ctrl-D
             break
         except KeyboardInterrupt:   # Ctrl-C
-            uigen = setup_command_generator()
+            reset()
         except Exception as e:
-            set_trace()
-            print('Line %d: bad command? %s' % (
-                sys.exc_info()[2].tb_lineno, str(e)))
+            print('Line %d: "%s" bad command? %s' % (
+                sys.exc_info()[2].tb_lineno, command, str(e)))
+            reset()
+            pass
 
 
 if __name__ == '__main__':
