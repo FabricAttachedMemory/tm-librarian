@@ -15,7 +15,8 @@ class SQLite3assist(SQLassist):
 
     def DBconnect(self):
         try:
-            self._conn = sqlite3.connect(self.db_file)
+            self._conn = sqlite3.connect(self.db_file,
+                                         isolation_level='EXCLUSIVE')
             self._cursor = self._conn.cursor()
         except Exception as e:
             raise
