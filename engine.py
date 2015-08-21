@@ -362,7 +362,13 @@ class LibrarianCommandEngine(object):
         return None
 
     def cmd_send_OOB(self, cmdict):
-        return { 'OOBmsg': cmdict['msg'] }
+        '''In general any command that creates an OOB condition
+           needs to attach the OOB resolution for all clients.
+           This API is merely for testing purposes.'''
+        return {
+            'value': cmdict['context']['node_id'],
+            'OOBmsg': cmdict['msg']
+        }
 
     #######################################################################
 
@@ -392,7 +398,6 @@ class LibrarianCommandEngine(object):
         errmsg = ''
         try:
             self.errno = 0
-            OOBmsg = None
             context = cmdict['context']
             command = self._commands[cmdict['command']]
         except KeyError as e:
@@ -407,13 +412,13 @@ class LibrarianCommandEngine(object):
             # Python's json handler turns None into 'null' and vice verse.
             errmsg = 'Bad lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
-            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, OOBmsg
+            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
 
         try:
             assert not errmsg, errmsg
             errmsg = ''
             self.errno = 0
-            ret = None
+            ret = OOBmsg = None
             ret = command(self, cmdict)
         except AssertionError as e:     # consistency checks
             errmsg = str(e)
@@ -429,7 +434,8 @@ class LibrarianCommandEngine(object):
             if isinstance(ret, dict):
                 OOBmsg = ret.get('OOBmsg', None)
                 if OOBmsg is not None:
-                    ret = None
+                    OOBmsg = { 'OOBmsg': OOBmsg }
+                    del ret['OOBmsg']
             if self._cooked:    # for self-test
                 return ret, OOBmsg
 
@@ -444,7 +450,7 @@ class LibrarianCommandEngine(object):
                 value = { 'value': None }
             else:
                 value = { 'value': ret.dict }
-            value['context'] = context
+            value['context'] = context  # has sequence
             return value, OOBmsg
 
     @property

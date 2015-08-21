@@ -8,7 +8,7 @@ import sys
 import time
 
 from pdb import set_trace
-from json import dumps, loads   # forward/outbound, reverse/inbound
+from json import dumps, loads, JSONDecoder
 
 class SocketReadWrite(object):
     """ Object that will read and write from a socket
@@ -25,6 +25,7 @@ class SocketReadWrite(object):
         peertuple = kwargs.get('peertuple', None)
         selectable = kwargs.get('selectable', True)
         sock = kwargs.get('sock', None)
+        self.jsond = JSONDecoder()
 
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -132,19 +133,12 @@ class SocketReadWrite(object):
             print('%s: %s' % (self, str(e)), file=sys.stderr)
             return False
 
-    def send_OOB(self, OOBmsg):
-        try:
-            return self.send_all(self._OOBformat % OOBmsg, JSON=False)
-        except Exception as e:  # Probably BlockingIOError
-            print('%s: %s' % (self, str(e)), file=sys.stderr)
-            return False
-
     #----------------------------------------------------------------------
     # Receive stuff
 
     _bufsz = 4096
 
-    def recv_chunk(self):
+    def recv_all(self):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
@@ -204,7 +198,8 @@ class SocketReadWrite(object):
             partialOOB = ''
             while True:
                 try:    # If it loads, this recv is complete
-                    result = loads(self.instr)
+                    # result = loads(self.instr)
+                    result, nextjson = self.jsond.raw_decode(self.instr)
                     self.instr = partialOOB
                     return result
                 except ValueError as e:
@@ -395,7 +390,7 @@ class Server(SocketReadWrite):
         listening and serving requests.
 
         Args:
-            handler: The handler for commands received by the server.
+            handler: commands received by the server are sent here
         Returns:
             Nothing.
         """
@@ -463,7 +458,7 @@ class Server(SocketReadWrite):
                     continue
 
                 try:
-                    cmdict = s.recv_chunk()
+                    cmdict = s.recv_all()
                     if cmdict is None:  # need more, not available now
                         continue
 
@@ -495,12 +490,12 @@ class Server(SocketReadWrite):
                     continue    # no need to check OOB for now
 
                 if OOBmsg:
-                    print('-' * 20, 'OOB:', OOBmsg)
+                    print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
                     for c in clients:
                         if str(c) != str(s):
                             if not self._perf:
                                 print(str(c))
-                            c.send_OOB(OOBmsg)
+                            c.send_result(OOBmsg)
 
 def main():
     """ Run simple echo server to exercise the module """
