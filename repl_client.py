@@ -32,7 +32,7 @@ def setup_command_generator(uil_repeat=None, script=None):
 
 #--------------------------------------------------------------------------
 
-def main(serverhost='localhost'):
+def main(serverhost='localhost', preload=None):
     """Optionally connect to the server, then wait for user input to
        send to the server, printing out the response."""
 
@@ -75,7 +75,11 @@ def main(serverhost='localhost'):
     rspdict = None
     while True:
         try:
-            user_input_list = next(uigen)
+            if preload is None or not preload:
+                user_input_list = next(uigen)
+            else:
+                user_input_list = copy.copy(preload)
+                preload = None
             substitute_vars(user_input_list, rspdict)
             command = user_input_list[0]
 
@@ -153,4 +157,4 @@ def main(serverhost='localhost'):
 if __name__ == '__main__':
     import os, sys
 
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2:])

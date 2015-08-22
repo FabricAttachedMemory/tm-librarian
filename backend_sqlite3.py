@@ -68,7 +68,7 @@ class SQLite3assist(SQLassist):
         self.execute(sql, values)
         if self.rowcount != 1:
             self.rollback()
-            raise AssertionError('DELETE FROM %s %sfailed' % (table, values))
+            raise AssertionError('DELETE FROM %s %s failed' % (table, values))
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
     #
