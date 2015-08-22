@@ -145,7 +145,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             self.torms.send_all(cmdict)
             rspdict = None
             while rspdict is None:
-                rspdict = self.torms.recv_chunk()
+                rspdict = self.torms.recv_all()
                 if self.torms.inOOB:
                     self.handleOOB()
             if 'errmsg' in rspdict:
