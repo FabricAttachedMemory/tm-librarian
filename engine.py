@@ -134,42 +134,6 @@ class LibrarianCommandEngine(object):
             self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-    def cmd_destroy_shelf(self, cmdict):
-        """ Destroy a shelf and free any books associated with it.
-            In (dict)---
-                shelf_id
-                node_id
-                uid
-                gid
-            Out (dict) ---
-                shelf data
-        """
-        # Do my own join, start with lookup by name.  Leave zombies alone.
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
-        self.errno = errno.EBUSY
-        assert not shelf.open_count, '%s open count = %d' % (
-            shelf.name, shelf.open_count)
-
-        bos = self.db.get_bos_by_shelf_id(shelf.id)
-        for thisbos in bos:
-            self.db.delete_bos(thisbos)
-            book = self.db.get_book_by_id(thisbos.book_id)
-            self.errno = errno.ENOENT
-            assert book, 'Book lookup failed'
-            book.allocated = TMBook.ALLOC_ZOMBIE
-            book.matchfields = 'allocated'
-            book = self.db.modify_book(book)
-            self.errno = errno.ENOENT
-            assert book, 'Book allocation modify failed'
-
-        xattrs = self.db.list_xattrs(shelf)
-        for xattr in xattrs:
-            self.db.delete_xattr(shelf, xattr)
-        shelf.name = '.%s.zmb' % shelf.name
-        shelf.matchfields = 'name'
-        return self.db.modify_shelf(shelf, commit=True)
-        # return self.db.delete_shelf(shelf, commit=True)
-
     def _list_shelf_books(self, shelf):
         self.errno = errno.EBADF
         assert shelf.id, '%s not open' % shelf.name
@@ -182,6 +146,80 @@ class LibrarianCommandEngine(object):
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
         return bos
+
+    def _set_book_alloc(book_id, newalloc):
+        book = self.db.get_book_by_id(thisbos.book_id)
+        self.errno = errno.ENOENT
+        assert book, 'Book lookup failed'
+        self.errno = errno.EILSEQ
+        if newalloc == TMBook.ALLOC_FREE:
+            assert book.allocated == TMBook.ALLOC_ZOMBIE
+        elif newalloc == TMBook.ALLOC_INUSE:
+            assert book.allocated == TMBook.ALLOC_FREE
+        elif newalloc == TMBook.ALLOC_ZOMBIE:
+            assert book.allocated == TMBook.ALLOC_ZEROING
+        elif newalloc == TMBook.ALLOC_ZEROING:
+            assert book.allocated == TMBook.ALLOC_INUSE
+        else:
+            raise RuntimeError('Bad book allocation %d' % newalloc)
+        book.allocated = newalloc
+        book.matchfields = 'allocated'
+        book = self.db.modify_book(book)
+        self.errno = errno.ENOENT
+        assert book, 'Book allocation change to %d failed' % newalloc
+        return book
+
+    def cmd_destroy_shelf(self, cmdict):
+        """ For a shelf, zombify books (mark for zeroing) and remove xattrs
+            In (dict)---
+                shelf
+                node
+            Out (dict) ---
+                shelf data
+        """
+        # Do my own join, start with lookup by name.  Leave zombies alone.
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
+        self.errno = errno.EBUSY
+        assert not shelf.open_count, '%s open count = %d' % (
+            shelf.name, shelf.open_count)
+        if shelf.zombie:
+            return shelf
+
+        bos = self._list_shelf_books(shelf)
+        for thisbos in bos: # just mark the book
+            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
+        xattrs = self.db.list_xattrs(shelf)
+        for xattr in xattrs:
+            self.db.delete_xattr(shelf, xattr)
+        if not bos: # never any space
+            return self.db.delete_shelf(shelf, commit=True)
+        shelf.name = '.%(name)s-%(id)05d.zmb' % shelf
+        shelf.matchfields = 'name'
+        return self.db.modify_shelf(shelf, commit=True)
+
+    def cmd_kill_zombies(self, cmdict):
+        shelves = self.cmd_list_shelves(cmdict)
+        node_id = cmdict['context']['node_id']
+        for shelf in shelves:
+            if not shelf.zombie:
+                continue
+            set_trace()
+            bos = self._list_shelf_books(shelf)
+            for thisbos in bos:
+                self.db.delete_bos(thisbos) # FINALLY
+                book = self._set_book_alloc(
+                    thisbos.book_id, TMBook.ALLOC_ZEROING)
+                self.cmd_send_OOB('ZERO LZA %d' % book.id)
+        self.db.commit()
+        return None
+
+    def cmd_log_zero(self, cmdict):
+        '''Positive response from LFS daemon'''
+        for id in cmdict['ids']:
+            book = self._set_book_alloc(
+                thisbos.book_id, TMBook.ALLOC_ZEROING)
+        self.db.commit()
+        return None
 
     def cmd_resize_shelf(self, cmdict):
         """ Resize given shelf to new size in bytes.
@@ -233,9 +271,7 @@ class LibrarianCommandEngine(object):
             assert len(freebooks) == books_needed, (
                 'out of space on node %d for "%s"' % (node_id, shelf.name))
             for book in freebooks: # Mark book in use and create BOS entry
-                book.allocated = TMBook.ALLOC_INUSE
-                book.matchfields = 'allocated'
-                book = self.db.modify_book(book)
+                book = self._set_book_alloc(book.id, TMBook.ALLOC_INUSE)
                 seq_num += 1
                 thisbos = TMBos(
                     shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
@@ -246,11 +282,8 @@ class LibrarianCommandEngine(object):
             assert len(bos) >= books_2bdel, 'Book removal problem'
             while books_2bdel > 0:
                 thisbos = bos.pop()
-                self.db.delete_bos(thisbos)
-                book = self.db.get_book_by_id(thisbos.book_id)
-                book.allocated = TMBook.ALLOC_ZOMBIE
-                book.matchfields = ('allocated')
-                self.db.modify_book(book)
+                # self.db.delete_bos(thisbos) let kill_zombies do it
+                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
                 books_2bdel -= 1
         else:
             self.db.rollback()
@@ -293,7 +326,7 @@ class LibrarianCommandEngine(object):
                 bos data
         """
         shelf_id = cmdict['shelf_id']
-        bos = db.get_bos_by_shelf_id(shelf_id)
+        bos = self._list_shelf_books(shelf)
         return bos
 
     def cmd_get_xattr(self, cmdict):
@@ -451,6 +484,8 @@ class LibrarianCommandEngine(object):
             else:
                 value = { 'value': ret.dict }
             value['context'] = context  # has sequence
+            if 'matchfields' in value:
+                del value['matchfields']
             return value, OOBmsg
 
     @property

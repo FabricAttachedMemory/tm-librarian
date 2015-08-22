@@ -116,6 +116,7 @@ class TMBook(BookShelfStuff):
     ALLOC_FREE = 0
     ALLOC_INUSE = 1
     ALLOC_ZOMBIE = 2
+    ALLOC_ZEROING = 3
 
     _ordered_schema = (  # a little dodgy
         'id',
@@ -148,7 +149,7 @@ class TMShelf(BookShelfStuff):
 
     @property
     def zombie(self):
-        return self.name[0] == '.' and self.name.endswith('.zmb')
+        return self.name[0] == '.' and self.name[-4:] == '.zmb'
 
 #########################################################################
 
