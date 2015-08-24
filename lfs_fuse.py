@@ -140,7 +140,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             print(str(e))
             raise FuseOSError(errno.ENOKEY)
 
-        value = { }
+        errmsg = { }
         try:
             self.torms.send_all(cmdict)
             rspdict = None
@@ -148,26 +148,22 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 rspdict = self.torms.recv_all()
                 if self.torms.inOOB:
                     self.handleOOB()
-            if 'errmsg' in rspdict:
-                value['errmsg'] = rspdict['errmsg']
-                value['errno'] = rspdict['errno']
-
+            if 'errmsg' in rspdict: # higher-order librarian internal error
+                errmsg['errmsg'] = rspdict['errmsg']
+                errmsg['errno'] = rspdict['errno']
         except OSError as e:
-            set_trace()
-            value['errmsg'] = 'Communications error with librarian'
-            value['errno'] = errno.EHOSTDOWN
+            errmsg['errmsg'] = 'Communications error with librarian'
+            errmsg['errno'] = errno.EHOSTDOWN
         except MemoryError as e:    # OOB storm and internal error not pull instr
-            set_trace()
-            value['errmsg'] = 'OOM BOOM'
-            value['errno'] = errno.ENOMEM
+            errmsg['errmsg'] = 'OOM BOOM'
+            errmsg['errno'] = errno.ENOMEM
         except Exception as e:
-            set_trace()
-            value['errmsg'] = str(e)
-            value['errno'] = errno.EREMOTEIO
+            errmsg['errmsg'] = str(e)
+            errmsg['errno'] = errno.EREMOTEIO
 
-        if 'errmsg' in value:
-            print('%s failed: %s' % (command, value['errmsg']), file=sys.stderr)
-            raise FuseOSError(value['errno'])
+        if errmsg:
+            print('%s failed: %s' % (command, errmsg['errmsg']), file=sys.stderr)
+            raise FuseOSError(errmsg['errno'])
 
         try:
             value = rspdict['value']
@@ -186,9 +182,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # or OSError(errno.ENOENT)
     @prentry
     def getattr(self, path, fh=None):
-        if not fh is None:      # dir listings no dice, only open files
-            set_trace()
-            pass
         if path == '/':
             now = int(time.time())
             shelves = self.librarian(self.lcp('list_shelves'))
@@ -207,13 +200,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         try:
-            assert rsp['name'] == shelf_name
+            shelf = TMShelf(rsp)
+            assert shelf.name == shelf_name
+            if fh is not None:      # if original userspace call was fstat
+                assert shelf.id == self.fd2shelf_id[fh]
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
 
         # Calculate mode on the fly.  For now, all books must come
         # from same node.
-        shelf = TMShelf(rsp)
         mode = self._mode_default_file  # gotta start somewhere
         if False and shelf.book_count:
             set_trace()
@@ -234,7 +229,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return tmp
 
     @prentry
-    def readdir(self, path, fh):
+    def readdir(self, path, index):
+        '''Either be a real generator, or get called like one.'''
         if path != '/':
             raise FuseOSError(errno.ENOENT)
         rsp = self.librarian(self.lcp('list_shelves'))
@@ -331,20 +327,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def statfs(self, path): # "df" command; example used statVfs.
         globals = self.librarian(self.lcp('get_fs_stats'))
         # A book is a block.  Let other commands do the math.
-
-        # Where a stress error occurs, jfdi is
-        # df /lfs
-        # ls -al /lfs
-        # touch /lfs/junk
-        # what comes in here is the response for ls -al, a list.
-        # not sure how this gets out of sync.  A two-stanza jfdi w/o
-        # touch does not get out of sync.  Now try a truncate and
-        # see if that goes out of sync, ie, it's the writes or is it
-        # just touch?
-        try:
-            blocks = globals['books_total']
-        except Exception as e:
-            raise   # back out to fuse.py
+        blocks = globals['books_total']
         bfree = bavail = blocks - globals['books_used']
         bsize =globals['book_size_bytes']
         return {
@@ -364,13 +347,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'Unexpected args'
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
-        assert rsp['id'] not in self.fd2shelf_id.values()
-        try:
+        try: # shadow first
             os.unlink(self.shadowpath(shelf_name))
         except OSError as e:
             if e.errno != errno.ENOENT:
-                raise
+                raise FuseOSError(e.errno)
+        rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
+        assert rsp['id'] not in self.fd2shelf_id.values()
         return 0
 
     @prentry
@@ -389,34 +372,40 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return 0    # os.utime
 
     @prentry
-    def open(self, path, flags, **kwargs):
+    def open(self, path, flags, mode=None):
         # looking for filehandles?  See FUSE docs
-        assert not kwargs, 'open() with kwargs %s' % str(kwargs)
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         try:
             shelf_id = rsp['id']
-            fd = os.open(self.shadowpath(shelf_name), flags)
+            fd = os.open(self.shadowpath(shelf_name), flags, mode=mode)
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
         self.fd2shelf_id[fd] = shelf_id
         return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
-    # return os.open()
+    # return os.open().  Do the shadow file first to avoid dangling
+    # shelf entries if shadowing fails.
     @prentry
     def create(self, path, mode, fi=None):
-        assert fi is None, 'create(%s) with FI not implemented' % str(fi)
+        if fi is not None:
+            print('create(%s) with FI not implemented' % str(fi))
+            set_trace()
         shelf_name = self.path2shelf(path)
+
+        # Shadowing must accommodate graceless restarts including
+        # book_register.py rewrites.
+        try:
+            fd = os.open(self.shadowpath(shelf_name), os.O_CREAT, mode=mode)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raiseme = FuseOSError(e.errno)
+
         rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
         if rsp['name'] is None:
             raise FuseOSError(errno.EEXIST)
-        try:
-            shelf_id = rsp['id']
-            fd = os.open(self.shadowpath(shelf_name), mode + os.O_CREAT)
-        except Exception as e:
-            raise FuseOSError(errno.ENOENT)
-        self.fd2shelf_id[fd] = shelf_id
+        self.fd2shelf_id[fd] = rsp['id']
         return fd
 
     @prentry
@@ -430,34 +419,42 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return os.write(fh, buf)
 
     @prentry
-    # it was opened before this, but where is the fd (aka shelf id)?
-    # Example code shows an explicit open by name in here.
-    # example returned nothing?
-    def truncate(self, path, length, *args, **kwargs):
-        assert not kwargs, 'truncate() with kwargs %s' % str(kwargs)
+    # truncate calls with fh == None, but ftruncate passes in open handle
+    def truncate(self, path, length, fh=None):
         shelf_name = self.path2shelf(path)
-        listrsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        try: # Shadow first, before hitting the librararian DB
+            os.truncate(
+                fh if fh is not None else self.shadowpath(shelf_name),
+                length)
+        except OSError as e:
+            raise FuseOSError(e.errno)
+        if fh:
+            id = self.fd2shelf_id[fh]
+        else:
+            shelf = self.librarian(self.lcp('get_shelf', name=shelf_name))
+            id = shelf['id']
         req = self.lcp('resize_shelf',
                         name=shelf_name,
                         size_bytes=length,
-                        id=listrsp['id'])
+                        id=id)
         rsp = self.librarian(req)
         if not 'size_bytes' in rsp:
             raise FuseOSError(errno.EINVAL)
-        return os.truncate(self.shadowpath(shelf_name), length)
 
     @prentry
-    def release(self, path, fh):    # fh == shelfid
+    def release(self, path, fh): # fh == shadow file descriptor
         shelf_name = self.path2shelf(path)
         req = self.lcp('close_shelf', name=shelf_name,
                         id=self.fd2shelf_id[fh])
         rsp = self.librarian(req)
         try:
-            assert rsp['name'] == shelf_name
+            shelf = TMShelf(rsp)
+            shelf.name == shelf_name
+            assert self.fd2shelf_id[fh] == shelf.id
             del self.fd2shelf_id[fh]
-            return 0    # os.close...
+            return os.close(fh)
         except Exception as e:
-            raise FuseOSError(errno.EEXIST)
+            raise FuseOSError(errno.EINVAL)
 
     @prentry
     def flush(self, path, fh):      # fh == shelfid
