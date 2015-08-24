@@ -8,16 +8,12 @@ import sys
 import time
 
 from pdb import set_trace
-from json import dumps, loads   # forward/outbound, reverse/inbound
+from json import dumps, loads, JSONDecoder
 
 class SocketReadWrite(object):
     """ Object that will read and write from a socket
     used primarily as a base class for the Client and Server
     objects """
-
-    _OOBprefix = '<@<'
-    _OOBsuffix = '>@>'
-    _OOBformat = _OOBprefix + '%s' + _OOBsuffix
 
     def __init__(self, **kwargs):
         self._perf = kwargs.get('perf', 0)
@@ -25,6 +21,7 @@ class SocketReadWrite(object):
         peertuple = kwargs.get('peertuple', None)
         selectable = kwargs.get('selectable', True)
         sock = kwargs.get('sock', None)
+        self.jsond = JSONDecoder(strict=False)  # allow chars such as CRLF
 
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -132,26 +129,21 @@ class SocketReadWrite(object):
             print('%s: %s' % (self, str(e)), file=sys.stderr)
             return False
 
-    def send_OOB(self, OOBmsg):
-        try:
-            return self.send_all(self._OOBformat % OOBmsg, JSON=False)
-        except Exception as e:  # Probably BlockingIOError
-            print('%s: %s' % (self, str(e)), file=sys.stderr)
-            return False
-
     #----------------------------------------------------------------------
     # Receive stuff
 
-    _bufsz = 4096
+    _bufsz = 8192           # max recv.  FIXME: preallocate this?
+    _bufhi = 2 * _bufsz     # Not sure I'll keep this
+    _OOBlimit = 20          # when to dump a flood
 
-    def recv_chunk(self):
+    def recv_all(self):
         """ Receive the next part of a message and decode it to a
             python3 string.
         Args:
         Returns:
         """
 
-        appended = 0    # forward references from exceptions
+        needmore = False    # Should be entered with an empty buffer
         while True:
             if self.inOOB:  # make caller deal with OOB first
                 return None
@@ -161,139 +153,101 @@ class SocketReadWrite(object):
                     print('INSTR: %d bytes' % last)
                 else:
                     print('INSTR: %s' % self.instr)
+            appended = 0
 
-            # Is this a go around because the eatery below was exhausted,
-            # or did it get re-entered after an early leave to consume OOB?
-            try:
-                retryok = True
-                if last:    # maybe trying to finish off a fragment
-                    self._sock.settimeout(1.0)  # akin to blocking mode
-                self.instr += self._sock.recv(self._bufsz).decode('utf-8')
+            # First time through OR go-around with partial buffer?
+            if not last          or needmore:
+                try:
+                    if last:    # maybe trying to finish off a fragment
+                        self._sock.settimeout(0.5)  # akin to blocking mode
+                    self.instr += self._sock.recv(self._bufsz).decode('utf-8')
 
-                appended = len(self.instr) - last
-                if not self._perf:
-                    print('%s: received %d bytes' % (self._str, appended))
+                    appended = len(self.instr) - last
+                    if not self._perf:
+                        print('%s: received %d bytes' % (self._str, appended))
 
-                if not appended:   # Far side is gone
-                    msg = '%s: closed by remote' % str(self)
-                    self.close()    # May lead to AttributeError below
-                    raise OSError(errno.ECONNABORTED, msg)
+                    if not appended:   # Far side is gone without timeout
+                        msg = '%s: closed by remote' % str(self)
+                        self.close()    # May lead to AttributeError below
+                        raise OSError(errno.ECONNABORTED, msg)
 
-            except ConnectionAbortedError as e: # see two lines up
-                raise
-            except BlockingIOError as e:
-                # Not ready; only happens on a fresh read with non-blocking
-                # mode (ie, can't happen in timeout mode).  Get back to
-                # select, or just re-recv?
-                set_trace()
-                if not self._sock._created_blocking:
-                    return None
-                continue
-            except socket.timeout as e:
-                retryok = False
-                pass
-            except Exception as e:
-                # AttributeError is ops on closed socket.  Other stuff
-                # can just go through.
-                if self._sock is None:
-                    raise OSError(errno.ECONNABORTED, str(self))
-                self.safe_setblocking() # just in case it's live
-                raise
-            self.safe_setblocking()  # undo timeout
+                except ConnectionAbortedError as e: # see two lines up
+                    raise
+                except BlockingIOError as e:
+                    # Not ready; only happens on a fresh read with non-blocking
+                    # mode (ie, can't happen in timeout mode).  Get back to
+                    # select, or just re-recv?
+                    set_trace()
+                    if not self._sock._created_blocking:
+                        return None
+                    continue
+                except socket.timeout as e:
+                    pass
+                except Exception as e:
+                    # AttributeError is ops on closed socket.  Other stuff
+                    # can just go through.
+                    if self._sock is None:
+                        raise OSError(errno.ECONNABORTED, str(self))
+                    self.safe_setblocking() # just in case it's live
+                    raise
+                self.safe_setblocking()  # undo timeout (idempotent)
 
-            partialOOB = ''
-            while True:
-                try:    # If it loads, this recv is complete
-                    result = loads(self.instr)
-                    self.instr = partialOOB
+            # Only the JSON decode can be allowed to throw an error.
+            while self.instr:
+                try:
+                    if len(self.inOOB) > self._OOBlimit and \
+                       len(self.instr) < self._bufhi:
+                        return None     # Deal with this part of the flood
+                    result, nextjson = self.jsond.raw_decode(self.instr)
+                    self.instr = self.instr[nextjson:]
+                    OOBmsg = result.get('OOBmsg', False)
+                    if OOBmsg:  # and that's the whole result
+                        self.inOOB.append(OOBmsg)
+                        continue
                     return result
                 except ValueError as e:
-                    # Bad JSON conversion.  Extract OOB and try JSON again,
-                    # else "break" out of here back to select.  Start with
-                    # prefix.  Note: JSON complaint is not always a range,
-                    # and "ValueError" can have different complaints:
-                    # "Unterminated string" from a looooong argument
+                    # Bad JSON conversion.  Since I'm using raw_decode
+                    # multiple messages are no longer a problem; just walk
+                    # through them with nextjson above.  xattrs can go past
+                    # _bufsiz, or perhaps an OOB flood filled instr.  Either
+                    # way I need more bytes by breaking back into recv loop.
 
-                    badrange = str(e).split('(char')[1].strip()
-                    badrange = badrange.replace(')', '')
-                    badindex = int(badrange.split()[0].strip())
-                    incompleteJSON = str(e).startswith('Unterminated string')
-                    fullread = appended == self._bufsz
+                    # Is this a failure after re-read and if so did it help?
+                    if needmore and needmore == self.instr:
+                        self.clear()
+                        return None # might be some dangling OOBs
 
-                    if not incompleteJSON:
-                        set_trace() # what IS the message with OOB flood?
-
-                    pre = self.instr.find(self._OOBprefix)
-                    if pre != -1:
-                        suf = self.instr.find(self._OOBsuffix, pre + 3) + 3
-                        if suf != -1:
-                            self.inOOB.append(self.instr[pre + 3:suf - 3])
-                            self.instr = self.instr[0:pre] + self.instr[suf:]
-                            if not self.instr:  # Nothing for JSON, so...
-                                return None     # ...eat the current OOBs
-
-                        else: # OOB started.  Is there anything else?
-                            if pre == 0 and retryok:
-                                # that's all there is in instr, need more
-                                break
-                            # clear it out of the way and retry JSON
-                            set_trace()
-                            partialOOB = self.instr[pre:]
-                            self.instr = self.instr[:pre]
-                            continue
-
-                        if retryok:
-                            if self.inOOB and len(self.instr) < 10000:
-                                return None # eat the OOB
-                        continue
-
-                    # instr is a partial something.  Is there any correct
-                    # forward progress at the moment?
-                    if self.inOOB:
-                        return None # finish this off
-
-                    # No sign of full/start OOB, what seems to be partial?
-                    # setxattr can easily go past _bufsiz, or perhaps an OOB
-                    # OOB flood filled instr.  Is there an OOB end?
-
-                    if not incompleteJSON:
-                        suf = self.instr.find(self._OOBsuffix)
-                        if suf != -1:   # kill it and try try again
-                            set_trace()
-                            self.instr = self.instr[suf +3:]
-                            if self.instr:
-                                continue    # try JSON parse
-                            if retryok:
-                                break
-
-                    # No full prefix or suffix.  Is there any sign of JSON
-                    # start?  Since JSON messages are synchronous, other
-                    # stuff is probably partial OOB fragments.
-                    leftcurly = self.instr.find('{')
-                    if leftcurly != -1:
-                        if leftcurly:   # Move it down
-                            self.instr = self.instr[leftcurly:]
-                            if self.instr:
-                                continue    # try again
-                        if retryok:
-                            break
-
-                    if fullread and retryok:
-                    # 1 in _bufz chance there's NOT more
-                        set_trace()
+                    # There's only a 1 in bufsz chance that a read really
+                    # ended exactly on the boundary.  In other words, a
+                    # full read probably means there's more.
+                    if appended >= self._bufsz: # decode() might make more
+                        needmore = self.instr   # the '+='rebinds instr
                         break
 
-                    # at this stage, it's not recoverable, but I don't
-                    # want to crash any exchange going on with client.
-                    # What if...
-                    set_trace()
-                    if not retryok:
-                        self.clear()
+                    # Does it at least smell like JSON?  Maybe it's the middle
+                    # of one message and the beginning of another.  That's
+                    # authoritative, so remove pre-cruft and try again.
+                    leftright = self.instr.find('}{')
+                    if leftright != -1:
+                        self.instr = self.instr[leftright + 1:]
+                        continue
+
+                    # What about a good start, but unfinished end?  Might
+                    # not be able to tell because of sub-objects.
+                    leftcurly = self.instr.find('{')
+                    if leftcurly == 0:
+                        needmore = self.instr
+                        break
+
+                    # at this stage, it's not recoverable
+                    self.clear()
                     return None
 
                 except Exception as e:
                     set_trace()
                     raise ThisIsReallyBadError
+
+                raise ButThisIsWorseError
 
     def clear(self):
         self.instr = ''
@@ -395,7 +349,7 @@ class Server(SocketReadWrite):
         listening and serving requests.
 
         Args:
-            handler: The handler for commands received by the server.
+            handler: commands received by the server are sent here
         Returns:
             Nothing.
         """
@@ -463,7 +417,7 @@ class Server(SocketReadWrite):
                     continue
 
                 try:
-                    cmdict = s.recv_chunk()
+                    cmdict = s.recv_all()
                     if cmdict is None:  # need more, not available now
                         continue
 
@@ -495,12 +449,12 @@ class Server(SocketReadWrite):
                     continue    # no need to check OOB for now
 
                 if OOBmsg:
-                    print('-' * 20, 'OOB:', OOBmsg)
+                    print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
                     for c in clients:
                         if str(c) != str(s):
                             if not self._perf:
                                 print(str(c))
-                            c.send_OOB(OOBmsg)
+                            c.send_result(OOBmsg)
 
 def main():
     """ Run simple echo server to exercise the module """

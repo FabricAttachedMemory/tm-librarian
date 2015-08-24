@@ -89,6 +89,12 @@ class LibrarianCommandProtocol(object):
             parms=('msg', ),
         ),
 
+        # repl_client only
+
+        'kill_zombies': GO(
+            doc='Clean up zombie shelves and release dirty books',
+            parms=None,
+         )
     }   # _commands
 
     # "Context" title is from FuSE.  In the C FuSE libary, the context is

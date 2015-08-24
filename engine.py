@@ -134,42 +134,6 @@ class LibrarianCommandEngine(object):
             self.db.modify_shelf(shelf, commit=True)
         return shelf
 
-    def cmd_destroy_shelf(self, cmdict):
-        """ Destroy a shelf and free any books associated with it.
-            In (dict)---
-                shelf_id
-                node_id
-                uid
-                gid
-            Out (dict) ---
-                shelf data
-        """
-        # Do my own join, start with lookup by name.  Leave zombies alone.
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
-        self.errno = errno.EBUSY
-        assert not shelf.open_count, '%s open count = %d' % (
-            shelf.name, shelf.open_count)
-
-        bos = self.db.get_bos_by_shelf_id(shelf.id)
-        for thisbos in bos:
-            self.db.delete_bos(thisbos)
-            book = self.db.get_book_by_id(thisbos.book_id)
-            self.errno = errno.ENOENT
-            assert book, 'Book lookup failed'
-            book.allocated = TMBook.ALLOC_ZOMBIE
-            book.matchfields = 'allocated'
-            book = self.db.modify_book(book)
-            self.errno = errno.ENOENT
-            assert book, 'Book allocation modify failed'
-
-        xattrs = self.db.list_xattrs(shelf)
-        for xattr in xattrs:
-            self.db.delete_xattr(shelf, xattr)
-        shelf.name = '.%s.zmb' % shelf.name
-        shelf.matchfields = 'name'
-        return self.db.modify_shelf(shelf, commit=True)
-        # return self.db.delete_shelf(shelf, commit=True)
-
     def _list_shelf_books(self, shelf):
         self.errno = errno.EBADF
         assert shelf.id, '%s not open' % shelf.name
@@ -182,6 +146,84 @@ class LibrarianCommandEngine(object):
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
         return bos
+
+    def _set_book_alloc(self, book_id, newalloc):
+        book = self.db.get_book_by_id(book_id)
+        self.errno = errno.ENOENT
+        assert book, 'Book lookup failed'
+        self.errno = errno.EUCLEAN
+        msg = 'Book allocation %d -> %d' % (book.allocated, newalloc)
+        if newalloc == TMBook.ALLOC_INUSE:
+            assert book.allocated == TMBook.ALLOC_FREE, msg
+        elif newalloc == TMBook.ALLOC_ZOMBIE:
+            assert book.allocated == TMBook.ALLOC_INUSE, msg
+        elif newalloc == TMBook.ALLOC_ZEROING:
+            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
+        elif newalloc == TMBook.ALLOC_FREE:
+            assert book.allocated == TMBook.ALLOC_ZEROING, msg
+        else:
+            raise RuntimeError('Bad book allocation %d' % newalloc)
+        book.allocated = newalloc
+        book.matchfields = 'allocated'
+        book = self.db.modify_book(book)
+        self.errno = errno.ENOENT
+        assert book, 'Book allocation change to %d failed' % newalloc
+        return book
+
+    def cmd_destroy_shelf(self, cmdict):
+        """ For a shelf, zombify books (mark for zeroing) and remove xattrs
+            In (dict)---
+                shelf
+                node
+            Out (dict) ---
+                shelf data
+        """
+        # Do my own join, start with lookup by name.  Leave zombies alone.
+        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
+        self.errno = errno.EBUSY
+        assert not shelf.open_count, '%s open count = %d' % (
+            shelf.name, shelf.open_count)
+        if shelf.zombie:
+            return shelf
+
+        bos = self._list_shelf_books(shelf)
+        for thisbos in bos: # just mark the book
+            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
+        xattrs = self.db.list_xattrs(shelf)
+        for xattr in xattrs:
+            self.db.delete_xattr(shelf, xattr)
+        if not bos: # never any space
+            return self.db.delete_shelf(shelf, commit=True)
+        shelf.name = '.%(name)s-%(id)05d.zmb' % shelf
+        shelf.matchfields = 'name'
+        return self.db.modify_shelf(shelf, commit=True)
+
+    def cmd_kill_zombies(self, cmdict):
+        '''Remove final reference to a deleted shelf leaving only books
+           to be zeroed'''
+        shelves = self.cmd_list_shelves(cmdict)
+        node_id = cmdict['context']['node_id']
+        for shelf in shelves:
+            if not shelf.zombie:
+                continue
+            bos = self._list_shelf_books(shelf)
+            for thisbos in bos:
+                self.db.delete_bos(thisbos) # FINALLY.  FIXME: xattrs here?
+                book = self._set_book_alloc(
+                    thisbos.book_id, TMBook.ALLOC_ZEROING)
+            self.db.delete_shelf(shelf, commit=True)
+        return None
+
+    def cmd_log_zero(self, cmdict):
+        '''Positive response from LFS daemon'''
+        self.errno = errno.EINVAL
+        node_id = cmdict['context']['node_id']
+        for id in cmdict['ids']:
+            book = self.db.get_book_by_id(id)
+            assert book.node_id == node_id, 'Attempted off-node zeroing'
+            book = self._set_book_alloc(id, TMBook.ALLOC_FREE)
+        self.db.commit()
+        return None
 
     def cmd_resize_shelf(self, cmdict):
         """ Resize given shelf to new size in bytes.
@@ -233,9 +275,7 @@ class LibrarianCommandEngine(object):
             assert len(freebooks) == books_needed, (
                 'out of space on node %d for "%s"' % (node_id, shelf.name))
             for book in freebooks: # Mark book in use and create BOS entry
-                book.allocated = TMBook.ALLOC_INUSE
-                book.matchfields = 'allocated'
-                book = self.db.modify_book(book)
+                book = self._set_book_alloc(book.id, TMBook.ALLOC_INUSE)
                 seq_num += 1
                 thisbos = TMBos(
                     shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
@@ -246,11 +286,8 @@ class LibrarianCommandEngine(object):
             assert len(bos) >= books_2bdel, 'Book removal problem'
             while books_2bdel > 0:
                 thisbos = bos.pop()
-                self.db.delete_bos(thisbos)
-                book = self.db.get_book_by_id(thisbos.book_id)
-                book.allocated = TMBook.ALLOC_ZOMBIE
-                book.matchfields = ('allocated')
-                self.db.modify_book(book)
+                # self.db.delete_bos(thisbos) let kill_zombies do it
+                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
                 books_2bdel -= 1
         else:
             self.db.rollback()
@@ -269,7 +306,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 ?
         """
-        return '{"errmsg":"Command not implemented"}'
+        raise NotImplementedError
 
     def cmd_get_book(cmd_data, cmdict):
         """ List a given book
@@ -293,7 +330,7 @@ class LibrarianCommandEngine(object):
                 bos data
         """
         shelf_id = cmdict['shelf_id']
-        bos = db.get_bos_by_shelf_id(shelf_id)
+        bos = self._list_shelf_books(shelf)
         return bos
 
     def cmd_get_xattr(self, cmdict):
@@ -362,7 +399,13 @@ class LibrarianCommandEngine(object):
         return None
 
     def cmd_send_OOB(self, cmdict):
-        return { 'OOBmsg': cmdict['msg'] }
+        '''In general any command that creates an OOB condition
+           needs to attach the OOB resolution for all clients.
+           This API is merely for testing purposes.'''
+        return {
+            'value': cmdict['context']['node_id'],
+            'OOBmsg': cmdict['msg']
+        }
 
     #######################################################################
 
@@ -389,10 +432,8 @@ class LibrarianCommandEngine(object):
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
     def __call__(self, cmdict):
-        errmsg = ''
         try:
             self.errno = 0
-            OOBmsg = None
             context = cmdict['context']
             command = self._commands[cmdict['command']]
         except KeyError as e:
@@ -407,13 +448,13 @@ class LibrarianCommandEngine(object):
             # Python's json handler turns None into 'null' and vice verse.
             errmsg = 'Bad lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
-            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, OOBmsg
+            # Higher-order internal error
+            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
 
         try:
-            assert not errmsg, errmsg
-            errmsg = ''
+            errmsg = '' # High-level internal errors, not LFS state errors
             self.errno = 0
-            ret = None
+            ret = OOBmsg = None
             ret = command(self, cmdict)
         except AssertionError as e:     # consistency checks
             errmsg = str(e)
@@ -423,27 +464,30 @@ class LibrarianCommandEngine(object):
         except Exception as e:          # the Unknown Idiot
             errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        finally:
-            if errmsg: # Looks better _cooked
-                ret = GenericObject(errmsg=errmsg, errno=self.errno)
-            if isinstance(ret, dict):
-                OOBmsg = ret.get('OOBmsg', None)
-                if OOBmsg is not None:
-                    ret = None
-            if self._cooked:    # for self-test
-                return ret, OOBmsg
+        if errmsg: # Looks better _cooked
+            return { 'errmsg': errmsg, 'errno': self.errno }, None
 
-            # Create a dict to which context will be added
-            if isinstance(ret, dict):
-                value = { 'value': ret }
-            elif isinstance(ret, list):
-                value = { 'value': [ r.dict for r in ret ] }
-            elif ret is None:
-                value = { 'value': None }
-            else:
-                value = { 'value': ret.dict }
-            value['context'] = context
-            return value, OOBmsg
+        if isinstance(ret, dict):
+            OOBmsg = ret.get('OOBmsg', None)
+            if OOBmsg is not None:
+                OOBmsg = { 'OOBmsg': OOBmsg }
+                del ret['OOBmsg']
+        if self._cooked:    # for self-test
+            return ret, OOBmsg
+
+        # Create a dict to which context will be added
+        if type(ret) in (dict, str) or ret is None:
+            value = { 'value': ret }
+        elif isinstance(ret, list):
+            value = { 'value': [ r.dict for r in ret ] }
+        else:
+            value = { 'value': ret.dict }
+        value['context'] = context  # has sequence
+        try:
+            del value['_matchfields']
+        except Exception:
+            pass
+        return value, OOBmsg
 
     @property
     def commandset(self):

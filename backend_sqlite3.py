@@ -15,7 +15,8 @@ class SQLite3assist(SQLassist):
 
     def DBconnect(self):
         try:
-            self._conn = sqlite3.connect(self.db_file)
+            self._conn = sqlite3.connect(self.db_file,
+                                         isolation_level='EXCLUSIVE')
             self._cursor = self._conn.cursor()
         except Exception as e:
             raise
@@ -67,7 +68,7 @@ class SQLite3assist(SQLassist):
         self.execute(sql, values)
         if self.rowcount != 1:
             self.rollback()
-            raise AssertionError('DELETE FROM %s %sfailed' % (table, values))
+            raise AssertionError('DELETE FROM %s %s failed' % (table, values))
         # DO NOT COMMIT, give caller a chance for multiples or rollback
 
     #

@@ -1,6 +1,7 @@
 #!/usr/bin/python3 -tt
 """ Main module  for the REPL client for the librarian """
 
+import copy
 import time
 from pdb import set_trace
 from pprint import pprint
@@ -9,34 +10,42 @@ import socket_handling
 
 import cmdproto
 
+verbose = True
+
 #--------------------------------------------------------------------------
 
-def gen_command(script_file=None):
-    if script_file is not None:
-        with open(script_file, 'r') as f:
-            script = f.readlines()
-        for line in script:
-            line = line.replace('\n', '')
-            if line and not line.startswith('#'):
-                yield line.split()
-            # and then fall into...
-    tmp = input("command> ").strip().split(' ')
-    assert tmp, 'Missing command'
-    yield tmp
+def setup_command_generator(uil_repeat=None, script=None):
+    if script is None: # never raise StopIteration.  Caller watches loop counter
+        while True:
+            if uil_repeat:
+                yield copy.copy(uil_repeat)
+            else:
+                yield input("command> ").strip().split(' ')
 
-def main(serverhost='localhost'):
-    """ Main function for the REPL client this functions connects to the
-    server waits for user input and then sends/recvs commands from ther server
-    """
+    # Let end-of-script raise StopIteration
+    with open(script, 'r') as f:
+        script = f.readlines()
+    for line in script:
+        line = line.strip() # gets EOL newline, too
+        if line and line[0] != '#':
+             yield line.split()
+
+#--------------------------------------------------------------------------
+
+def main(serverhost='localhost', preload=None):
+    """Optionally connect to the server, then wait for user input to
+       send to the server, printing out the response."""
+
+    global verbose
+
     # Right now it's just identification, not auth[entication|orization]
-    auth = {
+    context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
         'pid': os.getpid(),
-        'node_id': 999
+        'node_id': 1
     }
-
-    lcp = cmdproto.LibrarianCommandProtocol(auth)
+    lcp = cmdproto.LibrarianCommandProtocol(context)
 
     client = socket_handling.Client(selectable=False)
     try:
@@ -46,86 +55,106 @@ def main(serverhost='localhost'):
         print(str(e), '; falling back to local print')
         client = None
 
-    script_file = None
-    uigen = gen_command(script_file)
-    verbose = True
-    while True:
+    def reset():    # local helper
+        nonlocal delay, loop, script, uigen
+        script = None
         loop = 1
         delay = 0.0
+        uigen = setup_command_generator()
+
+    def substitute_vars(uil, prevrsp):
+        for i in range(1, len(uil)):
+            arg = uil[i]
+            if arg[0] == '$':
+                var = arg[1:]
+                uil[i] = 'NONE'
+                if 'value' in prevrsp:
+                    uil[i] = str(prevrsp['value'].get(var, 'NONE'))
+
+    reset()
+    rspdict = None
+    while True:
         try:
-            user_input_list = next(uigen)
-            command = user_input_list.pop(0)
-            if not command:
-                continue
+            if preload is None or not preload:
+                user_input_list = next(uigen)
+            else:
+                user_input_list = copy.copy(preload)
+                preload = None
+            substitute_vars(user_input_list, rspdict)
+            command = user_input_list[0]
+
+            # Directives
+            if command in ('adios', 'bye', 'exit', 'quit', 'q'):
+                break
             if command == 'help':
                 print(lcp.help)
                 print('\nAux commands:')
-                print('loop count|"forever" delay_secs real_command ...')
-                print('script filename execute commands from filename')
-                print('quiet|verbose control printing of response')
-                print('q or quit to end the session')
-                continue
-
-            if command in ('adios', 'bye', 'exit', 'quit', 'q'):
-                break
-            if command == 'quiet':
-                verbose = False
+                print('loop count delay_secs real_command ...')
+                print('script filename')
+                print('verbose on|off')
+                print('q or quit')
                 continue
             if command == 'verbose':
-                verbose = True
+                verbose = user_input_list[0].lower() == 'on'
                 continue
             if command == 'loop':
-                loop = user_input_list.pop(0)
-                if loop != 'forever':
-                    loop = int(loop)
-                delay = float(user_input_list.pop(0))
-                command = user_input_list.pop(0)
+                loop = int(user_input_list[1])
+                assert loop > 1, 'Invalid loop count'
+                delay = float(user_input_list[2])
+                assert delay >= 0.0, 'Invalid delay'
+                uigen = setup_command_generator(
+                    uil_repeat=user_input_list[3:])
+                continue
+            if command == 'response':
+                pprint(rspdict)
+                continue
             if command == 'script':
-                script_file = user_input_list.pop(0)
-                continue    # around to a StopIteration
+                script = user_input_list[1]
+                uigen = setup_command_generator(script=script)
+                continue
 
-            # Two forms
-            cmdict = lcp(command, *user_input_list)
+            # Construct and execute the command
+            cmdict = lcp(command, *user_input_list[1:])
             if verbose:
                 print()
                 pprint(cmdict)
+            if client:
+                client.send_all(cmdict)
+                rspdict = client.recv_all()
+                if 'errmsg' in rspdict:
+                    pprint(rspdict)
+                if verbose:
+                    pprint(rspdict['value'])
+            print()
+            time.sleep(delay)
 
-            #cmdict = lcp(command, *user_input_list, auth=auth)
-            #pprint(cmdict)
-            #print()
+            if not script:
+                loop -= 1
+                if loop < 1:
+                    raise StopIteration
 
-        except StopIteration:   # reset
-            uigen = gen_command(script_file)
-            script_file = None
-            continue
-        except KeyboardInterrupt:
+        except StopIteration:       # loop or script finished
+            if script:
+                loop -= 1
+                if loop > 0:
+                    uigen = setup_command_generator(script=script)
+                    continue
+            reset()
+        except KeyError as e:
+            print('Unknown command: %s' % ' '.join(user_input_list))
+            reset()
+        except EOFError:            # Ctrl-D
             break
+        except KeyboardInterrupt:   # Ctrl-C
+            reset()
         except Exception as e:
-            print('Bad command:', str(e))
-            set_trace()
-            continue
+            print('Line %d: "%s" bad command? %s' % (
+                sys.exc_info()[2].tb_lineno, command, str(e)))
+            reset()
+            pass
 
-        if client is None:
-            pprint('LOCAL:', cmdict)
-        else:
-            try:
-                while loop == 'forever' or loop > 0:
-                    print(loop) # need to see small indication of progress
-                    client.send_all(cmdict)
-                    rspdict = client.recv_chunk()
-                    if verbose:
-                        pprint(rspdict['value'])
-                    time.sleep(delay)
-                    if isinstance(loop, int):
-                        loop -= 1
-            except Exception as e:
-                set_trace()
-                print('Oops: ', str(e), '\n')
-            except KeyboardInterrupt:
-                pass
-        print()
 
 if __name__ == '__main__':
     import os, sys
 
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2:])
