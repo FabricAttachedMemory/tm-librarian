@@ -147,19 +147,20 @@ class LibrarianCommandEngine(object):
             '%s size metadata mismatch' % shelf.name)
         return bos
 
-    def _set_book_alloc(book_id, newalloc):
-        book = self.db.get_book_by_id(thisbos.book_id)
+    def _set_book_alloc(self, book_id, newalloc):
+        book = self.db.get_book_by_id(book_id)
         self.errno = errno.ENOENT
         assert book, 'Book lookup failed'
-        self.errno = errno.EILSEQ
-        if newalloc == TMBook.ALLOC_FREE:
-            assert book.allocated == TMBook.ALLOC_ZOMBIE
-        elif newalloc == TMBook.ALLOC_INUSE:
-            assert book.allocated == TMBook.ALLOC_FREE
+        self.errno = errno.EUCLEAN
+        msg = 'Book allocation %d -> %d' % (book.allocated, newalloc)
+        if newalloc == TMBook.ALLOC_INUSE:
+            assert book.allocated == TMBook.ALLOC_FREE, msg
         elif newalloc == TMBook.ALLOC_ZOMBIE:
-            assert book.allocated == TMBook.ALLOC_ZEROING
+            assert book.allocated == TMBook.ALLOC_INUSE, msg
         elif newalloc == TMBook.ALLOC_ZEROING:
-            assert book.allocated == TMBook.ALLOC_INUSE
+            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
+        elif newalloc == TMBook.ALLOC_FREE:
+            assert book.allocated == TMBook.ALLOC_ZEROING, msg
         else:
             raise RuntimeError('Bad book allocation %d' % newalloc)
         book.allocated = newalloc
@@ -198,6 +199,8 @@ class LibrarianCommandEngine(object):
         return self.db.modify_shelf(shelf, commit=True)
 
     def cmd_kill_zombies(self, cmdict):
+        '''Remove final reference to a deleted shelf leaving only books
+           to be zeroed'''
         shelves = self.cmd_list_shelves(cmdict)
         node_id = cmdict['context']['node_id']
         for shelf in shelves:
@@ -206,18 +209,20 @@ class LibrarianCommandEngine(object):
             set_trace()
             bos = self._list_shelf_books(shelf)
             for thisbos in bos:
-                self.db.delete_bos(thisbos) # FINALLY
+                self.db.delete_bos(thisbos) # FINALLY.  FIXME: xattrs here?
                 book = self._set_book_alloc(
                     thisbos.book_id, TMBook.ALLOC_ZEROING)
-                self.cmd_send_OOB('ZERO LZA %d' % book.id)
         self.db.commit()
         return None
 
     def cmd_log_zero(self, cmdict):
         '''Positive response from LFS daemon'''
+        self.errno = errno.EINVAL
+        node_id = cmdict['context']['node_id']
         for id in cmdict['ids']:
-            book = self._set_book_alloc(
-                thisbos.book_id, TMBook.ALLOC_ZEROING)
+            book = self.db.get_book_by_id(id)
+            assert book.node_id == node_id, 'Attempted off-node zeroing'
+            book = self._set_book_alloc(id, TMBook.ALLOC_FREE)
         self.db.commit()
         return None
 
@@ -302,7 +307,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 ?
         """
-        return '{"errmsg":"Command not implemented"}'
+        raise NotImplementedError
 
     def cmd_get_book(cmd_data, cmdict):
         """ List a given book
@@ -428,7 +433,6 @@ class LibrarianCommandEngine(object):
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
     def __call__(self, cmdict):
-        errmsg = ''
         try:
             self.errno = 0
             context = cmdict['context']
@@ -445,15 +449,16 @@ class LibrarianCommandEngine(object):
             # Python's json handler turns None into 'null' and vice verse.
             errmsg = 'Bad lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
+            # Higher-order internal error
             return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
 
         try:
-            assert not errmsg, errmsg
-            errmsg = ''
+            errmsg = '' # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
             ret = command(self, cmdict)
         except AssertionError as e:     # consistency checks
+            set_trace()
             errmsg = str(e)
         except (AttributeError, RuntimeError) as e: # idiot checks
             errmsg = 'INTERNAL ERROR @ %s[%d]: %s' % (
@@ -461,32 +466,30 @@ class LibrarianCommandEngine(object):
         except Exception as e:          # the Unknown Idiot
             errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        finally:
-            if errmsg: # Looks better _cooked
-                ret = GenericObject(errmsg=errmsg, errno=self.errno)
-            if isinstance(ret, dict):
-                OOBmsg = ret.get('OOBmsg', None)
-                if OOBmsg is not None:
-                    OOBmsg = { 'OOBmsg': OOBmsg }
-                    del ret['OOBmsg']
-            if self._cooked:    # for self-test
-                return ret, OOBmsg
+        if errmsg: # Looks better _cooked
+            return { 'errmsg': errmsg, 'errno': self.errno }, None
 
-            # Create a dict to which context will be added
-            if isinstance(ret, dict):
-                value = { 'value': ret }
-            elif isinstance(ret, list):
-                value = { 'value': [ r.dict for r in ret ] }
-            elif isinstance(ret, str):
-                value = { 'value': ret }
-            elif ret is None:
-                value = { 'value': None }
-            else:
-                value = { 'value': ret.dict }
-            value['context'] = context  # has sequence
-            if 'matchfields' in value:
-                del value['matchfields']
-            return value, OOBmsg
+        if isinstance(ret, dict):
+            OOBmsg = ret.get('OOBmsg', None)
+            if OOBmsg is not None:
+                OOBmsg = { 'OOBmsg': OOBmsg }
+                del ret['OOBmsg']
+        if self._cooked:    # for self-test
+            return ret, OOBmsg
+
+        # Create a dict to which context will be added
+        if type(ret) in (dict, str) or ret is None:
+            value = { 'value': ret }
+        elif isinstance(ret, list):
+            value = { 'value': [ r.dict for r in ret ] }
+        else:
+            value = { 'value': ret.dict }
+        value['context'] = context  # has sequence
+        try:
+            del value['_matchfields']
+        except Exception:
+            pass
+        return value, OOBmsg
 
     @property
     def commandset(self):
