@@ -206,13 +206,12 @@ class LibrarianCommandEngine(object):
         for shelf in shelves:
             if not shelf.zombie:
                 continue
-            set_trace()
             bos = self._list_shelf_books(shelf)
             for thisbos in bos:
                 self.db.delete_bos(thisbos) # FINALLY.  FIXME: xattrs here?
                 book = self._set_book_alloc(
                     thisbos.book_id, TMBook.ALLOC_ZEROING)
-        self.db.commit()
+            self.db.delete_shelf(shelf, commit=True)
         return None
 
     def cmd_log_zero(self, cmdict):
@@ -458,7 +457,6 @@ class LibrarianCommandEngine(object):
             ret = OOBmsg = None
             ret = command(self, cmdict)
         except AssertionError as e:     # consistency checks
-            set_trace()
             errmsg = str(e)
         except (AttributeError, RuntimeError) as e: # idiot checks
             errmsg = 'INTERNAL ERROR @ %s[%d]: %s' % (

@@ -334,6 +334,9 @@ class LibrarianDBackendSQL(object):
                                          (shelf.id, xattr))
         self._cur.commit()
 
+    def commit(self):
+        self._cur.commit()
+
     def close(self):
         self._cur.close()
 
