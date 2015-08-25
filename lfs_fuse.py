@@ -375,12 +375,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def open(self, path, flags, mode=None):
         # looking for filehandles?  See FUSE docs
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
-        try:
-            shelf_id = rsp['id']
+        if mode is None:
+            mode = 0o666
+        try:    # shadow first
             fd = os.open(self.shadowpath(shelf_name), flags, mode=mode)
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
+        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
+        shelf_id = rsp['id']
         self.fd2shelf_id[fd] = shelf_id
         return fd
 
