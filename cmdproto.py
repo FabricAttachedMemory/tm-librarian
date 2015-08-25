@@ -91,8 +91,8 @@ class LibrarianCommandProtocol(object):
 
         # repl_client only
 
-        'kill_zombies': GO(
-            doc='Clean up zombie shelves and release dirty books',
+        'kill_zombie_books': GO(
+            doc='Clean up zombie books, returning them to the FREE state ',
             parms=None,
          )
     }   # _commands
