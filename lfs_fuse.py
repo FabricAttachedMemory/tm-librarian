@@ -405,8 +405,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 raiseme = FuseOSError(e.errno)
 
         rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
-        if rsp['name'] is None:
-            raise FuseOSError(errno.EEXIST)
         self.fd2shelf_id[fd] = rsp['id']
         return fd
 
@@ -445,16 +443,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def release(self, path, fh): # fh == shadow file descriptor
+        os.close(fh)
         shelf_name = self.path2shelf(path)
         req = self.lcp('close_shelf', name=shelf_name,
                         id=self.fd2shelf_id[fh])
         rsp = self.librarian(req)
         try:
             shelf = TMShelf(rsp)
-            shelf.name == shelf_name
+            assert shelf.name == shelf_name
             assert self.fd2shelf_id[fh] == shelf.id
             del self.fd2shelf_id[fh]
-            return os.close(fh)
         except Exception as e:
             raise FuseOSError(errno.EINVAL)
 
