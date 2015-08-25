@@ -60,45 +60,49 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
+        # POSIX: create if not existent, else open
+        try:
+            shelf = self.cmd_open_shelf(cmdict)
+            return shelf
+        except Exception as e:
+            pass
+        self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
+        shelf.open_count = 1    # POSIX open(O_CREAT) or creat() call
         ret = self.db.create_shelf(shelf, commit=True)
-        # open_count is 0 now, but a flush/release screws it up
         return ret
 
-    def cmd_get_shelf(self, cmdict, name_only=True, no_zombie=False):
+    def cmd_get_shelf(self, cmdict, match_id=False):
         """ List a given shelf.
             In (dict)---
                 name
-                optional id
+                optional flag to force a match on id (ie, already open)
             Out (TMShelf object) ---
                 TMShelf object
         """
-        shelf = TMShelf(cmdict)
         self.errno = errno.EINVAL
-        assert shelf.name, 'Command has no shelf name'
-        if name_only:
-            shelf.matchfields = ('name', )
-        else:
-            self.errno = errno.EBADF
-            assert shelf.id, '%s not open' % shelf.name
+        shelf = TMShelf(cmdict)
+        assert shelf.name, 'Missing shelf name'
+        if match_id:
             shelf.matchfields = ('name', 'id')
+        else:
+            shelf.matchfields = ('name', )
         shelf = self.db.get_shelf(shelf)
         if shelf is None:
-            if name_only:
-                return None
-            self.errno = errno.ENOENT
-            raise AssertionError('no such shelf %s' % shelf.name)
-        else:   # consistency checks
-            self.errno = errno.EREMOTEIO
-            assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
-                '%s size metadata mismatch' % shelf.name)
-        if no_zombie and shelf.zombie:
-            self.errno = errno.ESTALE
-            raise AssertionError('That zombie\'s dead, Jim')
+            self.errno = errno.ENOENT   # FIXME: raise OSError instead?
+            raise AssertionError('no such shelf %s' % cmdict['name'])
+        # consistency checks
+        self.errno = errno.EBADF
+        assert shelf.open_count >= 0, '%s negative open count' % shelf.name
+        assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
+            '%s size metadata mismatch' % shelf.name)
+        self.errno = errno.ESTALE
+        if match_id:
+            assert shelf.id and shelf.open_count, '%s not open' % shelf.name
         return shelf
 
     def cmd_list_shelves(self, cmdict):
-        '''This can return zombies'''
+        '''Returns a list.'''
         return self.db.get_shelf_all()
 
     def cmd_open_shelf(self, cmdict):
@@ -108,7 +112,7 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict)  # may raise ENOENT
         shelf.open_count += 1
         shelf.matchfields = 'open_count'
         self.db.modify_shelf(shelf, commit=True)
@@ -121,25 +125,19 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 TMShelf object
         """
-        # todo: check if node/user really has this shelf open
-        # todo: ensure open count does not go below zero
-
-        shelf = self.cmd_get_shelf(cmdict, name_only=False)
-        self.errno = errno.EBADFD
-        assert shelf.open_count >= 0, '%s negative open count' % shelf.name
-        # FIXME: == 0 occurs right after a create.  What's up?
-        if shelf.open_count > 0:
-            shelf.open_count -= 1
-            shelf.matchfields = 'open_count'
-            self.db.modify_shelf(shelf, commit=True)
+        shelf = self.cmd_get_shelf(cmdict, match_id=True)
+        shelf.open_count -= 1
+        shelf.matchfields = 'open_count'
+        self.db.modify_shelf(shelf, commit=True)
         return shelf
 
     def _list_shelf_books(self, shelf):
         self.errno = errno.EBADF
-        assert shelf.id, '%s not open' % shelf.name
+        assert shelf.id, '%s not open (2)' % shelf.name
         bos = self.db.get_bos_by_shelf_id(shelf.id)
 
-        # consistency checks
+        # consistency checks.  Leave them both as different paths may
+        # have been followed to retrieve the passed-in shelf.
         self.errno = errno.EREMOTEIO
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
@@ -157,10 +155,8 @@ class LibrarianCommandEngine(object):
             assert book.allocated == TMBook.ALLOC_FREE, msg
         elif newalloc == TMBook.ALLOC_ZOMBIE:
             assert book.allocated == TMBook.ALLOC_INUSE, msg
-        elif newalloc == TMBook.ALLOC_ZEROING:
-            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
         elif newalloc == TMBook.ALLOC_FREE:
-            assert book.allocated == TMBook.ALLOC_ZEROING, msg
+            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
         else:
             raise RuntimeError('Bad book allocation %d' % newalloc)
         book.allocated = newalloc
@@ -178,44 +174,33 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        # Do my own join, start with lookup by name.  Leave zombies alone.
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
+        # Do my own join, start with lookup by name.
         self.errno = errno.EBUSY
-        assert not shelf.open_count, '%s open count = %d' % (
+        shelf = self.cmd_get_shelf(cmdict)
+        assert not shelf.open_count, 'cannot destroy %s: open count=%d' % (
             shelf.name, shelf.open_count)
-        if shelf.zombie:
-            return shelf
 
         bos = self._list_shelf_books(shelf)
-        for thisbos in bos: # just mark the book
-            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
         xattrs = self.db.list_xattrs(shelf)
+        for thisbos in bos:
+            self.db.delete_bos(thisbos)
+            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
         for xattr in xattrs:
             self.db.delete_xattr(shelf, xattr)
-        if not bos: # never any space
-            return self.db.delete_shelf(shelf, commit=True)
-        shelf.name = '.%(name)s-%(id)05d.zmb' % shelf
-        shelf.matchfields = 'name'
-        return self.db.modify_shelf(shelf, commit=True)
+        return self.db.delete_shelf(shelf, commit=True)
 
-    def cmd_kill_zombies(self, cmdict):
-        '''Remove final reference to a deleted shelf leaving only books
-           to be zeroed'''
-        shelves = self.cmd_list_shelves(cmdict)
+    def cmd_kill_zombie_books(self, cmdict):
+        '''repl_client command to "zero" zombie books.  Needs work.'''
         node_id = cmdict['context']['node_id']
-        for shelf in shelves:
-            if not shelf.zombie:
-                continue
-            bos = self._list_shelf_books(shelf)
-            for thisbos in bos:
-                self.db.delete_bos(thisbos) # FINALLY.  FIXME: xattrs here?
-                book = self._set_book_alloc(
-                    thisbos.book_id, TMBook.ALLOC_ZEROING)
-            self.db.delete_shelf(shelf, commit=True)
+        zombies = self.db.get_book_by_node(
+                node_id, TMBook.ALLOC_ZOMBIE, 9999)
+        for book in zombies:
+            _ = self._set_book_alloc(book.id, TMBook.ALLOC_FREE)
+        self.db.commit()
         return None
 
     def cmd_log_zero(self, cmdict):
-        '''Positive response from LFS daemon'''
+        '''Positive response from LFS daemon. NRFPT'''
         self.errno = errno.EINVAL
         node_id = cmdict['context']['node_id']
         for id in cmdict['ids']:
@@ -234,16 +219,12 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        shelf = self.cmd_get_shelf(cmdict, name_only=False, no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict, match_id=True)
 
         bos = self._list_shelf_books(shelf)
         self.errno = errno.EREMOTEIO
         assert len(bos) == shelf.book_count, (
             '%s book count mismatch' % shelf.name)
-
-        # other consistency checks
-        assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
-            '%s size metadata mismatch' % shelf.name)
 
         new_size_bytes = int(cmdict['size_bytes'])
         self.errno = errno.EINVAL
@@ -270,7 +251,8 @@ class LibrarianCommandEngine(object):
         node_id = cmdict['context']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
-            freebooks = self.db.get_book_by_node( node_id, 0, books_needed)
+            freebooks = self.db.get_book_by_node(
+                node_id, TMBook.ALLOC_FREE, books_needed)
             self.errno = errno.ENOSPC
             assert len(freebooks) == books_needed, (
                 'out of space on node %d for "%s"' % (node_id, shelf.name))
@@ -286,13 +268,13 @@ class LibrarianCommandEngine(object):
             assert len(bos) >= books_2bdel, 'Book removal problem'
             while books_2bdel > 0:
                 thisbos = bos.pop()
-                # self.db.delete_bos(thisbos) let kill_zombies do it
+                self.db.delete_bos(thisbos)
                 _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
                 books_2bdel -= 1
         else:
             self.db.rollback()
             self.errno = errno.EREMOTEIO
-            raise RuntimeError('Bad code path in shelf_resize()')
+            raise RuntimeError('Bad code path in cmd_resize_shelf()')
 
         shelf.book_count = new_book_count
         shelf.matchfields = ('size_bytes', 'book_count')
@@ -343,9 +325,7 @@ class LibrarianCommandEngine(object):
                 value
         """
         # Zombie is okay, they should be cleared.
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=False)
-        if shelf is None:
-            return None
+        shelf = self.cmd_get_shelf(cmdict)
         value = self.db.get_xattr(shelf, cmdict['xattr'])
         return { 'value': value }
 
@@ -356,9 +336,7 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 value
         """
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
-        if shelf is None:
-            return None
+        shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
         return { 'value': value }
 
@@ -373,9 +351,8 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
-        self.errno = errno.ENOENT
-        assert shelf is not None, 'No such shelf'
+        # FIXME: can this only be done on an open shelf?
+        shelf = self.cmd_get_shelf(cmdict)
         if self.db.get_xattr(shelf, cmdict['xattr'], exists_only=True):
             return self.db.modify_xattr(
                 shelf, cmdict['xattr'], cmdict['value'])
@@ -392,7 +369,7 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 None or error
         """
-        shelf = self.cmd_get_shelf(cmdict, no_zombie=True)
+        shelf = self.cmd_get_shelf(cmdict)
         shelf.matchfields = 'mtime' # special case
         shelf.mtime = cmdict['mtime']
         self.db.modify_shelf(shelf, commit=True)
@@ -484,7 +461,7 @@ class LibrarianCommandEngine(object):
             value = { 'value': ret.dict }
         value['context'] = context  # has sequence
         try:
-            del value['_matchfields']
+            del value['value']['_matchfields']
         except Exception:
             pass
         return value, OOBmsg

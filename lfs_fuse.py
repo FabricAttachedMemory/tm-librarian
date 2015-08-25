@@ -375,12 +375,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def open(self, path, flags, mode=None):
         # looking for filehandles?  See FUSE docs
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
-        try:
-            shelf_id = rsp['id']
+        if mode is None:
+            mode = 0o666
+        try:    # shadow first
             fd = os.open(self.shadowpath(shelf_name), flags, mode=mode)
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
+        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
+        shelf_id = rsp['id']
         self.fd2shelf_id[fd] = shelf_id
         return fd
 
@@ -403,8 +405,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 raiseme = FuseOSError(e.errno)
 
         rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
-        if rsp['name'] is None:
-            raise FuseOSError(errno.EEXIST)
         self.fd2shelf_id[fd] = rsp['id']
         return fd
 
@@ -443,16 +443,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def release(self, path, fh): # fh == shadow file descriptor
+        os.close(fh)
         shelf_name = self.path2shelf(path)
         req = self.lcp('close_shelf', name=shelf_name,
                         id=self.fd2shelf_id[fh])
         rsp = self.librarian(req)
         try:
             shelf = TMShelf(rsp)
-            shelf.name == shelf_name
+            assert shelf.name == shelf_name
             assert self.fd2shelf_id[fh] == shelf.id
             del self.fd2shelf_id[fh]
-            return os.close(fh)
         except Exception as e:
             raise FuseOSError(errno.EINVAL)
 
