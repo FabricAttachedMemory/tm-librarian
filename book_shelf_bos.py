@@ -116,7 +116,6 @@ class TMBook(BookShelfStuff):
     ALLOC_FREE = 0
     ALLOC_INUSE = 1
     ALLOC_ZOMBIE = 2
-    ALLOC_ZEROING = 3
 
     _ordered_schema = (  # a little dodgy
         'id',
@@ -146,10 +145,6 @@ class TMShelf(BookShelfStuff):
 
     # Gotta do this here or the mechanism doesn't work.
     __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
-
-    @property
-    def zombie(self):
-        return self.name[0] == '.' and self.name[-4:] == '.zmb'
 
 #########################################################################
 
