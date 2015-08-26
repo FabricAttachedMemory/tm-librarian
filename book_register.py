@@ -47,7 +47,41 @@ nvm_size and nvm_size_per_node can also have multiplier B (books)
     raise SystemExit(msg)
 
 #--------------------------------------------------------------------------
+# Load and validate
 
+def load_config(inifile):
+    config = configparser.ConfigParser()
+    if not config.read(os.path.expanduser(inifile)) or not config.sections():
+        usage('Missing/invalid/empty config file "%s"' % inifile)
+
+    if not config.has_section('global'):
+        usage('Missing global section in config file: %s' % inifile)
+
+    for s in config.sections():
+        options = frozenset(config.options(s))
+        if s == 'global':
+            legal = frozenset((
+                'book_size_bytes',
+                'nvm_size_per_node',
+                'node_count',
+            ))
+        elif s.startswith('node'):
+            legal = frozenset((
+                'lza_base',
+                'node_id',
+                'nvm_size',
+            ))
+        else:
+            raise SystemExit('Illegal section "%s"' % s)
+        bad = options - legal
+        if bad:
+            raise SystemExit(
+                'Illegal option(s) in [%s]: %s\nLegal options are %s' % (
+                    s, ', '.join(bad), ', '.join(legal)))
+
+    return config
+
+#--------------------------------------------------------------------------
 
 def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
@@ -71,13 +105,7 @@ def multiplier(instr, section, book_size_bytes=0):
 
 def load_book_data(inifile):
 
-    config = configparser.ConfigParser()
-
-    if not config.read(os.path.expanduser(inifile)) or not config.sections():
-        usage("Missing or empty config file: %s" % inifile)
-
-    if not config.has_section("global"):
-        usage("Missing global section in config file: %s" % inifile)
+    config = load_config(inifile)
 
     # Get required global config items
     section = 'global'
@@ -99,8 +127,9 @@ def load_book_data(inifile):
         books_per_node = int(bytes_per_node / book_size_bytes)
         section2books = {}
         lza = 0
-        print ('Auto-provisioning %d 0x%x-byte books in each of %d nodes' % (
-            books_per_node, book_size_bytes, node_count))
+        print('%d nodes, each with %d books of %d bytes == %d bytes/node' %
+            (node_count, books_per_node, book_size_bytes,
+             books_per_node * book_size_bytes))
         for node_id in range(1, node_count + 1):
             section = 'node%02d' % node_id
             section2books[section] = []
@@ -274,6 +303,8 @@ if __name__ == '__main__':
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
         cur.commit()    # every section; about 1000 in a real TM node
+
+    print('%d (0x%016x) total NVM bytes' % (nvm_bytes_total, nvm_bytes_total))
 
     cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)',
                 ('LIBRARIAN 0.981',

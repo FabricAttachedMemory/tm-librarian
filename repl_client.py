@@ -32,7 +32,7 @@ def setup_command_generator(uil_repeat=None, script=None):
 
 #--------------------------------------------------------------------------
 
-def main(serverhost='localhost', preload=None):
+def main(node_id, serverhost, preload=None):
     """Optionally connect to the server, then wait for user input to
        send to the server, printing out the response."""
 
@@ -43,7 +43,7 @@ def main(serverhost='localhost', preload=None):
         'uid': os.geteuid(),
         'gid': os.getegid(),
         'pid': os.getpid(),
-        'node_id': 1
+        'node_id': node_id
     }
     lcp = cmdproto.LibrarianCommandProtocol(context)
 
@@ -62,7 +62,7 @@ def main(serverhost='localhost', preload=None):
         delay = 0.0
         uigen = setup_command_generator()
 
-    def substitute_vars(uil, prevrsp):
+    def substitute_vars(uil, node_id, prevrsp):
         for i in range(1, len(uil)):
             arg = uil[i]
             if arg[0] == '$':
@@ -70,6 +70,8 @@ def main(serverhost='localhost', preload=None):
                 uil[i] = 'NONE'
                 if 'value' in prevrsp:
                     uil[i] = str(prevrsp['value'].get(var, 'NONE'))
+            elif arg.endswith('$NODE'):
+                uil[i] = arg.replace('$NODE', '%03d' % node_id)
 
     reset()
     rspdict = None
@@ -80,7 +82,7 @@ def main(serverhost='localhost', preload=None):
             else:
                 user_input_list = copy.copy(preload)
                 preload = None
-            substitute_vars(user_input_list, rspdict)
+            substitute_vars(user_input_list, node_id, rspdict)
             command = user_input_list[0]
 
             # Directives
@@ -155,6 +157,25 @@ def main(serverhost='localhost', preload=None):
 
 
 if __name__ == '__main__':
-    import os, sys
+    import argparse, os, sys
 
-    main(sys.argv[1], sys.argv[2:])
+    parser = argparse.ArgumentParser(description='Librarian command-line client')
+    parser.add_argument('--verbose',
+                    help='level of runtime output, larger == more',
+                    type=int,
+                    default=0)
+    parser.add_argument('node_id',
+                    help='Numeric node id',
+                    type=int)
+    parser.add_argument('hostname',
+                    help='ToRMS host running the Librarian',
+                    type=str)
+    parser.add_argument('preload',
+                    help='Starting command',
+                    nargs='*',
+                    default=None)
+    args = parser.parse_args(sys.argv[1:])
+
+    # argparse "choices" expands this in help message, less than helpful
+    assert 1 <= args.node_id < 1000, 'Node ID must be from 1 - 999'
+    main(args.node_id, args.hostname, args.preload)
