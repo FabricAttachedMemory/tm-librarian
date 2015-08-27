@@ -290,8 +290,8 @@ if __name__ == '__main__':
     elif args.force is True and os.path.isfile(args.dfile):
         os.unlink(args.dfile)
 
-    cur = SQLite3assist(db_file=args.dfile)
     book_size_bytes, section2books = load_book_data(args.ifile)
+    cur = SQLite3assist(db_file=args.dfile)
     create_empty_db(cur)
 
     nvm_bytes_total = 0
