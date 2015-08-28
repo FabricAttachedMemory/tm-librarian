@@ -73,7 +73,7 @@ class BookShelfStuff(object):      # could become a mixin
     @property
     def dict(self):
         d = {}
-        for k in set(self.__slots__) - set(self._MFname):
+        for k in self._ordered_schema:
             val = getattr(self, k)
             d[k] = val
         return d
@@ -174,7 +174,6 @@ if __name__ == '__main__':
 
     shelf1 = TMShelf()
     print(shelf1)
-    set_trace()
 
     fields = cur.schema('books')
     assert set(fields) == set(TMBook._ordered_schema), 'TMBook oopsie'
