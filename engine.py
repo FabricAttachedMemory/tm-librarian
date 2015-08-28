@@ -145,6 +145,10 @@ class LibrarianCommandEngine(object):
             '%s size metadata mismatch' % shelf.name)
         return bos
 
+    def cmd_list_shelf_books(self, cmdict):
+        shelf = self.cmd_get_shelf(cmdict)
+        return self._list_shelf_books(shelf)
+
     def _set_book_alloc(self, book_id, newalloc):
         book = self.db.get_book_by_id(book_id)
         self.errno = errno.ENOENT
@@ -304,17 +308,6 @@ class LibrarianCommandEngine(object):
         recvd = dict(zip(book_columns, resp))
         return recvd
 
-    def cmd_list_bos(self, cmdict):
-        """ List all the books on a given shelf.
-            In (dict)---
-                shelf_id
-            Out (dict) ---
-                bos data
-        """
-        shelf_id = cmdict['shelf_id']
-        bos = self._list_shelf_books(shelf)
-        return bos
-
     def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
             In (dict)---
@@ -423,7 +416,7 @@ class LibrarianCommandEngine(object):
             # or string, OR one of the following three literal names:
             # false null true
             # Python's json handler turns None into 'null' and vice verse.
-            errmsg = 'Bad lookup on "%s"' % str(e)
+            errmsg = 'engine failed lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
             # Higher-order internal error
             return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
@@ -460,10 +453,6 @@ class LibrarianCommandEngine(object):
         else:
             value = { 'value': ret.dict }
         value['context'] = context  # has sequence
-        try:
-            del value['value']['_matchfields']
-        except Exception:
-            pass
         return value, OOBmsg
 
     @property
