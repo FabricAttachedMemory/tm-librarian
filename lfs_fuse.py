@@ -5,6 +5,7 @@
 import errno
 import os
 import sys
+import tempfile
 import time
 
 from pdb import set_trace
@@ -45,17 +46,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     _mode_default_file = int('0100666', 8)  # isfile, 666
     _mode_default_dir =  int('0040777', 8)  # isdir, 777
 
-    def __init__(self, source, node_id):
-        '''Validate parameters'''
-        path = self.shadowpath('')  # trailing '/': Looking for Mr. GoodDir
-        try:
-            stat = os.stat(path)    # a file will throw 'NotADirectory'
-            if stat.st_mode != self._mode_default_dir:
-                raise SystemExit('%s is not mode 777' % path)
-        except Exception as e:
-            raise SystemExit('Directory %s does not exist' % path)
-        self.tormsURI = source
-        elems = source.split(':')
+    def __init__(self, args):
+        '''Validate command-line parameters'''
+        if args.shadow_ivshmem:
+            raise NotImplementedError
+        self._shadowpath = args.shadow_dir
+        self.tormsURI = args.hostname
+        elems = args.hostname.split(':')
         assert len(elems) <= 2
         self.host = elems[0]
         try:
@@ -67,11 +64,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         umask = os.umask(0)
         os.umask(umask)
         context = {
-            'uid': os.geteuid(),
-            'gid': os.getegid(),
-            'pid': os.getpid(),
             'umask': umask,
-            'node_id': node_id,
+            'node_id': args.node_id,
         }
         self.lcp = LibrarianCommandProtocol(context)
 
@@ -109,9 +103,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     fd2shelf_id = { }
 
-    @staticmethod
-    def shadowpath(shelf_name):
-        return '/var/lib/lfs/shadow/%s' % shelf_name
+    def shadowpath(self, shelf_name):
+        return '%s/%s' % (self._shadowpath, shelf_name)
 
     # First level:  tenants
     # Second level: tenant group
@@ -402,7 +395,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             fd = os.open(self.shadowpath(shelf_name), os.O_CREAT, mode=mode)
         except OSError as e:
             if e.errno != errno.EEXIST:
-                raiseme = FuseOSError(e.errno)
+                raise FuseOSError(e.errno)
 
         rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
         self.fd2shelf_id[fd] = rsp['id']
@@ -503,16 +496,69 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def link(self, target, name):
         raise FuseOSError(errno.ENOSYS)
 
-def main(source, mountpoint, node_id):
+def mount_LFS(args):
+    '''Expects an argparse::Namespace argument.  Validate fields and call FUSE'''
+    assert os.path.isdir(args.mountpoint), 'No such directory %s' % args.mountpoint
+    assert 1 <= args.node_id <= 80, 'Node ID must be from 1 - 999'
+    d = bool(args.shadow_dir)
+    i = bool(args.shadow_ivshmem)
+    assert d or i, 'Either shadow_dir or shadow_ivshmem is required'
+    assert not (d and i), 'Only one of shadow_dir or shadow_ivshmem is allowed'
+    if d:
+        assert os.path.isdir(args.shadow_dir), 'No such directory %s' % args.shadow_dir
+        try:
+            probe = tempfile.TemporaryFile(dir=args.shadow_dir)
+            probe.close()
+        except OSError as e:
+            raise RuntimeError('%s is not writeable' % args.shadow_dir)
+    else:
+        assert os.path.exists(args.shadow_ivshmem), '%s does not exist' % args.shadow_ivshmem
+
     try:
-        FUSE(LibrarianFS(source, node_id),
-            mountpoint,
+        FUSE(LibrarianFS(args),
+            args.mountpoint,
             allow_other=True,
             noatime=True,
-            foreground=True,
+            foreground=not bool(args.daemon),
             nothreads=True)
     except Exception as e:
         raise SystemExit('fusermount probably failed, retry in foreground')
 
 if __name__ == '__main__':
-    main(*sys.argv[1:])  # source mountpoint node_id
+    import argparse, os, sys
+
+    parser = argparse.ArgumentParser(description='Librarian File System Daemon (LFSd)')
+    parser.add_argument('hostname',
+                    help='ToRMS host running the Librarian',
+                    type=str)
+    parser.add_argument('mountpoint',
+                    help='Local directory mountpoint',
+                    type=str,
+                    default='/lfs')
+    parser.add_argument('node_id',
+                    help='Numeric node id',
+                    type=int)
+    parser.add_argument('--daemon',
+                    help='Daemonize the program',
+                    action='store_true',
+                    default=False)
+    parser.add_argument('--shadow_dir',
+                    help='directory path for individual shelf shadow files',
+                    type=str,
+                    default='')
+    parser.add_argument('--shadow_ivshmem',
+                    help='PCIe address of IVSHMEM device (ex: "00:09.0")',
+                    type=str,
+                    default='')
+    parser.add_argument('--verbose',
+                    help='level of runtime output, larger -> more',
+                    type=int,
+                    default=0)
+    args = parser.parse_args(sys.argv[1:])
+
+    msg = 0
+    try:
+        mount_LFS(args)
+    except Exception as e:
+        msg = str(e)
+    raise SystemExit(msg)
