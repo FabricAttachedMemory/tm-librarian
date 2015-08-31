@@ -20,11 +20,27 @@ class shadow_directory(object):
     def __init__(self, args):
         self._shadowpath = args.shadow_dir
         assert os.path.isdir(args.shadow_dir), 'No such directory %s' % args.shadow_dir
+        self._fd2obj = { }  # now this object doubles as a dict
         try:
             probe = tempfile.TemporaryFile(dir=args.shadow_dir)
             probe.close()
         except OSError as e:
             raise RuntimeError('%s is not writeable' % args.shadow_dir)
+
+    def __getitem__(self, index):
+        return self._fd2obj[index]
+
+    def __setitem__(self, index, obj):
+        self._fd2obj[index] = obj
+
+    def __contains__(self, index):
+        return index in self._fd2obj
+
+    def __delitem__(self, index):
+        del self._fd2obj[index]
+
+    def values(self):
+        return self._fd2obj.values()
 
     def unlink(self, shelf_name):
         try:
