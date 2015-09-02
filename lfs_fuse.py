@@ -399,11 +399,23 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.EINVAL)
 
     @prentry
-    def flush(self, path, fh):      # fh == shelfid
+    def flush(self, path, fh):      # fh == file descriptor
+        '''May be called zero, one, or more times per shelf open.  It's a
+           chance to report delayed errors, not a syscall passthru.'''
         return 0
 
     @prentry
-    def fsync(self, path, fdatasync, fh):
+    def fsync(self, path, datasync, fh):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def fsyncdir(self, path, datasync, fh):
+        raise FuseOSError(errno.ENOSYS)
+
+    @prentry
+    def bmap(self, path, blocksize, blockno):
+        '''Only if "target" is a filesystem on a block device.  Convert
+           file-relative blockno to device-relative block.'''
         raise FuseOSError(errno.ENOSYS)
 
     #######################################################################

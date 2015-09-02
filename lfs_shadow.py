@@ -12,20 +12,10 @@ from pdb import set_trace
 
 from fuse import FuseOSError
 
-class shadow_directory(object):
+class shadow_support(object):
 
-    def shadowpath(self, shelf_name):
-        return '%s/%s' % (self._shadowpath, shelf_name)
-
-    def __init__(self, args):
-        self._shadowpath = args.shadow_dir
-        assert os.path.isdir(args.shadow_dir), 'No such directory %s' % args.shadow_dir
+    def __init__(self):
         self._fd2obj = { }  # now this object doubles as a dict
-        try:
-            probe = tempfile.TemporaryFile(dir=args.shadow_dir)
-            probe.close()
-        except OSError as e:
-            raise RuntimeError('%s is not writeable' % args.shadow_dir)
 
     def __getitem__(self, index):
         return self._fd2obj[index]
@@ -42,6 +32,23 @@ class shadow_directory(object):
     def values(self):
         return self._fd2obj.values()
 
+#--------------------------------------------------------------------------
+
+class shadow_directory(shadow_support):
+
+    def __init__(self, args):
+        super(self.__class__, self).__init__()
+        self._shadowpath = args.shadow_dir
+        assert os.path.isdir(args.shadow_dir), 'No such directory %s' % args.shadow_dir
+        try:
+            probe = tempfile.TemporaryFile(dir=args.shadow_dir)
+            probe.close()
+        except OSError as e:
+            raise RuntimeError('%s is not writeable' % args.shadow_dir)
+
+    def shadowpath(self, shelf_name):
+        return '%s/%s' % (self._shadowpath, shelf_name)
+
     def unlink(self, shelf_name):
         try:
             os.unlink(self.shadowpath(shelf_name))
@@ -52,7 +59,7 @@ class shadow_directory(object):
     def open(self, shelf_name, flags, mode=None):
         if mode is None:
             mode = 0o666
-        try:    # shadow first
+        try:
             fd = os.open(self.shadowpath(shelf_name), flags, mode=mode)
             return fd
         except Exception as e:
@@ -89,11 +96,14 @@ class shadow_directory(object):
 
 #--------------------------------------------------------------------------
 
-class shadow_ivshmem(object):
+class shadow_ivshmem(shadow_support):
 
     def __init__(self, args):
+        super(self.__class__, self).__init__()
         assert os.path.exists(args.shadow_ivshmem), '%s does not exist' % args.shadow_ivshmem
         raise NotImplementedError
+
+#--------------------------------------------------------------------------
 
 def the_shadow_knows(args):
     '''args is command-line arguments from lfs_fuse.py'''
