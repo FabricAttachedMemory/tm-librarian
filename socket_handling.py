@@ -260,7 +260,7 @@ class Client(SocketReadWrite):
     """ A simple synchronous client for the Librarian """
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super(self.__class__, self).__init__(**kwargs)
 
     def connect(self, host='localhost', port=9093, retry=True):
         """ Connect socket to port on host
@@ -317,7 +317,7 @@ class Server(SocketReadWrite):
 
     def __init__(self, parseargs, **kwargs):
         self.verbose = parseargs.verbose
-        super().__init__(**kwargs)
+        super(self.__class__, self).__init__(**kwargs)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._port = parseargs.port
         self._sock.bind(('', self._port))
