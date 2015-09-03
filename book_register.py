@@ -65,8 +65,17 @@ def load_config(inifile):
                 'nvm_size_per_node',
                 'node_count',
             ))
+            required = frozenset((
+                'book_size_bytes',
+                'node_count',
+            ))
         elif s.startswith('node'):
             legal = frozenset((
+                'lza_base',
+                'node_id',
+                'nvm_size',
+            ))
+            required = frozenset((
                 'lza_base',
                 'node_id',
                 'nvm_size',
@@ -74,6 +83,10 @@ def load_config(inifile):
         else:
             raise SystemExit('Illegal section "%s"' % s)
         bad = options - legal
+        if not set(required).issubset(options):
+            raise SystemExit(
+                'Missing option(s) in [%s]: %s\nRequired options are %s' % (
+                    s, ', '.join(required-options), ', '.join(required)))
         if bad:
             raise SystemExit(
                 'Illegal option(s) in [%s]: %s\nLegal options are %s' % (
