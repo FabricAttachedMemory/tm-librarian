@@ -1,0 +1,48 @@
+---------------------------------------------------------------------------
+This directory contains unit and regression tests for the Librarian.
+---------------------------------------------------------------------------
+
+For unit testing the built in python "unittest" framework will be used.
+
+To write a unit test for a given module/file creat a new file in
+this directory using the module/file name and prefix it with "test_".
+
+For example, to write a unit test for "book_register.py" you would
+create a new file name "test_book_register.py", include the following:
+
+    #!/usr/bin/python3
+
+    import unittest
+    import configparser
+
+    from <module_to_test> import <class|function>
+
+    class Test<class|function>(unittest.TestCase):
+        def setUp(self):
+            # setup code here
+
+        def tearDown(self):
+            # tear down code here
+
+        def test_<class|function>_<seq#>(self):
+            # unit test code here
+
+    if __name__ == '__main__':
+        unittest.main()
+
+Reference: https://docs.python.org/3.4/library/unittest.html#module-unittest
+
+# Run all the tests for a given module/file
+$ python3 -m unittest tests.test_book_register
+
+# Run all tests for a given class/function
+$ python3 -m unittest tests.test_book_register.TestLoadConfig
+
+# Run a specfic test for a given class/function
+$ python3 -m unittest tests.test_book_register.TestLoadConfig.test_load_config_1
+
+---------------------------------------------------------------------------
+
+For regression testing ....
+
+---------------------------------------------------------------------------
