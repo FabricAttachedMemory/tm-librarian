@@ -1,6 +1,6 @@
 #!/usr/bin/python3 -tt
 
-# From Stavros
+# https://www.kernel.org/doc/Documentation/filesystems/vfs.txt
 
 import errno
 import os
@@ -49,7 +49,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def __init__(self, args):
         '''Validate command-line parameters'''
-        self.shadow = the_shadow_knows(args)
         self.tormsURI = args.hostname
         elems = args.hostname.split(':')
         assert len(elems) <= 2
@@ -80,6 +79,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             print('%s: connected' % self.torms)
         except Exception as e:
             raise FuseOSError(errno.EHOSTUNREACH)
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        self.shadow = the_shadow_knows(args, globals)
        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
     @prentry
@@ -111,6 +112,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def librarian(self, cmdict):
         '''Dictionary in, dictionary out'''
+        # There are times when the process that invoked an action,
+        # notably release(), has died by the time this point is reached.
+        # In that case uid/gid/pid will all be zero.
         context = cmdict['context']
         (context['uid'],
          context['gid'],
@@ -162,9 +166,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Higher-level FS operations
 
     # Called early on nearly all accesses.  Returns os.lstat() equivalent
-    # or OSError(errno.ENOENT).  fh is set if original call was fstat.
+    # or OSError(errno.ENOENT).  When tenants go live, EPERM can occur.
+    # FIXME: move this into Librarian proper.  It should be doing
+    # all the calculations, doubly so when we implement tenancy.
     @prentry
-    def getattr(self, path, fh=None):
+    def getattr(self, path, fd=None):
+        '''fd is set if original call was fstat (vs stat or lstat)'''
         if path == '/':
             now = int(time.time())
             shelves = self.librarian(self.lcp('list_shelves'))
@@ -182,10 +189,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        shelf = TMShelf(rsp)
         try:
-            shelf = TMShelf(rsp)
-            if fh is not None:
-                assert shelf.id == self.shadow[fh]
+            if fd is not None:
+                set_trace()
+                assert shelf == self.shadow[fd]
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
 
@@ -224,7 +232,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Extended attributes: apt-get install attr, then man 5 attr.  Legal
     # namespaces are (user, system, trusted, security).  Anyone can
     # see "user", but the others take CAP_SYS_ADMIN.  Currently only
-    # "user" works, even with sudo, not sure why.  Or if it matters.
+    # "user" works, even with sudo, not sure why, or if it really matters.
     # Something (fusepy, I imagine) always calls getattr() first, so it's
     # a reasonable assumption the shelf exists.
 
@@ -311,11 +319,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def unlink(self, path, *args, **kwargs):
-        assert not args and not kwargs, 'Unexpected args'
+        assert not args and not kwargs, 'unlink: nexpected args'
         shelf_name = self.path2shelf(path)
         self.shadow.unlink(shelf_name)
         rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
-        assert rsp['id'] not in self.shadow.values()
         return 0
 
     @prentry
@@ -323,7 +330,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)  # bomb here on '/'
         if times is not None:
             times = tuple(map(int, times))
-            if abs(int(time.time() - times[1])) < 3:    # "now" on this system
+            if abs(int(time.time() - times[1])) < 3: # "now" on this system
                 times = None
         if times is None:
             times = (0, 0)  # let librarian pick it
@@ -335,81 +342,78 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def open(self, path, flags, mode=None):
-        # looking for filehandles?  See FUSE docs
+        # looking for filehandles?  See FUSE docs.  Librarian will do
+        # all access calculations so call it first.
         shelf_name = self.path2shelf(path)
-        fd = self.shadow.open(shelf_name, flags, mode)
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
-        self.shadow[fd] = rsp['id']
+        shelf = TMShelf(rsp)
+        fd = self.shadow.open(shelf, flags, mode)
         return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
-    # return os.open().  Do the shadow file first to avoid dangling
-    # shelf entries if shadowing fails.
+    # return os.open().
     @prentry
     def create(self, path, mode, fi=None):
         if fi is not None:
             print('create(%s) with FI not implemented' % str(fi))
             set_trace()
         shelf_name = self.path2shelf(path)
-        fd = self.shadow.create(shelf_name, mode)
         rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
-        self.shadow[fd] = rsp['id']
+        shelf = TMShelf(rsp)
+        fd = self.shadow.create(shelf, mode)
         return fd
 
     @prentry
-    def read(self, path, length, offset, fh):
-        return self.shadow.read(path, length, offset, fh)
+    def read(self, path, length, offset, fd):
+        return self.shadow.read(path, length, offset, fd)
 
     @prentry
-    def write(self, path, buf, offset, fh):
-        return self.shadow.write(path, buf, offset, fh)
+    def write(self, path, buf, offset, fd):
+        return self.shadow.write(path, buf, offset, fd)
 
     @prentry
-    def truncate(self, path, length, fh=None):
-        '''truncate(2) calls with fh == None, but ftruncate passes in
-           open handle'''
+    def truncate(self, path, length, fd=None):
+        '''truncate(2) calls with fd == None; based on path but access
+           must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        self.shadow.truncate(shelf_name, length, fh)
-        if fh:
-            id = self.shadow[fh]
-        else:
-            shelf = self.librarian(self.lcp('get_shelf', name=shelf_name))
-            id = shelf['id']
+        # ALWAYS get the shelf by name, even if fd is valid.
+        # IMPLICIT ASSUMPTION: without tenants this will never EPERM
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
                         name=shelf_name,
                         size_bytes=length,
-                        id=id)
+                        id=rsp['id'])
         rsp = self.librarian(req)
-        if not 'size_bytes' in rsp:
+        shelf = TMShelf(rsp)
+        if shelf.size_bytes < length:
             raise FuseOSError(errno.EINVAL)
+        return self.shadow.truncate(shelf, length, fd)
 
+    # Called when last reference to an open file is closed.
     @prentry
-    def release(self, path, fh): # fh == shadow file descriptor
-        self.shadow.release(fh)
-        shelf_name = self.path2shelf(path)
-        req = self.lcp('close_shelf', name=shelf_name,
-                        id=self.shadow[fh])
-        rsp = self.librarian(req)
+    def release(self, path, fd): # fd == shadow file descriptor
         try:
-            shelf = TMShelf(rsp)
-            assert shelf.name == shelf_name
-            assert self.shadow[fh] == shelf.id
-            del self.shadow[fh]
+            shelf = self.shadow.release(fd)
+            req = self.lcp('close_shelf',
+                           name=shelf.name,
+                           id=shelf.id,
+                           open_handle=shelf.open_handle)
+            self.librarian(req) # None or raise
         except Exception as e:
-            raise FuseOSError(errno.EINVAL)
+            raise FuseOSError(errno.ESTALE)
 
     @prentry
-    def flush(self, path, fh):      # fh == file descriptor
+    def flush(self, path, fd):
         '''May be called zero, one, or more times per shelf open.  It's a
            chance to report delayed errors, not a syscall passthru.'''
         return 0
 
     @prentry
-    def fsync(self, path, datasync, fh):
+    def fsync(self, path, datasync, fd):
         raise FuseOSError(errno.ENOSYS)
 
     @prentry
-    def fsyncdir(self, path, datasync, fh):
+    def fsyncdir(self, path, datasync, fd):
         raise FuseOSError(errno.ENOSYS)
 
     @prentry
@@ -461,10 +465,10 @@ def mount_LFS(args):
     '''Expects an argparse::Namespace argument.  Validate fields and call FUSE'''
     assert os.path.isdir(args.mountpoint), 'No such directory %s' % args.mountpoint
     assert 1 <= args.node_id <= 80, 'Node ID must be from 1 - 999'
-    d = bool(args.shadow_dir)
-    i = bool(args.shadow_ivshmem)
-    assert d or i, 'Either shadow_dir or shadow_ivshmem is required'
-    assert not (d and i), 'Only one of shadow_dir or shadow_ivshmem is allowed'
+    d = int(bool(args.shadow_dir))
+    f = int(bool(args.shadow_file))
+    i = int(bool(args.shadow_ivshmem))
+    assert sum((d, f, i)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] is required'
 
     try:
         FUSE(LibrarianFS(args),
@@ -496,6 +500,10 @@ if __name__ == '__main__':
                     default=False)
     parser.add_argument('--shadow_dir',
                     help='directory path for individual shelf shadow files',
+                    type=str,
+                    default='')
+    parser.add_argument('--shadow_file',
+                    help='file path for one regular shadow file',
                     type=str,
                     default='')
     parser.add_argument('--shadow_ivshmem',
