@@ -49,18 +49,19 @@ class BookShelfStuff(object):      # could become a mixin
         setattr(self, self._MFname, None)
 
     def __eq__(self, other):
-        for k in self._ordered_schema:
+        for k in self._ordered_schema:  # not ids
             if getattr(self, k) != getattr(other, k):
                 return False
         return True
 
     def __str__(self):
         s = []
-        for k in sorted(self._sorted + ('matchfields', )):
-            val = getattr(self, k)
-            if k.endswith('time'):
-                val = time.ctime(val)
-            s.append('{}: {}'.format(k, val))
+        for k in sorted(self.__slots__):
+            if k[0] != '_':
+                val = getattr(self, k)
+                if k.endswith('time'):
+                    val = time.ctime(val)
+                s.append('{}: {}'.format(k, val))
         return '\n'.join(s)
 
     def __repr__(self):         # makes "p" work better in pdb
@@ -73,9 +74,10 @@ class BookShelfStuff(object):      # could become a mixin
     @property
     def dict(self):
         d = {}
-        for k in self._ordered_schema:
-            val = getattr(self, k)
-            d[k] = val
+        for k in self.__slots__:
+            if k[0] !=  '_':
+                val = getattr(self, k)
+                d[k] = val
         return d
 
     # Be liberal in what I take, versus expecting people to remember
@@ -137,14 +139,14 @@ class TMShelf(BookShelfStuff):
         'creator_id',
         'size_bytes',
         'book_count',
-        'open_count',
         'ctime',
         'mtime',
         'name'
     )
 
     # Gotta do this here or the mechanism doesn't work.
-    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname,
+                                               'open_handle'))
 
 #########################################################################
 

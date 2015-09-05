@@ -108,10 +108,26 @@ class LibrarianDBackendSQL(object):
             shelf.mtime = now                   # Normal operation
         return self._modify_table('shelves', shelf, ('mtime', ), commit)
 
+    def modify_opened_shelves(self, shelf, action, context):
+        if action == 'get':
+            shelf.open_handle = self._cur.INSERT('opened_shelves',
+                (None, shelf.id, context['node_id'], context['pid']))
+        elif action == 'put':
+            self._cur.DELETE('opened_shelves',
+                             'id=? AND shelf_id=? AND node_id=?',
+                             (shelf.open_handle,
+                              shelf.id,
+                              context['node_id']),
+                             commit=True)
+            shelf.open_handle = None
+        else:
+            raise RuntimeError('Bad action %s for modify_open_shelves' % action)
+        return shelf
+
     def modify_xattr(self, shelf, xattr, value, commit=True):
         """ Modify data in "shelf_xattrs" table.  Known to exist:
             Input---
-              shelf: maily for the shelf id
+              shelf: mainly for the shelf id
               xattr: existing key
               value: new value
             Output---
@@ -175,21 +191,20 @@ class LibrarianDBackendSQL(object):
 
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
+    # Always commit, it's where the shelf.id comes from.
     #
 
-    def create_shelf(self, shelf, commit=False):
+    def create_shelf(self, shelf):
         """ Insert one new shelf into "shelves" table.
             Input---
               shelf_data - list of shelf data to insert
             Output---
               shelf_data or error message
         """
-        shelf.id = self._getnextid('shelves')   # Could take a second
+        shelf.id = None     # DB engine will autochoose next id
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
-        self._cur.INSERT('shelves', shelf.tuple())
-        if commit:
-            self._cur.commit()
+        shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
 
     def get_shelf(self, shelf):
@@ -204,7 +219,7 @@ class LibrarianDBackendSQL(object):
         sql = 'SELECT * FROM shelves WHERE %s' % qmarks
         self._cur.execute(sql, shelf.tuple(fields))
         self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
+        shelves = [ r for r in self._cur ]  # FIXME: make an r.getone()?
         assert len(shelves) <= 1, 'Matched more than one shelf'
         return shelves[0] if shelves else None
 
@@ -242,12 +257,10 @@ class LibrarianDBackendSQL(object):
             Input---
               bos_data - list of bos data to insert
             Output---
-              status: success = 0
-                      failure = -1
+              status: success = bos
+                      failure = raise XXXXX
         """
-        self._cur.INSERT('books_on_shelves', bos.tuple())
-        if commit:
-            self._cur.commit()
+        self._cur.INSERT('books_on_shelves', bos.tuple(), commit=commit)
         return(bos)
 
     def get_bos_by_shelf_id(self, shelf_id):
@@ -327,12 +340,11 @@ class LibrarianDBackendSQL(object):
 
     def create_xattr(self, shelf, xattr, value):
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
-        self._cur.commit()
 
     def delete_xattr(self, shelf, xattr):
         self._cur.DELETE('shelf_xattrs', 'shelf_id=? AND xattr=?',
-                                         (shelf.id, xattr))
-        self._cur.commit()
+                                         (shelf.id, xattr),
+                                         commit=True)
 
     def commit(self):
         self._cur.commit()
