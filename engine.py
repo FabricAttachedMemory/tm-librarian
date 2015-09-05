@@ -68,9 +68,8 @@ class LibrarianCommandEngine(object):
             pass
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
-        shelf.open_count = 1    # POSIX open(O_CREAT) or creat() call
-        ret = self.db.create_shelf(shelf, commit=True)
-        return ret
+        self.db.create_shelf(shelf)
+        return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
         """ List a given shelf.
@@ -93,12 +92,10 @@ class LibrarianCommandEngine(object):
             raise AssertionError('no such shelf %s' % cmdict['name'])
         # consistency checks
         self.errno = errno.EBADF
-        assert shelf.open_count >= 0, '%s negative open count' % shelf.name
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
         self.errno = errno.ESTALE
-        if match_id:
-            assert shelf.id and shelf.open_count, '%s not open' % shelf.name
+        # FIXME: calculate open count and compare against shelf handle/id
         return shelf
 
     def cmd_list_shelves(self, cmdict):
@@ -113,22 +110,18 @@ class LibrarianCommandEngine(object):
                 TMShelf object
         """
         shelf = self.cmd_get_shelf(cmdict)  # may raise ENOENT
-        shelf.open_count += 1
-        shelf.matchfields = 'open_count'
-        self.db.modify_shelf(shelf, commit=True)
+        self.db.modify_opened_shelves(shelf, 'get', cmdict['context'])
         return shelf
 
     def cmd_close_shelf(self, cmdict):
         """ Close a shelf against access by a node.
             In (dict)---
-                shelf_id
+                shelf_id, name, handle
             Out (dict) ---
                 TMShelf object
         """
-        shelf = self.cmd_get_shelf(cmdict, match_id=True)
-        shelf.open_count -= 1
-        shelf.matchfields = 'open_count'
-        self.db.modify_shelf(shelf, commit=True)
+        shelf = TMShelf(cmdict)
+        shelf = self.db.modify_opened_shelves(shelf, 'put', cmdict['context'])
         return shelf
 
     def _list_shelf_books(self, shelf):
@@ -181,8 +174,8 @@ class LibrarianCommandEngine(object):
         # Do my own join, start with lookup by name.
         self.errno = errno.EBUSY
         shelf = self.cmd_get_shelf(cmdict)
-        assert not shelf.open_count, 'cannot destroy %s: open count=%d' % (
-            shelf.name, shelf.open_count)
+        print('Calculate the open count and bail if > 0')
+        set_trace()
 
         bos = self._list_shelf_books(shelf)
         xattrs = self.db.list_xattrs(shelf)

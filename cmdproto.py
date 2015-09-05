@@ -54,7 +54,7 @@ class LibrarianCommandProtocol(object):
         ),
         'close_shelf': GO(
             doc='close shelf and end node access',
-            parms=('name', 'id', ),
+            parms=('name', 'id', 'open_handle'),
         ),
         'destroy_shelf': GO(
             doc='destroy shelf and free reserved books',
