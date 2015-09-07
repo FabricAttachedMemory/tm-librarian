@@ -104,6 +104,8 @@ class shadow_directory(shadow_support):
             os.truncate(
                 fd if fd is not None else self.shadowpath(shelf.name),
                 length)
+            if fd is not None:
+                self[fd].size_bytes = length
             return 0
         except OSError as e:
             raise FuseOSError(e.errno)
@@ -144,14 +146,14 @@ class shadow_file(shadow_support):
     def create(self, shelf, mode):
         return 0
 
-    def truncate(self, shelf, length, fh):
+    def truncate(self, shelf, length, fd):
         return 0
 
-    def read(self, path, length, offset, fh):
+    def read(self, path, length, offset, fd):
         os.lseek(self._shadow_fd, offset, os.SEEK_SET)
         return os.read(self._shadow_fd, length)
 
-    def write(self, path, buf, offset, fh):
+    def write(self, path, buf, offset, fd):
         os.lseek(self._shadow_fd, offset, os.SEEK_SET)
         return os.write(self._shadow_fd, buf)
 

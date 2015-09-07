@@ -391,7 +391,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if shelf.size_bytes < length:
             raise FuseOSError(errno.EINVAL)
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
-        return self.shadow.truncate(shelf, length, fd)
+        self.shadow.truncate(shelf, length, fd)
 
     # Called when last reference to an open file is closed.
     @prentry

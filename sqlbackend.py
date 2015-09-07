@@ -172,10 +172,15 @@ class LibrarianDBackendSQL(object):
             Output---
               book_data or error message
         """
+        if allocated_value == -1:   # special case for demo/status
+            self._cur.execute('''SELECT allocated FROM books
+                                 WHERE node_id=? ORDER BY id''',
+                              node_id)
+            return [ r[0] for r in self._cur.fetchall() ]
+
         db_query = """
                 SELECT * FROM books
-                WHERE node_id = ? AND
-                allocated = ?
+                WHERE node_id = ? AND allocated = ?
                 LIMIT ?
             """
         self._cur.execute(db_query, (node_id, allocated_value, num_books))
