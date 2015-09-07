@@ -198,84 +198,89 @@ def load_book_data(inifile):
     return(book_size_bytes, section2books)
 
 #---------------------------------------------------------------------------
-
+# https://www.sqlite.org/lang_createtable.html#rowid (2 days later)
+# INTEGER is not the same as INT in a primary key declaration.
 
 def create_empty_db(cur):
+    try:
+        table_create = """
+            CREATE TABLE globals (
+            schema_version TEXT,
+            book_size_bytes INT,
+            nvm_bytes_total INT,
+            books_total INT,
+            nodes_total INT
+            )
+            """
+        cur.execute(table_create)
 
-    table_create = """
-        CREATE TABLE globals (
-        schema_version TEXT,
-        book_size_bytes INT,
-        nvm_bytes_total INT,
-        books_total INT,
-        nodes_total INT
+        table_create = """
+            CREATE TABLE books (
+            id INTEGER PRIMARY KEY,
+            node_id INT,
+            allocated INT,
+            attributes INT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
 
-        )
-        """
-    cur.execute(table_create)
+        table_create = """
+            CREATE TABLE shelves (
+            id INTEGER PRIMARY KEY,
+            creator_id INT,
+            size_bytes INT,
+            book_count INT,
+            ctime INT,
+            mtime INT,
+            name TEXT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
 
-    table_create = """
-        CREATE TABLE books (
-        id INT PRIMARY KEY,
-        node_id INT,
-        allocated INT,
-        attributes INT
-        )
-        """
-    cur.execute(table_create)
-    cur.commit()
+        # cur.execute('CREATE UNIQUE INDEX IDX_shelves ON shelves (name)')
+        # cur.commit()
 
-    table_create = """
-        CREATE TABLE shelves (
-        id INT PRIMARY KEY,
-        creator_id INT,
-        size_bytes INT,
-        book_count INT,
-        open_count INT,
-        ctime INT,
-        mtime INT,
-        name TEXT
-        )
-        """
-    cur.execute(table_create)
-    cur.commit()
+        table_create = """
+            CREATE TABLE books_on_shelves (
+            shelf_id INT,
+            book_id INT,
+            seq_num INT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
 
-    cur.execute('CREATE UNIQUE INDEX IDX_shelves ON shelves (name)')
-    cur.commit()
+        # The id will be used as the open_handle.  It's called id because
+        # it matches some internal operations harcoded to that name.
+        table_create = """
+            CREATE TABLE opened_shelves (
+            id INTEGER PRIMARY KEY,
+            shelf_id INT,
+            node_id INT,
+            pid INT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
 
-    table_create = """
-        CREATE TABLE books_on_shelves (
-        shelf_id INT,
-        book_id INT,
-        seq_num INT
-        )
-        """
-    cur.execute(table_create)
-    cur.commit()
+        table_create = """
+            CREATE TABLE shelf_xattrs (
+            shelf_id INT,
+            xattr TEXT,
+            value TEXT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
 
-    table_create = """
-        CREATE TABLE shelf_open (
-        shelf_id INT,
-        node_id INT,
-        process_id INT
-        )
-        """
-    cur.execute(table_create)
-    cur.commit()
-
-    table_create = """
-        CREATE TABLE shelf_xattrs (
-        shelf_id INT,
-        xattr TEXT,
-        value TEXT
-        )
-        """
-    cur.execute(table_create)
-    cur.commit()
-
-    cur.execute('''CREATE UNIQUE INDEX IDX_xattrs
-                   ON shelves_xattrs (shelf_id, xattr)''')
-    cur.commit()
+        cur.execute('''CREATE UNIQUE INDEX IDX_xattrs
+                       ON shelf_xattrs (shelf_id, xattr)''')
+        cur.commit()
+    except Exception as e:
+        raise SystemExit('DB operation failed at line %d: %s' % (
+            sys.exc_info()[2].tb_lineno, str(e)))
 
     # Idiot checks
     book = TMBook()
@@ -304,7 +309,7 @@ if __name__ == '__main__':
         os.unlink(args.dfile)
 
     book_size_bytes, section2books = load_book_data(args.ifile)
-    cur = SQLite3assist(db_file=args.dfile)
+    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
 
     nvm_bytes_total = 0

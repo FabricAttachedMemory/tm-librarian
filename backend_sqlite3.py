@@ -33,8 +33,9 @@ class SQLite3assist(SQLassist):
         assert tmp, 'Empty schema'
         return tmp
 
-    def INSERT(self, table, values):
-        '''Values are a COMPLETE tuple following ordered schema'''
+    def INSERT(self, table, values, commit=True):
+        '''Values are a COMPLETE tuple following ordered schema.  Primary
+           key (always 'id')  can be "None" for DB to autoselect.'''
         assert values, 'missing values for INSERT'
         qmarks = ', '.join(['?'] * len(values))
         self.execute(
@@ -48,20 +49,23 @@ class SQLite3assist(SQLassist):
         if self.rowcount != 1:
             self.rollback()
             raise AssertionError('INSERT INTO %s failed' % table)
-        # DO NOT COMMIT, give caller a chance for multiples or rollback
+        if commit:
+            self.commit()
+        return self.lastrowid   # good with or without commit
 
-    def UPDATE(self, table, setclause, values):
+    def UPDATE(self, table, setclause, values, commit=False):
         '''setclause is effective key=val, key=val sequence'''
         sql = 'UPDATE %s SET %s' % (table, setclause)
         self.execute(sql, values)
         if self.rowcount != 1:
             self.rollback()
             raise AssertionError('UPDATE %s failed' % table)
-        # DO NOT COMMIT, give caller a chance for multiples or rollback
+        if commit:
+            self.commit()
 
     # FIXME: move fields2qmarks in here (makes sense), then just pass
     # the data object?  Or do schema manips belong "one level up" ?
-    def DELETE(self, table, where, values):
+    def DELETE(self, table, where, values, commit=False):
         '''Values are a COMPLETE tuple following ordered schema'''
         assert values, 'missing values for DELETE'
         sql = 'DELETE FROM %s WHERE %s' % (table, where)
@@ -69,7 +73,8 @@ class SQLite3assist(SQLassist):
         if self.rowcount != 1:
             self.rollback()
             raise AssertionError('DELETE FROM %s %s failed' % (table, values))
-        # DO NOT COMMIT, give caller a chance for multiples or rollback
+        if commit:
+            self.commit()
 
     #
     # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
