@@ -124,6 +124,11 @@ class LibrarianDBackendSQL(object):
             raise RuntimeError('Bad action %s for modify_open_shelves' % action)
         return shelf
 
+    def open_count(self, shelf):
+        self._cur.execute('''SELECT COUNT(*) FROM opened_shelves
+                             WHERE shelf_id=?''', (shelf.id,))
+        return self._cur.fetchone()[0]
+
     def modify_xattr(self, shelf, xattr, value, commit=True):
         """ Modify data in "shelf_xattrs" table.  Known to exist:
             Input---

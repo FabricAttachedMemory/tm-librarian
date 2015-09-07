@@ -126,7 +126,7 @@ class LibrarianCommandEngine(object):
 
     def _list_shelf_books(self, shelf):
         self.errno = errno.EBADF
-        assert shelf.id, '%s not open (2)' % shelf.name
+        assert shelf.id, '%s not open' % shelf.name
         bos = self.db.get_bos_by_shelf_id(shelf.id)
 
         # consistency checks.  Leave them both as different paths may
@@ -171,12 +171,9 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        # Do my own join, start with lookup by name.
         self.errno = errno.EBUSY
         shelf = self.cmd_get_shelf(cmdict)
-        print('Calculate the open count and bail if > 0')
-        set_trace()
-
+        assert not self.db.open_count(shelf), '%s has active opens' % shelf.name
         bos = self._list_shelf_books(shelf)
         xattrs = self.db.list_xattrs(shelf)
         for thisbos in bos:

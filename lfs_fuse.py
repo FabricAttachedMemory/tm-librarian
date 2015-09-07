@@ -187,17 +187,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             }
             return tmp
 
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
-        shelf = TMShelf(rsp)
-        try:
-            if fd is not None:
-                set_trace()
-                assert shelf == self.shadow[fd]
-        except Exception as e:
-            raise FuseOSError(errno.ENOENT)
-
-        tmp = {
+        if fd is None:
+            shelf_name = self.path2shelf(path)
+            rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+            shelf = TMShelf(rsp)
+            tmp = {
                 'st_ctime':     shelf.ctime,
                 'st_mtime':     shelf.mtime,
                 'st_uid':       42,
@@ -206,7 +200,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'st_nlink':     1,
                 'st_size':      shelf.size_bytes
               }
-        return tmp
+            return tmp
+
+        # Haven't seen this yet...
+        try:
+            set_trace()
+            tmp = self.shadow.getattr(fd)
+        except Exception as e:
+            raise FuseOSError(errno.ENOENT)
+
 
     @prentry
     def readdir(self, path, index):
@@ -347,6 +349,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
+        bos = self.librarian(self.lcp('list_shelf_books', shelf))
         fd = self.shadow.open(shelf, flags, mode)
         return fd
 
@@ -387,6 +390,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
             raise FuseOSError(errno.EINVAL)
+        bos = self.librarian(self.lcp('list_shelf_books', shelf))
         return self.shadow.truncate(shelf, length, fd)
 
     # Called when last reference to an open file is closed.
@@ -394,10 +398,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def release(self, path, fd): # fd == shadow file descriptor
         try:
             shelf = self.shadow.release(fd)
-            req = self.lcp('close_shelf',
-                           name=shelf.name,
-                           id=shelf.id,
-                           open_handle=shelf.open_handle)
+            req = self.lcp('close_shelf', shelf)
             self.librarian(req) # None or raise
         except Exception as e:
             raise FuseOSError(errno.ESTALE)
