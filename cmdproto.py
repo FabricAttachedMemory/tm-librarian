@@ -89,12 +89,18 @@ class LibrarianCommandProtocol(object):
             parms=('msg', ),
         ),
 
-        # repl_client only
+        # repl_client and demos only
 
         'kill_zombie_books': GO(
             doc='Clean up zombie books, returning them to the FREE state ',
             parms=None,
-         )
+         ),
+
+        'get_book_alloc': GO(
+            doc='Return allocation state of each book in a node',
+            parms=('node_id', ),
+         ),
+
     }   # _commands
 
     # "Context" title is from FuSE.  In the C FuSE libary, the context is

@@ -367,6 +367,10 @@ class LibrarianCommandEngine(object):
             'OOBmsg': cmdict['msg']
         }
 
+    def cmd_get_book_alloc(self, cmdict):
+        return self.db.get_book_by_node(cmdict['node_id'], -1, 9999)
+
+
     #######################################################################
 
     _commands = None
@@ -439,7 +443,10 @@ class LibrarianCommandEngine(object):
         if type(ret) in (dict, str) or ret is None:
             value = { 'value': ret }
         elif isinstance(ret, list):
-            value = { 'value': [ r.dict for r in ret ] }
+            try:
+                value = { 'value': [ r.dict for r in ret ] }
+            except Exception as e:
+                value = { 'value': ret }
         else:
             value = { 'value': ret.dict }
         value['context'] = context  # has sequence
