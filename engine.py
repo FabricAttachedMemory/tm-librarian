@@ -14,6 +14,7 @@ from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 from genericobj import GenericObject
 
+
 class LibrarianCommandEngine(object):
 
     @staticmethod
@@ -88,7 +89,7 @@ class LibrarianCommandEngine(object):
             shelf.matchfields = ('name', )
         shelf = self.db.get_shelf(shelf)
         if shelf is None:
-            self.errno = errno.ENOENT   # FIXME: raise OSError instead?
+            self.errno = errno.ENOENT  # FIXME: raise OSError instead?
             raise AssertionError('no such shelf %s' % cmdict['name'])
         # consistency checks
         self.errno = errno.EBADF
@@ -101,6 +102,10 @@ class LibrarianCommandEngine(object):
     def cmd_list_shelves(self, cmdict):
         '''Returns a list.'''
         return self.db.get_shelf_all()
+
+    def cmd_list_open_shelves(self, cmdict):
+        '''Returns a list.'''
+        return self.db.get_open_shelf_all()
 
     def cmd_open_shelf(self, cmdict):
         """ Open a shelf for access by a node.
@@ -173,7 +178,8 @@ class LibrarianCommandEngine(object):
         """
         self.errno = errno.EBUSY
         shelf = self.cmd_get_shelf(cmdict)
-        assert not self.db.open_count(shelf), '%s has active opens' % shelf.name
+        assert not self.db.open_count(
+            shelf), '%s has active opens' % shelf.name
         bos = self._list_shelf_books(shelf)
         xattrs = self.db.list_xattrs(shelf)
         for thisbos in bos:
@@ -187,7 +193,7 @@ class LibrarianCommandEngine(object):
         '''repl_client command to "zero" zombie books.  Needs work.'''
         node_id = cmdict['context']['node_id']
         zombies = self.db.get_book_by_node(
-                node_id, TMBook.ALLOC_ZOMBIE, 9999)
+            node_id, TMBook.ALLOC_ZOMBIE, 9999)
         for book in zombies:
             _ = self._set_book_alloc(book.id, TMBook.ALLOC_FREE)
         self.db.commit()
@@ -225,7 +231,7 @@ class LibrarianCommandEngine(object):
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
         if bos:
-            seqs = [ b.seq_num for b in bos ]
+            seqs = [b.seq_num for b in bos]
             self.errno = errno.EBADFD
             assert set(seqs) == set(range(1, shelf.book_count + 1)), (
                 'Corrupt BOS sequence progression for %s' % shelf.name)
@@ -250,14 +256,14 @@ class LibrarianCommandEngine(object):
             self.errno = errno.ENOSPC
             assert len(freebooks) == books_needed, (
                 'out of space on node %d for "%s"' % (node_id, shelf.name))
-            for book in freebooks: # Mark book in use and create BOS entry
+            for book in freebooks:  # Mark book in use and create BOS entry
                 book = self._set_book_alloc(book.id, TMBook.ALLOC_INUSE)
                 seq_num += 1
                 thisbos = TMBos(
                     shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
                 thisbos = self.db.create_bos(thisbos)
         elif books_needed < 0:
-            books_2bdel = -books_needed    # it all reads so much better
+            books_2bdel = -books_needed  # it all reads so much better
             self.errno = errno.EREMOTEIO
             assert len(bos) >= books_2bdel, 'Book removal problem'
             while books_2bdel > 0:
@@ -310,7 +316,7 @@ class LibrarianCommandEngine(object):
         # Zombie is okay, they should be cleared.
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.get_xattr(shelf, cmdict['xattr'])
-        return { 'value': value }
+        return {'value': value}
 
     def cmd_list_xattrs(self, cmdict):
         """ Retrieve names of all extendend attributes of a shelf.
@@ -321,7 +327,7 @@ class LibrarianCommandEngine(object):
         """
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
-        return { 'value': value }
+        return {'value': value}
 
     def cmd_set_xattr(self, cmdict):
         """ Set/update name/value pair for an extended attribute of a shelf.
@@ -353,7 +359,7 @@ class LibrarianCommandEngine(object):
                 None or error
         """
         shelf = self.cmd_get_shelf(cmdict)
-        shelf.matchfields = 'mtime' # special case
+        shelf.matchfields = 'mtime'  # special case
         shelf.mtime = cmdict['mtime']
         self.db.modify_shelf(shelf, commit=True)
         return None
@@ -370,7 +376,6 @@ class LibrarianCommandEngine(object):
     def cmd_get_book_alloc(self, cmdict):
         return self.db.get_book_by_node(cmdict['node_id'], -1, 9999)
 
-
     #######################################################################
 
     _commands = None
@@ -386,12 +391,10 @@ class LibrarianCommandEngine(object):
             )
 
             # Skip 'cmd_' prefix
-            self.__class__._commands = dict( [ (name[4:], func)
-                        for (name, func) in self.__class__.__dict__.items() if
-                            name.startswith('cmd_')
-                        ]
-            )
-            self._cooked = cooked   # return style: raw = dict, cooked = obj
+            self.__class__._commands = dict([
+                (name[4:], func) for (name, func) in
+                self.__class__.__dict__.items() if name.startswith('cmd_')])
+            self._cooked = cooked  # return style: raw = dict, cooked = obj
         except Exception as e:
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
 
@@ -413,42 +416,42 @@ class LibrarianCommandEngine(object):
             errmsg = 'engine failed lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
             # Higher-order internal error
-            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
+            return {'errmsg': errmsg, 'errno': errno.ENOSYS}, None
 
         try:
-            errmsg = '' # High-level internal errors, not LFS state errors
+            errmsg = ''  # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
             ret = command(self, cmdict)
-        except AssertionError as e:     # consistency checks
+        except AssertionError as e:  # consistency checks
             errmsg = str(e)
-        except (AttributeError, RuntimeError) as e: # idiot checks
+        except (AttributeError, RuntimeError) as e:  # idiot checks
             errmsg = 'INTERNAL ERROR @ %s[%d]: %s' % (
-                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        except Exception as e:          # the Unknown Idiot
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno, str(e))
+        except Exception as e:  # the Unknown Idiot
             errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
-                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
-        if errmsg: # Looks better _cooked
-            return { 'errmsg': errmsg, 'errno': self.errno }, None
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno, str(e))
+        if errmsg:  # Looks better _cooked
+            return {'errmsg': errmsg, 'errno': self.errno}, None
 
         if isinstance(ret, dict):
             OOBmsg = ret.get('OOBmsg', None)
             if OOBmsg is not None:
-                OOBmsg = { 'OOBmsg': OOBmsg }
+                OOBmsg = {'OOBmsg': OOBmsg}
                 del ret['OOBmsg']
-        if self._cooked:    # for self-test
+        if self._cooked:  # for self-test
             return ret, OOBmsg
 
         # Create a dict to which context will be added
         if type(ret) in (dict, str) or ret is None:
-            value = { 'value': ret }
+            value = {'value': ret}
         elif isinstance(ret, list):
             try:
-                value = { 'value': [ r.dict for r in ret ] }
+                value = {'value': [r.dict for r in ret]}
             except Exception as e:
-                value = { 'value': ret }
+                value = {'value': ret}
         else:
-            value = { 'value': ret.dict }
+            value = {'value': ret.dict}
         value['context'] = context  # has sequence
         return value, OOBmsg
 
@@ -464,9 +467,8 @@ class LibrarianCommandEngine(object):
 
 if __name__ == '__main__':
 
-
     import os
-    from argparse import Namespace # the result of an argparse sequence.
+    from argparse import Namespace  # the result of an argparse sequence.
     from pprint import pprint
 
     from backend_sqlite3 import LibrarianDBackendSQLite3
@@ -477,8 +479,8 @@ if __name__ == '__main__':
         pprint(data)
         print()
 
-    umask = os.umask(0) # The Pythonic way to get the current umask.
-    os.umask(umask)     # FIXME: move this into...somewhere?
+    umask = os.umask(0)  # The Pythonic way to get the current umask.
+    os.umask(umask)  # FIXME: move this into...somewhere?
     context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
@@ -492,14 +494,11 @@ if __name__ == '__main__':
 
     # For self test, look at prettier results than dictionaries.
     args = Namespace(db_file=sys.argv[1])
-    lce = LibrarianCommandEngine(
-                    LibrarianDBackendSQLite3(args),
-                    cooked=True)
+    lce = LibrarianCommandEngine(LibrarianDBackendSQLite3(args), cooked=True)
     print(lce.commandset)
-
     print()
-    print('Engine missing:',set(lcp.commandset) - set(lce.commandset))
-    print('Engine extras: ',set(lce.commandset) - set(lcp.commandset))
+    print('Engine missing:', set(lcp.commandset) - set(lce.commandset))
+    print('Engine extras: ', set(lce.commandset) - set(lcp.commandset))
 
     recvd = lcp('version')
     version = lce(recvd)
@@ -508,7 +507,7 @@ if __name__ == '__main__':
     for name in ('xyzzy', 'shelf22', 'coke', 'pepsi'):
         recvd = lcp('create_shelf', name=name)
         try:
-            shelf = lce(recvd)   # only works on fresh DB
+            shelf = lce(recvd)  # only works on fresh DB
         except Exception as e:
             shelf = str(e)
             if shelf.startswith('INTERNAL ERROR'):
@@ -522,7 +521,7 @@ if __name__ == '__main__':
     shelf = lce(recvd)
     pp(recvd, shelf)
 
-    recvd = lcp('get_shelf', shelf)    # a shelf object with 'name'
+    recvd = lcp('get_shelf', shelf)  # a shelf object with 'name'
     shelf = lce(recvd)
     pp(recvd, shelf)
 

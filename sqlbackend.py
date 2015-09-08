@@ -10,9 +10,10 @@ import time
 
 from pdb import set_trace
 
-from book_shelf_bos import TMBook, TMShelf, TMBos
+from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 
 #--------------------------------------------------------------------------
+
 
 class LibrarianDBackendSQL(object):
 
@@ -57,7 +58,7 @@ class LibrarianDBackendSQL(object):
 
     @staticmethod
     def _fields2qmarks(fields, joiner):
-        q = [ '%s=?' % f for  f in fields ]
+        q = ['%s=?' % f for f in fields]
         return joiner.join(q)
 
     # matchfields provide the core of the SET clause and were set by
@@ -110,7 +111,8 @@ class LibrarianDBackendSQL(object):
 
     def modify_opened_shelves(self, shelf, action, context):
         if action == 'get':
-            shelf.open_handle = self._cur.INSERT('opened_shelves',
+            shelf.open_handle = self._cur.INSERT(
+                'opened_shelves',
                 (None, shelf.id, context['node_id'], context['pid']))
         elif action == 'put':
             self._cur.DELETE('opened_shelves',
@@ -121,7 +123,8 @@ class LibrarianDBackendSQL(object):
                              commit=True)
             shelf.open_handle = None
         else:
-            raise RuntimeError('Bad action %s for modify_open_shelves' % action)
+            raise RuntimeError(
+                'Bad action %s for modify_open_shelves' % action)
         return shelf
 
     def open_count(self, shelf):
@@ -138,7 +141,8 @@ class LibrarianDBackendSQL(object):
             Output---
               None or error exception
         """
-        self._cur.UPDATE('shelf_xattrs',
+        self._cur.UPDATE(
+            'shelf_xattrs',
             'value=? WHERE shelf_id=? AND xattr=?',
             (value, shelf.id, xattr))
         if commit:
@@ -159,7 +163,7 @@ class LibrarianDBackendSQL(object):
         """
         self._cur.execute('SELECT * FROM books WHERE id=?', (book_id,))
         self._cur.iterclass = TMBook
-        books = [ r for r in self._cur ]
+        books = [r for r in self._cur]
         assert len(books) <= 1, 'Matched more than one book'
         return books[0] if books else None
 
@@ -176,7 +180,7 @@ class LibrarianDBackendSQL(object):
             self._cur.execute('''SELECT allocated FROM books
                                  WHERE node_id=? ORDER BY id''',
                               node_id)
-            return [ r[0] for r in self._cur.fetchall() ]
+            return [r[0] for r in self._cur.fetchall()]
 
         db_query = """
                 SELECT * FROM books
@@ -185,7 +189,7 @@ class LibrarianDBackendSQL(object):
             """
         self._cur.execute(db_query, (node_id, allocated_value, num_books))
         self._cur.iterclass = TMBook
-        book_data = [ r for r in self._cur ]
+        book_data = [r for r in self._cur]
         return(book_data)
 
     def get_book_all(self):
@@ -197,7 +201,7 @@ class LibrarianDBackendSQL(object):
         """
         self._cur.execute('SELECT * FROM books ORDER BY book_id')
         self._cur.iterclass = TMBook
-        return [ r for r in self._cur ]
+        return [r for r in self._cur]
 
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
@@ -229,7 +233,7 @@ class LibrarianDBackendSQL(object):
         sql = 'SELECT * FROM shelves WHERE %s' % qmarks
         self._cur.execute(sql, shelf.tuple(fields))
         self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]  # FIXME: make an r.getone()?
+        shelves = [r for r in self._cur]  # FIXME: make an r.getone()?
         assert len(shelves) <= 1, 'Matched more than one shelf'
         return shelves[0] if shelves else None
 
@@ -242,7 +246,19 @@ class LibrarianDBackendSQL(object):
         """
         self._cur.execute('SELECT * FROM shelves ORDER BY id')
         self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]
+        shelves = [r for r in self._cur]
+        return shelves
+
+    def get_open_shelf_all(self):
+        """ Retrieve all open shelves from "opened_shelves" table.
+            Input---
+              None
+            Output---
+              shelf_data or error message
+        """
+        self._cur.execute('SELECT * FROM opened_shelves ORDER BY id')
+        self._cur.iterclass = TMOpenedShelves
+        shelves = [r for r in self._cur]
         return shelves
 
     def delete_shelf(self, shelf, commit=False):
@@ -287,7 +303,7 @@ class LibrarianDBackendSQL(object):
                              WHERE shelf_id=? ORDER BY seq_num''',
                           shelf_id)
         self._cur.iterclass = TMBos
-        bos = [ r for r in self._cur ]
+        bos = [r for r in self._cur]
         return bos
 
     def get_bos_by_book_id(self, book_id):
@@ -302,7 +318,7 @@ class LibrarianDBackendSQL(object):
                              WHERE book_id=? ORDER BY seq_num''',
                           book_id)
         self._cur.iterclass = TMBos
-        bos = [ r for r in self._cur ]
+        bos = [r for r in self._cur]
         return bos
 
     def get_bos_all(self):
@@ -314,7 +330,7 @@ class LibrarianDBackendSQL(object):
         """
         self._cur.execute('SELECT * FROM books_on_shelves')
         self._cur.iterclass = TMBos
-        return [ r for r in self._cur ]
+        return [r for r in self._cur]
 
     def delete_bos(self, bos, commit=False):
         """ Delete one bos from "books_on_shelves" table.
@@ -332,20 +348,21 @@ class LibrarianDBackendSQL(object):
     def get_xattr(self, shelf, xattr, exists_only=False):
         if exists_only:
             self._cur.execute(
-                'SELECT COUNT() FROM shelf_xattrs WHERE shelf_id=? AND xattr=?',
-                    (shelf.id, xattr))
+                'SELECT COUNT() FROM shelf_xattrs '
+                'WHERE shelf_id=? AND xattr=?',
+                (shelf.id, xattr))
             return self._cur.fetchone()[0] == 1
         # Get the whole thing
         self._cur.execute(
             'SELECT value FROM shelf_xattrs WHERE shelf_id=? AND xattr=?',
-                (shelf.id, xattr))
+            (shelf.id, xattr))
         tmp = self._cur.fetchone()
         return tmp if tmp is None else tmp[0]
 
     def list_xattrs(self, shelf):
         self._cur.execute(
             'SELECT xattr FROM shelf_xattrs WHERE shelf_id=?', (shelf.id,))
-        tmp = [ f[0] for f in self._cur.fetchall() ]
+        tmp = [f[0] for f in self._cur.fetchall()]
         return tmp
 
     def create_xattr(self, shelf, xattr, value):

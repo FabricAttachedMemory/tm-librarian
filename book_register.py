@@ -11,7 +11,7 @@ import configparser
 import argparse
 from pdb import set_trace
 
-from book_shelf_bos import TMBook, TMShelf, TMBos
+from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 
 #--------------------------------------------------------------------------
@@ -48,6 +48,7 @@ nvm_size and nvm_size_per_node can also have multiplier B (books)
 
 #--------------------------------------------------------------------------
 # Load and validate
+
 
 def load_config(inifile):
     config = configparser.ConfigParser()
@@ -96,6 +97,7 @@ def load_config(inifile):
 
 #--------------------------------------------------------------------------
 
+
 def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
     if suffix not in 'BMGT':
@@ -126,7 +128,7 @@ def load_book_data(inifile):
     book_size_bytes = multiplier(
         config.get(section, 'book_size_bytes'), section)
     M1 = 2 << 20
-    if  book_size_bytes < M1 or book_size_bytes > 8192 * M1:
+    if book_size_bytes < M1 or book_size_bytes > 8192 * M1:
         raise SystemExit('book_size bytes is out of range [1M, 8G]')
 
     # If optional item 'nvm_size_per_node' is there, loop it out and quit.
@@ -134,15 +136,15 @@ def load_book_data(inifile):
     try:
         bytes_per_node = multiplier(
             config.get(section, 'nvm_size_per_node'), section,
-                       book_size_bytes)
+            book_size_bytes)
         if bytes_per_node % book_size_bytes != 0:
             usage('[global] bytes_per_node not multiple of book size')
         books_per_node = int(bytes_per_node / book_size_bytes)
         section2books = {}
         lza = 0
         print('%d nodes, each with %d books of %d bytes == %d bytes/node' %
-            (node_count, books_per_node, book_size_bytes,
-             books_per_node * book_size_bytes))
+              (node_count, books_per_node, book_size_bytes,
+               books_per_node * book_size_bytes))
         for node_id in range(1, node_count + 1):
             section = 'node%02d' % node_id
             section2books[section] = []
@@ -200,6 +202,7 @@ def load_book_data(inifile):
 #---------------------------------------------------------------------------
 # https://www.sqlite.org/lang_createtable.html#rowid (2 days later)
 # INTEGER is not the same as INT in a primary key declaration.
+
 
 def create_empty_db(cur):
     try:
@@ -289,6 +292,9 @@ def create_empty_db(cur):
     assert shelf.schema == cur.schema('shelves'), 'Bad schema: shelves'
     bos = TMBos()
     assert bos.schema == cur.schema('books_on_shelves'), 'Bad schema: BOS'
+    opened_shelves = TMOpenedShelves()
+    assert opened_shelves.schema == cur.schema(
+        'opened_shelves'), 'Bad schema: opened_shelves'
 
 #---------------------------------------------------------------------------
 
@@ -324,8 +330,8 @@ if __name__ == '__main__':
 
     print('%d (0x%016x) total NVM bytes' % (nvm_bytes_total, nvm_bytes_total))
 
-    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)',
-                ('LIBRARIAN 0.981',
+    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
+                'LIBRARIAN 0.981',
                 book_size_bytes,
                 nvm_bytes_total,
                 books_total,
