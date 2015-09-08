@@ -32,7 +32,7 @@ def setup_command_generator(uil_repeat=None, script=None):
 
 #--------------------------------------------------------------------------
 
-def main(node_id, serverhost, preload=None):
+def main(node_id, serverhost, onetime=None):
     """Optionally connect to the server, then wait for user input to
        send to the server, printing out the response."""
 
@@ -77,11 +77,10 @@ def main(node_id, serverhost, preload=None):
     rspdict = None
     while True:
         try:
-            if preload is None or not preload:
+            if onetime is None or not onetime:
                 user_input_list = next(uigen)
             else:
-                user_input_list = copy.copy(preload)
-                preload = None
+                user_input_list = copy.copy(onetime)
             substitute_vars(user_input_list, node_id, rspdict)
             command = user_input_list[0]
 
@@ -155,6 +154,9 @@ def main(node_id, serverhost, preload=None):
             reset()
             pass
 
+        if onetime:
+            raise SystemExit(0)
+
 
 if __name__ == '__main__':
     import argparse, os, sys
@@ -170,12 +172,12 @@ if __name__ == '__main__':
     parser.add_argument('hostname',
                     help='ToRMS host running the Librarian',
                     type=str)
-    parser.add_argument('preload',
-                    help='Starting command',
+    parser.add_argument('onetime',
+                    help='ONe-time command (then exit)',
                     nargs='*',
                     default=None)
     args = parser.parse_args(sys.argv[1:])
 
     # argparse "choices" expands this in help message, less than helpful
     assert 1 <= args.node_id < 1000, 'Node ID must be from 1 - 999'
-    main(args.node_id, args.hostname, args.preload)
+    main(args.node_id, args.hostname, args.onetime)
