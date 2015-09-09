@@ -12,6 +12,7 @@ from pdb import set_trace
 
 from fuse import FuseOSError
 
+
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
 
@@ -38,6 +39,7 @@ class shadow_support(object):
 
 #--------------------------------------------------------------------------
 
+
 class shadow_directory(shadow_support):
     '''Create a regular file for each shelf as backing store.  These files
        will exist in the file system of the entity running lfs_fuse,
@@ -46,7 +48,8 @@ class shadow_directory(shadow_support):
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__()
         self._shadowpath = args.shadow_dir
-        assert os.path.isdir(args.shadow_dir), 'No such directory %s' % args.shadow_dir
+        assert os.path.isdir(
+            args.shadow_dir), 'No such directory %s' % args.shadow_dir
         try:
             probe = tempfile.TemporaryFile(dir=args.shadow_dir)
             probe.close()
@@ -118,6 +121,7 @@ class shadow_directory(shadow_support):
 
 #--------------------------------------------------------------------------
 
+
 class shadow_file(shadow_support):
     '''Use one (large) shadow file indexed by "normalized" LZA (ie,
        discontiguous holes in LZA are made smooth for the file.  This
@@ -125,12 +129,13 @@ class shadow_file(shadow_support):
 
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__()
-        assert (os.path.isfile(args.shadow_file)), '%s is not a file' % args.shadow_file
+        assert (os.path.isfile(
+            args.shadow_file)), '%s is not a file' % args.shadow_file
 
         # Compare node requirements to file size
         statinfo = os.stat(args.shadow_file)
         _mode_rw_file = int('0100600', 8)  # isfile, 600
-        assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, '%s is not RW'
+        assert _mode_rw_file == mode_rw_file & statinfo.st_mode, '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
         self._shadow_fd = -1
         # os.open vs. built-in allows all the low-level stuff I need.
@@ -163,14 +168,17 @@ class shadow_file(shadow_support):
 
 #--------------------------------------------------------------------------
 
+
 class shadow_ivshmem(shadow_support):
 
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__()
-        assert os.path.exists(args.shadow_ivshmem), '%s does not exist' % args.shadow_ivshmem
+        assert os.path.exists(
+            args.shadow_ivshmem), '%s does not exist' % args.shadow_ivshmem
         raise NotImplementedError
 
 #--------------------------------------------------------------------------
+
 
 def the_shadow_knows(args, lfs_globals):
     '''args is command-line arguments from lfs_fuse.py'''
