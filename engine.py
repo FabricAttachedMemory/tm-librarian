@@ -231,7 +231,7 @@ class LibrarianCommandEngine(object):
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
         if bos:
-            seqs = [b.seq_num for b in bos]
+            seqs = [ b.seq_num for b in bos ]
             self.errno = errno.EBADFD
             assert set(seqs) == set(range(1, shelf.book_count + 1)), (
                 'Corrupt BOS sequence progression for %s' % shelf.name)
@@ -316,7 +316,7 @@ class LibrarianCommandEngine(object):
         # Zombie is okay, they should be cleared.
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.get_xattr(shelf, cmdict['xattr'])
-        return {'value': value}
+        return { 'value': value }
 
     def cmd_list_xattrs(self, cmdict):
         """ Retrieve names of all extendend attributes of a shelf.
@@ -327,7 +327,7 @@ class LibrarianCommandEngine(object):
         """
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
-        return {'value': value}
+        return { 'value': value }
 
     def cmd_set_xattr(self, cmdict):
         """ Set/update name/value pair for an extended attribute of a shelf.
@@ -437,21 +437,21 @@ class LibrarianCommandEngine(object):
         if isinstance(ret, dict):
             OOBmsg = ret.get('OOBmsg', None)
             if OOBmsg is not None:
-                OOBmsg = {'OOBmsg': OOBmsg}
+                OOBmsg = { 'OOBmsg': OOBmsg }
                 del ret['OOBmsg']
         if self._cooked:  # for self-test
             return ret, OOBmsg
 
         # Create a dict to which context will be added
         if type(ret) in (dict, str) or ret is None:
-            value = {'value': ret}
+            value = { 'value': ret }
         elif isinstance(ret, list):
             try:
-                value = {'value': [r.dict for r in ret]}
+                value = { 'value': [ r.dict for r in ret ] }
             except Exception as e:
                 value = {'value': ret}
         else:
-            value = {'value': ret.dict}
+            value = { 'value': ret.dict }
         value['context'] = context  # has sequence
         return value, OOBmsg
 
