@@ -4,6 +4,7 @@ import json
 
 from pdb import set_trace
 
+
 class JSONDumpsLoadsLink(Link):
     """ Link that converts from dictionaries to json and vise-versa """
 
