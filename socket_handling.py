@@ -87,9 +87,8 @@ class SocketReadWrite(object):
         else:
             outbytes = obj.encode()
         if self.verbose > 1:
-            print('%s: sending %s' % (self,
-                  'NULL' if obj is None
-                  else '%d bytes' % len(outbytes)))
+            print('%s: sending %s' % (self, 'NULL' if obj
+                  is None else '%d bytes' % len(outbytes)))
 
         # socket.sendall will do so and return None on success.  If not,
         # an error is raised with no clue on byte count.  Do it myself.
@@ -370,7 +369,7 @@ class Server(SocketReadWrite):
                 print('Waiting for request...')
             try:
                 readable, writeable, _ = select.select(
-                    [self] + clients, to_write, [], 10.0)
+                    [ self ] + clients, to_write, [], 10.0)
             except Exception as e:
                 # Usually ValueError on a negative fd from a remote close
                 assert self.fileno() != -1, 'Server socket has died'

@@ -43,6 +43,23 @@ $ python3 -m unittest tests.test_book_register.TestLoadConfig.test_load_config_1
 
 ---------------------------------------------------------------------------
 
+Automated pep8 checking for python files has been implemented in the
+test_code_format_pep8.py test file. It requires the "pep8" module:
+
+    $ sudo pip3 install pep8
+
+Run from the top level git directory:
+
+    $ python3 -m unittest tests.test_code_format_pep8
+
+We are currently ignoring E201 and E202, this is noted in the unit test above
+and also in the setup.cfg in case pep8 is run manually from the top level git
+directory.
+
+    $ pep8 -v <file_name.py>
+
+---------------------------------------------------------------------------
+
 For regression testing ....
 
 ---------------------------------------------------------------------------

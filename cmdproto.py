@@ -11,6 +11,7 @@ from pprint import pprint
 
 from genericobj import GenericObject as GO
 
+
 class LibrarianCommandProtocol(object):
     '''__call__ will take a full tuple, kwargs, or a dict.'''
 
@@ -26,7 +27,7 @@ class LibrarianCommandProtocol(object):
         ),
         'create_shelf': GO(
             doc='create new shelf',
-            parms = ('name', ),
+            parms=('name', ),
         ),
         'get_shelf': GO(
             doc='get shelf details by shelf name',
@@ -46,11 +47,11 @@ class LibrarianCommandProtocol(object):
         ),
         'open_shelf': GO(
             doc='open shelf and setup node access',
-            parms = ('name', )
+            parms=('name', )
         ),
         'resize_shelf': GO(
             doc='resize shelf to given size',
-            parms = ('name', 'id', 'size_bytes' ),
+            parms=('name', 'id', 'size_bytes' ),
         ),
         'close_shelf': GO(
             doc='close shelf and end node access',
@@ -158,8 +159,8 @@ class LibrarianCommandProtocol(object):
         except AssertionError as e:
             msg = str(e)
         except Exception as e:
-            msg = 'INTERNAL ERROR @ %s[%d]: %s' %  (
-                self.__class__.__name__, sys.exc_info()[2].tb_lineno,str(e))
+            msg = 'INTERNAL ERROR @ %s[%d]: %s' % (
+                self.__class__.__name__, sys.exc_info()[2].tb_lineno, str(e))
         raise RuntimeError(msg)
 
     @property
