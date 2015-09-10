@@ -370,7 +370,7 @@ class Server(SocketReadWrite):
                 print('Waiting for request...')
             try:
                 readable, writeable, _ = select.select(
-                    [ self ] + clients, to_write, [], 10.0)
+                    [ self ] + clients, to_write, [], 5.0)
             except Exception as e:
                 # Usually ValueError on a negative fd from a remote close
                 assert self.fileno() != -1, 'Server socket has died'

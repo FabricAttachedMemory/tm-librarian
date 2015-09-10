@@ -23,6 +23,8 @@ class SQLite3assist(SQLassist):
             self._cursor = self._conn.cursor()
         except Exception as e:
             raise
+        # WAL: https://www.sqlite.org/wal.html
+        self.execute('PRAGMA journal_mode=WAL')
         pass
 
     def __init__(self, **kwargs):
