@@ -12,6 +12,7 @@ class TestCodeFormat(unittest.TestCase):
         pep8style = pep8.StyleGuide(
             ignore=['E121', 'E123', 'E126', 'E133', 'E226',
                     'E241', 'E242', 'E704', 'E265', 'E201','E202'],
+#            show_pep8=True,
             show_source=True
         )
         result = pep8style.check_files([
