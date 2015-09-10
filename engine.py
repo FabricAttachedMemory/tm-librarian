@@ -391,9 +391,10 @@ class LibrarianCommandEngine(object):
             )
 
             # Skip 'cmd_' prefix
-            self.__class__._commands = dict([
-                (name[4:], func) for (name, func) in
-                self.__class__.__dict__.items() if name.startswith('cmd_')])
+            self.__class__._commands = dict(
+                [(name[4:], func)
+                 for (name, func) in self.__class__.__dict__.items() if
+                 name.startswith('cmd_')])
             self._cooked = cooked  # return style: raw = dict, cooked = obj
         except Exception as e:
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
@@ -416,7 +417,7 @@ class LibrarianCommandEngine(object):
             errmsg = 'engine failed lookup on "%s"' % str(e)
             print('!' * 20, errmsg, file=sys.stderr)
             # Higher-order internal error
-            return {'errmsg': errmsg, 'errno': errno.ENOSYS}, None
+            return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
 
         try:
             errmsg = ''  # High-level internal errors, not LFS state errors
@@ -432,7 +433,7 @@ class LibrarianCommandEngine(object):
             errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
                 self.__class__.__name__, sys.exc_info()[2].tb_lineno, str(e))
         if errmsg:  # Looks better _cooked
-            return {'errmsg': errmsg, 'errno': self.errno}, None
+            return { 'errmsg': errmsg, 'errno': self.errno }, None
 
         if isinstance(ret, dict):
             OOBmsg = ret.get('OOBmsg', None)
@@ -449,7 +450,7 @@ class LibrarianCommandEngine(object):
             try:
                 value = { 'value': [ r.dict for r in ret ] }
             except Exception as e:
-                value = {'value': ret}
+                value = { 'value': ret }
         else:
             value = { 'value': ret.dict }
         value['context'] = context  # has sequence
