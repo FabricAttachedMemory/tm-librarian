@@ -164,7 +164,7 @@ class SocketReadWrite(object):
 
                     appended = len(self.instr) - last
 
-                    if not self._perf and self.verbose > 1:
+                    if self.verbose > 1:
                         print('%s: received %d bytes' % (self._str, appended))
 
                     if not appended:  # Far side is gone without timeout
