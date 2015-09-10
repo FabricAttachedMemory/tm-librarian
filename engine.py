@@ -220,12 +220,7 @@ class LibrarianCommandEngine(object):
                 shelf data
         """
         shelf = self.cmd_get_shelf(cmdict, match_id=True)
-
         bos = self._list_shelf_books(shelf)
-        self.errno = errno.EREMOTEIO
-        assert len(bos) == shelf.book_count, (
-            '%s book count mismatch' % shelf.name)
-
         new_size_bytes = int(cmdict['size_bytes'])
         self.errno = errno.EINVAL
         assert new_size_bytes >= 0, 'Bad size'
