@@ -163,8 +163,8 @@ class SocketReadWrite(object):
                     self.instr += self._sock.recv(self._bufsz).decode('utf-8')
 
                     appended = len(self.instr) - last
-                    if not self._perf:
-                        print('%s: received %d bytes' % (self._str, appended))
+                    # if not self._perf and self.verbose:
+                        # print('%s: received %d bytes' % (self._str, appended))
 
                     if not appended:   # Far side is gone without timeout
                         msg = '%s: closed by remote' % str(self)

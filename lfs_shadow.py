@@ -45,8 +45,8 @@ class shadow_directory(shadow_support):
 
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__()
-        self._shadowpath = args.shadow_dir
         assert os.path.isdir(args.shadow_dir), 'No such directory %s' % args.shadow_dir
+        self._shadowpath = args.shadow_dir
         try:
             probe = tempfile.TemporaryFile(dir=args.shadow_dir)
             probe.close()
