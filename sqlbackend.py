@@ -180,6 +180,7 @@ class LibrarianDBackendSQL(object):
             self._cur.execute('''SELECT allocated FROM books
                                  WHERE node_id=? ORDER BY id''',
                               node_id)
+            self._cur.iterclass = 'default'
             return [ r[0] for r in self._cur.fetchall() ]
 
         db_query = """
