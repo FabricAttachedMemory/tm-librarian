@@ -23,9 +23,11 @@ _perf = int(os.getenv('PERF', 0))   # FIXME: clunky
 
 # Decorator only for instance methods as it assumes args[0] == "self".
 # FIXME: find a better spot to place this.
+
+
 def prentry(func):
     if _perf > 1:
-        return func # No print, no OOB check
+        return func  # No print, no OOB check
 
     def new_func(*args, **kwargs):
         self = args[0]
@@ -42,10 +44,11 @@ def prentry(func):
     new_func.__dict__.update(func.__dict__)
     return new_func
 
+
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
-    _mode_default_dir =  int('0040777', 8)  # isdir, 777
+    _mode_default_dir = int('0040777', 8)  # isdir, 777
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -81,7 +84,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.EHOSTUNREACH)
         globals = self.librarian(self.lcp('get_fs_stats'))
         self.shadow = the_shadow_knows(args, globals)
-       # FIXME: in C FUSE, data returned here goes into 'getcontext'
+        # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
     @prentry
     def destroy(self, root):    # fusermount -u
@@ -135,13 +138,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 rspdict = self.torms.recv_all()
                 if self.torms.inOOB:
                     self.handleOOB()
-            if 'errmsg' in rspdict: # higher-order librarian internal error
+            if 'errmsg' in rspdict:  # higher-order librarian internal error
                 errmsg['errmsg'] = rspdict['errmsg']
                 errmsg['errno'] = rspdict['errno']
         except OSError as e:
             errmsg['errmsg'] = 'Communications error with librarian'
             errmsg['errno'] = errno.EHOSTDOWN
-        except MemoryError as e:    # OOB storm and internal error not pull instr
+        except MemoryError as e:  # OOB storm and internal error not pull instr
             errmsg['errmsg'] = 'OOM BOOM'
             errmsg['errno'] = errno.ENOMEM
         except Exception as e:
@@ -149,7 +152,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             errmsg['errno'] = errno.EREMOTEIO
 
         if errmsg:
-            print('%s failed: %s' % (command, errmsg['errmsg']), file=sys.stderr)
+            print('%s failed: %s' %
+                  (command, errmsg['errmsg']), file=sys.stderr)
             raise FuseOSError(errmsg['errno'])
 
         try:
@@ -161,7 +165,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         except KeyError as e:
             raise OSError(errno.ERANGE, 'Bad response format')
 
-        return value # None is legal, let the caller deal with it.
+        return value  # None is legal, let the caller deal with it.
 
     # Higher-level FS operations
 
@@ -208,7 +212,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             tmp = self.shadow.getattr(fd)
         except Exception as e:
             raise FuseOSError(errno.ENOENT)
-
 
     @prentry
     def readdir(self, path, index):
@@ -274,7 +277,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def setxattr(self, path, attr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
-            set_trace() # haven't actually seen it yet
+            set_trace()  # haven't actually seen it yet
         shelf_name = self.path2shelf(path)
         assert attr.startswith('user.')
         for bad in self._badjson:
@@ -288,7 +291,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(
                 self.lcp('set_xattr', name=shelf_name,
                          xattr=attr, value=value))
-        if rsp is not None: # unexpected
+        if rsp is not None:  # unexpected
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
@@ -296,27 +299,27 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(
             self.lcp('destroy_xattr', name=shelf_name, xattr=attr))
-        if rsp is not None: # unexpected
+        if rsp is not None:  # unexpected
             raise FuseOSError(errno.ENOTTY)
 
     @prentry
-    def statfs(self, path): # "df" command; example used statVfs.
+    def statfs(self, path):  # "df" command; example used statVfs.
         globals = self.librarian(self.lcp('get_fs_stats'))
         # A book is a block.  Let other commands do the math.
         blocks = globals['books_total']
         bfree = bavail = blocks - globals['books_used']
-        bsize =globals['book_size_bytes']
+        bsize = globals['book_size_bytes']
         return {
-            'f_bavail':     bavail, # free blocks for unpriv users
-            'f_bfree':      bfree,  # total free DATA blocks
-            'f_blocks':     blocks, # total DATA blocks
-            'f_bsize':      bsize,  # optimal transfer block size???
-            'f_favail':     bavail, # free inodes for unpriv users
-            'f_ffree':      bfree,  # total free file inodes
-            'f_files':      blocks, # total number of inodes
-            'f_flag':       63,     # mount flags
-            'f_frsize':     0,      # fragment size
-            'f_namemax':    255,    # maximum filename length
+            'f_bavail':     bavail,  # free blocks for unpriv users
+            'f_bfree':      bfree,   # total free DATA blocks
+            'f_blocks':     blocks,  # total DATA blocks
+            'f_bsize':      bsize,   # optimal transfer block size???
+            'f_favail':     bavail,  # free inodes for unpriv users
+            'f_ffree':      bfree,   # total free file inodes
+            'f_files':      blocks,  # total number of inodes
+            'f_flag':       63,      # mount flags
+            'f_frsize':     0,       # fragment size
+            'f_namemax':    255,     # maximum filename length
         }
 
     @prentry
@@ -332,7 +335,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)  # bomb here on '/'
         if times is not None:
             times = tuple(map(int, times))
-            if abs(int(time.time() - times[1])) < 3: # "now" on this system
+            if abs(int(time.time() - times[1])) < 3:  # "now" on this system
                 times = None
         if times is None:
             times = (0, 0)  # let librarian pick it
@@ -340,7 +343,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             self.lcp('set_am_time', name=shelf_name,
                      atime=times[0],
                      mtime=times[1]))
-        return 0    # os.utime
+        return 0  # os.utime
 
     @prentry
     def open(self, path, flags, mode=None):
@@ -383,9 +386,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
-                        name=shelf_name,
-                        size_bytes=length,
-                        id=rsp['id'])
+                       name=shelf_name,
+                       size_bytes=length,
+                       id=rsp['id'])
         rsp = self.librarian(req)
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
@@ -395,11 +398,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # Called when last reference to an open file is closed.
     @prentry
-    def release(self, path, fd): # fd == shadow file descriptor
+    def release(self, path, fd):  # fd == shadow file descriptor
         try:
             shelf = self.shadow.release(fd)
             req = self.lcp('close_shelf', shelf)
-            self.librarian(req) # None or raise
+            self.librarian(req)  # None or raise
         except Exception as e:
             raise FuseOSError(errno.ESTALE)
 
@@ -462,59 +465,75 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def link(self, target, name):
         raise FuseOSError(errno.ENOSYS)
 
+
 def mount_LFS(args):
-    '''Expects an argparse::Namespace argument.  Validate fields and call FUSE'''
-    assert os.path.isdir(args.mountpoint), 'No such directory %s' % args.mountpoint
+    '''Expects an argparse::Namespace argument.
+       Validate fields and call FUSE'''
+    assert os.path.isdir(
+        args.mountpoint), 'No such directory %s' % args.mountpoint
     assert 1 <= args.node_id <= 80, 'Node ID must be from 1 - 999'
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     i = int(bool(args.shadow_ivshmem))
-    assert sum((d, f, i)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] is required'
+    assert sum(
+        (d, f, i)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] is required'
 
     try:
         FUSE(LibrarianFS(args),
-            args.mountpoint,
-            allow_other=True,
-            noatime=True,
-            foreground=not bool(args.daemon),
-            nothreads=True)
+             args.mountpoint,
+             allow_other=True,
+             noatime=True,
+             foreground=not bool(args.daemon),
+             nothreads=True)
     except Exception as e:
         raise SystemExit('fusermount probably failed, retry in foreground')
 
 if __name__ == '__main__':
-    import argparse, os, sys
 
-    parser = argparse.ArgumentParser(description='Librarian File System Daemon (LFSd)')
-    parser.add_argument('hostname',
-                    help='ToRMS host running the Librarian',
-                    type=str)
-    parser.add_argument('mountpoint',
-                    help='Local directory mountpoint',
-                    type=str,
-                    default='/lfs')
-    parser.add_argument('node_id',
-                    help='Numeric node id',
-                    type=int)
-    parser.add_argument('--daemon',
-                    help='Daemonize the program',
-                    action='store_true',
-                    default=False)
-    parser.add_argument('--shadow_dir',
-                    help='directory path for individual shelf shadow files',
-                    type=str,
-                    default='')
-    parser.add_argument('--shadow_file',
-                    help='file path for one regular shadow file',
-                    type=str,
-                    default='')
-    parser.add_argument('--shadow_ivshmem',
-                    help='PCIe address of IVSHMEM device (ex: "00:09.0")',
-                    type=str,
-                    default='')
-    parser.add_argument('--verbose',
-                    help='level of runtime output, larger -> more',
-                    type=int,
-                    default=0)
+    import argparse
+    import os
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description='Librarian File System Daemon (LFSd)')
+    parser.add_argument(
+        'hostname',
+        help='ToRMS host running the Librarian',
+        type=str)
+    parser.add_argument(
+        'mountpoint',
+        help='Local directory mountpoint',
+        type=str,
+        default='/lfs')
+    parser.add_argument(
+        'node_id',
+        help='Numeric node id',
+        type=int)
+    parser.add_argument(
+        '--daemon',
+        help='Daemonize the program',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--shadow_dir',
+        help='directory path for individual shelf shadow files',
+        type=str,
+        default='')
+    parser.add_argument(
+        '--shadow_file',
+        help='file path for one regular shadow file',
+        type=str,
+        default='')
+    parser.add_argument(
+        '--shadow_ivshmem',
+        help='PCIe address of IVSHMEM device (ex: "00:09.0")',
+        type=str,
+        default='')
+    parser.add_argument(
+        '--verbose',
+        help='level of runtime output, larger -> more',
+        type=int,
+        default=0)
     args = parser.parse_args(sys.argv[1:])
 
     msg = 0

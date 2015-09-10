@@ -10,6 +10,7 @@ import time
 from pdb import set_trace
 from json import dumps, loads, JSONDecoder
 
+
 class SocketReadWrite(object):
     """ Object that will read and write from a socket
     used primarily as a base class for the Client and Server
@@ -34,7 +35,7 @@ class SocketReadWrite(object):
             self._peer = ''
             self._port = 0
             self._str = ''
-        else:   # A dead socket can't getpeername so cache it now
+        else:  # A dead socket can't getpeername so cache it now
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
         self.clear()
@@ -61,7 +62,7 @@ class SocketReadWrite(object):
         except Exception as e:  # already closed, whatever
             pass
         self._sock.close()
-        self._sock = None       # Force AttributeError on methods
+        self._sock = None  # Force AttributeError on methods
         self._str += ' (closed)'
 
     def fileno(self):
@@ -85,10 +86,9 @@ class SocketReadWrite(object):
             outbytes = dumps(obj).encode()
         else:
             outbytes = obj.encode()
-        if self.verbose:
-            print('%s: sending %s' % (self,
-                'NULL' if obj is None
-                else '%d bytes' % len(outbytes)))
+        if self.verbose > 1:
+            print('%s: sending %s' % (self, 'NULL' if obj
+                  is None else '%d bytes' % len(outbytes)))
 
         # socket.sendall will do so and return None on success.  If not,
         # an error is raised with no clue on byte count.  Do it myself.
@@ -117,7 +117,7 @@ class SocketReadWrite(object):
             raise OSError(errno.ECONNABORTED, 'Socket closed on prior error')
         except Exception as e:
             print('%s: send_all failed: %s' % (self, str(e)),
-                    file=sys.stderr)
+                  file=sys.stderr)
             set_trace()
             pass
             raise
@@ -143,7 +143,7 @@ class SocketReadWrite(object):
         Returns:
         """
 
-        needmore = False    # Should be entered with an empty buffer
+        needmore = False  # Should be entered with an empty buffer
         while True:
             if self.inOOB:  # make caller deal with OOB first
                 return None
@@ -156,22 +156,22 @@ class SocketReadWrite(object):
             appended = 0
 
             # First time through OR go-around with partial buffer?
-            if not last          or needmore:
+            if not last or needmore:
                 try:
-                    if last:    # maybe trying to finish off a fragment
+                    if last:  # maybe trying to finish off a fragment
                         self._sock.settimeout(0.5)  # akin to blocking mode
                     self.instr += self._sock.recv(self._bufsz).decode('utf-8')
 
                     appended = len(self.instr) - last
-                    if not self._perf:
+                    if not self._perf and self.verbose > 1:
                         print('%s: received %d bytes' % (self._str, appended))
 
-                    if not appended:   # Far side is gone without timeout
+                    if not appended:  # Far side is gone without timeout
                         msg = '%s: closed by remote' % str(self)
-                        self.close()    # May lead to AttributeError below
+                        self.close()  # May lead to AttributeError below
                         raise OSError(errno.ECONNABORTED, msg)
 
-                except ConnectionAbortedError as e: # see two lines up
+                except ConnectionAbortedError as e:  # see two lines up
                     raise
                 except BlockingIOError as e:
                     # Not ready; only happens on a fresh read with non-blocking
@@ -188,7 +188,7 @@ class SocketReadWrite(object):
                     # can just go through.
                     if self._sock is None:
                         raise OSError(errno.ECONNABORTED, str(self))
-                    self.safe_setblocking() # just in case it's live
+                    self.safe_setblocking()  # just in case it's live
                     raise
                 self.safe_setblocking()  # undo timeout (idempotent)
 
@@ -197,7 +197,7 @@ class SocketReadWrite(object):
                 try:
                     if len(self.inOOB) > self._OOBlimit and \
                        len(self.instr) < self._bufhi:
-                        return None     # Deal with this part of the flood
+                        return None  # Deal with this part of the flood
                     result, nextjson = self.jsond.raw_decode(self.instr)
                     self.instr = self.instr[nextjson:]
                     OOBmsg = result.get('OOBmsg', False)
@@ -215,13 +215,13 @@ class SocketReadWrite(object):
                     # Is this a failure after re-read and if so did it help?
                     if needmore and needmore == self.instr:
                         self.clear()
-                        return None # might be some dangling OOBs
+                        return None  # might be some dangling OOBs
 
                     # There's only a 1 in bufsz chance that a read really
                     # ended exactly on the boundary.  In other words, a
                     # full read probably means there's more.
-                    if appended >= self._bufsz: # decode() might make more
-                        needmore = self.instr   # the '+='rebinds instr
+                    if appended >= self._bufsz:  # decode() might make more
+                        needmore = self.instr  # the '+='rebinds instr
                         break
 
                     # Does it at least smell like JSON?  Maybe it's the middle
@@ -294,6 +294,7 @@ class Client(SocketReadWrite):
             self._peer, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
             return
+
 
 class Server(SocketReadWrite):
     """ A simple asynchronous server for the Librarian """
@@ -374,11 +375,11 @@ class Server(SocketReadWrite):
                 assert self.fileno() != -1, 'Server socket has died'
                 dead = [sock for sock in clients if sock.fileno() == -1]
                 for d in dead:
-                    if d in clients:    # avoid error
+                    if d in clients:  # avoid error
                         clients.remove(d)
                 continue
 
-            if not readable and not writeable: # timeout: reset counters
+            if not readable and not writeable:  # timeout: reset counters
                 transactions = 0
                 t0 = time.time()
                 xlimit = XLO
@@ -402,7 +403,7 @@ class Server(SocketReadWrite):
                     transactions = 0
                     t0 = time.time()
 
-                if s is self: # New connection
+                if s is self:  # New connection
                     try:
                         (sock, peertuple) = self.accept()
                         newsock = SocketReadWrite(
@@ -446,7 +447,7 @@ class Server(SocketReadWrite):
                 # NO "finally": it circumvents "continue" in error clause(s)
                 if not s.send_result(result):
                     to_write.append(s)
-                    continue    # no need to check OOB for now
+                    continue  # no need to check OOB for now
 
                 if OOBmsg:
                     print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
@@ -455,6 +456,7 @@ class Server(SocketReadWrite):
                             if not self._perf:
                                 print(str(c))
                             c.send_result(OOBmsg)
+
 
 def main():
     """ Run simple echo server to exercise the module """

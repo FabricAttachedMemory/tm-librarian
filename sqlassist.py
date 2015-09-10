@@ -57,6 +57,7 @@ class Schema(object):
 # Started as sqlcursor, giving basic connect/execute wrappers.  Some
 # higher-level APIs arose during development and got pulled in here.
 
+
 class SQLassist(object):
     """Abstract Base Class, or mostly an interface.  Inherit from this
        and define a DBconect() method that sets _conn and _cursor."""

@@ -1,3 +1,4 @@
+#!/usr/bin/python3 -tt
 ###########################################################################
 # Some of this might elevate nicely to SQLassist.  The primmary concern
 # is cursor.rowcount, which doesn't seemt to be valid after SELECT.
@@ -7,6 +8,8 @@ from pdb import set_trace
 import sqlite3
 
 from sqlassist import SQLassist
+from sqlbackend import LibrarianDBackendSQL
+
 
 class SQLite3assist(SQLassist):
 
@@ -23,7 +26,7 @@ class SQLite3assist(SQLassist):
         pass
 
     def __init__(self, **kwargs):
-        if not 'db_file' in kwargs:
+        if 'db_file' not in kwargs:
             kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
 
@@ -105,8 +108,8 @@ class SQLite3assist(SQLassist):
         self.execute("""SELECT name FROM sqlite_master
                              WHERE type='table'
                              ORDER BY Name""")
-        tables =  [t[0] for t in self.fetchall() if
-                    t[0] not in tables_to_ignore ]
+        tables = [ t[0] for t in self.fetchall() if
+                   t[0] not in tables_to_ignore ]
 
         for table in tables:
 
@@ -135,16 +138,16 @@ class SQLite3assist(SQLassist):
 
 ###########################################################################
 
-from sqlbackend import LibrarianDBackendSQL
 
 class LibrarianDBackendSQLite3(LibrarianDBackendSQL):
 
     @staticmethod
     def argparse_extend(parser):
         # group = parser.add_mutually_exclusive_group()
-        parser.add_argument('--db_file',
-                           help='SQLite3 database backing store file',
-                           required=True)
+        parser.add_argument(
+            '--db_file',
+            help='SQLite3 database backing store file',
+            required=True)
 
     def __init__(self, args):
         self._cur = SQLite3assist(db_file=args.db_file)
@@ -157,10 +160,11 @@ if __name__ == '__main__':
     from book_register import create_empty_db
     from book_shelf_bos import TMBook, TMShelf, TMBos
 
-    old_main_from_sqlcursors()
-    old_main_from_database()
+    # old_main_from_sqlcursors()
+    # old_main_from_database()
 
 #--------------------------------------------------------------------------
+
 
 def old_main_from_sqlcursors():
     print("--> Setup empty database, create and check table schemas")
@@ -264,7 +268,7 @@ def old_main_from_sqlcursors():
     shelf_id2 = 0x00000000BBBB0000
     cur.execute('DELETE FROM shelves WHERE shelf_id = ?', shelf_id1)
     cur.execute('UPDATE shelves SET open_count = ? WHERE shelf_id = ?',
-               (1, shelf_id2))
+                (1, shelf_id2))
     cur.commit()
     cur.execute('SELECT * FROM shelves')
     cur.iterclass = 'default'
@@ -356,6 +360,7 @@ def old_main_from_sqlcursors():
     cur.close()
 
 #--------------------------------------------------------------------------
+
 
 def old_main_from_database():
 

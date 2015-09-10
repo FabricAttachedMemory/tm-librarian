@@ -4,6 +4,7 @@
 
 from pdb import set_trace
 
+
 class objstr(object):
 
     def __str__(self):
@@ -63,6 +64,7 @@ class objstr(object):
 
 ###########################################################################
 # If you just want an object.
+
 
 class GenericObject(objstr):
     """Takes a dict and/or a set of kwargs, create an object."""

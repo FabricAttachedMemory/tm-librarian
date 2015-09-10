@@ -28,7 +28,8 @@ class BookShelfStuff(object):      # could become a mixin
             kwargs = args[0]
             args = None
         if args:
-            assert len(args) == len(self._ordered_schema), _msg('bad arg count')
+            assert len(args) == len(
+                self._ordered_schema), _msg('bad arg count')
             submitted = dict(zip(self._ordered_schema, args))
             missing = {}
         else:
@@ -75,7 +76,7 @@ class BookShelfStuff(object):      # could become a mixin
     def dict(self):
         d = {}
         for k in self.__slots__:
-            if k[0] !=  '_':
+            if k[0] != '_':
                 val = getattr(self, k)
                 d[k] = val
         return d
@@ -157,6 +158,21 @@ class TMBos(BookShelfStuff):
         'shelf_id',
         'book_id',
         'seq_num'
+    )
+
+    # Gotta do this here or the mechanism doesn't work.
+    __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname, ))
+
+#########################################################################
+
+
+class TMOpenedShelves(BookShelfStuff):
+
+    _ordered_schema = (  # a little dodgy
+        'id',
+        'shelf_id',
+        'node_id',
+        'pid'
     )
 
     # Gotta do this here or the mechanism doesn't work.

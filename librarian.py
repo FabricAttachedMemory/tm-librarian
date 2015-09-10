@@ -12,14 +12,16 @@ from socket_handling import Server
 # Initialize argparse for local stuff, then have each module add
 # its arguments, then go.
 parser = argparse.ArgumentParser(description='The Machine Librarian')
-parser.add_argument('--verbose',
-                    help='level of runtime output, larger == more',
-                    type=int,
-                    default=0)
-parser.add_argument('--perf',
-                    help='suppress output and some functions for perf runs, larger= more',
-                    type=int,
-                    default=0)
+parser.add_argument(
+    '--verbose',
+    help='level of runtime output, larger == more',
+    type=int,
+    default=0)
+parser.add_argument(
+    '--perf',
+    help='suppress output and some functions for perf runs, larger= more',
+    type=int,
+    default=0)
 
 
 def main():

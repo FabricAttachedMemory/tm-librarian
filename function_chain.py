@@ -2,11 +2,14 @@
 object.  Useful when doing conversion betwix things when you don't want to
 chain the API """
 
+
 class BadChainForward(Exception):
     pass
 
+
 class BadChainReverse(Exception):
     pass
+
 
 class Chain(object):
     """ A list of objects representing functions to be applied in order """
@@ -67,10 +70,11 @@ class Chain(object):
         except Exception as e:
             raise BadChainReverse('Error at link index %d' % i)
 
+
 class Link(object):
     ''' The object representing the function in a chain (Links).  Please
-    implement both functions if nothing needs tobe done fill in forward or reverse
-    with pass appropriately. '''
+    implement both functions if nothing needs tobe done fill in forward
+    or reverse with pass appropriately. '''
 
     def forward(self, obj):
         """ Calls function implemented here to obj
@@ -92,6 +96,7 @@ class Link(object):
         """
         raise BadChainReverse('Subclass this and write your own')
 
+
 class IdentityLink(Link):
     """ a link whose forward/reverse functions simply return the same object
     useful for debugging or using an API that requires a chain """
@@ -111,6 +116,7 @@ class IdentityLink(Link):
         Returns obj
         """
         return obj
+
 
 class IdentityChain(Chain):
     """ Identity chain class, only contains an Identity_Link """
