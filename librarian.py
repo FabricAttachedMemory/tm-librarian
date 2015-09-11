@@ -32,7 +32,7 @@ def main():
 
     backend = LBE(parseargs)
     lce = LCE(backend, parseargs)
-    server = Server(parseargs, perf=parseargs.perf)
+    server = Server(parseargs)
 
     try:
         server.serv(lce)
