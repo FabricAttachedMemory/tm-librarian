@@ -317,9 +317,8 @@ class Server(SocketReadWrite):
                             type=int,
                             default=9093)
 
-    def __init__(self, parseargs, **kwargs):
-        self.verbose = parseargs.verbose
-        super(self.__class__, self).__init__(**kwargs)
+    def __init__(self, parseargs):
+        super(self.__class__, self).__init__(**(dict(parseargs._get_kwargs())))
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._port = parseargs.port
         self._sock.bind(('', self._port))
@@ -430,7 +429,7 @@ class Server(SocketReadWrite):
                             print('%s: %s' % (s, str(cmdict)))
                     result = OOBmsg = None
                     result, OOBmsg = handler(cmdict)
-                except ConnectionAbortedError as e:
+                except ConnectionError as e:  # Base class in Python3
                     print(str(e))
                     clients.remove(s)
                     if s in to_write:
