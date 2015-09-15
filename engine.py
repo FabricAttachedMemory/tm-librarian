@@ -285,19 +285,16 @@ class LibrarianCommandEngine(object):
         """
         raise NotImplementedError
 
-    def cmd_get_book(cmd_data, cmdict):
+    def cmd_get_book(self, cmdict):
         """ List a given book
             In (dict)---
                 book_id
             Out (dict) ---
                 book data
         """
-        set_trace()
-        book_id = cmd_data["book_id"]
-        resp = db.get_book_by_id(book_id)
-        # todo: fail if book does not exist
-        recvd = dict(zip(book_columns, resp))
-        return recvd
+        book_id = cmdict['id']
+        book = self.db.get_book_by_id(book_id)
+        return book
 
     def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
