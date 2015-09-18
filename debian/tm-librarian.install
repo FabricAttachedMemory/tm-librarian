@@ -1,0 +1,17 @@
+backend_sqlite3.py	usr/lib/python3/dist-packages/tm-librarian
+book_shelf_bos.py	usr/lib/python3/dist-packages/tm-librarian
+engine.py		usr/lib/python3/dist-packages/tm-librarian
+lfs_shadow.py		usr/lib/python3/dist-packages/tm-librarian
+repl_client.py		usr/lib/python3/dist-packages/tm-librarian
+sqlassist.py		usr/lib/python3/dist-packages/tm-librarian
+book_data.ini		usr/lib/python3/dist-packages/tm-librarian
+cmdproto.py		usr/lib/python3/dist-packages/tm-librarian
+function_chain.py	usr/lib/python3/dist-packages/tm-librarian
+librarian_chain.py	usr/lib/python3/dist-packages/tm-librarian
+sqlbackend.py		usr/lib/python3/dist-packages/tm-librarian
+book_max.ini		usr/lib/python3/dist-packages/tm-librarian
+genericobj.py		usr/lib/python3/dist-packages/tm-librarian
+librarian.py		usr/lib/python3/dist-packages/tm-librarian
+book_register.py	usr/lib/python3/dist-packages/tm-librarian
+lfs_fuse.py		usr/lib/python3/dist-packages/tm-librarian
+socket_handling.py	usr/lib/python3/dist-packages/tm-librarian
