@@ -1,0 +1,14 @@
+Source: tm-librarian
+Section: unknown
+Priority: optional
+Maintainer: Greg Pearson <greg.pearson@hpe.com>
+Build-Depends: debhelper (>= 9), dh-python, python3
+Standards-Version: 3.9.6
+X-Python3-Version: >= 3.2
+
+Package: tm-librarian
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}
+Recommends: attr
+Description: The Machine Librarian
+ The Machine NVM management server and client
