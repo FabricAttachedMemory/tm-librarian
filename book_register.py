@@ -40,7 +40,7 @@ node_count = C
 book_size_bytes = S
 nvm_size_per_node = N
 
-book_size_bytes and nvm_size can have multipliers M/G/T (binary bytes)
+book_size_bytes and nvm_size can have multipliers K/M/G/T (binary bytes)
 
 nvm_size and nvm_size_per_node can also have multiplier B (books)
 """)
@@ -100,9 +100,11 @@ def load_config(inifile):
 
 def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
-    if suffix not in 'BMGT':
+    if suffix not in 'BKMGT':
         usage('Illegal size multiplier "%s" in [%s]' % (suffix, section))
     rsize = int(instr[:-1])
+    if suffix == 'K':
+        return rsize * 1024
     if suffix == 'M':
         return rsize * 1024 * 1024
     elif suffix == 'G':
@@ -127,11 +129,14 @@ def load_book_data(inifile):
     node_count = int(config.get(section, 'node_count'))
     book_size_bytes = multiplier(
         config.get(section, 'book_size_bytes'), section)
+    K1 = 2 << 10
     M1 = 2 << 20
-    if book_size_bytes < M1 or book_size_bytes > 8192 * M1:
-        raise SystemExit('book_size bytes is out of range [1M, 8G]')
+    if book_size_bytes < K1 or book_size_bytes > 8192 * M1:
+        raise SystemExit('book_size_bytes is out of range [1K, 8G]')
 
     # If optional item 'nvm_size_per_node' is there, loop it out and quit.
+
+    lqa = 0
 
     try:
         bytes_per_node = multiplier(
@@ -152,10 +157,12 @@ def load_book_data(inifile):
             for i in range(books_per_node):
                 book = TMBook(
                     id=lza,
+                    lqa=lqa,
                     node_id=node_id,
                 )
                 section2books[section].append(book)
                 lza += book_size_bytes
+                lqa += 1
         return book_size_bytes, section2books
 
     except configparser.NoOptionError:
@@ -189,13 +196,13 @@ def load_book_data(inifile):
 
         for book in range(num_books):
             book_base_addr = (book * book_size_bytes) + lza_base
-            book_data = (book_base_addr, node_id, 0, 0)
-            print("book %s @ 0x%016x" % (book_data, book_base_addr))
             tmp = TMBook(
                 node_id=node_id,
+                lqa=lqa,
                 id=book_base_addr
             )
             section2books[section].append(tmp)
+            lqa += 1
 
     return(book_size_bytes, section2books)
 
@@ -220,6 +227,7 @@ def create_empty_db(cur):
         table_create = """
             CREATE TABLE books (
             id INTEGER PRIMARY KEY,
+            lqa INT,
             node_id INT,
             allocated INT,
             attributes INT
@@ -324,8 +332,9 @@ if __name__ == '__main__':
         books_total += len(books)
         nvm_bytes_total += len(books) * book_size_bytes
         for book in books:
+            print(book.tuple())
             cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)', book.tuple())
         cur.commit()    # every section; about 1000 in a real TM node
 
     print('%d (0x%016x) total NVM bytes' % (nvm_bytes_total, nvm_bytes_total))
