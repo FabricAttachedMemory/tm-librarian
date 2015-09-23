@@ -155,8 +155,8 @@ class shadow_file(shadow_support):
         # Compare node requirements to file size
         statinfo = os.stat(args.shadow_file)
         _mode_rw_file = int('0100600', 8)  # isfile, 600
-        assert _mode_rw_file == (
-            mode_rw_file & statinfo.st_mode), '%s is not RW'
+        assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, \
+            '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
 
         self._shadow_fd = fd
@@ -205,8 +205,8 @@ class shadow_ivshmem(shadow_support):
 
         print("statinfo:", statinfo)
 
-        assert _mode_rw_file == _(
-            mode_rw_file & statinfo.st_mode), '%s is not RW'
+        assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, \
+            '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
 
         self._shadow_fd = -1
