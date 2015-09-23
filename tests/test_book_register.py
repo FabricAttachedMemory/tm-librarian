@@ -121,36 +121,41 @@ class TestMultiplier(unittest.TestCase):
     def tearDown(self):
         pass
 
-    # global section "M" suffix
+    # global section "K" suffix
     def test_multiplier_1(self):
+        book_size_bytes = multiplier('8K', 'global')
+        self.assertEqual(book_size_bytes, (8*1024))
+
+    # global section "M" suffix
+    def test_multiplier_2(self):
         book_size_bytes = multiplier('8M', 'global')
         self.assertEqual(book_size_bytes, (8*1024*1024))
 
     # global section "G" suffix
-    def test_multiplier_2(self):
+    def test_multiplier_3(self):
         book_size_bytes = multiplier('8G', 'global')
         self.assertEqual(book_size_bytes, (8*1024*1024*1024))
 
     # global section "T" suffix
-    def test_multiplier_3(self):
+    def test_multiplier_4(self):
         book_size_bytes = multiplier('8T', 'global')
         self.assertEqual(book_size_bytes, (8*1024*1024*1024*1024))
 
     # non-global section "B" suffix
-    def test_multiplier_4(self):
+    def test_multiplier_5(self):
         book_size_bytes = multiplier('32B', 'non-global', (8*1024*1024*1024))
         self.assertEqual(book_size_bytes, (32*8*1024*1024*1024))
 
     # Illegal suffix "X" global section
-    def test_multiplier_5(self):
+    def test_multiplier_6(self):
         self.assertRaises(SystemExit, multiplier, '32X', 'global')
 
     # Illegal suffix "X" non-global section
-    def test_multiplier_6(self):
+    def test_multiplier_7(self):
         self.assertRaises(SystemExit, multiplier, '32X', 'non-global')
 
     # Illegal suffix "B" in global section
-    def test_multiplier_7(self):
+    def test_multiplier_8(self):
         self.assertRaises(SystemExit, multiplier, '32B', 'global')
 
 class TestLoadBookData(unittest.TestCase):
