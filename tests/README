@@ -60,6 +60,8 @@ directory.
 
 ---------------------------------------------------------------------------
 
-For regression testing ....
+Regression testing
+
+rw_test.py - open shelf read/write/verify data using file and mmap operations.
 
 ---------------------------------------------------------------------------

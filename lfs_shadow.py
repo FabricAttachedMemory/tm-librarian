@@ -7,6 +7,7 @@
 import errno
 import os
 import tempfile
+import mmap
 
 from pdb import set_trace
 
@@ -92,11 +93,11 @@ class shadow_directory(shadow_support):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         return self._create_open_common(shelf, flags, mode)
 
-    def read(self, path, length, offset, fd):
+    def read(self, path, length, offset, shadow_offset, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
-    def write(self, path, buf, offset, fd):
+    def write(self, path, buf, offset, shadow_offset, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
@@ -129,18 +130,36 @@ class shadow_file(shadow_support):
 
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__()
-        assert (os.path.isfile(
-            args.shadow_file)), '%s is not a file' % args.shadow_file
+
+        print("shadow_file: %s" % args.shadow_file)
+
+        (head, tail) = os.path.split(args.shadow_file)
+
+        assert os.path.isdir(head), 'No such directory %s' % head
+
+        try:
+            probe = tempfile.TemporaryFile(dir=head)
+            probe.close()
+        except OSError as e:
+            raise RuntimeError('%s is not writeable' % head)
+
+        if os.path.isfile(args.shadow_file):
+            print("file exists: %s" % args.shadow_file)
+            fd = os.open(args.shadow_file, os.O_RDWR)
+        else:
+            print("file does not exist: %s" % args.shadow_file)
+            fd = os.open(args.shadow_file, os.O_RDWR | os.O_CREAT)
+            size = lfs_globals['nvm_bytes_total']
+            os.ftruncate(fd, size)
 
         # Compare node requirements to file size
         statinfo = os.stat(args.shadow_file)
         _mode_rw_file = int('0100600', 8)  # isfile, 600
-        assert _mode_rw_file == mode_rw_file & statinfo.st_mode, '%s is not RW'
+        assert _mode_rw_file == (
+            mode_rw_file & statinfo.st_mode), '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
-        self._shadow_fd = -1
-        # os.open vs. built-in allows all the low-level stuff I need.
-        self._shadow_fd = os.open(args.shadow_file, os.O_RDWR)
-        self._next_fd = 100
+
+        self._shadow_fd = fd
 
     def unlink(self, shelf_name):
         return 0
@@ -154,12 +173,12 @@ class shadow_file(shadow_support):
     def truncate(self, shelf, length, fd):
         return 0
 
-    def read(self, path, length, offset, fd):
-        os.lseek(self._shadow_fd, offset, os.SEEK_SET)
+    def read(self, path, length, offset, shadow_offset, fd):
+        os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
         return os.read(self._shadow_fd, length)
 
-    def write(self, path, buf, offset, fd):
-        os.lseek(self._shadow_fd, offset, os.SEEK_SET)
+    def write(self, path, buf, offset, shadow_offset, fd):
+        os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
         return os.write(self._shadow_fd, buf)
 
     def release(self, fd):
@@ -172,10 +191,56 @@ class shadow_file(shadow_support):
 class shadow_ivshmem(shadow_support):
 
     def __init__(self, args, lfs_globals):
+
         super(self.__class__, self).__init__()
-        assert os.path.exists(
-            args.shadow_ivshmem), '%s does not exist' % args.shadow_ivshmem
-        raise NotImplementedError
+
+        print("ivshmem:", args.shadow_ivshmem)
+
+        assert (os.path.isfile(
+            args.shadow_ivshmem)), '%s is not a file' % args.shadow_ivshmem
+
+        # Compare node requirements to file size
+        _mode_rw_file = int('0100600', 8)  # isfile, 600
+        statinfo = os.stat(args.shadow_ivshmem)
+
+        print("statinfo:", statinfo)
+
+        assert _mode_rw_file == _(
+            mode_rw_file & statinfo.st_mode), '%s is not RW'
+        assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
+
+        self._shadow_fd = -1
+
+        # os.open vs. built-in allows all the low-level stuff I need.
+        self._shadow_fd = os.open(args.shadow_ivshmem, os.O_RDWR)
+        self._m = mmap.mmap(
+            self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+
+    def unlink(self, shelf_name):
+        return 0
+
+    def open(self, shelf, flags, mode=None):
+        return self._shadow_fd
+
+    def create(self, shelf, mode):
+        return 0
+
+    def truncate(self, shelf, length, fd):
+        return 0
+
+    def read(self, path, length, offset, shadow_offset, fd):
+        self._m.seek(shadow_offset, 0)
+        return self._m.read(length)
+
+    def write(self, path, buf, offset, shadow_offset, fd):
+        self._m.seek(shadow_offset, 0)
+        # write to mmap file always returns "None"
+        self._m.write(buf)
+        return len(buf)
+
+    def release(self, fd):
+        del self[fd]
+        return 0
 
 #--------------------------------------------------------------------------
 
@@ -194,5 +259,4 @@ def the_shadow_knows(args, lfs_globals):
     except Exception as e:
         msg = str(e)
     # seems to be ignored, as is SystemExit
-    set_trace()
     raise OSError(errno.EINVAL, 'lfs_shadow: %s' % msg)
