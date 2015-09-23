@@ -52,6 +52,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def __init__(self, args):
         '''Validate command-line parameters'''
+        self.verbose = args.verbose
         self.tormsURI = args.hostname
         elems = args.hostname.split(':')
         assert len(elems) <= 2
@@ -166,6 +167,25 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise OSError(errno.ERANGE, 'Bad response format')
 
         return value  # None is legal, let the caller deal with it.
+
+    def get_shadow_offset(self, path, offset, bsize):
+        '''Compute the book offset within a single shadow file'''
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
+        shelf = TMShelf(rsp)
+        bos = self.librarian(self.lcp('list_shelf_books', shelf))
+        book_num = offset // bsize  # (0..n)
+        book_data = bos[book_num]
+        book_id = book_data['book_id']
+        book = self.librarian(self.lcp('get_book', book_id))
+        lqa = book['lqa']
+        book_offset = offset % bsize
+        shadow_offset = (lqa * bsize) + book_offset
+
+        if self.verbose > 2:
+            print("book_id=%d, lqa=%d" % (book_id, lqa))
+
+        return shadow_offset
 
     # Higher-level FS operations
 
@@ -371,11 +391,94 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def read(self, path, length, offset, fd):
-        return self.shadow.read(path, length, offset, fd)
+
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        bsize = globals['book_size_bytes']
+
+        if self.verbose > 2:
+            print("read: bsize = %d, offset = %d, length = %d" % (
+                     bsize, offset, length))
+
+        if ((offset % bsize) + length) <= bsize:
+            shadow_offset = self.get_shadow_offset(path, offset, bsize)
+            return self.shadow.read(path, length, offset, shadow_offset, fd)
+
+        # Read overlaps books, split into multiple chunks
+        # Needs to work for all three backing types
+        #   offset - used for shadow_dir
+        #   shadow_offset - used for shadow_file & shadow_ivshmem
+
+        buf = b''
+        cur_offset = offset
+        tot_length = length
+
+        while (tot_length > 0):
+            cur_length = min((bsize - (cur_offset % bsize)), tot_length)
+            shadow_offset = self.get_shadow_offset(path, cur_offset, bsize)
+
+            buf += self.shadow.read(
+                path, cur_length, offset, shadow_offset, fd)
+
+            if self.verbose > 2:
+                print("READ: co=%d, tl=%d, cl=%d, so=%d, bl=%d" % (
+                         cur_offset, tot_length, cur_length,
+                         shadow_offset, len(buf)))
+
+            offset += cur_length
+            cur_offset += cur_length
+            tot_length -= cur_length
+
+        return buf
 
     @prentry
     def write(self, path, buf, offset, fd):
-        return self.shadow.write(path, buf, offset, fd)
+
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        bsize = globals['book_size_bytes']
+
+        if self.verbose > 2:
+            print("bsize = %d, write: offset = %d, len(buf) = %d" % (
+                     bsize, offset, len(buf)))
+
+        if ((offset % bsize) + len(buf)) <= bsize:
+            shadow_offset = self.get_shadow_offset(path, offset, bsize)
+            return self.shadow.write(path, buf, offset, shadow_offset, fd)
+
+        # Write overlaps books, split into multiple chunks
+        # Needs to work for all three backing types
+        #   offset - used for shadow_dir
+        #   shadow_offset - used for shadow_file & shadow_ivshmem
+
+        tbuf = b''
+        buf_offset = 0
+        cur_offset = offset
+        tot_length = len(buf)
+        wsize = 0
+
+        while (tot_length > 0):
+            cur_length = min((bsize - (cur_offset % bsize)), tot_length)
+            shadow_offset = self.get_shadow_offset(path, cur_offset, bsize)
+
+            # chop buffer in pieces
+            buf_end = buf_offset + cur_length
+            tbuf = buf[buf_offset:buf_end]
+
+            wsize += self.shadow.write(path, tbuf, offset, shadow_offset, fd)
+
+            if self.verbose > 2:
+                print("WRITE: co=%d, tl=%d, cl=%d, so=%d,"
+                      " bl=%d, bo=%d, wsize=%d, be=%d" % (
+                          cur_offset,
+                          tot_length, cur_length, shadow_offset,
+                          len(tbuf), buf_offset, wsize, buf_end))
+
+            offset += cur_length
+            cur_offset += cur_length
+            tot_length -= cur_length
+            buf_offset += cur_length
+            tbuf = b''
+
+        return wsize
 
     @prentry
     def truncate(self, path, length, fd=None):
