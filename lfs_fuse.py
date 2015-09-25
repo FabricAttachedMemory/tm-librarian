@@ -395,10 +395,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         globals = self.librarian(self.lcp('get_fs_stats'))
         bsize = globals['book_size_bytes']
 
-        if self.verbose > 2:
-            print("read: bsize = %d, offset = %d, length = %d" % (
-                     bsize, offset, length))
-
         if ((offset % bsize) + length) <= bsize:
             shadow_offset = self.get_shadow_offset(path, offset, bsize)
             return self.shadow.read(path, length, offset, shadow_offset, fd)
@@ -421,8 +417,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
             if self.verbose > 2:
                 print("READ: co=%d, tl=%d, cl=%d, so=%d, bl=%d" % (
-                         cur_offset, tot_length, cur_length,
-                         shadow_offset, len(buf)))
+                      cur_offset, tot_length, cur_length,
+                      shadow_offset, len(buf)))
 
             offset += cur_length
             cur_offset += cur_length
@@ -436,9 +432,19 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         globals = self.librarian(self.lcp('get_fs_stats'))
         bsize = globals['book_size_bytes']
 
+        req_size = offset + len(buf)
+
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        shelf = TMShelf(rsp)
+
         if self.verbose > 2:
-            print("bsize = %d, write: offset = %d, len(buf) = %d" % (
-                     bsize, offset, len(buf)))
+            print("shelf.size_bytes = %d, req_size = %d" % (
+                  shelf.size_bytes, req_size))
+
+        # Resize shelf "on the fly" for writes past EOF
+        if shelf.size_bytes < req_size:
+            self.truncate(path, req_size, None)
 
         if ((offset % bsize) + len(buf)) <= bsize:
             shadow_offset = self.get_shadow_offset(path, offset, bsize)
@@ -468,8 +474,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             if self.verbose > 2:
                 print("WRITE: co=%d, tl=%d, cl=%d, so=%d,"
                       " bl=%d, bo=%d, wsize=%d, be=%d" % (
-                          cur_offset,
-                          tot_length, cur_length, shadow_offset,
+                          cur_offset, tot_length, cur_length, shadow_offset,
                           len(tbuf), buf_offset, wsize, buf_end))
 
             offset += cur_length
