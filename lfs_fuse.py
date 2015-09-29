@@ -509,7 +509,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def release(self, path, fd):  # fd == shadow file descriptor
         try:
             shelf = self.shadow.release(fd)
-            req = self.lcp('close_shelf', shelf)
+            req = self.lcp('close_shelf', id=shelf.id, open_handle=shelf.open_handle)
             self.librarian(req)  # None or raise
         except Exception as e:
             raise FuseOSError(errno.ESTALE)

@@ -165,10 +165,12 @@ class shadow_file(shadow_support):
         return 0
 
     def open(self, shelf, flags, mode=None):
-        return 0
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
 
     def create(self, shelf, mode):
-        return 0
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
 
     def truncate(self, shelf, length, fd):
         return 0
@@ -182,8 +184,9 @@ class shadow_file(shadow_support):
         return os.write(self._shadow_fd, buf)
 
     def release(self, fd):
+        shelf = self[fd]
         del self[fd]
-        return 0
+        return shelf
 
 #--------------------------------------------------------------------------
 
@@ -220,10 +223,12 @@ class shadow_ivshmem(shadow_support):
         return 0
 
     def open(self, shelf, flags, mode=None):
-        return self._shadow_fd
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
 
     def create(self, shelf, mode):
-        return 0
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
 
     def truncate(self, shelf, length, fd):
         return 0
@@ -239,8 +244,9 @@ class shadow_ivshmem(shadow_support):
         return len(buf)
 
     def release(self, fd):
+        shelf = self[fd]
         del self[fd]
-        return 0
+        return shelf
 
 #--------------------------------------------------------------------------
 
