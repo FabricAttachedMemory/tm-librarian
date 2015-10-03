@@ -198,11 +198,12 @@ class LibrarianDBackendSQL(object):
             Input---
               None
             Output---
-              book_data or error message
+              book data or None
         """
-        self._cur.execute('SELECT * FROM books ORDER BY book_id')
+        self._cur.execute('SELECT * FROM books ORDER BY id')
         self._cur.iterclass = TMBook
-        return [ r for r in self._cur ]
+        books = [ r for r in self._cur ]
+        return books
 
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.

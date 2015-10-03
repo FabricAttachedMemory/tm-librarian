@@ -89,6 +89,10 @@ class LibrarianCommandProtocol(object):
             doc='send an out-of-band message to all connected clients',
             parms=('msg', ),
         ),
+        'get_book_all': GO(
+            doc='get all books in database sorted by LZA',
+            parms=None,
+        ),
 
         # repl_client and demos only
 

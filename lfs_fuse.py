@@ -87,6 +87,31 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow = the_shadow_knows(args, globals)
         # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
+        # Calculate node LZA gap
+        bsize = globals['book_size_bytes']
+        books = self.librarian(self.lcp('get_book_all'))
+
+        prev_node_id = -1
+        prev_lza_end = 0
+        total_gap = 0
+        self.node_gap = {}
+
+        for book in books:
+            cur_lza = book['id']
+            cur_node_id = book['node_id']
+
+            if prev_node_id != cur_node_id:
+                cur_node_gap = total_gap + (cur_lza - prev_lza_end)
+                total_gap += cur_node_gap
+                self.node_gap[cur_node_id] = total_gap
+
+            prev_lza = cur_lza
+            prev_node_id = cur_node_id
+            prev_lza_end = prev_lza + bsize
+
+        if self.verbose > 2:
+            print("node_gap:", self.node_gap)
+
     @prentry
     def destroy(self, root):    # fusermount -u
         self.torms.close()
@@ -178,12 +203,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         book_data = bos[book_num]
         book_id = book_data['book_id']
         book = self.librarian(self.lcp('get_book', book_id))
-        lqa = book['lqa']
+        node_id = book['node_id']
+        lza = book['id']
         book_offset = offset % bsize
-        shadow_offset = (lqa * bsize) + book_offset
+        shadow_offset = lza - self.node_gap[node_id] + book_offset
 
         if self.verbose > 2:
-            print("book_id=%d, lqa=%d" % (book_id, lqa))
+            print("node_id = %d, lza = %d, node_gap = %d, "
+                  "shadow_offset = %d, bsize = %d" % (
+                      node_id, lza, self.node_gap[node_id],
+                      shadow_offset, bsize))
 
         return shadow_offset
 
@@ -416,7 +445,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 path, cur_length, offset, shadow_offset, fd)
 
             if self.verbose > 2:
-                print("READ: co=%d, tl=%d, cl=%d, so=%d, bl=%d" % (
+                print("READ: co = %d, tl = %d, cl = %d, so = %d, bl = %d" % (
                       cur_offset, tot_length, cur_length,
                       shadow_offset, len(buf)))
 
@@ -472,8 +501,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             wsize += self.shadow.write(path, tbuf, offset, shadow_offset, fd)
 
             if self.verbose > 2:
-                print("WRITE: co=%d, tl=%d, cl=%d, so=%d,"
-                      " bl=%d, bo=%d, wsize=%d, be=%d" % (
+                print("WRITE: co = %d, tl = %d, cl = %d, so = %d,"
+                      " bl = %d, bo = %d, wsize = %d, be = %d" % (
                           cur_offset, tot_length, cur_length, shadow_offset,
                           len(tbuf), buf_offset, wsize, buf_end))
 
@@ -509,7 +538,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def release(self, path, fd):  # fd == shadow file descriptor
         try:
             shelf = self.shadow.release(fd)
-            req = self.lcp('close_shelf', id=shelf.id, open_handle=shelf.open_handle)
+            req = self.lcp(
+                'close_shelf', id=shelf.id, open_handle=shelf.open_handle)
             self.librarian(req)  # None or raise
         except Exception as e:
             raise FuseOSError(errno.ESTALE)
