@@ -368,6 +368,9 @@ class LibrarianCommandEngine(object):
     def cmd_get_book_alloc(self, cmdict):
         return self.db.get_book_by_node(cmdict['node_id'], -1, 9999)
 
+    def cmd_get_book_all(self, cmdict):
+        return self.db.get_book_all()
+
     #######################################################################
 
     _commands = None

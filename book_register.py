@@ -136,8 +136,6 @@ def load_book_data(inifile):
 
     # If optional item 'nvm_size_per_node' is there, loop it out and quit.
 
-    lqa = 0
-
     try:
         bytes_per_node = multiplier(
             config.get(section, 'nvm_size_per_node'), section,
@@ -157,12 +155,10 @@ def load_book_data(inifile):
             for i in range(books_per_node):
                 book = TMBook(
                     id=lza,
-                    lqa=lqa,
                     node_id=node_id,
                 )
                 section2books[section].append(book)
                 lza += book_size_bytes
-                lqa += 1
         return book_size_bytes, section2books
 
     except configparser.NoOptionError:
@@ -198,11 +194,9 @@ def load_book_data(inifile):
             book_base_addr = (book * book_size_bytes) + lza_base
             tmp = TMBook(
                 node_id=node_id,
-                lqa=lqa,
                 id=book_base_addr
             )
             section2books[section].append(tmp)
-            lqa += 1
 
     return(book_size_bytes, section2books)
 
@@ -227,7 +221,6 @@ def create_empty_db(cur):
         table_create = """
             CREATE TABLE books (
             id INTEGER PRIMARY KEY,
-            lqa INT,
             node_id INT,
             allocated INT,
             attributes INT
@@ -334,7 +327,7 @@ if __name__ == '__main__':
         for book in books:
             print(book.tuple())
             cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?, ?)', book.tuple())
+                'INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
         cur.commit()    # every section; about 1000 in a real TM node
 
     print('%d (0x%016x) total NVM bytes' % (nvm_bytes_total, nvm_bytes_total))

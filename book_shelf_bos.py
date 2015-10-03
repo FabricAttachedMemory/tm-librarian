@@ -122,7 +122,6 @@ class TMBook(BookShelfStuff):
 
     _ordered_schema = (  # a little dodgy
         'id',
-        'lqa',
         'node_id',
         'allocated',
         'attributes',
