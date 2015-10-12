@@ -196,7 +196,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def get_shadow_offset(self, path, offset, bsize):
         '''Compute the book offset within a single shadow file'''
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         book_num = offset // bsize  # (0..n)
