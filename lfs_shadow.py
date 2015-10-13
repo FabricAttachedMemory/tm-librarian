@@ -14,6 +14,24 @@ from pdb import set_trace
 from fuse import FuseOSError
 
 
+def get_shadow_offset(shelf, offset, bsize, shelf_cache, node_gap):
+    '''Compute the book offset within a single shadow file'''
+    book_num = offset // bsize  # (0..n)
+    s = shelf_cache[shelf]
+
+    # Stop FS read ahead past shelf
+    if book_num >= len(s):
+        return -1
+
+    b = s[book_num]
+    lza = b['lza']
+    node_id = b['node_id']
+    book_offset = offset % bsize
+    shadow_offset = lza - node_gap[node_id] + book_offset
+
+    return shadow_offset
+
+
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
 
@@ -93,11 +111,11 @@ class shadow_directory(shadow_support):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         return self._create_open_common(shelf, flags, mode)
 
-    def read(self, path, length, offset, shadow_offset, fd):
+    def read(self, shelf, length, offset, shelf_cache, node_gap, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
-    def write(self, path, buf, offset, shadow_offset, fd):
+    def write(self, shelf, buf, offset, shelf_cache, node_gap, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
@@ -160,6 +178,8 @@ class shadow_file(shadow_support):
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
 
         self._shadow_fd = fd
+        self.verbose = args.verbose
+        self.bsize = lfs_globals['book_size_bytes']
 
     def unlink(self, shelf_name):
         return 0
@@ -175,13 +195,87 @@ class shadow_file(shadow_support):
     def truncate(self, shelf, length, fd):
         return 0
 
-    def read(self, path, length, offset, shadow_offset, fd):
-        os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
-        return os.read(self._shadow_fd, length)
+    def read(self, shelf, length, offset, shelf_cache, node_gap, fd):
 
-    def write(self, path, buf, offset, shadow_offset, fd):
-        os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
-        return os.write(self._shadow_fd, buf)
+        if ((offset % self.bsize) + length) <= self.bsize:
+            shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
+                                              shelf_cache, node_gap)
+            os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
+            return os.read(self._shadow_fd, length)
+
+        # Read overlaps books, split into multiple chunks
+
+        buf = b''
+        cur_offset = offset
+        tot_length = length
+
+        while (tot_length > 0):
+            cur_length = min((self.bsize - (cur_offset % self.bsize)),
+                             tot_length)
+            shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
+                                              shelf_cache, node_gap)
+
+            if shadow_offset == -1:
+                break
+
+            os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
+            buf += os.read(self._shadow_fd, cur_length)
+
+            if self.verbose > 2:
+                print("READ: co = %d, tl = %d, cl = %d, so = %d, bl = %d" % (
+                      cur_offset, tot_length, cur_length,
+                      shadow_offset, len(buf)))
+
+            offset += cur_length
+            cur_offset += cur_length
+            tot_length -= cur_length
+
+        return buf
+
+    def write(self, shelf, buf, offset, shelf_cache, node_gap, fd):
+
+        if ((offset % self.bsize) + len(buf)) <= self.bsize:
+            shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
+                                              shelf_cache, node_gap)
+            os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
+            return os.write(self._shadow_fd, buf)
+
+        # Write overlaps books, split into multiple chunks
+
+        tbuf = b''
+        buf_offset = 0
+        cur_offset = offset
+        tot_length = len(buf)
+        wsize = 0
+
+        while (tot_length > 0):
+            cur_length = min((self.bsize - (cur_offset % self.bsize)),
+                             tot_length)
+            shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
+                                              shelf_cache, node_gap)
+
+            assert shadow_offset != -1, "shadow_offset -1 during write"
+
+            # chop buffer in pieces
+            buf_end = buf_offset + cur_length
+            tbuf = buf[buf_offset:buf_end]
+
+            os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
+            wsize += os.write(self._shadow_fd, tbuf)
+
+            if self.verbose > 2:
+                print("WRITE: co = %d, tl = %d, cl = %d, so = %d,"
+                      " bl = %d, bo = %d, wsize = %d, be = %d" % (
+                          cur_offset, tot_length, cur_length, shadow_offset,
+                          len(tbuf), buf_offset, wsize, buf_end))
+
+            offset += cur_length
+            cur_offset += cur_length
+            tot_length -= cur_length
+            buf_offset += cur_length
+            tbuf = b''
+
+        return wsize
 
     def release(self, fd):
         shelf = self[fd]
@@ -209,8 +303,10 @@ class shadow_ivshmem(shadow_support):
         print("statinfo:", statinfo)
 
         assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, \
-            '%s is not RW'
-        assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
+            '%s is not RW' % args.shadow_ivshmem
+        assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
+            'st_size (%d) < nvm_bytes_total (%d)' % \
+            (statinfo.st_size, lfs_globals['nvm_bytes_total'])
 
         self._shadow_fd = -1
 
@@ -218,6 +314,9 @@ class shadow_ivshmem(shadow_support):
         self._shadow_fd = os.open(args.shadow_ivshmem, os.O_RDWR)
         self._m = mmap.mmap(
             self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+
+        self.bsize = lfs_globals['book_size_bytes']
+        self.verbose = args.verbose
 
     def unlink(self, shelf_name):
         return 0
@@ -233,15 +332,91 @@ class shadow_ivshmem(shadow_support):
     def truncate(self, shelf, length, fd):
         return 0
 
-    def read(self, path, length, offset, shadow_offset, fd):
-        self._m.seek(shadow_offset, 0)
-        return self._m.read(length)
+    def read(self, shelf, length, offset, shelf_cache, node_gap, fd):
 
-    def write(self, path, buf, offset, shadow_offset, fd):
-        self._m.seek(shadow_offset, 0)
-        # write to mmap file always returns "None"
-        self._m.write(buf)
-        return len(buf)
+        if ((offset % self.bsize) + length) <= self.bsize:
+            shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
+                                              shelf_cache, node_gap)
+            self._m.seek(shadow_offset, 0)
+            return self._m.read(length)
+
+        # Read overlaps books, split into multiple chunks
+
+        buf = b''
+        cur_offset = offset
+        tot_length = length
+
+        while (tot_length > 0):
+            cur_length = min((self.bsize - (cur_offset % self.bsize)),
+                             tot_length)
+            shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
+                                              shelf_cache, node_gap)
+
+            if shadow_offset == -1:
+                break
+
+            self._m.seek(shadow_offset, 0)
+            buf += self._m.read(cur_length)
+
+            if self.verbose > 2:
+                print("READ: co = %d, tl = %d, cl = %d, so = %d, bl = %d" % (
+                      cur_offset, tot_length, cur_length,
+                      shadow_offset, len(buf)))
+
+            offset += cur_length
+            cur_offset += cur_length
+            tot_length -= cur_length
+
+        return buf
+
+    def write(self, shelf, buf, offset, shelf_cache, node_gap, fd):
+
+        if ((offset % self.bsize) + len(buf)) <= self.bsize:
+            shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
+                                              shelf_cache, node_gap)
+            self._m.seek(shadow_offset, 0)
+            # write to mmap file always returns "None"
+            self._m.write(buf)
+            return len(buf)
+
+        # Write overlaps books, split into multiple chunks
+
+        tbuf = b''
+        buf_offset = 0
+        cur_offset = offset
+        tot_length = len(buf)
+        wsize = 0
+
+        while (tot_length > 0):
+            cur_length = min((self.bsize - (cur_offset % self.bsize)),
+                             tot_length)
+            shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
+                                              shelf_cache, node_gap)
+
+            assert shadow_offset != -1, "shadow_offset -1 during write"
+
+            # chop buffer in pieces
+            buf_end = buf_offset + cur_length
+            tbuf = buf[buf_offset:buf_end]
+
+            self._m.seek(shadow_offset, 0)
+            # write to mmap file always returns "None"
+            self._m.write(tbuf)
+            wsize += len(tbuf)
+
+            if self.verbose > 2:
+                print("WRITE: co = %d, tl = %d, cl = %d, so = %d,"
+                      " bl = %d, bo = %d, wsize = %d, be = %d" % (
+                          cur_offset, tot_length, cur_length, shadow_offset,
+                          len(tbuf), buf_offset, wsize, buf_end))
+
+            offset += cur_length
+            cur_offset += cur_length
+            tot_length -= cur_length
+            buf_offset += cur_length
+            tbuf = b''
+
+        return wsize
 
     def release(self, fd):
         shelf = self[fd]
