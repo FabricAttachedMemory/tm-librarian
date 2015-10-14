@@ -49,6 +49,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
     _mode_default_dir = int('0040777', 8)  # isdir, 777
+    shelf_cache = {}
+    shelf_size = {}
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -88,7 +90,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
         # Calculate node LZA gap
-        bsize = globals['book_size_bytes']
+        self.bsize = globals['book_size_bytes']
         books = self.librarian(self.lcp('get_book_all'))
 
         prev_node_id = -1
@@ -101,13 +103,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             cur_node_id = book['node_id']
 
             if prev_node_id != cur_node_id:
-                cur_node_gap = total_gap + (cur_lza - prev_lza_end)
+                cur_node_gap = cur_lza - prev_lza_end
                 total_gap += cur_node_gap
                 self.node_gap[cur_node_id] = total_gap
 
             prev_lza = cur_lza
             prev_node_id = cur_node_id
-            prev_lza_end = prev_lza + bsize
+            prev_lza_end = prev_lza + self.bsize
 
         if self.verbose > 2:
             print("node_gap:", self.node_gap)
@@ -118,6 +120,23 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         del self.torms
 
     # helpers
+
+    def update_shelf_cache(self, shelf_name, shelf, bos):
+        r = []
+        for b in bos:
+            book = self.librarian(self.lcp('get_book', b["book_id"]))
+            d = {
+                    'node_id': book["node_id"],
+                    'lza': book["id"]
+                }
+            r.append(d)
+
+        self.shelf_cache[shelf_name] = r
+        self.shelf_size[shelf_name] = shelf.size_bytes
+
+        if self.verbose > 2:
+            print("shelf_cache:", self.shelf_cache)
+            print("shelf_size:", self.shelf_size)
 
     # Round 1: flat namespace at / requires a leading / and no others
     @staticmethod
@@ -192,29 +211,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise OSError(errno.ERANGE, 'Bad response format')
 
         return value  # None is legal, let the caller deal with it.
-
-    def get_shadow_offset(self, path, offset, bsize):
-        '''Compute the book offset within a single shadow file'''
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
-        shelf = TMShelf(rsp)
-        bos = self.librarian(self.lcp('list_shelf_books', shelf))
-        book_num = offset // bsize  # (0..n)
-        book_data = bos[book_num]
-        book_id = book_data['book_id']
-        book = self.librarian(self.lcp('get_book', book_id))
-        node_id = book['node_id']
-        lza = book['id']
-        book_offset = offset % bsize
-        shadow_offset = lza - self.node_gap[node_id] + book_offset
-
-        if self.verbose > 2:
-            print("node_id = %d, lza = %d, node_gap = %d, "
-                  "shadow_offset = %d, bsize = %d" % (
-                      node_id, lza, self.node_gap[node_id],
-                      shadow_offset, bsize))
-
-        return shadow_offset
 
     # Higher-level FS operations
 
@@ -403,6 +399,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(rsp)
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         fd = self.shadow.open(shelf, flags, mode)
+        self.update_shelf_cache(shelf_name, shelf, bos)
         return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
@@ -421,98 +418,23 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def read(self, path, length, offset, fd):
 
-        globals = self.librarian(self.lcp('get_fs_stats'))
-        bsize = globals['book_size_bytes']
-
-        if ((offset % bsize) + length) <= bsize:
-            shadow_offset = self.get_shadow_offset(path, offset, bsize)
-            return self.shadow.read(path, length, offset, shadow_offset, fd)
-
-        # Read overlaps books, split into multiple chunks
-        # Needs to work for all three backing types
-        #   offset - used for shadow_dir
-        #   shadow_offset - used for shadow_file & shadow_ivshmem
-
-        buf = b''
-        cur_offset = offset
-        tot_length = length
-
-        while (tot_length > 0):
-            cur_length = min((bsize - (cur_offset % bsize)), tot_length)
-            shadow_offset = self.get_shadow_offset(path, cur_offset, bsize)
-
-            buf += self.shadow.read(
-                path, cur_length, offset, shadow_offset, fd)
-
-            if self.verbose > 2:
-                print("READ: co = %d, tl = %d, cl = %d, so = %d, bl = %d" % (
-                      cur_offset, tot_length, cur_length,
-                      shadow_offset, len(buf)))
-
-            offset += cur_length
-            cur_offset += cur_length
-            tot_length -= cur_length
-
-        return buf
+        shelf_name = self.path2shelf(path)
+        return self.shadow.read(shelf_name, length, offset, self.shelf_cache,
+                                self.node_gap, fd)
 
     @prentry
     def write(self, path, buf, offset, fd):
 
-        globals = self.librarian(self.lcp('get_fs_stats'))
-        bsize = globals['book_size_bytes']
-
-        req_size = offset + len(buf)
-
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
-        shelf = TMShelf(rsp)
-
-        if self.verbose > 2:
-            print("shelf.size_bytes = %d, req_size = %d" % (
-                  shelf.size_bytes, req_size))
+        shelf_size = self.shelf_size[shelf_name]
 
         # Resize shelf "on the fly" for writes past EOF
-        if shelf.size_bytes < req_size:
+        req_size = offset + len(buf)
+        if shelf_size < req_size:
             self.truncate(path, req_size, None)
 
-        if ((offset % bsize) + len(buf)) <= bsize:
-            shadow_offset = self.get_shadow_offset(path, offset, bsize)
-            return self.shadow.write(path, buf, offset, shadow_offset, fd)
-
-        # Write overlaps books, split into multiple chunks
-        # Needs to work for all three backing types
-        #   offset - used for shadow_dir
-        #   shadow_offset - used for shadow_file & shadow_ivshmem
-
-        tbuf = b''
-        buf_offset = 0
-        cur_offset = offset
-        tot_length = len(buf)
-        wsize = 0
-
-        while (tot_length > 0):
-            cur_length = min((bsize - (cur_offset % bsize)), tot_length)
-            shadow_offset = self.get_shadow_offset(path, cur_offset, bsize)
-
-            # chop buffer in pieces
-            buf_end = buf_offset + cur_length
-            tbuf = buf[buf_offset:buf_end]
-
-            wsize += self.shadow.write(path, tbuf, offset, shadow_offset, fd)
-
-            if self.verbose > 2:
-                print("WRITE: co = %d, tl = %d, cl = %d, so = %d,"
-                      " bl = %d, bo = %d, wsize = %d, be = %d" % (
-                          cur_offset, tot_length, cur_length, shadow_offset,
-                          len(tbuf), buf_offset, wsize, buf_end))
-
-            offset += cur_length
-            cur_offset += cur_length
-            tot_length -= cur_length
-            buf_offset += cur_length
-            tbuf = b''
-
-        return wsize
+        return self.shadow.write(shelf_name, buf, offset, self.shelf_cache,
+                                 self.node_gap, fd)
 
     @prentry
     def truncate(self, path, length, fd=None):
@@ -532,6 +454,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.EINVAL)
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         self.shadow.truncate(shelf, length, fd)
+        self.update_shelf_cache(shelf_name, shelf, bos)
 
     # Called when last reference to an open file is closed.
     @prentry
