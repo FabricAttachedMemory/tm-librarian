@@ -106,6 +106,11 @@ class LibrarianCommandProtocol(object):
             parms=('node_id', ),
          ),
 
+        'get_book_info_all': GO(
+            doc='get all books in database joined with shelf information',
+            parms=None,
+        ),
+
     }   # _commands
 
     # "Context" title is from FuSE.  In the C FuSE libary, the context is

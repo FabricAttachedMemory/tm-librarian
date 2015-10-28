@@ -205,6 +205,35 @@ class LibrarianDBackendSQL(object):
         books = [ r for r in self._cur ]
         return books
 
+    def get_book_info_all(self):
+        """ Retrieve all books from "books" table joined with
+            "books_on_shelves" and "shelves" tables.
+            Input---
+              None
+            Output---
+              book data or None
+        """
+        self._cur.execute('''SELECT books.id,
+                             books.node_id,
+                             books.allocated,
+                             books.attributes,
+                             books_on_shelves.shelf_id,
+                             books_on_shelves.seq_num,
+                             shelves.creator_id,
+                             shelves.size_bytes,
+                             shelves.book_count,
+                             shelves.ctime,
+                             shelves.mtime,
+                             shelves.name
+                             FROM books
+                             LEFT OUTER JOIN books_on_shelves
+                             ON books.id = books_on_shelves.book_id
+                             LEFT OUTER JOIN shelves
+                             ON books_on_shelves.shelf_id = shelves.id''')
+        self._cur.iterclass = 'default'
+        books = [ r for r in self._cur ]
+        return books
+
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
     # Always commit, it's where the shelf.id comes from.
