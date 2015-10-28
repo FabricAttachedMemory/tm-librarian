@@ -9,7 +9,7 @@ import time
 
 from pdb import set_trace
 
-from fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
+from tm_fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
@@ -455,6 +455,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         self.shadow.truncate(shelf, length, fd)
         self.update_shelf_cache(shelf_name, shelf, bos)
+
+    @prentry
+    def fallocate(self, path, mode, offset, length, fd=None):
+        if mode > 0:
+            raise FuseOSError(errno.EPERM)
+        self.truncate(path, length, None)
 
     # Called when last reference to an open file is closed.
     @prentry
