@@ -205,15 +205,16 @@ class LibrarianDBackendSQL(object):
         books = [ r for r in self._cur ]
         return books
 
-    def get_book_info_all(self):
-        """ Retrieve all books from "books" table joined with
-            "books_on_shelves" and "shelves" tables.
+    def get_book_info_all(self, node_id):
+        """ Retrieve books on a given node from "books" table
+            joined with "books_on_shelves" and "shelves" tables.
             Input---
-              None
+              node_id
             Output---
               book data or None
         """
-        self._cur.execute('''SELECT books.id,
+        print("get_book_info_all(), node_id = %d" % (int(node_id)))
+        db_query = """SELECT books.id,
                              books.node_id,
                              books.allocated,
                              books.attributes,
@@ -229,10 +230,13 @@ class LibrarianDBackendSQL(object):
                              LEFT OUTER JOIN books_on_shelves
                              ON books.id = books_on_shelves.book_id
                              LEFT OUTER JOIN shelves
-                             ON books_on_shelves.shelf_id = shelves.id''')
+                             ON books_on_shelves.shelf_id = shelves.id
+                             WHERE books.node_id = ?
+            """
+        self._cur.execute(db_query, (node_id))
         self._cur.iterclass = 'default'
-        books = [ r for r in self._cur ]
-        return books
+        book_data = [ r for r in self._cur ]
+        return(book_data)
 
     #
     # Shelves.  Since they're are indexed on 'name', dupes fail nicely.
