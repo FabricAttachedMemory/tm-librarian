@@ -372,7 +372,7 @@ class LibrarianCommandEngine(object):
         return self.db.get_book_all()
 
     def cmd_get_book_info_all(self, cmdict):
-        return self.db.get_book_info_all()
+        return self.db.get_book_info_all(cmdict['node_id'])
 
     #######################################################################
 
