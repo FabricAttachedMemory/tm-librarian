@@ -107,8 +107,8 @@ class LibrarianCommandProtocol(object):
          ),
 
         'get_book_info_all': GO(
-            doc='get all books in database joined with shelf information',
-            parms=None,
+            doc='get all books for a node joined with shelf information',
+            parms=('node_id', ),
         ),
 
     }   # _commands

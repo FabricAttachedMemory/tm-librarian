@@ -15,3 +15,4 @@ librarian.py		usr/lib/python3/dist-packages/tm-librarian
 book_register.py	usr/lib/python3/dist-packages/tm-librarian
 lfs_fuse.py		usr/lib/python3/dist-packages/tm-librarian
 socket_handling.py	usr/lib/python3/dist-packages/tm-librarian
+tm_fuse.py		usr/lib/python3/dist-packages/tm-librarian

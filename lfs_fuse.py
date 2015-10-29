@@ -82,7 +82,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             self.torms = socket_handling.Client(
                 selectable=False, perf=_perf)
             self.torms.connect(host=self.host, port=self.port)
-            print('%s: connected' % self.torms)
+            if self.verbose > 1:
+                print('%s: connected' % self.torms)
         except Exception as e:
             raise FuseOSError(errno.EHOSTUNREACH)
         globals = self.librarian(self.lcp('get_fs_stats'))
