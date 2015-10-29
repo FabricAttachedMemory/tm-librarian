@@ -149,8 +149,6 @@ class shadow_file(shadow_support):
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__()
 
-        print("shadow_file: %s" % args.shadow_file)
-
         (head, tail) = os.path.split(args.shadow_file)
 
         assert os.path.isdir(head), 'No such directory %s' % head
@@ -162,10 +160,8 @@ class shadow_file(shadow_support):
             raise RuntimeError('%s is not writeable' % head)
 
         if os.path.isfile(args.shadow_file):
-            print("file exists: %s" % args.shadow_file)
             fd = os.open(args.shadow_file, os.O_RDWR)
         else:
-            print("file does not exist: %s" % args.shadow_file)
             fd = os.open(args.shadow_file, os.O_RDWR | os.O_CREAT)
             size = lfs_globals['nvm_bytes_total']
             os.ftruncate(fd, size)
@@ -291,16 +287,12 @@ class shadow_ivshmem(shadow_support):
 
         super(self.__class__, self).__init__()
 
-        print("ivshmem:", args.shadow_ivshmem)
-
         assert (os.path.isfile(
             args.shadow_ivshmem)), '%s is not a file' % args.shadow_ivshmem
 
         # Compare node requirements to file size
         _mode_rw_file = int('0100600', 8)  # isfile, 600
         statinfo = os.stat(args.shadow_ivshmem)
-
-        print("statinfo:", statinfo)
 
         assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, \
             '%s is not RW' % args.shadow_ivshmem
