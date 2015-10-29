@@ -15,6 +15,7 @@ class SocketReadWrite(object):
     """ Object that will read and write from a socket
     used primarily as a base class for the Client and Server
     objects """
+    blocking_retry_max = 5
 
     def __init__(self, **kwargs):
         self._perf = kwargs.get('perf', 0)
@@ -43,6 +44,8 @@ class SocketReadWrite(object):
         self.outbytes = bytes()
         if self._perf:
             self.verbose = 0
+
+        self.blocking_retry = 0
 
     def __str__(self):
         return self._str
@@ -104,7 +107,10 @@ class SocketReadWrite(object):
             return True
         except BlockingIOError as e:
             # Far side is full
-            raise
+            self.blocking_retry += 1
+            if self.blocking_retry > self.blocking_retry_max:
+                raise OSError(errno.EWOULDBLOCK, 'blocking_retry_max')
+            pass
         except OSError as e:
             if e.errno == errno.EPIPE:
                 msg = 'closed by client'
@@ -148,11 +154,12 @@ class SocketReadWrite(object):
             if self.inOOB:  # make caller deal with OOB first
                 return None
             last = len(self.instr)
-            if last and not self._perf:
-                if last > 60:
-                    print('INSTR: %d bytes' % last)
-                else:
-                    print('INSTR: %s' % self.instr)
+            if self.verbose > 4:
+                if last and not self._perf:
+                    if last > 60:
+                        print('INSTR: %d bytes' % last)
+                    else:
+                        print('INSTR: %s' % self.instr)
             appended = 0
 
             # First time through OR go-around with partial buffer?
