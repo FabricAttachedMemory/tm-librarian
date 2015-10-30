@@ -189,7 +189,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 errmsg['errno'] = rspdict['errno']
         except OSError as e:
             errmsg['errmsg'] = 'Communications error with librarian'
-            errmsg['errno'] = errno.EHOSTDOWN
+            errmsg['errno'] = e.errno   # was always HOSTDOWN
         except MemoryError as e:  # OOB storm and internal error not pull instr
             errmsg['errmsg'] = 'OOM BOOM'
             errmsg['errno'] = errno.ENOMEM

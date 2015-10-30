@@ -128,9 +128,9 @@ class SocketReadWrite(object):
             pass
             raise
 
-    def send_result(self, result):
+    def send_result(self, result, JSON=True):
         try:
-            return self.send_all(result)
+            return self.send_all(result, JSON)
         except Exception as e:  # could be blocking IO
             print('%s: %s' % (self, str(e)), file=sys.stderr)
             return False
@@ -392,8 +392,9 @@ class Server(SocketReadWrite):
                 xlimit = XLO
                 continue
 
+            # Something remains in the outbytes buffer, give it another shot
             for w in writeable:
-                if w.send_all('', JSON=False):
+                if w.send_result('', JSON=False):
                     to_write.remove(w)
 
             for s in readable:
