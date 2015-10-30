@@ -72,6 +72,14 @@ class SocketReadWrite(object):
         '''Allows this object to be used in select'''
         return -1 if self._sock is None else self._sock.fileno()
 
+    def check_blocking_retry_max(self):
+        self.blocking_retry += 1
+        time.sleep(.2)
+        return (self.blocking_retry > self.blocking_retry_max)
+
+    def reset_blocking_retry(self):
+        self.blocking_retry = 0
+
     #----------------------------------------------------------------------
     # Send stuff
 
@@ -104,13 +112,12 @@ class SocketReadWrite(object):
                 if not n:
                     raise OSError(errno.EWOULDBLOCK, 'full')
                 self.outbytes = self.outbytes[n:]
+            self.reset_blocking_retry()
             return True
         except BlockingIOError as e:
             # Far side is full
-            self.blocking_retry += 1
-            if self.blocking_retry > self.blocking_retry_max:
+            if self.check_blocking_retry_max():
                 raise OSError(errno.EWOULDBLOCK, 'blocking_retry_max')
-            pass
         except OSError as e:
             if e.errno == errno.EPIPE:
                 msg = 'closed by client'
@@ -128,9 +135,9 @@ class SocketReadWrite(object):
             pass
             raise
 
-    def send_result(self, result):
+    def send_result(self, result, JSON=True):
         try:
-            return self.send_all(result)
+            return self.send_all(result, JSON)
         except Exception as e:  # could be blocking IO
             print('%s: %s' % (self, str(e)), file=sys.stderr)
             return False
@@ -392,8 +399,9 @@ class Server(SocketReadWrite):
                 xlimit = XLO
                 continue
 
+            # Something remains in the outbytes buffer, give it another shot
             for w in writeable:
-                if w.send_all('', JSON=False):
+                if w.send_result('', JSON=False):
                     to_write.remove(w)
 
             for s in readable:
