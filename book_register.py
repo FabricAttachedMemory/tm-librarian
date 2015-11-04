@@ -27,13 +27,14 @@ book_size_bytes = S
 
 [node01]
 node_id = I
-lza_base = 0xHHHHHHHHHHHHHHHH
 nvm_size = N
+intlv_group = G
 
 [node02]
 :
 
-For autoprovisioning, only the global section is needed:
+For autoprovisioning, only the global section is needed
+and intlv_group will be equal to the node ID:
 
 [global]
 node_count = C
@@ -72,14 +73,14 @@ def load_config(inifile):
             ))
         elif s.startswith('node'):
             legal = frozenset((
-                'lza_base',
                 'node_id',
                 'nvm_size',
+                'intlv_group',
             ))
             required = frozenset((
-                'lza_base',
                 'node_id',
                 'nvm_size',
+                'intlv_group',
             ))
         else:
             raise SystemExit('Illegal section "%s"' % s)
@@ -120,6 +121,26 @@ def multiplier(instr, section, book_size_bytes=0):
 #--------------------------------------------------------------------------
 
 
+def get_intlv_group(bn, node_id, ig):
+    if ig is None:
+        return node_id
+    return ig
+
+#--------------------------------------------------------------------------
+
+
+def get_book_id(bn, node_id, ig):
+    ''' Create a book id
+        [0:12]  - unique book number (0..8191) for given interleave group
+        [13:19] - unique interleave group number (0..127) for given system
+    '''
+    if ig is None:
+        return bn + (node_id << 13)
+    return bn + (ig << 13)
+
+#--------------------------------------------------------------------------
+
+
 def load_book_data(inifile):
 
     config = load_config(inifile)
@@ -144,21 +165,21 @@ def load_book_data(inifile):
             usage('[global] bytes_per_node not multiple of book size')
         books_per_node = int(bytes_per_node / book_size_bytes)
         section2books = {}
-        lza = 0
         print('%d nodes, each with %d books of %d bytes == %d bytes/node' %
               (node_count, books_per_node, book_size_bytes,
                books_per_node * book_size_bytes))
         for node_id in range(1, node_count + 1):
             section = 'node%02d' % node_id
             section2books[section] = []
-            print('%s @ LZA 0x%016x' % (section, lza))
+            book_num = 0
             for i in range(books_per_node):
                 book = TMBook(
-                    id=lza,
+                    id=get_book_id(book_num, node_id, None),
                     node_id=node_id,
-                )
+                    intlv_group=get_intlv_group(book_num, node_id, None)
+                ) 
                 section2books[section].append(book)
-                lza += book_size_bytes
+                book_num += 1
         return book_size_bytes, section2books
 
     except configparser.NoOptionError:
@@ -166,37 +187,37 @@ def load_book_data(inifile):
 
     # No short cuts, grind it out.
     config.remove_section(section)
-    nvm_end_prev = -1
     section2books = {}
-    auto_lza_base = 0
+    intlv_groups = {}
     for section in config.sections():
-        print(section)
         sdata = dict(config.items(section))
-        # print(sdata)
         section2books[section] = []
-        node_id = int(sdata["node_id"], 16)
+        node_id = int(sdata["node_id"], 10)
+        ig = int(sdata["intlv_group"], 10)
         nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
-        try:
-            lza_base = int(sdata["lza_base"], 16)
-        except KeyError:
-            lza_base = nvm_end_prev + 1
 
         if nvm_size % book_size_bytes != 0:
             usage("[%s] NVM size not multiple of book size" % section)
 
         num_books = int(nvm_size / book_size_bytes)
-        nvm_end = (lza_base + (num_books * book_size_bytes) - 1)
-        if nvm_end_prev >= lza_base:
-            usage("[%s] NVM overlap" % section)
-        nvm_end_prev = nvm_end
+        if num_books < 1:
+            usage('num_books must be greater than zero')
+
+        if ig in intlv_groups:
+            book_num = intlv_groups[ig]
+        else:
+            book_num = 0
+            intlv_groups.update({ig: book_num})
 
         for book in range(num_books):
-            book_base_addr = (book * book_size_bytes) + lza_base
             tmp = TMBook(
                 node_id=node_id,
-                id=book_base_addr
+                id=get_book_id(book_num, node_id, ig),
+                intlv_group=get_intlv_group(book_num, node_id, ig)
             )
             section2books[section].append(tmp)
+            book_num += 1
+            intlv_groups[ig] = book_num
 
     return(book_size_bytes, section2books)
 
@@ -223,7 +244,8 @@ def create_empty_db(cur):
             id INTEGER PRIMARY KEY,
             node_id INT,
             allocated INT,
-            attributes INT
+            attributes INT,
+            intlv_group INT
             )
             """
         cur.execute(table_create)
@@ -325,9 +347,10 @@ if __name__ == '__main__':
         books_total += len(books)
         nvm_bytes_total += len(books) * book_size_bytes
         for book in books:
-            print(book.tuple())
+            print("(id = 0x%016x, node_id = %d, allocated = %d, "
+                   "attributes = %d, intlv_group = %d)" % (book.tuple()))
             cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?)', book.tuple())
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)', book.tuple())
         cur.commit()    # every section; about 1000 in a real TM node
 
     print('%d (0x%016x) total NVM bytes' % (nvm_bytes_total, nvm_bytes_total))
