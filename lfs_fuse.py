@@ -94,26 +94,25 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.bsize = globals['book_size_bytes']
         books = self.librarian(self.lcp('get_book_all'))
 
-        prev_node_id = -1
-        prev_lza_end = 0
+        prev_ig = -1
+        prev_lza = -1
         total_gap = 0
-        self.node_gap = {}
+        self.ig_gap = {}
 
         for book in books:
             cur_lza = book['id']
-            cur_node_id = book['node_id']
+            cur_ig = book['intlv_group']
 
-            if prev_node_id != cur_node_id:
-                cur_node_gap = cur_lza - prev_lza_end
-                total_gap += cur_node_gap
-                self.node_gap[cur_node_id] = total_gap
+            if prev_ig != cur_ig:
+                cur_ig_gap = cur_lza - prev_lza - 1
+                total_gap += cur_ig_gap
+                self.ig_gap[cur_ig] = total_gap
 
             prev_lza = cur_lza
-            prev_node_id = cur_node_id
-            prev_lza_end = prev_lza + self.bsize
+            prev_ig = cur_ig
 
         if self.verbose > 2:
-            print("node_gap:", self.node_gap)
+            print("ig_gap:", self.ig_gap)
 
     @prentry
     def destroy(self, root):    # fusermount -u
@@ -128,7 +127,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             book = self.librarian(self.lcp('get_book', b["book_id"]))
             d = {
                     'node_id': book["node_id"],
-                    'lza': book["id"]
+                    'lza': book["id"],
+                    'intlv_group': book["intlv_group"]
                 }
             r.append(d)
 
@@ -421,7 +421,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         shelf_name = self.path2shelf(path)
         return self.shadow.read(shelf_name, length, offset, self.shelf_cache,
-                                self.node_gap, fd)
+                                self.ig_gap, fd)
 
     @prentry
     def write(self, path, buf, offset, fd):
@@ -435,7 +435,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             self.truncate(path, req_size, None)
 
         return self.shadow.write(shelf_name, buf, offset, self.shelf_cache,
-                                 self.node_gap, fd)
+                                 self.ig_gap, fd)
 
     @prentry
     def truncate(self, path, length, fd=None):
