@@ -125,6 +125,7 @@ class TMBook(BookShelfStuff):
         'node_id',
         'allocated',
         'attributes',
+        'intlv_group',
     )
 
     # Gotta do this here or the mechanism doesn't work.
