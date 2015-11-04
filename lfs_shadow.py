@@ -11,7 +11,7 @@ import mmap
 
 from pdb import set_trace
 
-from fuse import FuseOSError
+from tm_fuse import FuseOSError
 
 
 def get_shadow_offset(shelf, offset, bsize, shelf_cache, ig_gap):
