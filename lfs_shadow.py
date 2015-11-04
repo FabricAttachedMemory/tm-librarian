@@ -14,7 +14,7 @@ from pdb import set_trace
 from fuse import FuseOSError
 
 
-def get_shadow_offset(shelf, offset, bsize, shelf_cache, node_gap):
+def get_shadow_offset(shelf, offset, bsize, shelf_cache, ig_gap):
     '''Compute the book offset within a single shadow file'''
     book_num = offset // bsize  # (0..n)
     s = shelf_cache[shelf]
@@ -25,9 +25,9 @@ def get_shadow_offset(shelf, offset, bsize, shelf_cache, node_gap):
 
     b = s[book_num]
     lza = b['lza']
-    node_id = b['node_id']
+    intlv_group = b['intlv_group']
     book_offset = offset % bsize
-    shadow_offset = lza - node_gap[node_id] + book_offset
+    shadow_offset = ((lza - ig_gap[intlv_group]) * bsize) + book_offset
 
     return shadow_offset
 
@@ -111,11 +111,11 @@ class shadow_directory(shadow_support):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         return self._create_open_common(shelf, flags, mode)
 
-    def read(self, shelf, length, offset, shelf_cache, node_gap, fd):
+    def read(self, shelf, length, offset, shelf_cache, ig_gap, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
-    def write(self, shelf, buf, offset, shelf_cache, node_gap, fd):
+    def write(self, shelf, buf, offset, shelf_cache, ig_gap, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
@@ -191,11 +191,11 @@ class shadow_file(shadow_support):
     def truncate(self, shelf, length, fd):
         return 0
 
-    def read(self, shelf, length, offset, shelf_cache, node_gap, fd):
+    def read(self, shelf, length, offset, shelf_cache, ig_gap, fd):
 
         if ((offset % self.bsize) + length) <= self.bsize:
             shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             return os.read(self._shadow_fd, length)
 
@@ -209,7 +209,7 @@ class shadow_file(shadow_support):
             cur_length = min((self.bsize - (cur_offset % self.bsize)),
                              tot_length)
             shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
 
             if shadow_offset == -1:
                 break
@@ -228,11 +228,11 @@ class shadow_file(shadow_support):
 
         return buf
 
-    def write(self, shelf, buf, offset, shelf_cache, node_gap, fd):
+    def write(self, shelf, buf, offset, shelf_cache, ig_gap, fd):
 
         if ((offset % self.bsize) + len(buf)) <= self.bsize:
             shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             return os.write(self._shadow_fd, buf)
 
@@ -248,7 +248,7 @@ class shadow_file(shadow_support):
             cur_length = min((self.bsize - (cur_offset % self.bsize)),
                              tot_length)
             shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
 
             assert shadow_offset != -1, "shadow_offset -1 during write"
 
@@ -324,11 +324,11 @@ class shadow_ivshmem(shadow_support):
     def truncate(self, shelf, length, fd):
         return 0
 
-    def read(self, shelf, length, offset, shelf_cache, node_gap, fd):
+    def read(self, shelf, length, offset, shelf_cache, ig_gap, fd):
 
         if ((offset % self.bsize) + length) <= self.bsize:
             shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
             self._m.seek(shadow_offset, 0)
             return self._m.read(length)
 
@@ -342,7 +342,7 @@ class shadow_ivshmem(shadow_support):
             cur_length = min((self.bsize - (cur_offset % self.bsize)),
                              tot_length)
             shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
 
             if shadow_offset == -1:
                 break
@@ -361,11 +361,11 @@ class shadow_ivshmem(shadow_support):
 
         return buf
 
-    def write(self, shelf, buf, offset, shelf_cache, node_gap, fd):
+    def write(self, shelf, buf, offset, shelf_cache, ig_gap, fd):
 
         if ((offset % self.bsize) + len(buf)) <= self.bsize:
             shadow_offset = get_shadow_offset(shelf, offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
             self._m.seek(shadow_offset, 0)
             # write to mmap file always returns "None"
             self._m.write(buf)
@@ -383,7 +383,7 @@ class shadow_ivshmem(shadow_support):
             cur_length = min((self.bsize - (cur_offset % self.bsize)),
                              tot_length)
             shadow_offset = get_shadow_offset(shelf, cur_offset, self.bsize,
-                                              shelf_cache, node_gap)
+                                              shelf_cache, ig_gap)
 
             assert shadow_offset != -1, "shadow_offset -1 during write"
 
