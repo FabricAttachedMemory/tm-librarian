@@ -213,11 +213,11 @@ class LibrarianDBackendSQL(object):
             Output---
               book data or None
         """
-        print("get_book_info_all(), node_id = %d" % (int(node_id)))
         db_query = """SELECT books.id,
                              books.node_id,
                              books.allocated,
                              books.attributes,
+                             books.intlv_group,
                              books_on_shelves.shelf_id,
                              books_on_shelves.seq_num,
                              shelves.creator_id,
