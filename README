@@ -120,10 +120,18 @@ Assumptions:
 Debian packaging of Librarian
 ---------------------------------------------------------------------------
 
-The librarian and all supporting files/documentation should be delivered
-in a Debian/hLinux package.
-
-TBD
+- login to "hlinux-build.us.rdlabs.hpecorp.net"
+- git clone git@hlinux-gitlab.us.rdlabs.hpecorp.net:l4tm/librarian.git
+- cd librarian
+- ensure you are on the master branch "git checkout master"
+- edit debian/changelog file and create new entry and increment version
+- create a git tag for the commit you want to package (ex: git tag -a v0.0.1 <commit>)
+- push the changelog and tag to gitlab master branch "git push origin master"
+- create the debian package "dpkg-buildpackage -tc"
+- packaged files will be located in the parent directory
+- copy the .deb, .dsc, .tar.gz and .changes files to hlinux-incoming.us.rdlabs.hpecorp.net
+    to the "/var/foreign/l4tm/pool/main/t/tm-librarian" directory
+- send email to the packaging team "hlinux-distro@hpe.com"
 
 ---------------------------------------------------------------------------
 Librarian Server
