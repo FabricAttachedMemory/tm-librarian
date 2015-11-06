@@ -1,3 +1,10 @@
+tm-librarian (0.0.3) UNRELEASED; urgency=medium
+
+  * Retry on BlockingIO error, add intlv_group to books database
+    table, add support for fallocate and update debian packaging details.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Thu, 05 Nov 2015 15:50:15 -0700
+
 tm-librarian (0.0.2) UNRELEASED; urgency=medium
 
   * Added shadow_file and shadow_ivshmem backing for QFEv3 support.
