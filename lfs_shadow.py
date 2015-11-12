@@ -138,6 +138,9 @@ class shadow_directory(shadow_support):
         os.close(fd)    # I don't think this ever raises....
         return shelf
 
+    def getxattr(self, path, attr):
+        return ""
+
 #--------------------------------------------------------------------------
 
 
@@ -278,6 +281,9 @@ class shadow_file(shadow_support):
         del self[fd]
         return shelf
 
+    def getxattr(self, path, attr):
+        return ""
+
 #--------------------------------------------------------------------------
 
 
@@ -415,8 +421,69 @@ class shadow_ivshmem(shadow_support):
         del self[fd]
         return shelf
 
+    def getxattr(self, path, attr):
+        return ""
+
 #--------------------------------------------------------------------------
 
+
+class fam(shadow_support):
+
+    def __init__(self, args, lfs_globals):
+
+        super(self.__class__, self).__init__()
+
+        self.bsize = lfs_globals['book_size_bytes']
+        self.aperture_base = int(args.fam, 16)
+        self.verbose = args.verbose
+
+    def unlink(self, shelf_name):
+        return 0
+
+    def open(self, shelf, flags, mode=None):
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
+
+    def create(self, shelf, mode):
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
+
+    def truncate(self, shelf, length, fd):
+        return 0
+
+    def read(self, shelf, length, offset, shelf_cache, ig_gap, fd):
+        return 0
+
+    def write(self, shelf, buf, offset, shelf_cache, ig_gap, fd):
+        return 0
+
+    def release(self, fd):
+        shelf = self[fd]
+        del self[fd]
+        return shelf
+
+    def getxattr(self, shelf, attr, shelf_cache):
+        data = ""
+        cmd, offset = attr.split(":")
+        offset = int(offset)
+        book_num = offset // self.bsize  # (0..n)
+        book_offset = offset % self.bsize
+        s = shelf_cache[shelf]
+        if book_num >= len(s):
+            return data
+        b = s[book_num]
+        lza = b['lza']
+        data = (':'.join(str(x) for x in [lza, book_offset, self.bsize, self.aperture_base]))
+
+        if self.verbose > 3:
+            print("shelf = %s, offset = %d" % (shelf, offset))
+            print("book_num = %d, lza = %d" % (book_num, lza))
+            print("data = %s" % (data))
+
+        return data
+
+
+#--------------------------------------------------------------------------
 
 def the_shadow_knows(args, lfs_globals):
     '''args is command-line arguments from lfs_fuse.py'''
@@ -427,6 +494,8 @@ def the_shadow_knows(args, lfs_globals):
             return shadow_file(args, lfs_globals)
         elif args.shadow_ivshmem:
             return shadow_ivshmem(args, lfs_globals)
+        elif args.fam:
+            return fam(args, lfs_globals)
         else:
             raise ValueError('Illegal shadow setting "%s"' % args.shadow_dir)
     except Exception as e:
