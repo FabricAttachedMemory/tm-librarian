@@ -294,6 +294,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if position:
             set_trace()
 
+        # Piggy back on getxattr to retrieve LZA during fault handling
+        # input : "fault_get_lza":<byte offset into shelf>
+        # output: <lza>:<book offset>:<book size>:<aperture base>
+        if "fault_get_lza" in attr:
+            shelf_name = self.path2shelf(path)
+            data = self.shadow.getxattr(shelf_name, attr, self.shelf_cache)
+            return bytes(data.encode())
+
         # "ls" starts with simple getattr but then comes here for
         # security.selinux, system.posix_acl_access, and posix_acl_default.
         # ls -l can also do the same thing on '/'.  Save the round trips.
@@ -543,8 +551,9 @@ def mount_LFS(args):
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     i = int(bool(args.shadow_ivshmem))
+    m = int(bool(args.fam))
     assert sum(
-        (d, f, i)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] is required'
+        (d, f, i, m)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] | fam is required'
 
     try:
         FUSE(LibrarianFS(args),
@@ -594,7 +603,12 @@ if __name__ == '__main__':
         default='')
     parser.add_argument(
         '--shadow_ivshmem',
-        help='PCIe address of IVSHMEM device (ex: "00:09.0")',
+        help='file path to IVSHMEM device',
+        type=str,
+        default='')
+    parser.add_argument(
+        '--fam',
+        help='physical address of FAM base(hexadecimal format 0x...)',
         type=str,
         default='')
     parser.add_argument(
