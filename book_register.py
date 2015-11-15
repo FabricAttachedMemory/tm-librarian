@@ -3,6 +3,7 @@
 # Librarian book data registration module.  Take an INI file that describes
 # an instance of "The Machine" (node count, book size, NVM per node).  Use
 # that to prepopulate all the books for the librararian DB.
+# Designed for "Full Rack Demo" (FRD) to be launched in the summer of 2016.
 #---------------------------------------------------------------------------
 
 import os
@@ -13,6 +14,7 @@ from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
+from frdnode import FRDnode
 
 #--------------------------------------------------------------------------
 
@@ -48,7 +50,7 @@ nvm_size and nvm_size_per_node can also have multiplier B (books)
     raise SystemExit(msg)
 
 #--------------------------------------------------------------------------
-# Load and validate
+# Load file and validate section and option names; values are checked later.
 
 
 def load_config(inifile):
@@ -56,12 +58,17 @@ def load_config(inifile):
     if not config.read(os.path.expanduser(inifile)) or not config.sections():
         usage('Missing/invalid/empty config file "%s"' % inifile)
 
-    if not config.has_section('global'):
-        usage('Missing global section in config file: %s' % inifile)
+    Gname = 'global'
+    if not config.has_section(Gname):
+        usage('Missing [%s] section in config file: %s' % (Gname, inifile))
 
-    for s in config.sections():
-        options = frozenset(config.options(s))
-        if s == 'global':
+    other_sections = [ ]
+    for sname in config.sections(): # ignores 'DEFAULT'
+        section = config[sname]
+        other_sections.append(section)
+        options = frozenset([ o for o in section.keys() ])
+        if sname == Gname:
+            G = other_sections.pop()    # hence global and "other"
             legal = frozenset((
                 'book_size_bytes',
                 'nvm_size_per_node',
@@ -71,7 +78,7 @@ def load_config(inifile):
                 'book_size_bytes',
                 'node_count',
             ))
-        elif s.startswith('node'):
+        elif sname.startswith('node'):
             legal = frozenset((
                 'node_id',
                 'nvm_size',
@@ -94,7 +101,7 @@ def load_config(inifile):
                 'Illegal option(s) in [%s]: %s\nLegal options are %s' % (
                     s, ', '.join(bad), ', '.join(legal)))
 
-    return config
+    return Gname, G, other_sections
 
 #--------------------------------------------------------------------------
 
@@ -139,59 +146,60 @@ def get_book_id(bn, node_id, ig):
     return bn + (ig << 13)
 
 #--------------------------------------------------------------------------
+# If optional item is there, calculate everything.  Assume it's the
+# default June 2016 demo where every node gets its own IG.
+
+
+def extrapolate(Gname, G, node_count, book_size_bytes):
+    if 'nvm_size_per_node' not in G:
+        return None
+    bytes_per_node = multiplier(G['nvm_size_per_node'], Gname, book_size_bytes)
+    if bytes_per_node % book_size_bytes != 0:
+        usage('[%s] bytes_per_node not multiple of book size' % Gname)
+    books_per_node = int(bytes_per_node / book_size_bytes)
+    section2books = {}
+    print('%d nodes, each with %d books of %d bytes == %d bytes/node' %
+          (node_count, books_per_node, book_size_bytes,
+           books_per_node * book_size_bytes))
+    for n in range(node_count):
+        node_id = n + 1 # old school
+        sname = 'node%02d' % node_id
+        section2books[sname] = []
+        book_num = 0
+        for i in range(books_per_node):
+            book = TMBook(
+                id=get_book_id(book_num, node_id, None),
+                node_id=node_id,
+                intlv_group=get_intlv_group(book_num, node_id, None)
+            )
+            section2books[sname].append(book)
+            book_num += 1
+    return section2books
+
+#--------------------------------------------------------------------------
 
 
 def load_book_data(inifile):
 
-    config = load_config(inifile)
+    Gname, G, other_sections = load_config(inifile)
 
     # Get required global config items
-    section = 'global'
-    node_count = int(config.get(section, 'node_count'))
-    book_size_bytes = multiplier(
-        config.get(section, 'book_size_bytes'), section)
-    K1 = 2 << 10
-    M1 = 2 << 20
-    if book_size_bytes < K1 or book_size_bytes > 8192 * M1:
+    node_count = int(G['node_count'])
+    book_size_bytes = multiplier(G['book_size_bytes'], Gname)
+    if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
         raise SystemExit('book_size_bytes is out of range [1K, 8G]')
 
-    # If optional item 'nvm_size_per_node' is there, loop it out and quit.
-
-    try:
-        bytes_per_node = multiplier(
-            config.get(section, 'nvm_size_per_node'), section,
-            book_size_bytes)
-        if bytes_per_node % book_size_bytes != 0:
-            usage('[global] bytes_per_node not multiple of book size')
-        books_per_node = int(bytes_per_node / book_size_bytes)
-        section2books = {}
-        print('%d nodes, each with %d books of %d bytes == %d bytes/node' %
-              (node_count, books_per_node, book_size_bytes,
-               books_per_node * book_size_bytes))
-        for node_id in range(1, node_count + 1):
-            section = 'node%02d' % node_id
-            section2books[section] = []
-            book_num = 0
-            for i in range(books_per_node):
-                book = TMBook(
-                    id=get_book_id(book_num, node_id, None),
-                    node_id=node_id,
-                    intlv_group=get_intlv_group(book_num, node_id, None)
-                ) 
-                section2books[section].append(book)
-                book_num += 1
+    section2books = extrapolate(Gname, G, node_count, book_size_bytes)
+    if section2books is not None:
         return book_size_bytes, section2books
 
-    except configparser.NoOptionError:
-        pass
-
-    # No short cuts, grind it out.
-    config.remove_section(section)
+    # No short cuts, grind it out for the nodes.
     section2books = {}
     intlv_groups = {}
-    for section in config.sections():
-        sdata = dict(config.items(section))
-        section2books[section] = []
+    for section in other_sections:
+        set_trace()
+        sdata = dict(section.items())
+        section2books[section.name] = []
         node_id = int(sdata["node_id"], 10)
         ig = int(sdata["intlv_group"], 10)
         nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
