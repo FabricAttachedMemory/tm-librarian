@@ -49,8 +49,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
     _mode_default_dir = int('0040777', 8)  # isdir, 777
-    shelf_cache = {}
-    shelf_size = {}
+    bos_cache = {}
+    size_cache = {}
+    ig_gap = {}
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -97,7 +98,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         prev_ig = -1
         prev_lza = -1
         total_gap = 0
-        self.ig_gap = {}
 
         for book in books:
             cur_lza = book['id']
@@ -121,7 +121,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # helpers
 
-    def update_shelf_cache(self, shelf_name, shelf, bos):
+    def update_bos_cache(self, shelf_name, shelf, bos):
         r = []
         for b in bos:
             book = self.librarian(self.lcp('get_book', b["book_id"]))
@@ -132,12 +132,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 }
             r.append(d)
 
-        self.shelf_cache[shelf_name] = r
-        self.shelf_size[shelf_name] = shelf.size_bytes
+        self.bos_cache[shelf_name] = r
+        self.size_cache[shelf_name] = shelf.size_bytes
 
         if self.verbose > 2:
-            print("shelf_cache:", self.shelf_cache)
-            print("shelf_size:", self.shelf_size)
+            print("bos_cache:", self.bos_cache)
+            print("size_cache:", self.size_cache)
 
     # Round 1: flat namespace at / requires a leading / and no others
     @staticmethod
@@ -291,6 +291,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def getxattr(self, path, attr, position=0):
         """Called with a specific namespace.name attr.  Can return either
            a bytes array OR an int."""
+        shelf_name = self.path2shelf(path)
         if position:
             set_trace()
 
@@ -298,8 +299,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # input : "fault_get_lza":<byte offset into shelf>
         # output: <lza>:<book offset>:<book size>:<aperture base>
         if "fault_get_lza" in attr:
-            shelf_name = self.path2shelf(path)
-            data = self.shadow.getxattr(shelf_name, attr, self.shelf_cache)
+            data = self.shadow.getxattr(shelf_name, attr, self.bos_cache)
             return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
@@ -307,7 +307,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # ls -l can also do the same thing on '/'.  Save the round trips.
 
         try:
-            shelf_name = self.path2shelf(path)
             rsp = self.librarian(
                 self.lcp('get_xattr', name=shelf_name, xattr=attr))
             value = rsp['value']
@@ -408,7 +407,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(rsp)
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         fd = self.shadow.open(shelf, flags, mode)
-        self.update_shelf_cache(shelf_name, shelf, bos)
+        self.update_bos_cache(shelf_name, shelf, bos)
         return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
@@ -428,21 +427,21 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def read(self, path, length, offset, fd):
 
         shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, self.shelf_cache,
+        return self.shadow.read(shelf_name, length, offset, self.bos_cache,
                                 self.ig_gap, fd)
 
     @prentry
     def write(self, path, buf, offset, fd):
 
         shelf_name = self.path2shelf(path)
-        shelf_size = self.shelf_size[shelf_name]
 
         # Resize shelf "on the fly" for writes past EOF
+        # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
-        if shelf_size < req_size:
+        if self.size_cache[shelf_name] < req_size:
             self.truncate(path, req_size, None)
 
-        return self.shadow.write(shelf_name, buf, offset, self.shelf_cache,
+        return self.shadow.write(shelf_name, buf, offset, self.bos_cache,
                                  self.ig_gap, fd)
 
     @prentry
@@ -463,7 +462,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise FuseOSError(errno.EINVAL)
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         self.shadow.truncate(shelf, length, fd)
-        self.update_shelf_cache(shelf_name, shelf, bos)
+        self.update_bos_cache(shelf_name, shelf, bos)
 
     @prentry
     def fallocate(self, path, mode, offset, length, fd=None):
