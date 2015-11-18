@@ -49,8 +49,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
     _mode_default_dir = int('0040777', 8)  # isdir, 777
-    bos_cache = {}
-    size_cache = {}
     ig_gap = {}
 
     def __init__(self, args):
@@ -121,23 +119,19 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # helpers
 
-    def update_bos_cache(self, shelf_name, shelf, bos):
-        r = []
+    def get_bos(self, shelf):
+        bos = self.librarian(self.lcp('list_shelf_books', shelf))
+        shelf.bos = []
         for b in bos:
-            book = self.librarian(self.lcp('get_book', b["book_id"]))
-            d = {
-                    'node_id': book["node_id"],
-                    'lza': book["id"],
-                    'intlv_group': book["intlv_group"]
+            book = self.librarian(self.lcp('get_book', b['book_id']))
+            data = {
+                    'node_id': book['node_id'],
+                    'lza': book['id'],
+                    'intlv_group': book['intlv_group']
                 }
-            r.append(d)
-
-        self.bos_cache[shelf_name] = r
-        self.size_cache[shelf_name] = shelf.size_bytes
-
+            shelf.bos.append(data)
         if self.verbose > 2:
-            print("bos_cache:", self.bos_cache)
-            print("size_cache:", self.size_cache)
+            print('%s BOS: %s' % (shelf.name, shelf.bos))
 
     # Round 1: flat namespace at / requires a leading / and no others
     @staticmethod
@@ -299,7 +293,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # input : "fault_get_lza":<byte offset into shelf>
         # output: <lza>:<book offset>:<book size>:<aperture base>
         if "fault_get_lza" in attr:
-            data = self.shadow.getxattr(shelf_name, attr, self.bos_cache)
+            data = self.shadow.getxattr(shelf_name, attr)
             return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
@@ -405,9 +399,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
-        bos = self.librarian(self.lcp('list_shelf_books', shelf))
+        self.get_bos(shelf)
         fd = self.shadow.open(shelf, flags, mode)
-        self.update_bos_cache(shelf_name, shelf, bos)
         return fd
 
     # from shell: touch | truncate /lfs/nofilebythisname
@@ -427,8 +420,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def read(self, path, length, offset, fd):
 
         shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, self.bos_cache,
-                                self.ig_gap, fd)
+        return self.shadow.read(shelf_name, length, offset, self.ig_gap, fd)
 
     @prentry
     def write(self, path, buf, offset, fd):
@@ -438,11 +430,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Resize shelf "on the fly" for writes past EOF
         # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
-        if self.size_cache[shelf_name] < req_size:
-            self.truncate(path, req_size, None)
+        if self.shadow[shelf_name].size_bytes < req_size:
+            self.truncate(path, req_size, None) # updates the cache
 
-        return self.shadow.write(shelf_name, buf, offset, self.bos_cache,
-                                 self.ig_gap, fd)
+        return self.shadow.write(shelf_name, buf, offset, self.ig_gap, fd)
 
     @prentry
     def truncate(self, path, length, fd=None):
@@ -460,9 +451,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
             raise FuseOSError(errno.EINVAL)
-        bos = self.librarian(self.lcp('list_shelf_books', shelf))
+        self.get_bos(shelf)
         self.shadow.truncate(shelf, length, fd)
-        self.update_bos_cache(shelf_name, shelf, bos)
 
     @prentry
     def fallocate(self, path, mode, offset, length, fd=None):
