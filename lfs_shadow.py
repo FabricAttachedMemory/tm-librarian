@@ -13,24 +13,6 @@ from pdb import set_trace
 
 from tm_fuse import FuseOSError
 
-
-def get_shadow_offset(shelf_name, offset, book_size, bos_cache, ig_gap):
-    '''Compute the book offset within a single shadow file'''
-    book_num = offset // book_size  # (0..n)
-    s = bos_cache[shelf_name]
-
-    # Stop FS read ahead past shelf
-    if book_num >= len(s):
-        return -1
-
-    b = s[book_num]
-    lza = b['lza']
-    intlv_group = b['intlv_group']
-    book_offset = offset % book_size
-    shadow_offset = ((lza - ig_gap[intlv_group]) * book_size) + book_offset
-
-    return shadow_offset
-
 #--------------------------------------------------------------------------
 
 
@@ -40,28 +22,66 @@ class shadow_support(object):
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
-        self._fd2obj = { }
+        # Originally did it by fd, then getxattr piggyback only does name.
+        # Grand unification!
+        self._shelfcache = { }
 
-    def __getitem__(self, index):       # Now this object acts like a dict
-        return self._fd2obj.get(index, None)
+    # Duck-type a dict, with multiple entries.  It's supposed to be a shelf!
+    def __setitem__(self, index, shelf):
+        self._shelfcache[index] = shelf
+        try:
+            if isinstance(index, int):
+                self._shelfcache[shelf.name] = shelf
+            else:
+                self._shelfcache[shelf.open_handle] = shelf
+        except Exception as e:
+            pass
 
-    def __setitem__(self, index, obj):
-        self._fd2obj[index] = obj
+    def __getitem__(self, index):
+        return self._shelfcache.get(index, None)
 
     def __contains__(self, index):
-        return index in self._fd2obj
+        return index in self._shelfcache
 
     def __delitem__(self, index):
+        if index not in self._shelfcache:
+            return
+        tmp = self._shelfcache[index]
+        del self._shelfcache[index]
         try:
-            del self._fd2obj[index]
+            if isinstance(index, int):   # Always true?
+                del self._shelfcache[tmp.name]
+            else:
+                del self._shelfcache[tmp.open_handle]
         except KeyError:
             pass
 
+    def keys(self):
+        return tuple(self._shelfcache.keys())
+
     def items(self):
-        return self._fd2obj.items()
+        return self._shelfcache.items()
 
-    # End of dictionary duck typing, provide ABC defaults
+    # End of dictionary duck typing, now use that cache
 
+    def shadow_offset(self, shelf_name, offset, ig_gap):
+        '''Compute the book offset within a single shadow file'''
+        book_num = offset // self.book_size  # (0..n)
+        bos = self[shelf_name].bos
+
+        # Stop FS read ahead past shelf
+        if book_num >= len(bos):
+            return -1
+
+        b = bos[book_num]
+        lza = b['lza']
+        intlv_group = b['intlv_group']
+        book_offset = offset % self.book_size
+        shadow_offset = ((lza - ig_gap[intlv_group]) * self.book_size) + book_offset
+
+        return shadow_offset
+
+    # provide ABC noop defaults
     def truncate(self, shelf, length, fd):
         return 0
 
@@ -75,8 +95,8 @@ class shadow_support(object):
         return 0
 
     # Piggybacked during mmap fault handling.  FIXME change the name
-    def getxattr(self, path, attr):
-        return ''
+    def getxattr(self, shelf_name, attr):
+        return 'FALLBACK'
 
 #--------------------------------------------------------------------------
 
@@ -87,7 +107,7 @@ class shadow_directory(shadow_support):
        ie, if you're on a VM, the file storage is in the VM disk image.'''
 
     def __init__(self, args, lfs_globals):
-        super(self.__class__, self).__init__()
+        super(self.__class__, self).__init__(args, lfs_globals)
         assert os.path.isdir(
             args.shadow_dir), 'No such directory %s' % args.shadow_dir
         self._shadowpath = args.shadow_dir
@@ -103,7 +123,7 @@ class shadow_directory(shadow_support):
     def unlink(self, shelf_name):
         for k, v in self.items():
             if v[0].name == shelf_name:
-                del self._fd2obj[k]
+                del self[k]
                 break
         try:
             return os.unlink(self.shadowpath(shelf_name))
@@ -133,11 +153,11 @@ class shadow_directory(shadow_support):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         return self._create_open_common(shelf, flags, mode)
 
-    def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
+    def read(self, shelf_name, length, offset, ig_gap, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
-    def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, ig_gap, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
@@ -169,7 +189,7 @@ class shadow_file(shadow_support):
        file lives in the file system of the entity running lfs_fuse.'''
 
     def __init__(self, args, lfs_globals):
-        super(self.__class__, self).__init__()
+        super(self.__class__, self).__init__(args, lfs_globals)
 
         (head, tail) = os.path.split(args.shadow_file)
 
@@ -205,12 +225,10 @@ class shadow_file(shadow_support):
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
-    def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
+    def read(self, shelf_name, length, offset, ig_gap, fd):
 
         if ((offset % self.book_size) + length) <= self.book_size:
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             return os.read(self._shadow_fd, length)
 
@@ -223,9 +241,7 @@ class shadow_file(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              cur_offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
 
             if shadow_offset == -1:
                 break
@@ -244,12 +260,10 @@ class shadow_file(shadow_support):
 
         return buf
 
-    def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, ig_gap, fd):
 
         if ((offset % self.book_size) + len(buf)) <= self.book_size:
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             return os.write(self._shadow_fd, buf)
 
@@ -264,9 +278,7 @@ class shadow_file(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              cur_offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
 
             assert shadow_offset != -1, "shadow_offset -1 during write"
 
@@ -303,7 +315,7 @@ class shadow_ivshmem(shadow_support):
 
     def __init__(self, args, lfs_globals):
 
-        super(self.__class__, self).__init__()
+        super(self.__class__, self).__init__(args, lfs_globals)
 
         assert (os.path.isfile(
             args.shadow_ivshmem)), '%s is not a file' % args.shadow_ivshmem
@@ -333,12 +345,10 @@ class shadow_ivshmem(shadow_support):
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
-    def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
+    def read(self, shelf_name, length, offset, ig_gap, fd):
 
         if ((offset % self.book_size) + length) <= self.book_size:
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
             self._mmap.seek(shadow_offset, 0)
             return self._mmap.read(length)
 
@@ -351,12 +361,9 @@ class shadow_ivshmem(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              cur_offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
 
-            if shadow_offset == -1:
-                break
+            if shadow_offset == -1: break
 
             self._mmap.seek(shadow_offset, 0)
             buf += self._mmap.read(cur_length)
@@ -372,12 +379,10 @@ class shadow_ivshmem(shadow_support):
 
         return buf
 
-    def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, ig_gap, fd):
 
         if ((offset % self.book_size) + len(buf)) <= self.book_size:
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
             self._mmap.seek(shadow_offset, 0)
             # write to mmap file always returns "None"
             self._mmap.write(buf)
@@ -394,9 +399,7 @@ class shadow_ivshmem(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = get_shadow_offset(shelf_name,
-                                              cur_offset, self.book_size,
-                                              bos_cache, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
 
             assert shadow_offset != -1, "shadow_offset -1 during write"
 
@@ -450,10 +453,10 @@ class fam(shadow_support):
         del self[fd]
         return shelf
 
-    def getxattr(self, shelf_name, attr, bos_cache):
+    def getxattr(self, shelf_name, attr):
         # Called during fault handler in kernel, don't die here :-)
         try:
-            bos = bos_cache[shelf_name]
+            bos = self[shelf_name].bos
             cmd, offset = attr.split(':')
             offset = int(offset)
             book_num = offset // self.book_size  # (0..n)
