@@ -146,8 +146,11 @@ class TMShelf(BookShelfStuff):
         'name'
     )
 
-    # Gotta do this here or the mechanism doesn't work.
+    # Gotta do this here or the mechanism doesn't work.  "bos" will
+    # probably only be used on the client(s) as this type of info
+    # is reasonably ephemeral in The Librarian.
     __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname,
+                                               'bos',
                                                'open_handle'))
 
 #########################################################################
