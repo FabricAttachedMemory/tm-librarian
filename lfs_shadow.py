@@ -81,22 +81,30 @@ class shadow_support(object):
 
         return shadow_offset
 
-    # provide ABC noop defaults
+    # Provide ABC noop defaults.  Note they're not all actually noop.
+    # FIXME: currently this only supports a single open per node.
+    # Multiple opens from one process and/or multiple processes opening
+    # one shelf will behave in strange and undesireable ways.  We've got
+    # top men working on it.   TOP...............men.  Best guess:
+    # we'll have to hash on a tuple, not just open_handle.
+
     def truncate(self, shelf, length, fd):
-        return 0
-
-    def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
-        return 0
-
-    def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
+        self[shelf.open_handle] = shelf
         return 0
 
     def unlink(self, shelf_name):
+        del self[shelf_name]
         return 0
 
     # Piggybacked during mmap fault handling.  FIXME change the name
     def getxattr(self, shelf_name, attr):
         return 'FALLBACK'
+
+    def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
+        raise FuseOSError(errno.ENOSYS)
+
+    def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
+        raise FuseOSError(errno.ENOSYS)
 
 #--------------------------------------------------------------------------
 
