@@ -18,11 +18,10 @@ from time import sleep
 
 def read_write_test(args):
 
-    CHUNKS = 5
+    CHUNKS = args.chunks
     MAX_RW = 1024 * 1024
     END_OFFSET = 1024
-    DELAY = .5
-    max_iter = 0
+    DELAY = 0
 
     obuf = [b'' for _ in range(CHUNKS)]
     ibuf = [b'' for _ in range(CHUNKS)]
@@ -47,76 +46,84 @@ def read_write_test(args):
         for x in range(CHUNKS):
             c_start[x] = cur_cs
             print("chunk = %d, c_start = %d, cend = %d, chunk_size = %d" %
-                (x, c_start[x], (c_start[x] + chunk_size - 1), chunk_size))
+                  (x, c_start[x], (c_start[x] + chunk_size - 1), chunk_size))
             cur_cs += chunk_size
 
         iter = 1
 
         while True:
 
-            for x in range(CHUNKS):
+            if args.type in ['fs', 'both']:
 
-                obuf[x] = b''
+                print("filesystem read/write testing -----")
 
-                c_offset[x] =  random.randrange(c_start[x], (c_start[x] + chunk_size - END_OFFSET), 1)
-                end_of_chunk = min((chunk_size - (c_offset[x] % chunk_size)), MAX_RW)
-                c_length[x] =  random.randrange(1, end_of_chunk, 1)
+                for x in range(CHUNKS):
 
-                print("[%d] r/w file (%d): offset = %d, length = %d, last = %d" %
-                    (iter, x, c_offset[x], c_length[x], (c_offset[x] + c_length[x]-1)))
+                    obuf[x] = b''
 
-                obuf[x] = os.urandom(c_length[x])
+                    c_offset[x] = random.randrange(c_start[x], (c_start[x] + chunk_size - END_OFFSET), 1)
+                    end_of_chunk = min((chunk_size - (c_offset[x] % chunk_size)), MAX_RW)
+                    c_length[x] = random.randrange(1, end_of_chunk, 1)
 
-                f.seek(c_offset[x])
-                f.write(obuf[x])
-                f.flush()
+                    print("[%d] r/w file (%d): offset = %d, length = %d, last = %d" %
+                          (iter, x, c_offset[x], c_length[x], (c_offset[x] + c_length[x]-1)))
 
-                sleep(DELAY)
+                    obuf[x] = os.urandom(c_length[x])
 
-            for x in range(CHUNKS):
+                    f.seek(c_offset[x])
+                    f.write(obuf[x])
+                    f.flush()
 
-                ibuf[x] = b''
+                    sleep(DELAY)
 
-                f.seek(c_offset[x])
-                ibuf[x] = f.read(c_length[x])
+                for x in range(CHUNKS):
 
-                if (obuf[x] != ibuf[x]):
-                    print("verify file (%d) - fail " % (x))
-                    exit(0)
+                    ibuf[x] = b''
 
-            m = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+                    f.seek(c_offset[x])
+                    ibuf[x] = f.read(c_length[x])
 
-            for x in range(CHUNKS):
+                    if (obuf[x] != ibuf[x]):
+                        print("verify file (%d) - fail " % (x))
+                        exit(-1)
 
-                obuf[x] = b''
+            if args.type in ['mm', 'both']:
 
-                c_offset[x] =  random.randrange(c_start[x], (c_start[x] + chunk_size - END_OFFSET), 1)
-                end_of_chunk = min((chunk_size - (c_offset[x] % chunk_size)), MAX_RW)
-                c_length[x] =  random.randrange(1, end_of_chunk, 1)
+                print("mmap read/write testing -----")
 
-                print("[%d] r/w mmap (%d): offset = %d, length = %d, last = %d" %
-                    (iter, x, c_offset[x], c_length[x], (c_offset[x] + c_length[x]-1)))
+                m = mmap.mmap(f.fileno(), 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
 
-                obuf[x] = os.urandom(c_length[x])
+                for x in range(CHUNKS):
 
-                m.seek(c_offset[x])
-                m.write(obuf[x])
-                m.flush()
+                    obuf[x] = b''
 
-                sleep(DELAY)
+                    c_offset[x] = random.randrange(c_start[x], (c_start[x] + chunk_size - END_OFFSET), 1)
+                    end_of_chunk = min((chunk_size - (c_offset[x] % chunk_size)), MAX_RW)
+                    c_length[x] = random.randrange(1, end_of_chunk, 1)
 
-            for x in range(CHUNKS):
+                    print("[%d] r/w mmap (%d): offset = %d, length = %d, last = %d" %
+                          (iter, x, c_offset[x], c_length[x], (c_offset[x] + c_length[x]-1)))
 
-                ibuf[x] = b''
+                    obuf[x] = os.urandom(c_length[x])
 
-                m.seek(c_offset[x])
-                ibuf[x] = m.read(c_length[x])
+                    m.seek(c_offset[x])
+                    m.write(obuf[x])
+                    m.flush()
 
-                if (obuf[x] != ibuf[x]):
-                    print("verify mmap (%d) - fail " % (x))
-                    exit(0)
+                    sleep(DELAY)
 
-            m.close()
+                for x in range(CHUNKS):
+
+                    ibuf[x] = b''
+
+                    m.seek(c_offset[x])
+                    ibuf[x] = m.read(c_length[x])
+
+                    if (obuf[x] != ibuf[x]):
+                        print("verify mmap (%d) - fail " % (x))
+                        exit(-1)
+
+                m.close()
 
             if iter == max_iter:
                 return
@@ -129,6 +136,7 @@ if __name__ == '__main__':
     import os
     import sys
 
+    test_types = ['fs', 'mm', 'both']
     parser = argparse.ArgumentParser(
         description='Librarian read/write/verify regression test')
     parser.add_argument(
@@ -136,8 +144,17 @@ if __name__ == '__main__':
         help='name of shelf to perform test on',
         type=str)
     parser.add_argument(
+        'type',
+        choices=test_types,
+        help='type of testing to perform; fs, mm or both')
+    parser.add_argument(
         'iteration',
         help='number of iterations to perform (0=forever)',
+        type=int)
+    parser.add_argument(
+        '--chunks',
+        default=5,
+        help='number of chunks to divide shelf into (default=5)',
         type=int)
     args = parser.parse_args()
 
