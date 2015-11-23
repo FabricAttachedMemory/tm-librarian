@@ -1,3 +1,9 @@
+tm-librarian (0.0.4) UNRELEASED; urgency=medium
+
+  * Added direct memory support for QFE (--fam).
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 23 Nov 2015 11:01:54 -0700
+
 tm-librarian (0.0.3) UNRELEASED; urgency=medium
 
   * Retry on BlockingIO error, add intlv_group to books database
