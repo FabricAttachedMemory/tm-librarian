@@ -14,7 +14,7 @@ from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
-from frdnode import FRDnode, FRDIG
+from frdnode import FRDnode, FRDintlv_group
 
 #--------------------------------------------------------------------------
 
@@ -63,7 +63,7 @@ def load_config(inifile):
         usage('Missing [%s] section in config file: %s' % (Gname, inifile))
 
     other_sections = [ ]
-    for sname in config.sections(): # ignores 'DEFAULT'
+    for sname in config.sections():     # ignores 'DEFAULT'
         section = config[sname]
         other_sections.append(section)
         options = frozenset([ o for o in section.keys() ])
@@ -164,7 +164,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 
     FRDnodes = [ FRDnode(n + 1, module_size_books=module_size_books)
                  for n in range(node_count) ]
-    IGs = [ FRDIG(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
     return FRDnodes, IGs
 
 #--------------------------------------------------------------------------
@@ -265,12 +265,12 @@ def create_empty_db(cur):
             """
         cur.execute(table_create)
 
-        # This is now books behind an IG.  node_id must be calculated,
-        # might not be needed.
+        # Book numbers are now relative to an interleave group.
         table_create = """
             CREATE TABLE books (
             id INTEGER PRIMARY KEY,
             intlv_group INT,
+            book_num INT,
             allocated INT,
             attributes INT
             )
@@ -392,7 +392,7 @@ if __name__ == '__main__':
                 (node.node_id, node.rack, node.enc, node.node, node.MAC))
     cur.commit()
 
-    # That was easy.  Now I need to augment
+    # That was easy.  Here's another one.
     for ig in IGs:
         for mc in ig.MCs:
             print(str(mc))
@@ -401,15 +401,14 @@ if __name__ == '__main__':
                     (mc.node_id, ig.num, mc.module_size_books, mc.value))
     cur.commit()
 
+    # Finally, the tricky one.  "Books" are allocated behind IGs, not nodes.
     book_id = 0
     for ig in IGs:
-        set_trace()
-        nbooks = ig.MCs[0].module_size_books * len(ig.MCs)
-        for i in nbooks:
-            set_trace()
+        books_per_ig = ig.MCs[0].module_size_books * len(ig.MCs)
+        for igoffset in range(books_per_ig):
             cur.execute(
-                'INSERT INTO Books VALUES(?, ?, ?, ?)',
-                    (book_id, ig.num, 0, 0))
+                'INSERT INTO Books VALUES(?, ?, ?, ?, ?)',
+                    (book_id, ig.num, igoffset, 0, 0))
             book_id += 1
         cur.commit()    # every IG
 

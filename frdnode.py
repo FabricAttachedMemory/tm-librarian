@@ -26,7 +26,7 @@ class FRDnodeID(object):
 
     @property
     def node_id(self):
-        return (self.rack - 1) * 80 + (self.enc - 1) * 8  + self.node
+        return (self.rack - 1) * 80 + (self.enc - 1) * 8 + self.node
 
 #--------------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ class FRDFAModule(FRDnodeID):
     '''One Media Controller (MC) and the books of NVM behind it.'''
 
     def __init__(self, raw=None, enc=None, node=None, ordMC=None,
-                       module_size_books=0):
+                 module_size_books=0):
         self.module_size_books = module_size_books
         if raw is not None:
             '''Break apart an encoded string, or just return integer'''
@@ -45,9 +45,9 @@ class FRDFAModule(FRDnodeID):
                 node = int(node)
                 ordMC = int(ordMC)
             except Exception as e:
-                enc =  (raw >> 8) & 0x7  # 3 bits
+                enc = (raw >> 8) & 0x7   # 3 bits
                 node = (raw >> 4) & 0xF  # 4 bits
-                ordMC = raw & 0x3       # 2 LSB in FRD
+                ordMC = raw & 0x3        # 2 LSB in FRD
         else:
             assert enc is not None and node is not None and ordMC is not None
 
@@ -91,9 +91,9 @@ class MCCIDlist(object):
         if rawCIDlist is None:
             self.MCs = [ ]
             return
-        assert 1 <= len(rawCIDlist) <= 8, 'IG element count out of range 1-8'
+        assert len(rawCIDlist) <= 8, 'CID list element count > 8'
         self.MCs = [ FRDFAModule(raw=c, module_size_books=module_size_books)
-            for c in rawCIDlist ]
+                     for c in rawCIDlist ]
 
     def __repr__(self):
         return str([ '0x%x' % cid.value for cid in self.MCs ])
@@ -123,8 +123,8 @@ class MCCIDlist(object):
 class FRDnode(FRDnodeID):
 
     def __init__(self, node, enc=None, MAC=None, module_size_books=0,
-                             autoMCs=True):
-        if enc is None: # old school, node is enumerator 1-80
+                 autoMCs=True):
+        if enc is None:     # old school, node is enumerator 1-80
             assert 1 <= node <= 80, 'Bad node enumeration value'
             n = node - 1   # modulus math
             node = (n % 10) + 1
@@ -138,7 +138,7 @@ class FRDnode(FRDnodeID):
         self.enc = enc
         self.rack = rack
         self.MAC = MAC
-        if not autoMCs: # Done later, probably custom module_size_books
+        if not autoMCs:     # Done later, probably custom module_size_books
             self.MCs = []
             return
 
@@ -157,12 +157,13 @@ class FRDnode(FRDnodeID):
         return self.__str__()
 
 #--------------------------------------------------------------------------
+# Interleave groups, using the abbreviation from the chipset ERS.
 
 
-class FRDIG(object):
+class FRDintlv_group(object):
 
     def __init__(self, num, MCs):
-        assert 0 <= num < 128, 'IGnum out of range 0-127'
+        assert 0 <= num < 128, 'intlv_group number out of range 0-127'
         self.num = num
         self.MCs = MCs
 
@@ -180,7 +181,7 @@ class FRDIG(object):
 if __name__ == '__main__':
     MSB = 128   # FAM module size in books, ie, behind 1 media controller
     FRDnodes = [ FRDnode(n + 1, module_size_books=MSB) for n in range(80) ]
-    IGs = [ FRDIG(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
     assert IGs[15].MCs[2].module_size_books == MSB
     assert IGs[15].MCs[2] - IGs[15].MCs[3] == 1
     assert IGs[15].MCs[2] - IGs[16].MCs[3] == 3
