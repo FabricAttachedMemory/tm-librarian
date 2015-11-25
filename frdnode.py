@@ -1,20 +1,41 @@
 #!/usr/bin/python3 -tt
 
 # Full Rack Demo (FRD) for June 2016
-# Max of one rack of eight enclosures of ten nodes: exclude rack.
-# FRD has 4T per node, or 512 books per node, or 128 books per media
-# controller.  See chipset ERS 2.02 section 2.21.3.1 option 1 for CIDs.
+# Max of one rack of eight enclosures of ten nodes: exclude rack.  FRD
+# has 4T per node, or 512 books per node, or 128 books per media controller.
+
+# Chipset ERS 2.02 section 2.21.3.1 option 1: CID== enc[3]:node[4]:subCID[4]
+# making an 11-bit CID.  MCs are 1000b - 1111b (0x8 - 0xF) but only first 4
+# used in FRD (0x8 - 0xB).  "module_size" is a phrase from the ERS; there
+# it's in bytes, here it's in books.
+
+# __repr__ functions are really about easier debugging than intended purpose
 
 from pdb import set_trace
 
 #--------------------------------------------------------------------------
 
 
-class FRDFAModule(object):
+class FRDnodeID(object):
+    """Reverse-calculation of a node ID 1-80 from enc 1-8  and node 1-10."""
+
+    def __eq__(self, other):
+        return (self.rack == other.rack and
+                self.enc == other.enc and
+                self.node == other.node)
+
+    @property
+    def node_id(self):
+        return (self.rack - 1) * 80 + (self.enc - 1) * 8 + self.node
+
+#--------------------------------------------------------------------------
+
+
+class FRDFAModule(FRDnodeID):
     '''One Media Controller (MC) and the books of NVM behind it.'''
 
     def __init__(self, raw=None, enc=None, node=None, ordMC=None,
-                       module_size_books=0):
+                 module_size_books=0):
         self.module_size_books = module_size_books
         if raw is not None:
             '''Break apart an encoded string, or just return integer'''
@@ -24,22 +45,28 @@ class FRDFAModule(object):
                 node = int(node)
                 ordMC = int(ordMC)
             except Exception as e:
-                enc =  (raw >> 8) & 0x7  # 3 bits
+                enc = (raw >> 8) & 0x7   # 3 bits
                 node = (raw >> 4) & 0xF  # 4 bits
-                ordMC = raw & 0x3       # 2 LSB cuz
+                ordMC = raw & 0x3        # 2 LSB in FRD
         else:
             assert enc is not None and node is not None and ordMC is not None
 
         assert 1 <= enc <= 8, 'Bad enclosure value'
         assert 1 <= node <= 10, 'Bad node value'
         assert 0 <= ordMC <= 3, 'Bad ordMC value'
+        self.rack = 1   # FRD, just practicing math elsewhere
         self.enc = enc
         self.node = node
         self.ordMC = ordMC
         self.value = enc << 8 | node << 4 | (8 + ordMC)
 
     def __str__(self):
-        return '%d:%d:%d' % (self.enc, self.node, self.ordMC)
+        return 'node_id %2d: %d:%d:%d (%d books)' % (
+            self.node_id, self.enc, self.node, self.ordMC,
+            self.module_size_books)
+
+    def __repr__(self):
+        return self.__str__()
 
     def __sub__(self, other):
         '''Return the NGMI hop count between two MCs'''
@@ -64,9 +91,9 @@ class MCCIDlist(object):
         if rawCIDlist is None:
             self.MCs = [ ]
             return
-        assert 1 <= len(rawCIDlist) <= 8, 'IG element count out of range 1-8'
+        assert len(rawCIDlist) <= 8, 'CID list element count > 8'
         self.MCs = [ FRDFAModule(raw=c, module_size_books=module_size_books)
-            for c in rawCIDlist ]
+                     for c in rawCIDlist ]
 
     def __repr__(self):
         return str([ '0x%x' % cid.value for cid in self.MCs ])
@@ -83,6 +110,9 @@ class MCCIDlist(object):
     def __iter__(self):
         return iter(self.MCs)
 
+    def __len__(self):
+        return len(self.MCs)
+
     def append(self, newFAModule):
         assert len(self.MCs) < 8, 'Max length exceeded'
         self.MCs.append(newFAModule)
@@ -90,25 +120,25 @@ class MCCIDlist(object):
 #--------------------------------------------------------------------------
 
 
-class FRDnode(object):
+class FRDnode(FRDnodeID):
 
     def __init__(self, node, enc=None, MAC=None, module_size_books=0,
-                             autoMCs=True):
-        if enc is None: # old school, node is enumerator 1-80
+                 autoMCs=True):
+        if enc is None:     # old school, node is enumerator 1-80
             assert 1 <= node <= 80, 'Bad node enumeration value'
             n = node - 1   # modulus math
             node = (n % 10) + 1
             enc = ((n % 80) // 10) + 1
-            rack = (n // 80) + 1
+            rack = (n // 80) + 1    # always 1
         else:
             assert 1 <= enc <= 8, 'Bad enclosure value'
             assert 1 <= node <= 10, 'Bad node value'
-            rack = 1
+            rack = 1    # FRD: 1 rack
         self.node = node
         self.enc = enc
         self.rack = rack
         self.MAC = MAC
-        if not autoMCs: # Done later, probably custom module_size_books
+        if not autoMCs:     # Done later, probably custom module_size_books
             self.MCs = []
             return
 
@@ -121,31 +151,37 @@ class FRDnode(object):
 
     def __str__(self):
         physloc = '%(rack)d:%(enc)d:%(node)d' % self.__dict__
-        return '%-6s %s' % (physloc, self.MCs)
+        return 'node_id %2d: %-6s %s' % (self.node_id, physloc, self.MCs)
 
-    def __eq__(self, other):
-        return (self.rack == other.rack and
-                self.enc == other.enc and
-                self.node == other.node)
+    def __repr__(self):
+        return self.__str__()
 
 #--------------------------------------------------------------------------
+# Interleave groups, using the abbreviation from the chipset ERS.
 
 
-class FRDIG(object):
+class FRDintlv_group(object):
 
     def __init__(self, num, MCs):
-        assert 0 <= num < 128, 'IGnum out of range 0-127'
+        assert 0 <= num < 128, 'intlv_group number out of range 0-127'
         self.num = num
         self.MCs = MCs
 
+    def __str__(self):
+        return '%-3s %s' % (self.num, self.MCs)
+
+    def __repr__(self):
+        return self.__str__()
+
 #--------------------------------------------------------------------------
 # Match the automatic extrapolation mode of book_register.py, working
-# only from a node count (80)
+# only from a node count (80).  Nodes go from 1-10, IGs from 0-79.
+
 
 if __name__ == '__main__':
-    MSB = 128
+    MSB = 128   # FAM module size in books, ie, behind 1 media controller
     FRDnodes = [ FRDnode(n + 1, module_size_books=MSB) for n in range(80) ]
-    IGs = [ FRDIG(i + 1, node.MCs) for i, node in enumerate(FRDnodes) ]
+    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
     assert IGs[15].MCs[2].module_size_books == MSB
     assert IGs[15].MCs[2] - IGs[15].MCs[3] == 1
     assert IGs[15].MCs[2] - IGs[16].MCs[3] == 3
