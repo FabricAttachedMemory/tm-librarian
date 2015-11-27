@@ -33,10 +33,14 @@ class LibrarianDBackendSQL(object):
     #
 
     def get_globals(self, only=None):
-        if only == 'version':
-            self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
-            return self._cur.fetchone()[0]
-        self._cur.execute('SELECT * FROM globals LIMIT 1')
+        try:
+            if only == 'version':
+                self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
+                return self._cur.fetchone()[0]
+            self._cur.execute('SELECT * FROM globals LIMIT 1')
+        except Exception as e:
+            raise RuntimeError(str(e))
+
         self._cur.iterclass = 'default'
         for r in self._cur:
             pass

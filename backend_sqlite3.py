@@ -5,6 +5,7 @@
 
 from pdb import set_trace
 
+import os
 import sqlite3
 
 from sqlassist import SQLassist
@@ -17,18 +18,20 @@ class SQLite3assist(SQLassist):
     _SQLshowschema = 'PRAGMA table_info({});'
 
     def DBconnect(self):
-        try:
-            self._conn = sqlite3.connect(self.db_file,
-                                         isolation_level='EXCLUSIVE')
-            self._cursor = self._conn.cursor()
-        except Exception as e:
-            raise
+        self._conn = sqlite3.connect(self.db_file,
+                                     isolation_level='EXCLUSIVE')
+        self._cursor = self._conn.cursor()
         # WAL: https://www.sqlite.org/wal.html
         self.execute('PRAGMA journal_mode=WAL')
         pass
 
     def __init__(self, **kwargs):
-        if 'db_file' not in kwargs:
+        if 'db_file' in kwargs:
+            fname = kwargs['db_file']
+            if fname != ':memory:':
+                assert (os.path.isfile(fname) and
+                        os.access(fname, os.R_OK)), 'Cannot read %s' % fname
+        else:
             kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
 
