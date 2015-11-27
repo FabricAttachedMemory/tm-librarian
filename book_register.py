@@ -242,10 +242,10 @@ def create_empty_db(cur):
 
         # FRD: max 80.  To be technically pure, node == SoC + NVM, and it's
         # the SoC that has the MAC, so SoCs "should" have their own table.
-        # This simplification is probaby ok.
+        # This simplification is probaby ok.  index == quadruple.
         table_create = """
             CREATE TABLE FRDnodes (
-            id INTEGER PRIMARY KEY,
+            node_id,
             rack INT,
             enc INT,
             node INT,
