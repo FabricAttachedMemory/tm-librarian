@@ -26,7 +26,7 @@ class FRDnodeID(object):
 
     @property
     def node_id(self):
-        return (self.rack - 1) * 80 + (self.enc - 1) * 8 + self.node
+        return (self.rack - 1) * 80 + (self.enc - 1) * 10 + self.node
 
 #--------------------------------------------------------------------------
 
@@ -126,11 +126,13 @@ class FRDnode(FRDnodeID):
                  autoMCs=True):
         if enc is None:     # old school, node is enumerator 1-80
             assert 1 <= node <= 80, 'Bad node enumeration value'
+            node_id = node
             n = node - 1   # modulus math
             node = (n % 10) + 1
             enc = ((n % 80) // 10) + 1
             rack = (n // 80) + 1    # always 1
         else:
+            node_id = None
             assert 1 <= enc <= 8, 'Bad enclosure value'
             assert 1 <= node <= 10, 'Bad node value'
             rack = 1    # FRD: 1 rack
@@ -138,6 +140,8 @@ class FRDnode(FRDnodeID):
         self.enc = enc
         self.rack = rack
         self.MAC = MAC
+        if node_id is not None:     # property check
+            assert self.node_id == node_id
         if not autoMCs:     # Done later, probably custom module_size_books
             self.MCs = []
             return

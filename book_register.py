@@ -162,9 +162,10 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
     if module_size_books * 4 != books_per_node:
         usage('Books per node is not divisible by 4')
 
-    FRDnodes = [ FRDnode(n + 1, module_size_books=module_size_books)
-                 for n in range(node_count) ]
+    FRDnodes = [ FRDnode(node_id, module_size_books=module_size_books)
+                 for node_id in range(1, node_count + 1) ]
     IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+
     return FRDnodes, IGs
 
 #--------------------------------------------------------------------------
