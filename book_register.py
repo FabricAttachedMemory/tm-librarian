@@ -261,7 +261,7 @@ def create_empty_db(cur):
             node_id INT,
             IG INT,
             module_size_books INT,
-            CID INT
+            rawCID INT
             )
             """
         cur.execute(table_create)
@@ -386,8 +386,7 @@ if __name__ == '__main__':
     # Now the other tables, keep it clear..  Some of these will be used
     # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
 
-    for tmp, node in enumerate(FRDnodes):
-        node_id = tmp + 1
+    for node in FRDnodes:
         cur.execute(
             'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
                 (node.node_id, node.rack, node.enc, node.node, node.MAC))
@@ -413,6 +412,7 @@ if __name__ == '__main__':
             book_id += 1
         cur.commit()    # every IG
 
+    cur.commit()
     cur.close()
 
     raise SystemExit(0)

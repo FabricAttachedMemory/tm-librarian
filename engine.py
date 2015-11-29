@@ -388,6 +388,9 @@ class LibrarianCommandEngine(object):
                 globals.book_size_bytes,
                 globals.nvm_bytes_total
             )
+            self.__class__.nodes = self.db.get_nodes()
+            self.__class__.IGs = self.db.get_interleave_groups()
+            assert self.nodes and self.IGs, 'Database is corrupt'
 
             # Skip 'cmd_' prefix
             self.__class__._commands = dict(

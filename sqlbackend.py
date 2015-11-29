@@ -12,6 +12,8 @@ from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 
+from frdnode import FRDnode, FRDFAModule, FRDintlv_group
+
 #--------------------------------------------------------------------------
 
 
@@ -49,6 +51,35 @@ class LibrarianDBackendSQL(object):
         if r.books_used is None:    # empty DB
             r.books_used = 0
         return r
+
+    def get_nodes(self):
+        self._cur.execute('SELECT * FROM FRDnodes')
+        self._cur.iterclass = 'default'
+        # Module_size_books was only used during book_register.py
+        nodes = [ FRDnode(node=r.node,
+                          enc=r.enc,
+                          MAC=r.MAC,
+                          module_size_books=-1)
+                  for r in self._cur ]
+        return nodes
+
+    def get_interleave_groups(self):
+        self._cur.execute('SELECT * FROM FAModules')
+        self._cur.iterclass = 'default'
+        tmpIGs = { }
+        # First collect all the MCs by group as they may be scattered in DB.
+        # Loops could be rolled up for purity but this is clearer.
+        for r in self._cur:
+            val = FRDFAModule(raw=r.rawCID,
+                              module_size_books=r.module_size_books)
+            try:
+                tmpIGs[r.IG].append(val)
+                # FIXME: move this to book_register.py
+                assert tmpIGs[0][0].module_size_books == val.module_size_books
+            except KeyError as e:
+                tmpIGs[r.IG] = [ val, ]
+        IGs = [ FRDintlv_group(IG, MCs) for IG, MCs in tmpIGs.items() ]
+        return IGs
 
     def get_nvm_parameters(self):
         '''Returns duple(book_size, total_nvm)'''
