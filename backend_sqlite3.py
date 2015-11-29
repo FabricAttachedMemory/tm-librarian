@@ -5,7 +5,6 @@
 
 from pdb import set_trace
 
-import os
 import sqlite3
 
 from sqlassist import SQLassist
@@ -26,12 +25,7 @@ class SQLite3assist(SQLassist):
         pass
 
     def __init__(self, **kwargs):
-        if 'db_file' in kwargs:
-            fname = kwargs['db_file']
-            if fname != ':memory:':
-                assert (os.path.isfile(fname) and
-                        os.access(fname, os.R_OK)), 'Cannot read %s' % fname
-        else:
+        if 'db_file' not in kwargs:
             kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
 
