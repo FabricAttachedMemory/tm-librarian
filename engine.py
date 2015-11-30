@@ -36,6 +36,11 @@ class LibrarianCommandEngine(object):
     def _nbooks(cls, nbytes):
         return int(math.ceil(float(nbytes) / float(cls._book_size_bytes)))
 
+    def get_best_intlv_group(self, node_id, shelf):
+        set_trace()
+        policy = self.db.get_xattr(shelf, 'AllocationPolicy')
+        return node_id
+
     def cmd_version(self, cmdict):
         """ Return librarian version
             In (dict)---
@@ -70,6 +75,7 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
+        self.db.create_xattr(shelf, 'AllocationPolicy', 'Local')
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
@@ -155,10 +161,10 @@ class LibrarianCommandEngine(object):
         msg = 'Book allocation %d -> %d' % (book.allocated, newalloc)
         if newalloc == TMBook.ALLOC_INUSE:
             assert book.allocated == TMBook.ALLOC_FREE, msg
-        elif newalloc == TMBook.ALLOC_ZOMBIE:
-            assert book.allocated == TMBook.ALLOC_INUSE, msg
+        # elif newalloc == TMBook.ALLOC_ZOMBIE:
+            # assert book.allocated == TMBook.ALLOC_INUSE, msg
         elif newalloc == TMBook.ALLOC_FREE:
-            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
+            assert book.allocated == TMBook.ALLOC_INUSE, msg    # ZOMBIE
         else:
             raise RuntimeError('Bad book allocation %d' % newalloc)
         book.allocated = newalloc
@@ -184,13 +190,17 @@ class LibrarianCommandEngine(object):
         xattrs = self.db.list_xattrs(shelf)
         for thisbos in bos:
             self.db.delete_bos(thisbos)
-            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
+            # Was ZOMBIE
+            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
         for xattr in xattrs:
             self.db.delete_xattr(shelf, xattr)
         return self.db.delete_shelf(shelf, commit=True)
 
     def cmd_kill_zombie_books(self, cmdict):
         '''repl_client command to "zero" zombie books.  Needs work.'''
+
+        # On injured reserve for the moment
+        return None
         node_id = cmdict['context']['node_id']
         zombies = self.db.get_book_by_node(
             node_id, TMBook.ALLOC_ZOMBIE, 9999)
@@ -246,8 +256,9 @@ class LibrarianCommandEngine(object):
         node_id = cmdict['context']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
-            freebooks = self.db.get_book_by_node(
-                node_id, TMBook.ALLOC_FREE, books_needed)
+            IG = self.get_best_intlv_group(node_id, shelf)
+            freebooks = self.db.get_books_by_intlv_group(
+                IG, TMBook.ALLOC_FREE, books_needed)
             self.errno = errno.ENOSPC
             assert len(freebooks) == books_needed, (
                 'out of space on node %d for "%s"' % (node_id, shelf.name))
@@ -264,7 +275,7 @@ class LibrarianCommandEngine(object):
             while books_2bdel > 0:
                 thisbos = bos.pop()
                 self.db.delete_bos(thisbos)
-                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
+                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
                 books_2bdel -= 1
         else:
             self.db.rollback()
