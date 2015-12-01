@@ -86,6 +86,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         except Exception as e:
             raise FuseOSError(errno.EHOSTUNREACH)
         globals = self.librarian(self.lcp('get_fs_stats'))
+
+        # FIXME: an error here (like bad path) doesn't do the right thing.
+        # is it the decorator?
         self.shadow = the_shadow_knows(args, globals)
         # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
@@ -400,6 +403,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
         self.get_bos(shelf)
+        set_trace()
         fd = self.shadow.open(shelf, flags, mode)
         return fd
 
