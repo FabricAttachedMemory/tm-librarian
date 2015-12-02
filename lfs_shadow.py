@@ -11,7 +11,7 @@ import mmap
 
 from pdb import set_trace
 
-from tm_fuse import FuseOSError
+from tm_fuse import TmfsOSError
 
 #--------------------------------------------------------------------------
 
@@ -101,10 +101,10 @@ class shadow_support(object):
         return 'FALLBACK'
 
     def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
 #--------------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ class shadow_directory(shadow_support):
         except OSError as e:
             if e.errno == errno.ENOENT:
                 return 0
-            raise FuseOSError(e.errno)
+            raise TmfsOSError(e.errno)
 
     def _create_open_common(self, shelf, flags, mode):
         if mode is None:
@@ -148,9 +148,9 @@ class shadow_directory(shadow_support):
         except OSError as e:
             if flags & os.O_CREAT:
                 if e.errno != errno.EEXIST:
-                    raise FuseOSError(e.errno)
+                    raise TmfsOSError(e.errno)
             else:
-                raise FuseOSError(e.errno)
+                raise TmfsOSError(e.errno)
         self[fd] = shelf
         return fd
 
@@ -180,7 +180,7 @@ class shadow_directory(shadow_support):
                 self[fd].size_bytes = length
             return 0
         except OSError as e:
-            raise FuseOSError(e.errno)
+            raise TmfsOSError(e.errno)
 
     def release(self, fd):
         shelf = self[fd]

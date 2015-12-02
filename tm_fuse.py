@@ -59,22 +59,22 @@ _system = system()
 _machine = machine()
 
 if _system == 'Darwin':
-    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libfuse dependency
-    _libfuse_path = (find_library('fuse4x') or find_library('osxfuse') or
-                     find_library('fuse'))
+    _libiconv = CDLL(find_library('iconv'), RTLD_GLOBAL) # libtmfs dependency
+    _libtmfs_path = (find_library('tmfs4x') or find_library('osxtmfs') or
+                     find_library('tmfs'))
 else:
-    _libfuse_path = find_library('fuse')
+    _libtmfs_path = find_library('tmfs')
 
-if not _libfuse_path:
-    raise EnvironmentError('Unable to find libfuse')
+if not _libtmfs_path:
+    raise EnvironmentError('Unable to find libtmfs')
 else:
-    _libfuse = CDLL(_libfuse_path)
+    _libtmfs = CDLL(_libtmfs_path)
 
-if _system == 'Darwin' and hasattr(_libfuse, 'macfuse_version'):
-    _system = 'Darwin-MacFuse'
+if _system == 'Darwin' and hasattr(_libtmfs, 'mactmfs_version'):
+    _system = 'Darwin-MacTmfs'
 
 
-if _system in ('Darwin', 'Darwin-MacFuse', 'FreeBSD'):
+if _system in ('Darwin', 'Darwin-MacTmfs', 'FreeBSD'):
     ENOTSUP = 45
     c_dev_t = c_int32
     c_fsblkcnt_t = c_ulong
@@ -226,7 +226,7 @@ if _system == 'FreeBSD':
             ('f_flag', c_ulong),
             ('f_frsize', c_ulong)]
 
-class fuse_file_info(Structure):
+class tmfs_file_info(Structure):
     _fields_ = [
         ('flags', c_int),
         ('fh_old', c_ulong),
@@ -238,18 +238,18 @@ class fuse_file_info(Structure):
         ('fh', c_uint64),
         ('lock_owner', c_uint64)]
 
-class fuse_context(Structure):
+class tmfs_context(Structure):
     _fields_ = [
-        ('fuse', c_voidp),
+        ('tmfs', c_voidp),
         ('uid', c_uid_t),
         ('gid', c_gid_t),
         ('pid', c_pid_t),
         ('private_data', c_voidp)]
 
-_libfuse.fuse_get_context.restype = POINTER(fuse_context)
+_libtmfs.tmfs_get_context.restype = POINTER(tmfs_context)
 
 
-class fuse_operations(Structure):
+class tmfs_operations(Structure):
     _fields_ = [
         ('getattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat))),
         ('readlink', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
@@ -265,48 +265,48 @@ class fuse_operations(Structure):
         ('chown', CFUNCTYPE(c_int, c_char_p, c_uid_t, c_gid_t)),
         ('truncate', CFUNCTYPE(c_int, c_char_p, c_off_t)),
         ('utime', c_voidp),     # Deprecated, use utimens
-        ('open', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('open', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info))),
 
         ('read', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t,
-                           c_off_t, POINTER(fuse_file_info))),
+                           c_off_t, POINTER(tmfs_file_info))),
 
         ('write', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t,
-                            c_off_t, POINTER(fuse_file_info))),
+                            c_off_t, POINTER(tmfs_file_info))),
 
         ('statfs', CFUNCTYPE(c_int, c_char_p, POINTER(c_statvfs))),
-        ('flush', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('release', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
-        ('fsync', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(fuse_file_info))),
+        ('flush', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info))),
+        ('release', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info))),
+        ('fsync', CFUNCTYPE(c_int, c_char_p, c_int, POINTER(tmfs_file_info))),
         ('setxattr', setxattr_t),
         ('getxattr', getxattr_t),
         ('listxattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_byte), c_size_t)),
         ('removexattr', CFUNCTYPE(c_int, c_char_p, c_char_p)),
-        ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('opendir', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info))),
 
         ('readdir', CFUNCTYPE(c_int, c_char_p, c_voidp,
                               CFUNCTYPE(c_int, c_voidp, c_char_p,
                                         POINTER(c_stat), c_off_t),
-                              c_off_t, POINTER(fuse_file_info))),
+                              c_off_t, POINTER(tmfs_file_info))),
 
-        ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info))),
+        ('releasedir', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info))),
 
         ('fsyncdir', CFUNCTYPE(c_int, c_char_p, c_int,
-                               POINTER(fuse_file_info))),
+                               POINTER(tmfs_file_info))),
 
         ('init', CFUNCTYPE(c_voidp, c_voidp)),
         ('destroy', CFUNCTYPE(c_voidp, c_voidp)),
         ('access', CFUNCTYPE(c_int, c_char_p, c_int)),
 
         ('create', CFUNCTYPE(c_int, c_char_p, c_mode_t,
-                             POINTER(fuse_file_info))),
+                             POINTER(tmfs_file_info))),
 
         ('ftruncate', CFUNCTYPE(c_int, c_char_p, c_off_t,
-                                POINTER(fuse_file_info))),
+                                POINTER(tmfs_file_info))),
 
         ('fgetattr', CFUNCTYPE(c_int, c_char_p, POINTER(c_stat),
-                               POINTER(fuse_file_info))),
+                               POINTER(tmfs_file_info))),
 
-        ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info),
+        ('lock', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info),
                            c_int, c_voidp)),
 
         ('utimens', CFUNCTYPE(c_int, c_char_p, POINTER(c_utimbuf))),
@@ -316,26 +316,26 @@ class fuse_operations(Structure):
         ('flag', c_voidp),
 
         #('ioctl', CFUNCTYPE(c_int, c_char_p, c_int, c_void_p,
-        #                    POINTER(fuse_file_info), c_uint, c_void_p)),
+        #                    POINTER(tmfs_file_info), c_uint, c_void_p)),
         ('ioctl', c_voidp),
 
-        #('poll', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info),
-        #                   POINTER(fuse_pollhandle), c_uint)),
+        #('poll', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info),
+        #                   POINTER(tmfs_pollhandle), c_uint)),
         ('poll', c_voidp),
 
-        #('write_buf', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_bufvec),
-        #                        c_off_t, POINTER(fuse_file_info))),
+        #('write_buf', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_bufvec),
+        #                        c_off_t, POINTER(tmfs_file_info))),
         ('write_buf', c_voidp),
 
-        #('read_buf', CFUNCTYPE(c_int, c_char_p, POINTER(POINTER(fuse_bufvec),
-        #                       c_size_t, c_off_t, POINTER(fuse_file_info)))),
+        #('read_buf', CFUNCTYPE(c_int, c_char_p, POINTER(POINTER(tmfs_bufvec),
+        #                       c_size_t, c_off_t, POINTER(tmfs_file_info)))),
         ('read_buf', c_voidp),
 
-        #('flock', CFUNCTYPE(c_int, c_char_p, POINTER(fuse_file_info), c_int)),
+        #('flock', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info), c_int)),
         ('flock', c_voidp),
 
         ('fallocate', CFUNCTYPE(c_int, c_char_p, c_int, c_off_t,
-                                c_off_t, POINTER(fuse_file_info))),
+                                c_off_t, POINTER(tmfs_file_info))),
     ]
 
 
@@ -352,23 +352,23 @@ def set_st_attrs(st, attrs):
             setattr(st, key, val)
 
 
-def fuse_get_context():
+def tmfs_get_context():
     'Returns a (uid, gid, pid) tuple'
 
-    ctxp = _libfuse.fuse_get_context()
+    ctxp = _libtmfs.tmfs_get_context()
     ctx = ctxp.contents
     return ctx.uid, ctx.gid, ctx.pid
 
 
-class FuseOSError(OSError):
+class TmfsOSError(OSError):
     def __init__(self, errno):
-        super(FuseOSError, self).__init__(errno, strerror(errno))
+        super(TmfsOSError, self).__init__(errno, strerror(errno))
 
 
-class FUSE(object):
+class TMFS(object):
     '''
     This class is the lower level interface and should not be subclassed under
-    normal use. Its methods are called by fuse.
+    normal use. Its methods are called by tmfs.
 
     Assumes API version 2.6 or later.
     '''
@@ -383,7 +383,7 @@ class FUSE(object):
                  **kwargs):
 
         '''
-        Setting raw_fi to True will cause FUSE to pass the fuse_file_info
+        Setting raw_fi to True will cause TMFS to pass the tmfs_file_info
         class as is to Operations, instead of just the fh field.
 
         This gives you access to direct_io, keep_cache, etc.
@@ -393,29 +393,29 @@ class FUSE(object):
         self.raw_fi = raw_fi
         self.encoding = encoding
 
-        args = ['fuse']
+        args = ['tmfs']
 
         args.extend(flag for arg, flag in self.OPTIONS
                     if kwargs.pop(arg, False))
 
         kwargs.setdefault('fsname', operations.__class__.__name__)
         args.append('-o')
-        args.append(','.join(self._normalize_fuse_options(**kwargs)))
+        args.append(','.join(self._normalize_tmfs_options(**kwargs)))
         args.append(mountpoint)
 
         args = [arg.encode(encoding) for arg in args]
         argv = (c_char_p * len(args))(*args)
 
-        fuse_ops = fuse_operations()
-        for name, prototype in fuse_operations._fields_:
+        tmfs_ops = tmfs_operations()
+        for name, prototype in tmfs_operations._fields_:
             if prototype != c_voidp and getattr(operations, name, None):
                 op = partial(self._wrapper, getattr(self, name))
-                setattr(fuse_ops, name, prototype(op))
+                setattr(tmfs_ops, name, prototype(op))
 
         old_handler = signal(SIGINT, SIG_DFL)
 
-        err = _libfuse.fuse_main_real(len(args), argv, pointer(fuse_ops),
-                                      sizeof(fuse_ops), None)
+        err = _libtmfs.tmfs_main_real(len(args), argv, pointer(tmfs_ops),
+                                      sizeof(tmfs_ops), None)
 
         signal(SIGINT, old_handler)
 
@@ -424,7 +424,7 @@ class FUSE(object):
             raise RuntimeError(err)
 
     @staticmethod
-    def _normalize_fuse_options(**kargs):
+    def _normalize_tmfs_options(**kargs):
         for key, value in kargs.items():
             if isinstance(value, bool):
                 if value is True: yield key
@@ -729,17 +729,17 @@ class FUSE(object):
 
 class Operations(object):
     '''
-    This class should be subclassed and passed as an argument to FUSE on
-    initialization. All operations should raise a FuseOSError exception on
+    This class should be subclassed and passed as an argument to TMFS on
+    initialization. All operations should raise a TmfsOSError exception on
     error.
 
-    When in doubt of what an operation should do, check the FUSE header file
+    When in doubt of what an operation should do, check the TMFS header file
     or the corresponding system call man page.
     '''
 
     def __call__(self, op, *args):
         if not hasattr(self, op):
-            raise FuseOSError(EFAULT)
+            raise TmfsOSError(EFAULT)
         return getattr(self, op)(*args)
 
     def access(self, path, amode):
@@ -748,10 +748,10 @@ class Operations(object):
     bmap = None
 
     def chmod(self, path, mode):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def chown(self, path, uid, gid):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def create(self, path, mode, fi=None):
         '''
@@ -762,7 +762,7 @@ class Operations(object):
         and return 0.
         '''
 
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def destroy(self, path):
         'Called on filesystem destruction. Path is always /'
@@ -791,11 +791,11 @@ class Operations(object):
         '''
 
         if path != '/':
-            raise FuseOSError(ENOENT)
+            raise TmfsOSError(ENOENT)
         return dict(st_mode=(S_IFDIR | 0o755), st_nlink=2)
 
     def getxattr(self, path, name, position=0):
-        raise FuseOSError(ENOTSUP)
+        raise TmfsOSError(ENOTSUP)
 
     def init(self, path):
         '''
@@ -809,7 +809,7 @@ class Operations(object):
     def link(self, target, source):
         'creates a hard link `target -> source` (e.g. ln source target)'
 
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def listxattr(self, path):
         return []
@@ -817,10 +817,10 @@ class Operations(object):
     lock = None
 
     def mkdir(self, path, mode):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def mknod(self, path, mode, dev):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def open(self, path, flags):
         '''
@@ -843,7 +843,7 @@ class Operations(object):
     def read(self, path, size, offset, fh):
         'Returns a string containing the data requested.'
 
-        raise FuseOSError(EIO)
+        raise TmfsOSError(EIO)
 
     def readdir(self, path, fh):
         '''
@@ -854,7 +854,7 @@ class Operations(object):
         return ['.', '..']
 
     def readlink(self, path):
-        raise FuseOSError(ENOENT)
+        raise TmfsOSError(ENOENT)
 
     def release(self, path, fh):
         return 0
@@ -863,16 +863,16 @@ class Operations(object):
         return 0
 
     def removexattr(self, path, name):
-        raise FuseOSError(ENOTSUP)
+        raise TmfsOSError(ENOTSUP)
 
     def rename(self, old, new):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def rmdir(self, path):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def setxattr(self, path, name, value, options, position=0):
-        raise FuseOSError(ENOTSUP)
+        raise TmfsOSError(ENOTSUP)
 
     def statfs(self, path):
         '''
@@ -888,16 +888,16 @@ class Operations(object):
     def symlink(self, target, source):
         'creates a symlink `target -> source` (e.g. ln -s source target)'
 
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def truncate(self, path, length, fh=None):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def fallocate(self, path, mode, offset, length, fh=None):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def unlink(self, path):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
     def utimens(self, path, times=None):
         'Times is a (atime, mtime) tuple. If None use current time.'
@@ -905,11 +905,11 @@ class Operations(object):
         return 0
 
     def write(self, path, data, offset, fh):
-        raise FuseOSError(EROFS)
+        raise TmfsOSError(EROFS)
 
 
 class LoggingMixIn:
-    log = logging.getLogger('fuse.log-mixin')
+    log = logging.getLogger('tmfs.log-mixin')
 
     def __call__(self, op, path, *args):
         self.log.debug('-> %s %s %s', op, path, repr(args))
