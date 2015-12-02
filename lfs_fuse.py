@@ -96,9 +96,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def init(self, root, **kwargs):
         globals = self.librarian(self.lcp('get_fs_stats'))
 
-        # FIXME: an error here (like bad path) doesn't do the right thing.
-        # is it the decorator?
         # FIXME: in C FUSE, data returned here goes into 'getcontext'
+        # Note: I no longer remember my concern on this, look into it again.
 
         # Calculate node LZA gap
         self.bsize = globals['book_size_bytes']
@@ -332,12 +331,18 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
 
     @prentry
-    def setxattr(self, path, attr, valbytes, options, position=0):
+    def setxattr(self, path, xattr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
             set_trace()  # haven't actually seen it yet
+
+        # 'Extend' user.xxxx syntax and screen for it here
+        elems = xattr.split('.')
+        set_trace()
+        if elems[0] != 'user' or len(elems) < 2:
+            raise FuseOSError(errno.EINVAL)
+
         shelf_name = self.path2shelf(path)
-        assert attr.startswith('user.')
         for bad in self._badjson:
             if bad in valbytes:
                 raise FuseOSError(errno.EDOMAIN)
@@ -348,7 +353,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         rsp = self.librarian(
                 self.lcp('set_xattr', name=shelf_name,
-                         xattr=attr, value=value))
+                         xattr=xattr, value=value))
         if rsp is not None:  # unexpected
             raise FuseOSError(errno.ENOTTY)
 

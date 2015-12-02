@@ -342,14 +342,23 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 None or raise error
         """
-        # XATTR_CREATE/REPLACE option is not being set on the other side
-        # FIXME: can this only be done on an open shelf?
+        # XATTR_CREATE/REPLACE option is not being set on the other side.
         shelf = self.cmd_get_shelf(cmdict)
-        if self.db.get_xattr(shelf, cmdict['xattr'], exists_only=True):
-            return self.db.modify_xattr(
-                shelf, cmdict['xattr'], cmdict['value'])
-        return self.db.create_xattr(
-            shelf, cmdict['xattr'], cmdict['value'])
+
+        xattr = cmdict['xattr']
+        value = cmdict['value']
+        elems = xattr.split('.')
+
+        # A little idiot checking has been done on the far side.  Do more
+        self.errno = errno.EINVAL
+        if elems[1] == 'LFS':
+            assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
+            assert elems[2] in ('AllocationPolicy', ), 'Bad LFS attribute'
+            # good enough for now
+
+        if self.db.get_xattr(shelf, xattr, exists_only=True):
+            return self.db.modify_xattr(shelf, xattr, value)
+        return self.db.create_xattr(shelf, xattr, value)
 
     def cmd_set_am_time(self, cmdict):
         """ Set access and modified times, usually of a shelf but
