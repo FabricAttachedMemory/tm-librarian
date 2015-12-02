@@ -44,6 +44,11 @@ def prentry(func):
     new_func.__dict__.update(func.__dict__)
     return new_func
 
+###########################################################################
+# Errors that that get raised from __init__ will terminate the process.
+# Errors raised anywhere else (including "init") get swallowed by fuse.py
+# so that lfs_fuse.py can struggle on.   That's a good thing overall,
+# but dictaes where certain operations should be placed.
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
@@ -72,24 +77,27 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         }
         self.lcp = LibrarianCommandProtocol(context)
 
+        # Command-line miscues like a bad shadow path.  However that needs a
+        # socket, so do it now.
+
+        # connect() has an infinite retry
+        self.torms = socket_handling.Client(selectable=False, perf=_perf)
+        self.torms.connect(host=self.host, port=self.port)
+        if self.verbose > 1:
+            print('%s: connected' % self.torms)
+
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        self.shadow = the_shadow_knows(args, globals)
+
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.
 
     @prentry
     def init(self, root, **kwargs):
-        try:    # set up a blocking socket
-            self.torms = socket_handling.Client(
-                selectable=False, perf=_perf)
-            self.torms.connect(host=self.host, port=self.port)
-            if self.verbose > 1:
-                print('%s: connected' % self.torms)
-        except Exception as e:
-            raise FuseOSError(errno.EHOSTUNREACH)
         globals = self.librarian(self.lcp('get_fs_stats'))
 
         # FIXME: an error here (like bad path) doesn't do the right thing.
         # is it the decorator?
-        self.shadow = the_shadow_knows(args, globals)
         # FIXME: in C FUSE, data returned here goes into 'getcontext'
 
         # Calculate node LZA gap
@@ -556,7 +564,7 @@ def mount_LFS(args):
              foreground=not bool(args.daemon),
              nothreads=True)
     except Exception as e:
-        raise SystemExit('fusermount probably failed, retry in foreground')
+        raise SystemExit('%s' % str(e))
 
 if __name__ == '__main__':
 
