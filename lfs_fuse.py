@@ -9,7 +9,7 @@ import time
 
 from pdb import set_trace
 
-from tm_fuse import FUSE, FuseOSError, Operations, LoggingMixIn, fuse_get_context
+from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_context
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
@@ -151,7 +151,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def path2shelf(path):
         elems = path.split('/')
         if len(elems) > 2:
-            raise FuseOSError(errno.E2BIG)
+            raise TmfsOSError(errno.E2BIG)
         shelf_name = elems[-1]        # if empty, original path was '/'
         return shelf_name
 
@@ -172,14 +172,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         context = cmdict['context']
         (context['uid'],
          context['gid'],
-         context['pid']) = fuse_get_context()
+         context['pid']) = tmfs_get_context()
         try:
             # validate primary keys
             command = cmdict['command']
             seq = cmdict['context']['seq']
         except KeyError as e:
             print(str(e), file=sys.stederr)
-            raise FuseOSError(errno.ENOKEY)
+            raise TmfsOSError(errno.ENOKEY)
 
         errmsg = { }
         try:
@@ -205,7 +205,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if errmsg:
             print('%s failed: %s' %
                   (command, errmsg['errmsg']), file=sys.stderr)
-            raise FuseOSError(errmsg['errno'])
+            raise TmfsOSError(errmsg['errno'])
 
         try:
             value = rspdict['value']
@@ -262,13 +262,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             set_trace()
             tmp = self.shadow.getattr(fd)
         except Exception as e:
-            raise FuseOSError(errno.ENOENT)
+            raise TmfsOSError(errno.ENOENT)
 
     @prentry
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
         if path != '/':
-            raise FuseOSError(errno.ENOENT)
+            raise TmfsOSError(errno.ENOENT)
         rsp = self.librarian(self.lcp('list_shelves'))
         yield '.'
         yield '..'
@@ -282,7 +282,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         try:
             attrs = self.getattr(path)
         except Exception as e:
-            raise FuseOSError(errno.EACCES)
+            raise TmfsOSError(errno.EACCES)
 
     #----------------------------------------------------------------------
     # Extended attributes: apt-get install attr, then man 5 attr.  Legal
@@ -297,7 +297,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         """Called with a specific namespace.name attr.  Can return either
            a bytes array OR an int."""
         if position:
-            raise FuseOSError(errno.ENOSYS)    # never saw this in 4 months
+            raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
 
         shelf_name = self.path2shelf(path)
         if not shelf_name:  # path == '/'
@@ -321,7 +321,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             assert value
             return value if isinstance(value, int) else bytes(value.encode())
         except Exception as e:
-            raise FuseOSError(errno.ENODATA)    # syn for ENOATTR
+            raise TmfsOSError(errno.ENODATA)    # syn for ENOATTR
 
     @prentry
     def listxattr(self, path):
@@ -335,7 +335,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
 
     @prentry
-    def setxattr(self, path, xattr, valbytes, options, position=0):
+    def setxattr(self, path, attr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
             set_trace()  # haven't actually seen it yet
@@ -348,7 +348,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         for bad in self._badjson:
             if bad in valbytes:
-                raise FuseOSError(errno.EDOMAIN)
+                raise TmfsOSError(errno.EDOMAIN)
         try:
             value = int(valbytes)
         except ValueError as e:
@@ -358,7 +358,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 self.lcp('set_xattr', name=shelf_name,
                          xattr=xattr, value=value))
         if rsp is not None:  # unexpected
-            raise FuseOSError(errno.ENOTTY)
+            raise TmfsOSError(errno.ENOTTY)
 
     @prentry
     def removexattr(self, path, xattr):
@@ -366,7 +366,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(
             self.lcp('remove_xattr', name=shelf_name, xattr=xattr))
         if rsp is not None:  # unexpected
-            raise FuseOSError(errno.ENOTTY)
+            raise TmfsOSError(errno.ENOTTY)
 
     @prentry
     def statfs(self, path):  # "df" command; example used statVfs.
@@ -469,14 +469,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(req)
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
-            raise FuseOSError(errno.EINVAL)
+            raise TmfsOSError(errno.EINVAL)
         self.get_bos(shelf)
         self.shadow.truncate(shelf, length, fd)
 
     @prentry
     def fallocate(self, path, mode, offset, length, fd=None):
         if mode > 0:
-            raise FuseOSError(errno.EPERM)
+            raise TmfsOSError(errno.EPERM)
         self.truncate(path, length, None)
 
     # Called when last reference to an open file is closed.
@@ -488,7 +488,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'close_shelf', id=shelf.id, open_handle=shelf.open_handle)
             self.librarian(req)  # None or raise
         except Exception as e:
-            raise FuseOSError(errno.ESTALE)
+            raise TmfsOSError(errno.ESTALE)
 
     @prentry
     def flush(self, path, fd):
@@ -498,56 +498,56 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def fsync(self, path, datasync, fd):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def fsyncdir(self, path, datasync, fd):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def bmap(self, path, blocksize, blockno):
         '''Only if "target" is a filesystem on a block device.  Convert
            file-relative blockno to device-relative block.'''
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     #######################################################################
     # Not gonna happen...ever?
 
     @prentry
     def rename(self, old, new):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def chmod(self, path, mode, **kwargs):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def chown(self, path, uid, gid):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def readlink(self, path):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def mknod(self, path, mode, dev):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def rmdir(self, path):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def mkdir(self, path, mode):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def symlink(self, name, target):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def link(self, target, name):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
 
 def mount_LFS(args):
@@ -564,7 +564,7 @@ def mount_LFS(args):
         (d, f, i, m)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] | fam is required'
 
     try:
-        FUSE(LibrarianFS(args),
+        TMFS(LibrarianFS(args),
              args.mountpoint,
              allow_other=True,
              noatime=True,

@@ -11,7 +11,7 @@ import mmap
 
 from pdb import set_trace
 
-from tm_fuse import FuseOSError
+from tm_fuse import TmfsOSError
 
 #--------------------------------------------------------------------------
 
@@ -97,14 +97,14 @@ class shadow_support(object):
         return 0
 
     # Piggybacked during mmap fault handling.  FIXME change the name
-    def getxattr(self, shelf_name, attr):
+    def getxattr(self, shelf_name, attr, ig_gap):
         return 'FALLBACK'
 
     def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
     def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
-        raise FuseOSError(errno.ENOSYS)
+        raise TmfsOSError(errno.ENOSYS)
 
 #--------------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ class shadow_directory(shadow_support):
         except OSError as e:
             if e.errno == errno.ENOENT:
                 return 0
-            raise FuseOSError(e.errno)
+            raise TmfsOSError(e.errno)
 
     def _create_open_common(self, shelf, flags, mode):
         if mode is None:
@@ -148,9 +148,9 @@ class shadow_directory(shadow_support):
         except OSError as e:
             if flags & os.O_CREAT:
                 if e.errno != errno.EEXIST:
-                    raise FuseOSError(e.errno)
+                    raise TmfsOSError(e.errno)
             else:
-                raise FuseOSError(e.errno)
+                raise TmfsOSError(e.errno)
         self[fd] = shelf
         return fd
 
@@ -180,7 +180,7 @@ class shadow_directory(shadow_support):
                 self[fd].size_bytes = length
             return 0
         except OSError as e:
-            raise FuseOSError(e.errno)
+            raise TmfsOSError(e.errno)
 
     def release(self, fd):
         shelf = self[fd]
@@ -461,7 +461,7 @@ class fam(shadow_support):
         del self[fd]
         return shelf
 
-    def getxattr(self, shelf_name, attr):
+    def getxattr(self, shelf_name, attr, ig_gap):
         # Called during fault handler in kernel, don't die here :-)
         try:
             bos = self[shelf_name].bos
@@ -470,14 +470,22 @@ class fam(shadow_support):
             book_num = offset // self.book_size  # (0..n)
             book_offset = offset % self.book_size
             if book_num >= len(bos):
-                return ''
+                return 'ERROR'
             lza = bos[book_num]['lza']
+
+            # FAME physical offset for virtual to physical mapping during fault
+            fam_offset = self.shadow_offset(shelf_name, offset, ig_gap)
+            if fam_offset == -1:
+                return 'ERROR'
+            fam_offset += self.aperture_base
+
             data = (':'.join(str(x) for x in
-                (lza, book_offset, self.book_size, self.aperture_base)))
+                (lza, book_offset, self.book_size, self.aperture_base, fam_offset)))
 
             if self.verbose > 3:
-                print("shelf = %s, offset = %d" % (shelf_name, offset))
-                print("book_num = %d, lza = %d" % (book_num, lza))
+                print("shelf = %s, offset = %d (0x%x)" % (shelf_name, offset, offset))
+                print("book_num = %d, lza = %d (0x%x)" % (book_num, lza, lza))
+                print("fam_offset = %d (0x%x)" % (fam_offset, fam_offset))
                 print("data = %s" % (data))
 
             return data

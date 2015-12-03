@@ -121,9 +121,9 @@ class TMBook(BookShelfStuff):
     ALLOC_ZOMBIE = 2
 
     _ordered_schema = (  # a little dodgy
-        'id',            # Solely for DB indexing
+        'id',
         'intlv_group',
-        'book_num',      # Book offset with intlv_group
+        'book_num',
         'allocated',
         'attributes',
     )
