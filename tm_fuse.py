@@ -596,7 +596,8 @@ class FUSE(object):
 
     def listxattr(self, path, namebuf, size):
         attrs = self.operations('listxattr', path.decode(self.encoding)) or ''
-        ret = '\x00'.join(attrs).encode(self.encoding) + '\x00'
+        # Concatenated null termination needs to be bytes by Python 3.4.2
+        ret = '\x00'.join(attrs).encode(self.encoding) + b'\x00'
 
         retsize = len(ret)
         # allow size queries
