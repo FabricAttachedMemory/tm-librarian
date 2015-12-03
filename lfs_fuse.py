@@ -45,10 +45,13 @@ def prentry(func):
     return new_func
 
 ###########################################################################
-# Errors that that get raised from __init__ will terminate the process.
+# __init__ is called before doing the "mount" (ie, libfuse.so is not
+# invoked until after this returns).  Errors that that get raised from
+# __init__ will terminate the process which probably a good thing.
+
 # Errors raised anywhere else (including "init") get swallowed by fuse.py
-# so that lfs_fuse.py can struggle on.   That's a good thing overall,
-# but dictaes where certain operations should be placed.
+# so that lfs_fuse.py can struggle on.   That's another good thing overall
+# but dictates where certain operations should be placed.
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
@@ -143,15 +146,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if self.verbose > 2:
             print('%s BOS: %s' % (shelf.name, shelf.bos))
 
-    # Round 1: flat namespace at / requires a leading / and no others
+    # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
-    def path2shelf(path, needShelf=True):
+    def path2shelf(path):
         elems = path.split('/')
-        if len(elems) != 2:
+        if len(elems) > 2:
             raise FuseOSError(errno.E2BIG)
         shelf_name = elems[-1]        # if empty, original path was '/'
-        if needShelf and not shelf_name:
-            raise FuseOSError(errno.EINVAL)
         return shelf_name
 
     # First level:  tenants
@@ -295,9 +296,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def getxattr(self, path, attr, position=0):
         """Called with a specific namespace.name attr.  Can return either
            a bytes array OR an int."""
-        shelf_name = self.path2shelf(path)
         if position:
-            set_trace()
+            raise FuseOSError(errno.ENOSYS)    # never saw this in 4 months
+
+        shelf_name = self.path2shelf(path)
+        if not shelf_name:  # path == '/'
+            return bytes(0)
 
         # Piggy back on getxattr to retrieve LZA during fault handling
         # input : "fault_get_lza":<byte offset into shelf>
