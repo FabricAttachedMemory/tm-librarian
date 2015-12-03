@@ -438,7 +438,7 @@ class LibrarianDBackendSQL(object):
     def create_xattr(self, shelf, xattr, value):
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
 
-    def delete_xattr(self, shelf, xattr):
+    def remove_xattr(self, shelf, xattr):
         self._cur.DELETE('shelf_xattrs', 'shelf_id=? AND xattr=?',
                                          (shelf.id, xattr),
                                          commit=True)

@@ -37,8 +37,8 @@ class LibrarianCommandEngine(object):
         return int(math.ceil(float(nbytes) / float(cls._book_size_bytes)))
 
     def get_best_intlv_group(self, node_id, shelf):
-        set_trace()
-        policy = self.db.get_xattr(shelf, 'AllocationPolicy')
+        policy = self.db.get_xattr(shelf, 'user.LFS.AllocationPolicy')
+        # more to come
         return node_id
 
     def cmd_version(self, cmdict):
@@ -75,7 +75,7 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
-        self.db.create_xattr(shelf, 'AllocationPolicy', 'Local')
+        self.db.create_xattr(shelf, 'user.LFS.AllocationPolicy', 'Local')
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
@@ -328,9 +328,28 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 value
         """
+        # While you can set and retrieve things by name that don't start with
+        # user/system/security/etc, and they show up in value[], something
+        # in Linux strips them out before getting back to the user.  POSIX?
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
         return { 'value': value }
+
+    def _xattr_delta_assist(self, cmdict, removing=False):
+        # A little idiot checking has been done on the far side.  Do more
+        self.errno = errno.EINVAL
+        xattr = cmdict['xattr']
+        value = cmdict.get('value', None)
+        elems = xattr.split('.')
+        if elems[1] != 'LFS':
+            return (xattr, value)
+        assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
+
+        # Simple for now
+        assert elems[2] in ('AllocationPolicy', ), 'Bad LFS attribute'
+        assert not removing, 'Removal of AllocationPolicy is prohibited'
+        assert value == 'Local', 'Bad AllocationPolicy value'
+        return (xattr, value)
 
     def cmd_set_xattr(self, cmdict):
         """ Set/update name/value pair for an extended attribute of a shelf.
@@ -345,20 +364,16 @@ class LibrarianCommandEngine(object):
         # XATTR_CREATE/REPLACE option is not being set on the other side.
         shelf = self.cmd_get_shelf(cmdict)
 
-        xattr = cmdict['xattr']
-        value = cmdict['value']
-        elems = xattr.split('.')
-
-        # A little idiot checking has been done on the far side.  Do more
-        self.errno = errno.EINVAL
-        if elems[1] == 'LFS':
-            assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
-            assert elems[2] in ('AllocationPolicy', ), 'Bad LFS attribute'
-            # good enough for now
+        xattr, value = self._xattr_delta_assist(cmdict)
 
         if self.db.get_xattr(shelf, xattr, exists_only=True):
             return self.db.modify_xattr(shelf, xattr, value)
         return self.db.create_xattr(shelf, xattr, value)
+
+    def cmd_remove_xattr(self, cmdict):
+        shelf = self.cmd_get_shelf(cmdict)
+        xattr, value = self._xattr_delta_assist(cmdict, removing=True)
+        return self.db.remove_xattr(shelf, xattr)
 
     def cmd_set_am_time(self, cmdict):
         """ Set access and modified times, usually of a shelf but

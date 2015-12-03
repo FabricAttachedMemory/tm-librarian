@@ -338,7 +338,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         # 'Extend' user.xxxx syntax and screen for it here
         elems = xattr.split('.')
-        set_trace()
         if elems[0] != 'user' or len(elems) < 2:
             raise FuseOSError(errno.EINVAL)
 
@@ -361,7 +360,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def removexattr(self, path, xattr):
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(
-            self.lcp('destroy_xattr', name=shelf_name, xattr=attr))
+            self.lcp('remove_xattr', name=shelf_name, xattr=xattr))
         if rsp is not None:  # unexpected
             raise FuseOSError(errno.ENOTTY)
 
