@@ -267,6 +267,7 @@ def create_empty_db(cur):
         cur.execute(table_create)
 
         # Book numbers are now relative to an interleave group.
+        # FIXME: rename id to lza when there's a dull moment.
         table_create = """
             CREATE TABLE books (
             id INTEGER PRIMARY KEY,
@@ -402,17 +403,17 @@ if __name__ == '__main__':
     cur.commit()
 
     # Finally, the tricky one.  "Books" are allocated behind IGs, not nodes.
-    book_id = 0
+    # Lots of existing code has overloaded the id field, keep that in mind
+    # for now but FIXME rename the field to LZA
     for ig in IGs:
         books_per_ig = ig.MCs[0].module_size_books * len(ig.MCs)
         for igoffset in range(books_per_ig):
+            book_id = (ig.num << 53) + igoffset
             cur.execute(
-                'INSERT INTO Books VALUES(?, ?, ?, ?, ?)',
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                     (book_id, ig.num, igoffset, 0, 0))
-            book_id += 1
         cur.commit()    # every IG
 
     cur.commit()
     cur.close()
-
     raise SystemExit(0)

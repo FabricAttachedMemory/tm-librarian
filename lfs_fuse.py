@@ -133,9 +133,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         shelf.bos = []
         for b in bos:
+            # Returns a TMBook in dict form
             book = self.librarian(self.lcp('get_book', b['book_id']))
             data = {
-                    'node_id': book['node_id'],
                     'lza': book['id'],
                     'intlv_group': book['intlv_group']
                 }
@@ -415,7 +415,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
         self.get_bos(shelf)
-        set_trace()
         fd = self.shadow.open(shelf, flags, mode)
         return fd
 

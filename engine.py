@@ -38,8 +38,10 @@ class LibrarianCommandEngine(object):
 
     def get_best_intlv_group(self, node_id, shelf):
         policy = self.db.get_xattr(shelf, 'user.LFS.AllocationPolicy')
-        # more to come
-        return node_id
+
+        # this for now, more to come
+        assert policy == 'Local', 'Unimplemented policy'
+        return node_id - 1  # using IGs 0-79 on nodes 1-80
 
     def cmd_version(self, cmdict):
         """ Return librarian version
