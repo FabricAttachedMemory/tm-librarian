@@ -596,7 +596,8 @@ class TMFS(object):
 
     def listxattr(self, path, namebuf, size):
         attrs = self.operations('listxattr', path.decode(self.encoding)) or ''
-        ret = '\x00'.join(attrs).encode(self.encoding) + '\x00'
+        # By Python 3.4.2 everything needs to be explicitly cast 'bytes'
+        ret = ('\x00'.join(attrs) + '\x00').encode(self.encoding)
 
         retsize = len(ret)
         # allow size queries
