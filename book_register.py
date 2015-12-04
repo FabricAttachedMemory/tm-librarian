@@ -6,6 +6,7 @@
 # Designed for "Full Rack Demo" (FRD) to be launched in the summer of 2016.
 #---------------------------------------------------------------------------
 
+import math
 import os
 import sys
 import configparser
@@ -415,10 +416,10 @@ if __name__ == '__main__':
     # An LZA a set of bit fields: IG (7) | book num (13) | book offset (33)
     # for real hardware (8G books).  Note the IG:booknum pair is left-shifted
     # by the bitsize of a book.  The id field is now more than a simple
-    # index, it's the LZA.
+    # index, it's the LZA.  By earlier agreement we only store the pair.
     for ig in IGs:
         for igoffset in range(ig.total_books):
-            book_id = ((ig.num << 13) + igoffset) << book_size_bits
+            book_id = (ig.num << 13) + igoffset
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                     (book_id, ig.num, igoffset, 0, 0))
