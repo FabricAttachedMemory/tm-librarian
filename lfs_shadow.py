@@ -19,15 +19,42 @@ from tm_fuse import TmfsOSError
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
 
-    def __init__(self, args, lfs_globals):
+    def __init__(self, args, lfs_globals, allbooks):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
         # Originally did it by fd, then getxattr piggyback only does name.
         # Grand unification!
         self._shelfcache = { }
 
-        # FIXME: flesh it out here, even though not all subclasses need it
-        self.ig_gap = {}
+        # Calculate node LZA gap, even though not every subclass needs it.
+        # First, here's the new way, which gets rid of need for allbooks
+        # to be retrieved and calculated on every node.  Now to get it
+        # only done once on the Librarian :-)
+
+        offset = 0
+        for ig in sorted(lfs_globals['books_per_IG'].keys()):
+            print('IG %2s flatspace offset @ %d' % (ig, offset))
+            books = int(lfs_globals['books_per_IG'][ig])
+            offset += books * self.book_size
+
+        # This for now
+        prev_ig = -1
+        prev_lza = -1
+        total_gap = 0
+        ig_gap = {}
+
+        for book in allbooks:   # Assumes monotonically increasing LZA
+            cur_lza = book['id']
+            cur_ig = book['intlv_group']
+            if prev_ig != cur_ig:
+                cur_ig_gap = cur_lza - prev_lza - 1
+                total_gap += cur_ig_gap
+                ig_gap[cur_ig] = total_gap
+
+            prev_lza = cur_lza
+            prev_ig = cur_ig
+
+        self.ig_gap = ig_gap
 
     # Duck-type a dict, with multiple entries.  It's supposed to be a shelf!
     def __setitem__(self, index, shelf):
@@ -447,8 +474,8 @@ class shadow_ivshmem(shadow_support):
 
 class fam(shadow_support):
 
-    def __init__(self, args, lfs_globals):
-        super(self.__class__, self).__init__(args, lfs_globals)
+    def __init__(self, args, lfs_globals, allbooks):
+        super(self.__class__, self).__init__(args, lfs_globals, allbooks)
         self.aperture_base = int(args.fam, 16)
 
     def open(self, shelf, flags, mode=None):
@@ -499,17 +526,17 @@ class fam(shadow_support):
 #--------------------------------------------------------------------------
 
 
-def the_shadow_knows(args, lfs_globals):
+def the_shadow_knows(args, lfs_globals, allbooks):
     '''args is command-line arguments from lfs_fuse.py'''
     try:
         if args.shadow_dir:
-            return shadow_directory(args, lfs_globals)
+            return shadow_directory(args, lfs_globals, allbooks)
         elif args.shadow_file:
-            return shadow_file(args, lfs_globals)
+            return shadow_file(args, lfs_globals, allbooks)
         elif args.shadow_ivshmem:
-            return shadow_ivshmem(args, lfs_globals)
+            return shadow_ivshmem(args, lfs_globals, allbooks)
         elif args.fam:
-            return fam(args, lfs_globals)
+            return fam(args, lfs_globals, allbooks)
         else:
             raise ValueError('Illegal shadow setting "%s"' % args.shadow_dir)
     except Exception as e:

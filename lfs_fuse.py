@@ -91,31 +91,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         globals = self.librarian(self.lcp('get_fs_stats'))
         self.bsize = globals['book_size_bytes']
 
-        # Calculate node LZA gap.  Since only certain shadow classes use it,
-        # save it there.  FIXME: add this to lfs_shadow deja vu
-        self.shadow = the_shadow_knows(args, globals)
-        books = self.librarian(self.lcp('get_book_all'))
-
-        prev_ig = -1
-        prev_lza = -1
-        total_gap = 0
-        ig_gap = {}
-
-        for book in books:
-            cur_lza = book['id']    # FIXME: rename id to lza some day
-            cur_ig = book['intlv_group']
-
-            if prev_ig != cur_ig:
-                cur_ig_gap = cur_lza - prev_lza - 1
-                total_gap += cur_ig_gap
-                ig_gap[cur_ig] = total_gap
-
-            prev_lza = cur_lza
-            prev_ig = cur_ig
-        self.shadow.ig_gap = ig_gap
-
+        allbooks = self.librarian(self.lcp('get_book_all'))
+        self.shadow = the_shadow_knows(args, globals, allbooks)
         if self.verbose > 2:
-            print('ig_gap:', ig_gap)
+            print('ig_gap:', self.shadow.ig_gap)
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
