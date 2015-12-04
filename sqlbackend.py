@@ -12,6 +12,8 @@ from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 
+from frdnode import FRDnode, FRDFAModule, FRDintlv_group
+
 #--------------------------------------------------------------------------
 
 
@@ -33,10 +35,14 @@ class LibrarianDBackendSQL(object):
     #
 
     def get_globals(self, only=None):
-        if only == 'version':
-            self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
-            return self._cur.fetchone()[0]
-        self._cur.execute('SELECT * FROM globals LIMIT 1')
+        try:
+            if only == 'version':
+                self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
+                return self._cur.fetchone()[0]
+            self._cur.execute('SELECT * FROM globals LIMIT 1')
+        except Exception as e:
+            raise RuntimeError(str(e))
+
         self._cur.iterclass = 'default'
         for r in self._cur:
             pass
@@ -45,6 +51,35 @@ class LibrarianDBackendSQL(object):
         if r.books_used is None:    # empty DB
             r.books_used = 0
         return r
+
+    def get_nodes(self):
+        self._cur.execute('SELECT * FROM FRDnodes')
+        self._cur.iterclass = 'default'
+        # Module_size_books was only used during book_register.py
+        nodes = [ FRDnode(node=r.node,
+                          enc=r.enc,
+                          MAC=r.MAC,
+                          module_size_books=-1)
+                  for r in self._cur ]
+        return nodes
+
+    def get_interleave_groups(self):
+        self._cur.execute('SELECT * FROM FAModules')
+        self._cur.iterclass = 'default'
+        tmpIGs = { }
+        # First collect all the MCs by group as they may be scattered in DB.
+        # Loops could be rolled up for purity but this is clearer.
+        for r in self._cur:
+            val = FRDFAModule(raw=r.rawCID,
+                              module_size_books=r.module_size_books)
+            try:
+                tmpIGs[r.IG].append(val)
+                # FIXME: move this to book_register.py
+                assert tmpIGs[0][0].module_size_books == val.module_size_books
+            except KeyError as e:
+                tmpIGs[r.IG] = [ val, ]
+        IGs = [ FRDintlv_group(IG, MCs) for IG, MCs in tmpIGs.items() ]
+        return IGs
 
     def get_nvm_parameters(self):
         '''Returns duple(book_size, total_nvm)'''
@@ -167,7 +202,7 @@ class LibrarianDBackendSQL(object):
         assert len(books) <= 1, 'Matched more than one book'
         return books[0] if books else None
 
-    def get_book_by_node(self, node_id, allocated_value, num_books):
+    def get_books_by_intlv_group(self, IG, allocated_value, num_books):
         """ Retrieve book(s) from "books" table using node
             Input---
               node_id - id of node to filter on
@@ -185,10 +220,10 @@ class LibrarianDBackendSQL(object):
 
         db_query = """
                 SELECT * FROM books
-                WHERE node_id = ? AND allocated = ?
+                WHERE intlv_group = ? AND allocated = ?
                 LIMIT ?
             """
-        self._cur.execute(db_query, (node_id, allocated_value, num_books))
+        self._cur.execute(db_query, (IG, allocated_value, num_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
         return(book_data)
@@ -403,7 +438,7 @@ class LibrarianDBackendSQL(object):
     def create_xattr(self, shelf, xattr, value):
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
 
-    def delete_xattr(self, shelf, xattr):
+    def remove_xattr(self, shelf, xattr):
         self._cur.DELETE('shelf_xattrs', 'shelf_id=? AND xattr=?',
                                          (shelf.id, xattr),
                                          commit=True)

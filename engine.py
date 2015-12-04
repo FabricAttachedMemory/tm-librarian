@@ -8,6 +8,7 @@ import uuid
 import time
 import math
 import sys
+from operator import attrgetter
 from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos
@@ -36,6 +37,13 @@ class LibrarianCommandEngine(object):
     def _nbooks(cls, nbytes):
         return int(math.ceil(float(nbytes) / float(cls._book_size_bytes)))
 
+    def get_best_intlv_group(self, node_id, shelf):
+        policy = self.db.get_xattr(shelf, 'user.LFS.AllocationPolicy')
+
+        # this for now, more to come
+        assert policy == 'Local', 'Unimplemented policy'
+        return node_id - 1  # using IGs 0-79 on nodes 1-80
+
     def cmd_version(self, cmdict):
         """ Return librarian version
             In (dict)---
@@ -52,7 +60,9 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 librarian version
         """
-        return self.db.get_globals()
+        globals = self.db.get_globals()
+        globals['books_per_IG'] = self.books_per_IG
+        return globals
 
     def cmd_create_shelf(self, cmdict):
         """ Create a new shelf
@@ -70,6 +80,7 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
+        self.db.create_xattr(shelf, 'user.LFS.AllocationPolicy', 'Local')
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
@@ -155,10 +166,10 @@ class LibrarianCommandEngine(object):
         msg = 'Book allocation %d -> %d' % (book.allocated, newalloc)
         if newalloc == TMBook.ALLOC_INUSE:
             assert book.allocated == TMBook.ALLOC_FREE, msg
-        elif newalloc == TMBook.ALLOC_ZOMBIE:
-            assert book.allocated == TMBook.ALLOC_INUSE, msg
+        # elif newalloc == TMBook.ALLOC_ZOMBIE:
+            # assert book.allocated == TMBook.ALLOC_INUSE, msg
         elif newalloc == TMBook.ALLOC_FREE:
-            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
+            assert book.allocated == TMBook.ALLOC_INUSE, msg    # ZOMBIE
         else:
             raise RuntimeError('Bad book allocation %d' % newalloc)
         book.allocated = newalloc
@@ -184,13 +195,17 @@ class LibrarianCommandEngine(object):
         xattrs = self.db.list_xattrs(shelf)
         for thisbos in bos:
             self.db.delete_bos(thisbos)
-            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
+            # Was ZOMBIE
+            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
         for xattr in xattrs:
-            self.db.delete_xattr(shelf, xattr)
+            self.db.remove_xattr(shelf, xattr)
         return self.db.delete_shelf(shelf, commit=True)
 
     def cmd_kill_zombie_books(self, cmdict):
         '''repl_client command to "zero" zombie books.  Needs work.'''
+
+        # On injured reserve for the moment
+        return None
         node_id = cmdict['context']['node_id']
         zombies = self.db.get_book_by_node(
             node_id, TMBook.ALLOC_ZOMBIE, 9999)
@@ -246,8 +261,9 @@ class LibrarianCommandEngine(object):
         node_id = cmdict['context']['node_id']
         if books_needed > 0:
             seq_num = shelf.book_count
-            freebooks = self.db.get_book_by_node(
-                node_id, TMBook.ALLOC_FREE, books_needed)
+            IG = self.get_best_intlv_group(node_id, shelf)
+            freebooks = self.db.get_books_by_intlv_group(
+                IG, TMBook.ALLOC_FREE, books_needed)
             self.errno = errno.ENOSPC
             assert len(freebooks) == books_needed, (
                 'out of space on node %d for "%s"' % (node_id, shelf.name))
@@ -264,7 +280,7 @@ class LibrarianCommandEngine(object):
             while books_2bdel > 0:
                 thisbos = bos.pop()
                 self.db.delete_bos(thisbos)
-                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_ZOMBIE)
+                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
                 books_2bdel -= 1
         else:
             self.db.rollback()
@@ -317,9 +333,28 @@ class LibrarianCommandEngine(object):
             Out (list) ---
                 value
         """
+        # While you can set and retrieve things by name that don't start with
+        # user/system/security/etc, and they show up in value[], something
+        # in Linux strips them out before getting back to the user.  POSIX?
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
         return { 'value': value }
+
+    def _xattr_delta_assist(self, cmdict, removing=False):
+        # A little idiot checking has been done on the far side.  Do more
+        self.errno = errno.EINVAL
+        xattr = cmdict['xattr']
+        value = cmdict.get('value', None)
+        elems = xattr.split('.')
+        if elems[1] != 'LFS':
+            return (xattr, value)
+        assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
+
+        # Simple for now
+        assert elems[2] in ('AllocationPolicy', ), 'Bad LFS attribute'
+        assert not removing, 'Removal of AllocationPolicy is prohibited'
+        assert value == 'Local', 'Bad AllocationPolicy value'
+        return (xattr, value)
 
     def cmd_set_xattr(self, cmdict):
         """ Set/update name/value pair for an extended attribute of a shelf.
@@ -331,14 +366,19 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 None or raise error
         """
-        # XATTR_CREATE/REPLACE option is not being set on the other side
-        # FIXME: can this only be done on an open shelf?
+        # XATTR_CREATE/REPLACE option is not being set on the other side.
         shelf = self.cmd_get_shelf(cmdict)
-        if self.db.get_xattr(shelf, cmdict['xattr'], exists_only=True):
-            return self.db.modify_xattr(
-                shelf, cmdict['xattr'], cmdict['value'])
-        return self.db.create_xattr(
-            shelf, cmdict['xattr'], cmdict['value'])
+
+        xattr, value = self._xattr_delta_assist(cmdict)
+
+        if self.db.get_xattr(shelf, xattr, exists_only=True):
+            return self.db.modify_xattr(shelf, xattr, value)
+        return self.db.create_xattr(shelf, xattr, value)
+
+    def cmd_remove_xattr(self, cmdict):
+        shelf = self.cmd_get_shelf(cmdict)
+        xattr, value = self._xattr_delta_assist(cmdict, removing=True)
+        return self.db.remove_xattr(shelf, xattr)
 
     def cmd_set_am_time(self, cmdict):
         """ Set access and modified times, usually of a shelf but
@@ -379,6 +419,7 @@ class LibrarianCommandEngine(object):
     _commands = None
 
     def __init__(self, backend, optargs=None, cooked=False):
+        innerE = None
         try:
             self.db = backend
             globals = self.db.get_globals()
@@ -387,6 +428,19 @@ class LibrarianCommandEngine(object):
                 globals.book_size_bytes,
                 globals.nvm_bytes_total
             )
+            self.__class__.nodes = self.db.get_nodes()
+            self.__class__.IGs = self.db.get_interleave_groups()
+            assert self.nodes and self.IGs, 'Database is corrupt'
+
+            # Calculations for flat-space shadow backing were being done
+            # on every node after pulling down allbooks[].  Send over
+            # summary data instead.  Although the math doesn't care, human
+            # debugging will be easier if these are ordered.  Will need to
+            # send full IGs at some point for RAS help.  This is good for now.
+
+            self.IGs = sorted(self.IGs, key=attrgetter('num'))
+            self.__class__.books_per_IG = dict([(ig.num, ig.total_books)
+                                          for ig in self.IGs])
 
             # Skip 'cmd_' prefix
             self.__class__._commands = dict(
@@ -394,8 +448,10 @@ class LibrarianCommandEngine(object):
                  for (name, func) in self.__class__.__dict__.items() if
                  name.startswith('cmd_')])
             self._cooked = cooked  # return style: raw = dict, cooked = obj
-        except Exception as e:
-            raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(e))
+        except Exception as e:      # don't raise a raise
+            innerE = e
+        if innerE is not None:
+            raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(innerE))
 
     def __call__(self, cmdict):
         try:

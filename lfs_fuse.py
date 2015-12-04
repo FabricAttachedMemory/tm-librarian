@@ -44,12 +44,19 @@ def prentry(func):
     new_func.__dict__.update(func.__dict__)
     return new_func
 
+###########################################################################
+# __init__ is called before doing the "mount" (ie, libfuse.so is not
+# invoked until after this returns).  Errors that that get raised from
+# __init__ will terminate the process which probably a good thing.
+
+# Errors raised anywhere else (including "init") get swallowed by fuse.py
+# so that lfs_fuse.py can struggle on.   That's another good thing overall
+# but dictates where certain operations should be placed.
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
     _mode_default_dir = int('0040777', 8)  # isdir, 777
-    ig_gap = {}
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -72,45 +79,30 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         }
         self.lcp = LibrarianCommandProtocol(context)
 
+        # Command-line miscues like a bad shadow path.  However that needs a
+        # socket, so do it now.
+
+        # connect() has an infinite retry
+        self.torms = socket_handling.Client(selectable=False, perf=_perf)
+        self.torms.connect(host=self.host, port=self.port)
+        if self.verbose > 1:
+            print('%s: connected' % self.torms)
+
+        globals = self.librarian(self.lcp('get_fs_stats'))
+        self.bsize = globals['book_size_bytes']
+
+        self.shadow = the_shadow_knows(args, globals)
+
     # started with "mount" operation.  root is usually ('/', ) probably
-    # influenced by FuSE builtin option.
+    # influenced by FuSE builtin option.  All errors here will essentially
+    # be ignored, so if there's potentially fatal stuff, do it in __init__()
 
     @prentry
     def init(self, root, **kwargs):
-        try:    # set up a blocking socket
-            self.torms = socket_handling.Client(
-                selectable=False, perf=_perf)
-            self.torms.connect(host=self.host, port=self.port)
-            if self.verbose > 1:
-                print('%s: connected' % self.torms)
-        except Exception as e:
-            raise TmfsOSError(errno.EHOSTUNREACH)
-        globals = self.librarian(self.lcp('get_fs_stats'))
-        self.shadow = the_shadow_knows(args, globals)
-        # FIXME: in C FUSE, data returned here goes into 'getcontext'
+        pass
 
-        # Calculate node LZA gap
-        self.bsize = globals['book_size_bytes']
-        books = self.librarian(self.lcp('get_book_all'))
-
-        prev_ig = -1
-        prev_lza = -1
-        total_gap = 0
-
-        for book in books:
-            cur_lza = book['id']
-            cur_ig = book['intlv_group']
-
-            if prev_ig != cur_ig:
-                cur_ig_gap = cur_lza - prev_lza - 1
-                total_gap += cur_ig_gap
-                self.ig_gap[cur_ig] = total_gap
-
-            prev_lza = cur_lza
-            prev_ig = cur_ig
-
-        if self.verbose > 2:
-            print("ig_gap:", self.ig_gap)
+        # FIXME: in C FUSE, data returned from here goes into 'getcontext'.
+        # Note: I no longer remember my concern on this, look into it again.
 
     @prentry
     def destroy(self, root):    # fusermount -u
@@ -123,25 +115,24 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         bos = self.librarian(self.lcp('list_shelf_books', shelf))
         shelf.bos = []
         for b in bos:
+            # Returns a TMBook in dict form
             book = self.librarian(self.lcp('get_book', b['book_id']))
             data = {
-                    'node_id': book['node_id'],
-                    'lza': book['id'],
-                    'intlv_group': book['intlv_group']
+                    'intlv_group': book['intlv_group'],
+                    'book_num': book['book_num'],
+                    'lza': book['id'],  # a shifted concatentation of those
                 }
             shelf.bos.append(data)
         if self.verbose > 2:
             print('%s BOS: %s' % (shelf.name, shelf.bos))
 
-    # Round 1: flat namespace at / requires a leading / and no others
+    # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
-    def path2shelf(path, needShelf=True):
+    def path2shelf(path):
         elems = path.split('/')
-        if len(elems) != 2:
+        if len(elems) > 2:
             raise TmfsOSError(errno.E2BIG)
         shelf_name = elems[-1]        # if empty, original path was '/'
-        if needShelf and not shelf_name:
-            raise TmfsOSError(errno.EINVAL)
         return shelf_name
 
     # First level:  tenants
@@ -285,9 +276,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def getxattr(self, path, attr, position=0):
         """Called with a specific namespace.name attr.  Can return either
            a bytes array OR an int."""
-        shelf_name = self.path2shelf(path)
         if position:
-            set_trace()
+            raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
+
+        shelf_name = self.path2shelf(path)
+        if not shelf_name:  # path == '/'
+            return bytes(0)
 
         # Piggy back on getxattr to retrieve LZA during fault handling
         # input : "fault_get_lza":<byte offset into shelf>
@@ -325,8 +319,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
             set_trace()  # haven't actually seen it yet
+
+        # 'Extend' user.xxxx syntax and screen for it here
+        elems = xattr.split('.')
+        if elems[0] != 'user' or len(elems) < 2:
+            raise FuseOSError(errno.EINVAL)
+
         shelf_name = self.path2shelf(path)
-        assert attr.startswith('user.')
         for bad in self._badjson:
             if bad in valbytes:
                 raise TmfsOSError(errno.EDOMAIN)
@@ -337,7 +336,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         rsp = self.librarian(
                 self.lcp('set_xattr', name=shelf_name,
-                         xattr=attr, value=value))
+                         xattr=xattr, value=value))
         if rsp is not None:  # unexpected
             raise TmfsOSError(errno.ENOTTY)
 
@@ -345,7 +344,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def removexattr(self, path, xattr):
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(
-            self.lcp('destroy_xattr', name=shelf_name, xattr=attr))
+            self.lcp('remove_xattr', name=shelf_name, xattr=xattr))
         if rsp is not None:  # unexpected
             raise TmfsOSError(errno.ENOTTY)
 
@@ -420,7 +419,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def read(self, path, length, offset, fd):
 
         shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, self.ig_gap, fd)
+        return self.shadow.read(shelf_name, length, offset, fd)
 
     @prentry
     def write(self, path, buf, offset, fd):
@@ -433,7 +432,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if self.shadow[shelf_name].size_bytes < req_size:
             self.truncate(path, req_size, None) # updates the cache
 
-        return self.shadow.write(shelf_name, buf, offset, self.ig_gap, fd)
+        return self.shadow.write(shelf_name, buf, offset, fd)
 
     @prentry
     def truncate(self, path, length, fd=None):
@@ -552,7 +551,7 @@ def mount_LFS(args):
              foreground=not bool(args.daemon),
              nothreads=True)
     except Exception as e:
-        raise SystemExit('fusermount probably failed, retry in foreground')
+        raise SystemExit('%s' % str(e))
 
 if __name__ == '__main__':
 

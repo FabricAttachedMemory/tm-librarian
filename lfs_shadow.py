@@ -5,6 +5,7 @@
 # including book_register.py rewrites.
 
 import errno
+import math
 import os
 import tempfile
 import mmap
@@ -25,6 +26,18 @@ class shadow_support(object):
         # Originally did it by fd, then getxattr piggyback only does name.
         # Grand unification!
         self._shelfcache = { }
+
+        # Replaces ig_gap calculation.
+
+        offset = 0
+        self._igstart = {}
+        for igstr in sorted(lfs_globals['books_per_IG'].keys()):
+            ig = int(igstr)
+            print('IG %2d flatspace offset @ %d' % (ig, offset))
+            self._igstart[ig] = offset
+            books = int(lfs_globals['books_per_IG'][igstr])
+            offset += books * self.book_size
+        self.book_shift = int(math.log(self.book_size, 2))
 
     # Duck-type a dict, with multiple entries.  It's supposed to be a shelf!
     def __setitem__(self, index, shelf):
@@ -64,22 +77,25 @@ class shadow_support(object):
 
     # End of dictionary duck typing, now use that cache
 
-    def shadow_offset(self, shelf_name, offset, ig_gap):
-        '''Compute the book offset within a single shadow file'''
-        book_num = offset // self.book_size  # (0..n)
+    def shadow_offset(self, shelf_name, shelf_offset):
+        '''Translate shelf-relative offset to flat shadow file offset'''
         bos = self[shelf_name].bos
+        bos_index = shelf_offset // self.book_size  # (0..n)
 
-        # Stop FS read ahead past shelf
-        if book_num >= len(bos):
+        # Stop FS read ahead past shelf, but what about writes?  Later.
+        try:
+            book = bos[bos_index]
+        except Exception as e:
             return -1
 
-        b = bos[book_num]
-        lza = b['lza']
-        intlv_group = b['intlv_group']
-        book_offset = offset % self.book_size
-        shadow_offset = ((lza - ig_gap[intlv_group]) * self.book_size) + book_offset
-
-        return shadow_offset
+        # Offset into flat space has several contributors.  Oddly enough
+        # this doesn't neet the concatenated LZA field.
+        intlv_group = book['intlv_group']
+        book_num = book['book_num']
+        book_start = book_num * self.book_size
+        book_offset = shelf_offset % self.book_size
+        tmp = self._igstart[intlv_group] + book_start + book_offset
+        return tmp
 
     # Provide ABC noop defaults.  Note they're not all actually noop.
     # FIXME: currently this only supports a single open per node.
@@ -100,10 +116,10 @@ class shadow_support(object):
     def getxattr(self, shelf_name, attr, ig_gap):
         return 'FALLBACK'
 
-    def read(self, shelf_name, length, offset, bos_cache, ig_gap, fd):
+    def read(self, shelf_name, length, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
 
-    def write(self, shelf_name, buf, offset, bos_cache, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
 
 #--------------------------------------------------------------------------
@@ -161,11 +177,11 @@ class shadow_directory(shadow_support):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         return self._create_open_common(shelf, flags, mode)
 
-    def read(self, shelf_name, length, offset, ig_gap, fd):
+    def read(self, shelf_name, length, offset, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
-    def write(self, shelf_name, buf, offset, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, fd):
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
@@ -233,10 +249,10 @@ class shadow_file(shadow_support):
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
-    def read(self, shelf_name, length, offset, ig_gap, fd):
+    def read(self, shelf_name, length, offset, fd):
 
         if ((offset % self.book_size) + length) <= self.book_size:
-            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset)
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             return os.read(self._shadow_fd, length)
 
@@ -249,7 +265,7 @@ class shadow_file(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset)
 
             if shadow_offset == -1:
                 break
@@ -268,10 +284,10 @@ class shadow_file(shadow_support):
 
         return buf
 
-    def write(self, shelf_name, buf, offset, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, fd):
 
         if ((offset % self.book_size) + len(buf)) <= self.book_size:
-            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset)
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             return os.write(self._shadow_fd, buf)
 
@@ -286,7 +302,7 @@ class shadow_file(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset)
 
             assert shadow_offset != -1, "shadow_offset -1 during write"
 
@@ -353,10 +369,10 @@ class shadow_ivshmem(shadow_support):
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
-    def read(self, shelf_name, length, offset, ig_gap, fd):
+    def read(self, shelf_name, length, offset, fd):
 
         if ((offset % self.book_size) + length) <= self.book_size:
-            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset)
             self._mmap.seek(shadow_offset, 0)
             return self._mmap.read(length)
 
@@ -369,7 +385,7 @@ class shadow_ivshmem(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset)
 
             if shadow_offset == -1: break
 
@@ -387,10 +403,10 @@ class shadow_ivshmem(shadow_support):
 
         return buf
 
-    def write(self, shelf_name, buf, offset, ig_gap, fd):
+    def write(self, shelf_name, buf, offset, fd):
 
         if ((offset % self.book_size) + len(buf)) <= self.book_size:
-            shadow_offset = self.shadow_offset(shelf_name, offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, offset)
             self._mmap.seek(shadow_offset, 0)
             # write to mmap file always returns "None"
             self._mmap.write(buf)
@@ -407,7 +423,7 @@ class shadow_ivshmem(shadow_support):
         while (tot_length > 0):
             cur_length = min((self.book_size - (cur_offset % self.book_size)),
                              tot_length)
-            shadow_offset = self.shadow_offset(shelf_name, cur_offset, ig_gap)
+            shadow_offset = self.shadow_offset(shelf_name, cur_offset)
 
             assert shadow_offset != -1, "shadow_offset -1 during write"
 
@@ -474,7 +490,7 @@ class fam(shadow_support):
             lza = bos[book_num]['lza']
 
             # FAME physical offset for virtual to physical mapping during fault
-            fam_offset = self.shadow_offset(shelf_name, offset, ig_gap)
+            fam_offset = self.shadow_offset(shelf_name, offset)
             if fam_offset == -1:
                 return 'ERROR'
             fam_offset += self.aperture_base
@@ -491,6 +507,7 @@ class fam(shadow_support):
             return data
 
         except Exception as e:
+            print('!!! ERROR IN FAULT HANDLER: %s' % str(e), file=sys.stderr)
             return ''
 
 #--------------------------------------------------------------------------

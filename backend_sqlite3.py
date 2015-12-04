@@ -17,12 +17,9 @@ class SQLite3assist(SQLassist):
     _SQLshowschema = 'PRAGMA table_info({});'
 
     def DBconnect(self):
-        try:
-            self._conn = sqlite3.connect(self.db_file,
-                                         isolation_level='EXCLUSIVE')
-            self._cursor = self._conn.cursor()
-        except Exception as e:
-            raise
+        self._conn = sqlite3.connect(self.db_file,
+                                     isolation_level='EXCLUSIVE')
+        self._cursor = self._conn.cursor()
         # WAL: https://www.sqlite.org/wal.html
         self.execute('PRAGMA journal_mode=WAL')
         pass

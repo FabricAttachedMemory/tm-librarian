@@ -6,6 +6,7 @@
 # Designed for "Full Rack Demo" (FRD) to be launched in the summer of 2016.
 #---------------------------------------------------------------------------
 
+import math
 import os
 import sys
 import configparser
@@ -162,9 +163,10 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
     if module_size_books * 4 != books_per_node:
         usage('Books per node is not divisible by 4')
 
-    FRDnodes = [ FRDnode(n + 1, module_size_books=module_size_books)
-                 for n in range(node_count) ]
+    FRDnodes = [ FRDnode(node_id, module_size_books=module_size_books)
+                 for node_id in range(1, node_count + 1) ]
     IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+
     return FRDnodes, IGs
 
 #--------------------------------------------------------------------------
@@ -179,6 +181,9 @@ def load_book_data(inifile):
     book_size_bytes = multiplier(G['book_size_bytes'], Gname)
     if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
         raise SystemExit('book_size_bytes is out of range [1K, 8G]')
+    # Python 3 bin() prints a string in binary: '0b000101...'
+    if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
+        raise SystemExit('book_size_bytes must be a power of 2')
 
     FRDnodes, IGs = extrapolate(Gname, G, node_count, book_size_bytes)
     if FRDnodes is not None:
@@ -242,10 +247,10 @@ def create_empty_db(cur):
 
         # FRD: max 80.  To be technically pure, node == SoC + NVM, and it's
         # the SoC that has the MAC, so SoCs "should" have their own table.
-        # This simplification is probaby ok.
+        # This simplification is probaby ok.  index == quadruple.
         table_create = """
             CREATE TABLE FRDnodes (
-            id INTEGER PRIMARY KEY,
+            node_id,
             rack INT,
             enc INT,
             node INT,
@@ -260,12 +265,13 @@ def create_empty_db(cur):
             node_id INT,
             IG INT,
             module_size_books INT,
-            CID INT
+            rawCID INT
             )
             """
         cur.execute(table_create)
 
         # Book numbers are now relative to an interleave group.
+        # FIXME: rename id to lza when there's a dull moment.
         table_create = """
             CREATE TABLE books (
             id INTEGER PRIMARY KEY,
@@ -366,6 +372,12 @@ if __name__ == '__main__':
 
     # Retrieve data, calculate global values and store them
     book_size_bytes, FRDnodes, IGs = load_book_data(args.ifile)
+    book_size_bits = int(math.log(book_size_bytes, 2))  # needed later
+
+    # Real machine hardware only has 13 bits of book number in an LZA
+    for ig in IGs:
+        assert ig.total_books < 8192, 'Illegal IG book count'
+
     books_total = 0
     for node in FRDnodes:
         books_total += sum(mc.module_size_books for mc in node.MCs)
@@ -385,8 +397,7 @@ if __name__ == '__main__':
     # Now the other tables, keep it clear..  Some of these will be used
     # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
 
-    for tmp, node in enumerate(FRDnodes):
-        node_id = tmp + 1
+    for node in FRDnodes:
         cur.execute(
             'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
                 (node.node_id, node.rack, node.enc, node.node, node.MAC))
@@ -402,16 +413,18 @@ if __name__ == '__main__':
     cur.commit()
 
     # Finally, the tricky one.  "Books" are allocated behind IGs, not nodes.
-    book_id = 0
+    # An LZA a set of bit fields: IG (7) | book num (13) | book offset (33)
+    # for real hardware (8G books).  Note the IG:booknum pair is left-shifted
+    # by the bitsize of a book.  The id field is now more than a simple
+    # index, it's the LZA.  By earlier agreement we only store the pair.
     for ig in IGs:
-        books_per_ig = ig.MCs[0].module_size_books * len(ig.MCs)
-        for igoffset in range(books_per_ig):
+        for igoffset in range(ig.total_books):
+            book_id = (ig.num << 13) + igoffset
             cur.execute(
-                'INSERT INTO Books VALUES(?, ?, ?, ?, ?)',
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                     (book_id, ig.num, igoffset, 0, 0))
-            book_id += 1
         cur.commit()    # every IG
 
+    cur.commit()
     cur.close()
-
     raise SystemExit(0)
