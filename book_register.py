@@ -180,6 +180,9 @@ def load_book_data(inifile):
     book_size_bytes = multiplier(G['book_size_bytes'], Gname)
     if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
         raise SystemExit('book_size_bytes is out of range [1K, 8G]')
+    # Python 3 bin() prints a string in binary: '0b000101...'
+    if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
+        raise SystemExit('book_size_bytes must be a power of 2')
 
     FRDnodes, IGs = extrapolate(Gname, G, node_count, book_size_bytes)
     if FRDnodes is not None:
@@ -368,6 +371,12 @@ if __name__ == '__main__':
 
     # Retrieve data, calculate global values and store them
     book_size_bytes, FRDnodes, IGs = load_book_data(args.ifile)
+    book_size_bits = int(math.log(book_size_bytes, 2))  # needed later
+
+    # Real machine hardware only has 13 bits of book number in an LZA
+    for ig in IGs:
+        assert ig.total_books < 8192, 'Illegal IG book count'
+
     books_total = 0
     for node in FRDnodes:
         books_total += sum(mc.module_size_books for mc in node.MCs)
@@ -403,12 +412,13 @@ if __name__ == '__main__':
     cur.commit()
 
     # Finally, the tricky one.  "Books" are allocated behind IGs, not nodes.
-    # Lots of existing code has overloaded the id field, keep that in mind
-    # for now but FIXME rename the field to LZA
+    # An LZA a set of bit fields: IG (7) | book num (13) | book offset (33)
+    # for real hardware (8G books).  Note the IG:booknum pair is left-shifted
+    # by the bitsize of a book.  The id field is now more than a simple
+    # index, it's the LZA.
     for ig in IGs:
-        books_per_ig = ig.MCs[0].module_size_books * len(ig.MCs)
-        for igoffset in range(books_per_ig):
-            book_id = (ig.num << 53) + igoffset
+        for igoffset in range(ig.total_books):
+            book_id = ((ig.num << 13) + igoffset) << book_size_bits
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                     (book_id, ig.num, igoffset, 0, 0))
