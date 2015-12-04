@@ -287,7 +287,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # input : "fault_get_lza":<byte offset into shelf>
         # output: <lza>:<book offset>:<book size>:<aperture base>
         if "fault_get_lza" in attr:
-            data = self.shadow.getxattr(shelf_name, attr, self.ig_gap)
+            data = self.shadow.getxattr(shelf_name, attr)
             return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for

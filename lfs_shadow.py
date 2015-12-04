@@ -113,7 +113,7 @@ class shadow_support(object):
         return 0
 
     # Piggybacked during mmap fault handling.  FIXME change the name
-    def getxattr(self, shelf_name, attr, ig_gap):
+    def getxattr(self, shelf_name, attr):
         return 'FALLBACK'
 
     def read(self, shelf_name, length, offset, fd):
@@ -477,7 +477,7 @@ class fam(shadow_support):
         del self[fd]
         return shelf
 
-    def getxattr(self, shelf_name, attr, ig_gap):
+    def getxattr(self, shelf_name, attr):
         # Called during fault handler in kernel, don't die here :-)
         try:
             bos = self[shelf_name].bos
