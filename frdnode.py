@@ -177,6 +177,14 @@ class FRDintlv_group(object):
     def __repr__(self):
         return self.__str__()
 
+    @property
+    def total_books(self):
+        '''Supersedes ig_gap calculations for flat-space emulations'''
+        total_books = 0
+        for mc in self.MCs:
+            total_books += mc.module_size_books
+        return total_books
+
 #--------------------------------------------------------------------------
 # Match the automatic extrapolation mode of book_register.py, working
 # only from a node count (80).  Nodes go from 1-10, IGs from 0-79.
