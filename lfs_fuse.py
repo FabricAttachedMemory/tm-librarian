@@ -57,7 +57,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_file = int('0100666', 8)  # isfile, 666
     _mode_default_dir = int('0040777', 8)  # isdir, 777
-    ig_gap = {}
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -90,40 +89,44 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             print('%s: connected' % self.torms)
 
         globals = self.librarian(self.lcp('get_fs_stats'))
-        self.shadow = the_shadow_knows(args, globals)
-
-    # started with "mount" operation.  root is usually ('/', ) probably
-    # influenced by FuSE builtin option.
-
-    @prentry
-    def init(self, root, **kwargs):
-        globals = self.librarian(self.lcp('get_fs_stats'))
-
-        # FIXME: in C FUSE, data returned here goes into 'getcontext'
-        # Note: I no longer remember my concern on this, look into it again.
-
-        # Calculate node LZA gap
         self.bsize = globals['book_size_bytes']
+
+        # Calculate node LZA gap.  Since only certain shadow classes use it,
+        # save it there.  FIXME: add this to lfs_shadow deja vu
+        self.shadow = the_shadow_knows(args, globals)
         books = self.librarian(self.lcp('get_book_all'))
 
         prev_ig = -1
         prev_lza = -1
         total_gap = 0
+        ig_gap = {}
 
         for book in books:
-            cur_lza = book['id']
+            cur_lza = book['id']    # FIXME: rename id to lza some day
             cur_ig = book['intlv_group']
 
             if prev_ig != cur_ig:
                 cur_ig_gap = cur_lza - prev_lza - 1
                 total_gap += cur_ig_gap
-                self.ig_gap[cur_ig] = total_gap
+                ig_gap[cur_ig] = total_gap
 
             prev_lza = cur_lza
             prev_ig = cur_ig
+        self.shadow.ig_gap = ig_gap
 
         if self.verbose > 2:
-            print("ig_gap:", self.ig_gap)
+            print("ig_gap:', ig_gap)
+
+    # started with "mount" operation.  root is usually ('/', ) probably
+    # influenced by FuSE builtin option.  All errors here will essentially
+    # be ignored, so if there's potentially fatal stuff, do it in __init__()
+
+    @prentry
+    def init(self, root, **kwargs):
+        pass
+
+        # FIXME: in C FUSE, data returned from here goes into 'getcontext'.
+        # Note: I no longer remember my concern on this, look into it again.
 
     @prentry
     def destroy(self, root):    # fusermount -u
@@ -439,7 +442,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def read(self, path, length, offset, fd):
 
         shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, self.ig_gap, fd)
+        return self.shadow.read(shelf_name, length, offset, fd)
 
     @prentry
     def write(self, path, buf, offset, fd):
@@ -452,7 +455,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if self.shadow[shelf_name].size_bytes < req_size:
             self.truncate(path, req_size, None) # updates the cache
 
-        return self.shadow.write(shelf_name, buf, offset, self.ig_gap, fd)
+        return self.shadow.write(shelf_name, buf, offset, fd)
 
     @prentry
     def truncate(self, path, length, fd=None):
