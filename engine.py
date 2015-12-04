@@ -8,6 +8,7 @@ import uuid
 import time
 import math
 import sys
+from operator import attrgetter
 from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos
@@ -59,7 +60,9 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 librarian version
         """
-        return self.db.get_globals()
+        globals = self.db.get_globals()
+        globals['books_per_IG'] = self.books_per_IG
+        return globals
 
     def cmd_create_shelf(self, cmdict):
         """ Create a new shelf
@@ -195,7 +198,7 @@ class LibrarianCommandEngine(object):
             # Was ZOMBIE
             _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
         for xattr in xattrs:
-            self.db.delete_xattr(shelf, xattr)
+            self.db.remove_xattr(shelf, xattr)
         return self.db.delete_shelf(shelf, commit=True)
 
     def cmd_kill_zombie_books(self, cmdict):
@@ -428,6 +431,16 @@ class LibrarianCommandEngine(object):
             self.__class__.nodes = self.db.get_nodes()
             self.__class__.IGs = self.db.get_interleave_groups()
             assert self.nodes and self.IGs, 'Database is corrupt'
+
+            # Calculations for flat-space shadow backing were being done
+            # on every node after pulling down allbooks[].  Send over
+            # summary data instead.  Although the math doesn't care, human
+            # debugging will be easier if these are ordered.  Will need to
+            # send full IGs at some point for RAS help.  This is good for now.
+
+            self.IGs = sorted(self.IGs, key=attrgetter('num'))
+            self.__class__.books_per_IG = dict([(ig.num, ig.total_books)
+                                          for ig in self.IGs])
 
             # Skip 'cmd_' prefix
             self.__class__._commands = dict(
