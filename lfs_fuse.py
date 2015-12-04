@@ -115,7 +115,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow.ig_gap = ig_gap
 
         if self.verbose > 2:
-            print("ig_gap:', ig_gap)
+            print('ig_gap:', ig_gap)
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
