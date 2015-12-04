@@ -5,6 +5,7 @@
 # including book_register.py rewrites.
 
 import errno
+import math
 import os
 import tempfile
 import mmap
@@ -19,42 +20,24 @@ from tm_fuse import TmfsOSError
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
 
-    def __init__(self, args, lfs_globals, allbooks):
+    def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
         # Originally did it by fd, then getxattr piggyback only does name.
         # Grand unification!
         self._shelfcache = { }
 
-        # Calculate node LZA gap, even though not every subclass needs it.
-        # First, here's the new way, which gets rid of need for allbooks
-        # to be retrieved and calculated on every node.  Now to get it
-        # only done once on the Librarian :-)
+        # Replaces ig_gap calculation.
 
         offset = 0
-        for ig in sorted(lfs_globals['books_per_IG'].keys()):
-            print('IG %2s flatspace offset @ %d' % (ig, offset))
-            books = int(lfs_globals['books_per_IG'][ig])
+        self._igstart = {}
+        for igstr in sorted(lfs_globals['books_per_IG'].keys()):
+            ig = int(igstr)
+            print('IG %2d flatspace offset @ %d' % (ig, offset))
+            self._igstart[ig] = offset
+            books = int(lfs_globals['books_per_IG'][igstr])
             offset += books * self.book_size
-
-        # This for now
-        prev_ig = -1
-        prev_lza = -1
-        total_gap = 0
-        ig_gap = {}
-
-        for book in allbooks:   # Assumes monotonically increasing LZA
-            cur_lza = book['id']
-            cur_ig = book['intlv_group']
-            if prev_ig != cur_ig:
-                cur_ig_gap = cur_lza - prev_lza - 1
-                total_gap += cur_ig_gap
-                ig_gap[cur_ig] = total_gap
-
-            prev_lza = cur_lza
-            prev_ig = cur_ig
-
-        self.ig_gap = ig_gap
+        self.book_shift = int(math.log(self.book_size, 2))
 
     # Duck-type a dict, with multiple entries.  It's supposed to be a shelf!
     def __setitem__(self, index, shelf):
@@ -94,22 +77,25 @@ class shadow_support(object):
 
     # End of dictionary duck typing, now use that cache
 
-    def shadow_offset(self, shelf_name, offset):
-        '''Compute the book offset within a single shadow file'''
-        book_num = offset // self.book_size  # (0..n)
+    def shadow_offset(self, shelf_name, shelf_offset):
+        '''Translate shelf-relative offset to flat shadow file offset'''
         bos = self[shelf_name].bos
+        bos_index = shelf_offset // self.book_size  # (0..n)
 
-        # Stop FS read ahead past shelf
-        if book_num >= len(bos):
+        # Stop FS read ahead past shelf, but what about writes?  Later.
+        try:
+            book = bos[bos_index]
+        except Exception as e:
             return -1
 
-        b = bos[book_num]
-        lza = b['lza']
-        intlv_group = b['intlv_group']
-        book_offset = offset % self.book_size
-        shadow_offset = ((lza - self.ig_gap[intlv_group]) * self.book_size) + book_offset
-
-        return shadow_offset
+        # Offset into flat space has several contributors.  Oddly enough
+        # this doesn't neet the concatenated LZA field.
+        intlv_group = book['intlv_group']
+        book_num = book['book_num']
+        book_start = book_num * self.book_size
+        book_offset = shelf_offset % self.book_size
+        tmp = self._igstart[intlv_group] + book_start + book_offset
+        return tmp
 
     # Provide ABC noop defaults.  Note they're not all actually noop.
     # FIXME: currently this only supports a single open per node.
@@ -474,8 +460,8 @@ class shadow_ivshmem(shadow_support):
 
 class fam(shadow_support):
 
-    def __init__(self, args, lfs_globals, allbooks):
-        super(self.__class__, self).__init__(args, lfs_globals, allbooks)
+    def __init__(self, args, lfs_globals):
+        super(self.__class__, self).__init__(args, lfs_globals)
         self.aperture_base = int(args.fam, 16)
 
     def open(self, shelf, flags, mode=None):
@@ -521,22 +507,23 @@ class fam(shadow_support):
             return data
 
         except Exception as e:
+            print('!!! ERROR IN FAULT HANDLER: %s' % str(e), file=sys.stderr)
             return ''
 
 #--------------------------------------------------------------------------
 
 
-def the_shadow_knows(args, lfs_globals, allbooks):
+def the_shadow_knows(args, lfs_globals):
     '''args is command-line arguments from lfs_fuse.py'''
     try:
         if args.shadow_dir:
-            return shadow_directory(args, lfs_globals, allbooks)
+            return shadow_directory(args, lfs_globals)
         elif args.shadow_file:
-            return shadow_file(args, lfs_globals, allbooks)
+            return shadow_file(args, lfs_globals)
         elif args.shadow_ivshmem:
-            return shadow_ivshmem(args, lfs_globals, allbooks)
+            return shadow_ivshmem(args, lfs_globals)
         elif args.fam:
-            return fam(args, lfs_globals, allbooks)
+            return fam(args, lfs_globals)
         else:
             raise ValueError('Illegal shadow setting "%s"' % args.shadow_dir)
     except Exception as e:

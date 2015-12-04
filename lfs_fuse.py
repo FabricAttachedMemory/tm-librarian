@@ -91,10 +91,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         globals = self.librarian(self.lcp('get_fs_stats'))
         self.bsize = globals['book_size_bytes']
 
-        allbooks = self.librarian(self.lcp('get_book_all'))
-        self.shadow = the_shadow_knows(args, globals, allbooks)
-        if self.verbose > 2:
-            print('ig_gap:', self.shadow.ig_gap)
+        self.shadow = the_shadow_knows(args, globals)
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
@@ -121,8 +118,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             # Returns a TMBook in dict form
             book = self.librarian(self.lcp('get_book', b['book_id']))
             data = {
-                    'lza': book['id'],
-                    'intlv_group': book['intlv_group']
+                    'intlv_group': book['intlv_group'],
+                    'book_num': book['book_num'],
+                    'lza': book['id'],  # a shifted concatentation of those
                 }
             shelf.bos.append(data)
         if self.verbose > 2:
