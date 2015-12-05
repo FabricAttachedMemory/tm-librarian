@@ -7,8 +7,10 @@
 import errno
 import math
 import os
+import stat
 import tempfile
 import mmap
+from subprocess import getoutput
 
 from pdb import set_trace
 
@@ -19,6 +21,8 @@ from tm_fuse import TmfsOSError
 
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
+
+    _mode_rw_file = stat.S_IFREG + 0o600  # regular file
 
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
@@ -112,7 +116,9 @@ class shadow_support(object):
         del self[shelf_name]
         return 0
 
-    # Piggybacked during mmap fault handling.  FIXME change the name
+    # Piggybacked during mmap fault handling.  If the kernel receives
+    # 'FALLBACK' it will use legacy, generic cache-based handler with stock
+    # read() and write() spill and fill.  Override to do true mmaps.
     def getxattr(self, shelf_name, attr):
         return 'FALLBACK'
 
@@ -234,8 +240,7 @@ class shadow_file(shadow_support):
 
         # Compare node requirements to file size
         statinfo = os.stat(args.shadow_file)
-        _mode_rw_file = int('0100600', 8)  # isfile, 600
-        assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, \
+        assert self._mode_rw_file == self._mode_rw_file & statinfo.st_mode, \
             '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
 
@@ -333,7 +338,15 @@ class shadow_file(shadow_support):
         return shelf
 
 #--------------------------------------------------------------------------
+# Original class did read/write against the resource file by mmapping slices
+# against /sys/bus/pci/..../resource2.  mmap in kernel was handled by
+# legacy generic fault handles that used read/write.  There was a lot of
+# overhead but it was functional against true global shared memory.
 
+# 'class fam' supported true mmap in the kernel against the physical
+# address of the IVSHMEM device, but it couldn't do read and write.  Merging
+# the two classes (actually, just getxattr() from the previous "class fam")
+# gets the best of both worlds.
 
 class shadow_ivshmem(shadow_support):
 
@@ -341,23 +354,41 @@ class shadow_ivshmem(shadow_support):
 
         super(self.__class__, self).__init__(args, lfs_globals)
 
-        assert (os.path.isfile(
-            args.shadow_ivshmem)), '%s is not a file' % args.shadow_ivshmem
+        # Retrieve ivshmem information.  Our convention states the first
+        # IVSHMEM device found is used as fabric-attached memory.  Parse the
+        # first block of lines of lspci -vv for Bus-Device-Function and
+        # BAR2 information.
 
-        # Compare node requirements to file size
-        _mode_rw_file = int('0100600', 8)  # isfile, 600
-        statinfo = os.stat(args.shadow_ivshmem)
+        lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
+        assert lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'), \
+            'IVSHMEM device not found'
+        bdf = lspci[0].split()[0]
+        print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
+        mf = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
+        assert (os.path.isfile(mf)), '%s is not a file' % mf
 
-        assert _mode_rw_file == _mode_rw_file & statinfo.st_mode, \
-            '%s is not RW' % args.shadow_ivshmem
+        region2 = [ l for l in lspci if 'Region 2:' in l ][0]
+        assert ('(64-bit, prefetchable)' in region2), \
+            'IVSHMEM region 2 not found for device %s' % bdf
+        self.aperture_base = int(region2.split('Memory at')[1].split()[0], 16)
+        assert self.aperture_base, \
+            'Could not retrieve base address of IVSHMEM device at %s' % bdf
+
+        # Compare requirements to file size
+        statinfo = os.stat(mf)
+        assert self._mode_rw_file == self._mode_rw_file & statinfo.st_mode, \
+            '%s is not RW' % mf
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
             'st_size (%d) < nvm_bytes_total (%d)' % \
             (statinfo.st_size, lfs_globals['nvm_bytes_total'])
 
-        self._shadow_fd = -1
+        # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
+        # has firewall table of 32M.  Make sure this is bigger.
+        assert statinfo.st_size > 64 * 1 << 20, \
+            'IVSHMEM at %s is not big enough, possible collision?' % bdf
 
         # os.open vs. built-in allows all the low-level stuff I need.
-        self._shadow_fd = os.open(args.shadow_ivshmem, os.O_RDWR)
+        self._shadow_fd = os.open(mf, os.O_RDWR)
         self._mmap = mmap.mmap(
             self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
 
@@ -449,28 +480,6 @@ class shadow_ivshmem(shadow_support):
             tbuf = b''
 
         return wsize
-
-    def release(self, fd):
-        shelf = self[fd]
-        del self[fd]
-        return shelf
-
-#--------------------------------------------------------------------------
-
-
-class fam(shadow_support):
-
-    def __init__(self, args, lfs_globals):
-        super(self.__class__, self).__init__(args, lfs_globals)
-        self.aperture_base = int(args.fam, 16)
-
-    def open(self, shelf, flags, mode=None):
-        self[shelf.open_handle] = shelf
-        return shelf.open_handle
-
-    def create(self, shelf, mode):
-        self[shelf.open_handle] = shelf
-        return shelf.open_handle
 
     def release(self, fd):
         shelf = self[fd]

@@ -539,9 +539,8 @@ def mount_LFS(args):
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     i = int(bool(args.shadow_ivshmem))
-    m = int(bool(args.fam))
     assert sum(
-        (d, f, i, m)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] | fam is required'
+        (d, f, i)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] is required'
 
     try:
         TMFS(LibrarianFS(args),
@@ -591,14 +590,9 @@ if __name__ == '__main__':
         default='')
     parser.add_argument(
         '--shadow_ivshmem',
-        help='file path to IVSHMEM device',
-        type=str,
-        default='')
-    parser.add_argument(
-        '--fam',
-        help='physical address of FAM base(hexadecimal format 0x...)',
-        type=str,
-        default='')
+        help='use IVSHMEM backing (1st device listed)',
+        action='store_true',
+        default=False)
     parser.add_argument(
         '--verbose',
         help='level of runtime output, larger -> more',
