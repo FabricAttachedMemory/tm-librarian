@@ -410,12 +410,17 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # from shell: touch | truncate /lfs/nofilebythisname
     # return os.open().
     @prentry
-    def create(self, path, mode, fi=None):
+    def create(self, path, mode, fi=None, supermode=None):
         if fi is not None:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
         shelf_name = self.path2shelf(path)
-        mode &= 0o777
-        tmp = self.lcp('create_shelf', name=shelf_name, mode=mode)
+        if supermode is None:
+            mode &= 0o777
+            tmpmode = stat.S_IFREG + mode
+        else:
+            mode = supermode & 0o777
+            tmpmode = supermode
+        tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
         rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)
         fd = self.shadow.create(shelf, mode)
@@ -528,10 +533,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         nbooks = dev & 0xFF     # minor
         if not nbooks:
             raise TmfsOSError(errno.EINVAL)
-        fd = self.create(path, mode & 0x777)
+        mode &= 0o777
+        fd = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
         self.truncate(path, nbooks * self.bsize, fd)
         self.release(path, fd)
-        # mknod(1m) immediately does a stat looking for S_IFBLK
+        # mknod(1m) immediately does a stat looking for S_IFBLK.
+        # Not sure what else to do about shadow mode...
         return 0
 
     @prentry
