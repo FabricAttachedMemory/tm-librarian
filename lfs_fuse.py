@@ -57,7 +57,6 @@ def prentry(func):
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_blk = stat.S_IFBLK + 0o666
-    _mode_default_file = stat.S_IFREG + 0o666
     _mode_default_dir = stat.S_IFDIR + 0o777
 
     def __init__(self, args):
@@ -242,7 +241,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_mtime':     shelf.mtime,
             'st_uid':       42,
             'st_gid':       42,
-            'st_mode':      self._mode_default_file,
+            'st_mode':      shelf.mode,
             'st_nlink':     1,
             'st_size':      shelf.size_bytes
         }
