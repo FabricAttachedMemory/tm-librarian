@@ -414,7 +414,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if fi is not None:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
+        mode &= 0o777
+        tmp = self.lcp('create_shelf', name=shelf_name, mode=mode)
+        rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)
         fd = self.shadow.create(shelf, mode)
         return fd
