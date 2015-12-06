@@ -4,6 +4,7 @@
 
 import errno
 import os
+import stat
 import sys
 import time
 
@@ -55,8 +56,9 @@ def prentry(func):
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
-    _mode_default_file = int('0100666', 8)  # isfile, 666
-    _mode_default_dir = int('0040777', 8)  # isdir, 777
+    _mode_default_blk = stat.S_IFBLK + 0o666
+    _mode_default_file = stat.S_IFREG + 0o666
+    _mode_default_dir = stat.S_IFDIR + 0o777
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -144,7 +146,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             print('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
         self.torms.clearOOB()
 
-    def librarian(self, cmdict):
+    def librarian(self, cmdict, errorOK=False):
         '''Dictionary in, dictionary out'''
         # There are times when the process that invoked an action,
         # notably release(), has died by the time this point is reached.
@@ -162,9 +164,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.ENOKEY)
 
         errmsg = { }
+        rspdict = None
         try:
             self.torms.send_all(cmdict)
-            rspdict = None
             while rspdict is None:
                 rspdict = self.torms.recv_all()
                 if self.torms.inOOB:
@@ -182,9 +184,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             errmsg['errmsg'] = str(e)
             errmsg['errno'] = errno.EREMOTEIO
 
+        # if rspdict is None a comms error occurred and it's game over.
+        # Otherwise an error occurred in evaluating the request (ie, shelf
+        # not found).  In general quitting here is sufficent.
         if errmsg:
             print('%s failed: %s' %
                   (command, errmsg['errmsg']), file=sys.stderr)
+            if rspdict is not None and errorOK:
+                return rspdict
             raise TmfsOSError(errmsg['errno'])
 
         try:
@@ -204,16 +211,21 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # or OSError(errno.ENOENT).  When tenants go live, EPERM can occur.
     # FIXME: move this into Librarian proper.  It should be doing
     # all the calculations, doubly so when we implement tenancy.
+    # fd is set if original call was fstat (vs stat or lstat), not sure
+    # if it matters or not.  Maybe validate it against cache in shadow files?
+
     @prentry
     def getattr(self, path, fd=None):
-        '''fd is set if original call was fstat (vs stat or lstat)'''
+        if fd is not None:
+            raise TmfsOSError(errno.ENOENT)  # never saw this in 4 months
+
         if path == '/':
             now = int(time.time())
             shelves = self.librarian(self.lcp('list_shelves'))
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
-                'st_mode':      0o0041777,      # isdir, sticky, 777
+                'st_mode':      stat.S_ISVTX + stat.S_IFDIR + 0o777,
                 'st_nlink':     len(shelves) + 2,   # '.' and '..'
                 'st_size':      4096,
                 'st_atime':     now,
@@ -222,27 +234,21 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             }
             return tmp
 
-        if fd is None:
-            shelf_name = self.path2shelf(path)
-            rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
-            shelf = TMShelf(rsp)
-            tmp = {
-                'st_ctime':     shelf.ctime,
-                'st_mtime':     shelf.mtime,
-                'st_uid':       42,
-                'st_gid':       42,
-                'st_mode':      self._mode_default_file,
-                'st_nlink':     1,
-                'st_size':      shelf.size_bytes
-              }
-            return tmp
-
-        # Haven't seen this yet...
-        try:
-            set_trace()
-            tmp = self.shadow.getattr(fd)
-        except Exception as e:
-            raise TmfsOSError(errno.ENOENT)
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        shelf = TMShelf(rsp)
+        tmp = {
+            'st_ctime':     shelf.ctime,
+            'st_mtime':     shelf.mtime,
+            'st_uid':       42,
+            'st_gid':       42,
+            'st_mode':      self._mode_default_file,
+            'st_nlink':     1,
+            'st_size':      shelf.size_bytes
+        }
+        if shelf_name.startswith('block'):
+            tmp['st_mode'] = self._mode_default_blk
+        return tmp
 
     @prentry
     def readdir(self, path, index):
@@ -407,8 +413,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def create(self, path, mode, fi=None):
         if fi is not None:
-            print('create(%s) with FI not implemented' % str(fi))
-            set_trace()
+            raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
         shelf_name = self.path2shelf(path)
         rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
@@ -511,7 +516,22 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def mknod(self, path, mode, dev):
-        raise TmfsOSError(errno.ENOSYS)
+        # File can't exist already or upper levels of VFS reject the call.
+        if mode & stat.S_IFBLK != stat.S_IFBLK:
+            raise TmfsOSError(errno.ENOTBLK)
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name),
+                                      errorOK=True)
+        if 'errmsg' not in rsp:
+            raise TmfsOSError(errno.EEXIST)
+        nbooks = dev & 0xFF     # minor
+        if not nbooks:
+            raise TmfsOSError(errno.EINVAL)
+        fd = self.create(path, mode & 0x777)
+        self.truncate(path, nbooks * self.bsize, fd)
+        self.release(path, fd)
+        # mknod(1m) immediately does a stat looking for S_IFBLK
+        return 0
 
     @prentry
     def rmdir(self, path):
@@ -545,6 +565,7 @@ def mount_LFS(args):
     try:
         TMFS(LibrarianFS(args),
              args.mountpoint,
+             dev=True,
              allow_other=True,
              noatime=True,
              foreground=not bool(args.daemon),
