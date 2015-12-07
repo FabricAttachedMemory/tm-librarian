@@ -359,7 +359,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # A book is a block.  Let other commands do the math.
         blocks = globals['books_total']
         bfree = bavail = blocks - globals['books_used']
-        bsize = globals['book_size_bytes']
+        # 2015-12-06: df works with 8M books but breaks with 8G.  My guess:
+        # a 32-bit int somewhere.  Not sure if this matters anyhow.
+        bsize = 1048576     # globals['book_size_bytes']
         return {
             'f_bavail':     bavail,  # free blocks for unpriv users
             'f_bfree':      bfree,   # total free DATA blocks
