@@ -292,7 +292,8 @@ def create_empty_db(cur):
             book_count INT,
             ctime INT,
             mtime INT,
-            name TEXT
+            name TEXT,
+            mode INT
             )
             """
         cur.execute(table_create)

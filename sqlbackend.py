@@ -6,6 +6,7 @@
 # for MariaDB.  I'm not sure about Postgres but it could be close.
 #---------------------------------------------------------------------------
 
+import stat
 import time
 
 from pdb import set_trace
@@ -286,6 +287,8 @@ class LibrarianDBackendSQL(object):
               shelf_data or error message
         """
         shelf.id = None     # DB engine will autochoose next id
+        if not shelf.mode:
+            shelf.mode = stat.S_IFREG + 0o666
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())

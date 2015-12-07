@@ -57,7 +57,6 @@ def prentry(func):
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _mode_default_blk = stat.S_IFBLK + 0o666
-    _mode_default_file = stat.S_IFREG + 0o666
     _mode_default_dir = stat.S_IFDIR + 0o777
 
     def __init__(self, args):
@@ -242,7 +241,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_mtime':     shelf.mtime,
             'st_uid':       42,
             'st_gid':       42,
-            'st_mode':      self._mode_default_file,
+            'st_mode':      shelf.mode,
             'st_nlink':     1,
             'st_size':      shelf.size_bytes
         }
@@ -360,7 +359,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # A book is a block.  Let other commands do the math.
         blocks = globals['books_total']
         bfree = bavail = blocks - globals['books_used']
-        bsize = globals['book_size_bytes']
+        # 2015-12-06: df works with 8M books but breaks with 8G.  My guess:
+        # a 32-bit int somewhere.  Not sure if this matters anyhow.
+        bsize = 1048576     # globals['book_size_bytes']
         return {
             'f_bavail':     bavail,  # free blocks for unpriv users
             'f_bfree':      bfree,   # total free DATA blocks
@@ -411,11 +412,18 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # from shell: touch | truncate /lfs/nofilebythisname
     # return os.open().
     @prentry
-    def create(self, path, mode, fi=None):
+    def create(self, path, mode, fi=None, supermode=None):
         if fi is not None:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
         shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('create_shelf', name=shelf_name))
+        if supermode is None:
+            mode &= 0o777
+            tmpmode = stat.S_IFREG + mode
+        else:
+            mode = supermode & 0o777
+            tmpmode = supermode
+        tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
+        rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)
         fd = self.shadow.create(shelf, mode)
         return fd
@@ -527,10 +535,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         nbooks = dev & 0xFF     # minor
         if not nbooks:
             raise TmfsOSError(errno.EINVAL)
-        fd = self.create(path, mode & 0x777)
+        mode &= 0o777
+        fd = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
         self.truncate(path, nbooks * self.bsize, fd)
         self.release(path, fd)
-        # mknod(1m) immediately does a stat looking for S_IFBLK
+        # mknod(1m) immediately does a stat looking for S_IFBLK.
+        # Not sure what else to do about shadow mode...
         return 0
 
     @prentry
