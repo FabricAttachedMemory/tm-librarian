@@ -1,3 +1,10 @@
+tm-librarian (0.0.5) UNRELEASED; urgency=medium
+
+  * Load/Store (fault handling) and filesystem read/write support
+    on Fabric Attached Memory Emulation environment.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Sun, 04 Jan 1970 19:02:57 -0700
+
 tm-librarian (0.0.4) UNRELEASED; urgency=medium
 
   * Added direct memory support for QFE (--fam).
