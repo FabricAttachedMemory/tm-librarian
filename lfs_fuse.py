@@ -356,12 +356,19 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def statfs(self, path):  # "df" command; example used statVfs.
         globals = self.librarian(self.lcp('get_fs_stats'))
-        # A book is a block.  Let other commands do the math.
         blocks = globals['books_total']
         bfree = bavail = blocks - globals['books_used']
         # 2015-12-06: df works with 8M books but breaks with 8G.  My guess:
         # a 32-bit int somewhere.  Not sure if this matters anyhow.
-        bsize = 1048576     # globals['book_size_bytes']
+        # Use a 4K block size, modify other attributes accordingly.
+        bsize = 4096
+        # This assumes book_size_bytes is evenly divisible by
+        # bsize, if not the stats will be wrong.
+        bm = int(globals['book_size_bytes'] / bsize)
+        blocks *= bm
+        bfree *= bm
+        bavail *= bm
+
         return {
             'f_bavail':     bavail,  # free blocks for unpriv users
             'f_bfree':      bfree,   # total free DATA blocks
