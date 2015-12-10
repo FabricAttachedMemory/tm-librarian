@@ -15,6 +15,7 @@ from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_contex
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket_handling
+from frdnode import FRDnode
 
 from lfs_shadow import the_shadow_knows
 
@@ -76,7 +77,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         os.umask(umask)
         context = {
             'umask': umask,
-            'node_id': args.node_id,
+            'node_id': args.physloc.node_id,
         }
         self.lcp = LibrarianCommandProtocol(context)
 
@@ -572,7 +573,10 @@ def mount_LFS(args):
        Validate fields and call FUSE'''
     assert os.path.isdir(
         args.mountpoint), 'No such directory %s' % args.mountpoint
-    assert 1 <= args.node_id <= 80, 'Node ID must be from 1 - 999'
+    try:
+        args.physloc = FRDnode(args.physloc)
+    except Exception as e:
+        raise SystemExit('Bad physical location %s' % args.physloc)
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     i = int(bool(args.shadow_ivshmem))
@@ -605,12 +609,11 @@ if __name__ == '__main__':
     parser.add_argument(
         'mountpoint',
         help='Local directory mountpoint',
-        type=str,
-        default='/lfs')
+        type=str)
     parser.add_argument(
-        'node_id',
-        help='Numeric node id',
-        type=int)
+        'physloc',
+        help='Node physical location "rack:enc:node"',
+        type=str)
     parser.add_argument(
         '--daemon',
         help='Daemonize the program',
