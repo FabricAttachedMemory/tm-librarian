@@ -13,7 +13,7 @@ from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
-from genericobj import GenericObject
+from frdnode import FRDnode
 
 
 class LibrarianCommandEngine(object):
@@ -474,6 +474,9 @@ class LibrarianCommandEngine(object):
             return { 'errmsg': errmsg, 'errno': errno.ENOSYS }, None
 
         try:
+            # If this is a performance problem, cache node_id
+            assert FRDnode(int(cmdict['context']['node_id'])) in self.nodes, \
+                'Node is not configured in Librarian topology'
             errmsg = ''  # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
