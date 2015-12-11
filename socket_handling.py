@@ -93,7 +93,9 @@ class SocketReadWrite(object):
                True or raised error.
         """
 
+        self.sent = 0
         if JSON:
+            # Error possible here: "not JSON serializable", let it raise
             outbytes = dumps(obj).encode()
         else:
             outbytes = obj.encode()
@@ -111,11 +113,12 @@ class SocketReadWrite(object):
                 n = self._sock.send(self.outbytes)
                 if not n:
                     raise OSError(errno.EWOULDBLOCK, 'full')
+                self.sent += n
                 self.outbytes = self.outbytes[n:]
             self.reset_blocking_retry()
             return True
         except BlockingIOError as e:
-            # Far side is full
+            # Far side is full.  FIXME: raising OSError is a weak response
             if self.check_blocking_retry_max():
                 raise OSError(errno.EWOULDBLOCK, 'blocking_retry_max')
         except OSError as e:
@@ -134,13 +137,16 @@ class SocketReadWrite(object):
             set_trace()
             pass
             raise
+        return False
 
     def send_result(self, result, JSON=True):
         try:
-            return self.send_all(result, JSON)
+            self.last_errmsg = ''
+            return self.send_all(result, JSON)  # True or raise
         except Exception as e:  # could be blocking IO
-            print('%s: %s' % (self, str(e)), file=sys.stderr)
-            return False
+            self.last_errmsg = '%s: %s' % (self, str(e))
+            print(self.last_errmsg, file=sys.stderr)
+        return False
 
     #----------------------------------------------------------------------
     # Receive stuff
@@ -460,8 +466,16 @@ class Server(SocketReadWrite):
                     raise
 
                 # NO "finally": it circumvents "continue" in error clause(s)
-                if not s.send_result(result):
-                    to_write.append(s)
+                if not s.send_result(result):   # holdoff or error?
+                    if s.outbytes:  # conversion was ok
+                        to_write.append(s)
+                    else:
+                        if not s.sent:  # nothing queued, nothing sent: error
+                            s.send_result(
+                                { 'errmsg': s.last_errmsg,
+                                  'errno': errno.EPROTO }
+                            )
+                            pass
                     continue  # no need to check OOB for now
 
                 if OOBmsg:
