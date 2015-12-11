@@ -19,14 +19,15 @@ from pdb import set_trace
 class FRDnodeID(object):
     """Reverse-calculation of a node ID 1-80 from enc 1-8  and node 1-10."""
 
-    def __eq__(self, other):
-        return (self.rack == other.rack and
-                self.enc == other.enc and
-                self.node == other.node)
-
     @property
     def node_id(self):
         return (self.rack - 1) * 80 + (self.enc - 1) * 10 + self.node
+
+    def __eq__(self, other):
+        return self.node_id == other.node_id
+
+    def __hash__(self):
+        return self.node_id
 
 #--------------------------------------------------------------------------
 
@@ -124,18 +125,28 @@ class FRDnode(FRDnodeID):
 
     def __init__(self, node, enc=None, MAC=None, module_size_books=0,
                  autoMCs=True):
-        if enc is None:     # old school, node is enumerator 1-80
-            assert 1 <= node <= 80, 'Bad node enumeration value'
-            node_id = node
-            n = node - 1   # modulus math
-            node = (n % 10) + 1
-            enc = ((n % 80) // 10) + 1
-            rack = (n // 80) + 1    # always 1
+        node_id = None
+        if enc is None:
+            try:
+                # encoded string
+                rack, enc, node = node.split(':')
+                rack = int(rack)
+                enc = int(enc)
+                node = int(node)
+            except Exception as e:
+                # old school, node is enumerator 1-80
+                assert 1 <= node <= 80, 'Bad node enumeration value'
+                node_id = node
+                n = node - 1   # modulus math
+                node = (n % 10) + 1
+                enc = ((n % 80) // 10) + 1
+                rack = (n // 80) + 1    # always 1
         else:
-            node_id = None
-            assert 1 <= enc <= 8, 'Bad enclosure value'
-            assert 1 <= node <= 10, 'Bad node value'
             rack = 1    # FRD: 1 rack
+
+        assert 1 == rack, 'Bad rack value'
+        assert 1 <= enc <= 8, 'Bad enclosure value'
+        assert 1 <= node <= 10, 'Bad node value'
         self.node = node
         self.enc = enc
         self.rack = rack
