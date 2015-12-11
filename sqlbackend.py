@@ -229,6 +229,20 @@ class LibrarianDBackendSQL(object):
         book_data = [ r for r in self._cur ]
         return(book_data)
 
+    def get_books_on_shelf(self, shelf):
+        """ Retrieve all books on a shelf.
+            Input---
+              shelf
+            Output---
+              book data or None
+        """
+        self._cur.execute('''SELECT * FROM books_on_shelves
+                             WHERE shelf_id = ?
+                             ORDER BY seq_num''', shelf.id)
+        self._cur.iterclass = TMBook
+        books = [ r for r in self._cur ]
+        return books
+
     def get_book_all(self):
         """ Retrieve all books from "books" table.
             Input---
