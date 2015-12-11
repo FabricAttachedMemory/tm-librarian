@@ -348,7 +348,7 @@ class LibrarianCommandEngine(object):
             assert not setting, 'Setting Interleave is prohibited'
             shelf = self.cmd_get_shelf(cmdict)
             bos = self.db.get_books_on_shelf(shelf)
-            value = bytes([ b.intlv_group for b in bos ])
+            value = bytes([ b.intlv_group for b in bos ]).decode()
         else:
             raise AssertionError('Bad LFS attribute')
         return (xattr, value)
