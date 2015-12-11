@@ -195,7 +195,6 @@ class LibrarianCommandEngine(object):
         xattrs = self.db.list_xattrs(shelf)
         for thisbos in bos:
             self.db.delete_bos(thisbos)
-            # Was ZOMBIE
             _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
         for xattr in xattrs:
             self.db.remove_xattr(shelf, xattr)
@@ -312,20 +311,6 @@ class LibrarianCommandEngine(object):
         book = self.db.get_book_by_id(book_id)
         return book
 
-    def cmd_get_xattr(self, cmdict):
-        """ Retrieve name/value pair for an extendend attribute of a shelf.
-            In (dict)---
-                name
-                id
-                xattr
-            Out (dict) ---
-                value
-        """
-        # Zombie is okay, they should be cleared.
-        shelf = self.cmd_get_shelf(cmdict)
-        value = self.db.get_xattr(shelf, cmdict['xattr'])
-        return { 'value': value }
-
     def cmd_list_xattrs(self, cmdict):
         """ Retrieve names of all extendend attributes of a shelf.
             In (dict)---
@@ -338,23 +323,50 @@ class LibrarianCommandEngine(object):
         # in Linux strips them out before getting back to the user.  POSIX?
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
+        value.append('user.LFS.Interleave')     # intrinsic
         return { 'value': value }
 
-    def _xattr_delta_assist(self, cmdict, removing=False):
+    def _xattr_assist(self, cmdict, setting=False, removing=False):
         # A little idiot checking has been done on the far side.  Do more
         self.errno = errno.EINVAL
         xattr = cmdict['xattr']
         value = cmdict.get('value', None)
+        if setting:
+            assert value is not None, 'Trying to set a null value'
         elems = xattr.split('.')
-        if elems[1] != 'LFS':
+        if elems[1] != 'LFS':       # simple get or set
             return (xattr, value)
-        assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
 
-        # Simple for now
-        assert elems[2] in ('AllocationPolicy', ), 'Bad LFS attribute'
-        assert not removing, 'Removal of AllocationPolicy is prohibited'
-        assert value == 'Local', 'Bad AllocationPolicy value'
+        # LFS special values
+        assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
+        assert not removing, 'Removal of LFS xattrs is prohibited'
+
+        if elems[2] == 'AllocationPolicy':
+            if setting:
+                assert value in ('Local', 'Random'), 'Bad AllocationPolicy'
+        elif elems[2] == 'Interleave':
+            assert not setting, 'Setting Interleave is prohibited'
+            shelf = self.cmd_get_shelf(cmdict)
+            bos = self.db.get_books_on_shelf(shelf)
+            value = bytes([ b.intlv_group for b in bos ]).decode()
+        else:
+            raise AssertionError('Bad LFS attribute')
         return (xattr, value)
+
+    def cmd_get_xattr(self, cmdict):
+        """ Retrieve name/value pair for an extendend attribute of a shelf.
+            In (dict)---
+                name
+                id
+                xattr
+            Out (dict) ---
+                value
+        """
+        xattr, value = self._xattr_assist(cmdict)
+        if value is None:
+            shelf = self.cmd_get_shelf(cmdict)
+            value = self.db.get_xattr(shelf, xattr)
+        return { 'value': value }
 
     def cmd_set_xattr(self, cmdict):
         """ Set/update name/value pair for an extended attribute of a shelf.
@@ -367,17 +379,16 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side.
+        xattr, value = self._xattr_assist(cmdict, setting=True)
         shelf = self.cmd_get_shelf(cmdict)
-
-        xattr, value = self._xattr_delta_assist(cmdict)
 
         if self.db.get_xattr(shelf, xattr, exists_only=True):
             return self.db.modify_xattr(shelf, xattr, value)
         return self.db.create_xattr(shelf, xattr, value)
 
     def cmd_remove_xattr(self, cmdict):
+        xattr, value = self._xattr_assist(cmdict, removing=True)
         shelf = self.cmd_get_shelf(cmdict)
-        xattr, value = self._xattr_delta_assist(cmdict, removing=True)
         return self.db.remove_xattr(shelf, xattr)
 
     def cmd_set_am_time(self, cmdict):
