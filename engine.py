@@ -8,9 +8,11 @@ import uuid
 import time
 import math
 import sys
+import traceback
 from operator import attrgetter
 from pdb import set_trace
 
+from book_policy import xattr_assist, get_books_by_policy, BOOK_POLICY_DEFAULT
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 from frdnode import FRDnode
@@ -36,13 +38,6 @@ class LibrarianCommandEngine(object):
     @classmethod
     def _nbooks(cls, nbytes):
         return int(math.ceil(float(nbytes) / float(cls._book_size_bytes)))
-
-    def get_best_intlv_group(self, node_id, shelf):
-        policy = self.db.get_xattr(shelf, 'user.LFS.AllocationPolicy')
-
-        # this for now, more to come
-        assert policy == 'Local', 'Unimplemented policy'
-        return node_id - 1  # using IGs 0-79 on nodes 1-80
 
     def cmd_version(self, cmdict):
         """ Return librarian version
@@ -80,7 +75,8 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
-        self.db.create_xattr(shelf, 'user.LFS.AllocationPolicy', 'Local')
+        self.db.create_xattr(
+            shelf, 'user.LFS.AllocationPolicy', BOOK_POLICY_DEFAULT)
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
@@ -257,15 +253,9 @@ class LibrarianCommandEngine(object):
             return shelf
 
         books_needed = new_book_count - shelf.book_count
-        node_id = cmdict['context']['node_id']
         if books_needed > 0:
+            freebooks = get_books_by_policy(self, shelf, cmdict, books_needed)
             seq_num = shelf.book_count
-            IG = self.get_best_intlv_group(node_id, shelf)
-            freebooks = self.db.get_books_by_intlv_group(
-                IG, TMBook.ALLOC_FREE, books_needed)
-            self.errno = errno.ENOSPC
-            assert len(freebooks) == books_needed, (
-                'out of space on node %d for "%s"' % (node_id, shelf.name))
             for book in freebooks:  # Mark book in use and create BOS entry
                 book = self._set_book_alloc(book.id, TMBook.ALLOC_INUSE)
                 seq_num += 1
@@ -326,33 +316,6 @@ class LibrarianCommandEngine(object):
         value.append('user.LFS.Interleave')     # intrinsic
         return { 'value': value }
 
-    def _xattr_assist(self, cmdict, setting=False, removing=False):
-        # A little idiot checking has been done on the far side.  Do more
-        self.errno = errno.EINVAL
-        xattr = cmdict['xattr']
-        value = cmdict.get('value', None)
-        if setting:
-            assert value is not None, 'Trying to set a null value'
-        elems = xattr.split('.')
-        if elems[1] != 'LFS':       # simple get or set
-            return (xattr, value)
-
-        # LFS special values
-        assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
-        assert not removing, 'Removal of LFS xattrs is prohibited'
-
-        if elems[2] == 'AllocationPolicy':
-            if setting:
-                assert value in ('Local', 'Random'), 'Bad AllocationPolicy'
-        elif elems[2] == 'Interleave':
-            assert not setting, 'Setting Interleave is prohibited'
-            shelf = self.cmd_get_shelf(cmdict)
-            bos = self.db.get_books_on_shelf(shelf)
-            value = bytes([ b.intlv_group for b in bos ]).decode()
-        else:
-            raise AssertionError('Bad LFS attribute')
-        return (xattr, value)
-
     def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
             In (dict)---
@@ -362,7 +325,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 value
         """
-        xattr, value = self._xattr_assist(cmdict)
+        xattr, value = xattr_assist(self, cmdict)
         if value is None:
             shelf = self.cmd_get_shelf(cmdict)
             value = self.db.get_xattr(shelf, xattr)
@@ -379,7 +342,7 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side.
-        xattr, value = self._xattr_assist(cmdict, setting=True)
+        xattr, value = xattr_assist(self, cmdict, setting=True)
         shelf = self.cmd_get_shelf(cmdict)
 
         if self.db.get_xattr(shelf, xattr, exists_only=True):
@@ -387,7 +350,7 @@ class LibrarianCommandEngine(object):
         return self.db.create_xattr(shelf, xattr, value)
 
     def cmd_remove_xattr(self, cmdict):
-        xattr, value = self._xattr_assist(cmdict, removing=True)
+        xattr, value = xattr_assist(self, cmdict, removing=True)
         shelf = self.cmd_get_shelf(cmdict)
         return self.db.remove_xattr(shelf, xattr)
 
@@ -465,6 +428,9 @@ class LibrarianCommandEngine(object):
             raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(innerE))
 
     def __call__(self, cmdict):
+        '''Discern the command routine from the command name and call it.'''
+        # FIXME: untrapped errors will dump the librarian, specifically the
+        # error handling code.
         try:
             self.errno = 0
             context = cmdict['context']
@@ -492,15 +458,16 @@ class LibrarianCommandEngine(object):
             self.errno = 0
             ret = OOBmsg = None
             ret = command(self, cmdict)
-        except AssertionError as e:  # consistency checks
+        except (AssertionError, RuntimeError) as e:  # programmed checks
             errmsg = str(e)
-        except (AttributeError, RuntimeError) as e:  # idiot checks
-            errmsg = 'INTERNAL ERROR @ %s[%d]: %s' % (
-                self.__class__.__name__, sys.exc_info()[2].tb_lineno, str(e))
-        except Exception as e:  # the Unknown Idiot
-            errmsg = 'UNEXPECTED ERROR @ %s[%d]: %s' % (
-                self.__class__.__name__, sys.exc_info()[2].tb_lineno, str(e))
+        except Exception as e:  # the Unknown Idiot needs some help
+            traceback.print_exception(*sys.exc_info())
+            errmsg = 'INTERNAL CODING ERROR: %s' % str(e)
+
         if errmsg:  # Looks better _cooked
+            print('%s failed: %s: %s' %
+                (cmdict['command'], errno.errorcode[self.errno], errmsg),
+                file=sys.stderr)
             return { 'errmsg': errmsg, 'errno': self.errno }, None
 
         if isinstance(ret, dict):

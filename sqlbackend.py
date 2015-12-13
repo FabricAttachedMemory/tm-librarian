@@ -203,7 +203,8 @@ class LibrarianDBackendSQL(object):
         assert len(books) <= 1, 'Matched more than one book'
         return books[0] if books else None
 
-    def get_books_by_intlv_group(self, IG, allocated_value, num_books):
+    def get_books_by_intlv_group(self, IG, allocated_value, num_books,
+            inverse=False):
         """ Retrieve book(s) from "books" table using node
             Input---
               node_id - id of node to filter on
@@ -219,11 +220,18 @@ class LibrarianDBackendSQL(object):
             self._cur.iterclass = 'default'
             return [ r[0] for r in self._cur.fetchall() ]
 
-        db_query = """
-                SELECT * FROM books
-                WHERE intlv_group = ? AND allocated = ?
-                LIMIT ?
-            """
+        if inverse:
+            db_query = """
+                    SELECT * FROM books
+                    WHERE intlv_group != ? AND allocated = ?
+                    LIMIT ?
+                """
+        else:
+            db_query = """
+                    SELECT * FROM books
+                    WHERE intlv_group = ? AND allocated = ?
+                    LIMIT ?
+                """
         self._cur.execute(db_query, (IG, allocated_value, num_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
