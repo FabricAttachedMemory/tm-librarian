@@ -255,6 +255,9 @@ class LibrarianCommandEngine(object):
         books_needed = new_book_count - shelf.book_count
         if books_needed > 0:
             freebooks = get_books_by_policy(self, shelf, cmdict, books_needed)
+            self.errno = errno.ENOSPC
+            assert len(freebooks) == books_needed, \
+                'out of space for "%s"' % shelf.name
             seq_num = shelf.book_count
             for book in freebooks:  # Mark book in use and create BOS entry
                 book = self._set_book_alloc(book.id, TMBook.ALLOC_INUSE)
