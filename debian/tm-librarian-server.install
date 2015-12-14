@@ -1,4 +1,5 @@
 book_register.py	usr/lib/python3/dist-packages/tm-librarian
+book_policy.py		usr/lib/python3/dist-packages/tm-librarian
 frdnode.py		usr/lib/python3/dist-packages/tm-librarian
 book_max.ini		usr/lib/python3/dist-packages/tm-librarian
 book_data.ini		usr/lib/python3/dist-packages/tm-librarian
