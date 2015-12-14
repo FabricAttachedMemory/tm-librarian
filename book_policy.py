@@ -93,17 +93,18 @@ class BookPolicy(object):
         nonlocalbooks = self._policy_LocalOnly(books_needed, inverse=True)
         return localbooks + nonlocalbooks
 
-    def _policy_LZAascending(self, books_needed):
+    def _policy_LZAascending(self, books_needed, ascending=True):
         # using IGs 0-79 on nodes 1-80
         IG = 99999
         db = self.LCEobj.db
         freebooks = db.get_books_by_intlv_group(
-            IG, TMBook.ALLOC_FREE, books_needed, inverse=True)
+            IG, TMBook.ALLOC_FREE, books_needed,
+            inverse=True, ascending=ascending)
         return freebooks
 
     def _policy_LZAdescending(self, books_needed):
-        freebooks = self._policy_LZAascending(books_needed)
-        return freebooks[::-1]
+        freebooks = self._policy_LZAascending(books_needed, ascending=False)
+        return freebooks
 
     def __call__(self, books_needed):
         '''Look up the appropriate routine or throw an error'''
