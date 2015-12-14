@@ -203,7 +203,8 @@ class LibrarianDBackendSQL(object):
         assert len(books) <= 1, 'Matched more than one book'
         return books[0] if books else None
 
-    def get_books_by_intlv_group(self, IG, allocated_value, num_books):
+    def get_books_by_intlv_group(self, IG, allocated_value, num_books,
+            inverse=False):
         """ Retrieve book(s) from "books" table using node
             Input---
               node_id - id of node to filter on
@@ -219,15 +220,22 @@ class LibrarianDBackendSQL(object):
             self._cur.iterclass = 'default'
             return [ r[0] for r in self._cur.fetchall() ]
 
-        db_query = """
-                SELECT * FROM books
-                WHERE intlv_group = ? AND allocated = ?
-                LIMIT ?
-            """
+        if inverse:
+            db_query = """
+                    SELECT * FROM books
+                    WHERE intlv_group != ? AND allocated = ?
+                    LIMIT ?
+                """
+        else:
+            db_query = """
+                    SELECT * FROM books
+                    WHERE intlv_group = ? AND allocated = ?
+                    LIMIT ?
+                """
         self._cur.execute(db_query, (IG, allocated_value, num_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
-        return(book_data)
+        return book_data
 
     def get_books_on_shelf(self, shelf):
         """ Retrieve all books on a shelf.
@@ -236,9 +244,10 @@ class LibrarianDBackendSQL(object):
             Output---
               book data or None
         """
-        self._cur.execute('''SELECT * FROM books_on_shelves
-                             WHERE shelf_id = ?
-                             ORDER BY seq_num''', shelf.id)
+        self._cur.execute('''
+            SELECT id, intlv_group, book_num, allocated, attributes
+            FROM books JOIN books_on_shelves ON books.id = book_id
+            WHERE shelf_id = ? ORDER BY seq_num''', shelf.id)
         self._cur.iterclass = TMBook
         books = [ r for r in self._cur ]
         return books

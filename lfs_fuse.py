@@ -304,7 +304,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             rsp = self.librarian(
                 self.lcp('get_xattr', name=shelf_name, xattr=attr))
             value = rsp['value']
-            assert value
+            assert value is not None    # 'No such attribute'
             return value if isinstance(value, int) else bytes(value.encode())
         except Exception as e:
             raise TmfsOSError(errno.ENODATA)    # syn for ENOATTR
@@ -321,7 +321,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
 
     @prentry
-    def setxattr(self, path, attr, valbytes, options, position=0):
+    def setxattr(self, path, xattr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
         if options:
             set_trace()  # haven't actually seen it yet
