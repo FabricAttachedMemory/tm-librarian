@@ -12,7 +12,7 @@ import traceback
 from operator import attrgetter
 from pdb import set_trace
 
-from book_policy import xattr_assist, get_books_by_policy, BOOK_POLICY_DEFAULT
+from book_policy import BookPolicy
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 from frdnode import FRDnode
@@ -76,7 +76,7 @@ class LibrarianCommandEngine(object):
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
         self.db.create_xattr(
-            shelf, 'user.LFS.AllocationPolicy', BOOK_POLICY_DEFAULT)
+            shelf, 'user.LFS.AllocationPolicy', BookPolicy.POLICY_DEFAULT)
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
@@ -254,7 +254,8 @@ class LibrarianCommandEngine(object):
 
         books_needed = new_book_count - shelf.book_count
         if books_needed > 0:
-            freebooks = get_books_by_policy(self, shelf, cmdict, books_needed)
+            policy = BookPolicy(self, shelf, cmdict['context'])
+            freebooks = policy(books_needed)
             self.errno = errno.ENOSPC
             assert len(freebooks) == books_needed, \
                 'out of space for "%s"' % shelf.name
@@ -328,7 +329,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 value
         """
-        xattr, value = xattr_assist(self, cmdict)
+        xattr, value = BookPolicy.xattr_assist(self, cmdict)
         if value is None:
             shelf = self.cmd_get_shelf(cmdict)
             value = self.db.get_xattr(shelf, xattr)
@@ -345,7 +346,7 @@ class LibrarianCommandEngine(object):
                 None or raise error
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side.
-        xattr, value = xattr_assist(self, cmdict, setting=True)
+        xattr, value = BookPolicy.xattr_assist(self, cmdict, setting=True)
         shelf = self.cmd_get_shelf(cmdict)
 
         if self.db.get_xattr(shelf, xattr, exists_only=True):
@@ -353,7 +354,7 @@ class LibrarianCommandEngine(object):
         return self.db.create_xattr(shelf, xattr, value)
 
     def cmd_remove_xattr(self, cmdict):
-        xattr, value = xattr_assist(self, cmdict, removing=True)
+        xattr, value = BookPolicy.xattr_assist(self, cmdict, removing=True)
         shelf = self.cmd_get_shelf(cmdict)
         return self.db.remove_xattr(shelf, xattr)
 
