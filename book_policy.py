@@ -21,7 +21,9 @@ from frdnode import FRDnode, FRDintlv_group
 class BookPolicy(object):
 
     POLICY_DEFAULT = 'LocalOnly'
-    _policies = (POLICY_DEFAULT, 'LocalFirst', 'Random')
+    _policies = (POLICY_DEFAULT, 'LocalFirst',
+                 'LZAascending', 'LZAdescending',
+                 'Random')
 
     @classmethod
     def xattr_assist(cls, LCEobj, cmdict, setting=False, removing=False):
@@ -44,6 +46,9 @@ class BookPolicy(object):
             if setting:
                 assert value in cls._policies, \
                     'Bad AllocationPolicy "%s"' % value
+        elif elems[2] == 'AllocationPolicyList':
+            assert not setting, 'Setting AllocationPolicyList is prohibited'
+            value = ','.join(cls._policies)
         elif elems[2] == 'Interleave':
             assert not setting, 'Setting Interleave is prohibited'
             shelf = LCEobj.cmd_get_shelf(cmdict)
@@ -88,11 +93,32 @@ class BookPolicy(object):
         nonlocalbooks = self._policy_LocalOnly(books_needed, inverse=True)
         return localbooks + nonlocalbooks
 
+    def _policy_LZAascending(self, books_needed):
+        # using IGs 0-79 on nodes 1-80
+        IG = 99999
+        db = self.LCEobj.db
+        freebooks = db.get_books_by_intlv_group(
+            IG, TMBook.ALLOC_FREE, books_needed, inverse=True)
+        return freebooks
+
+    def _policy_LZAdescending(self, books_needed):
+        freebooks = self._policy_LZAascending(books_needed)
+        return freebooks[::-1]
+
     def __call__(self, books_needed):
-        self.LCEobj.errno = errno.EINVAL
-        if self.name == self.POLICY_DEFAULT:
-            return self._policy_LocalOnly(books_needed)
-        elif self.name == 'LocalFirst':
-            return self._policy_LocalFirst(books_needed)
-        else:
-            raise AssertionError('%s not implemented yet' % self.name)
+        '''Look up the appropriate routine or throw an error'''
+        self.LCEobj.errno = errno.ENOSYS
+        try:
+            policy_func = self.__class__.__dict__['_policy_' + self.name]
+            return policy_func(self, books_needed)
+        except KeyError as e:
+            # AssertionError is a "gentler" reporting path back to user
+            raise AssertionError('"%s" is not implemented' % self.name)
+
+###########################################################################
+# This is NOT for testing, just a quick entry without the full Librarian.
+
+
+if __name__ == '__main__':
+    set_trace()
+    policy = BookPolicy(None, None, None)

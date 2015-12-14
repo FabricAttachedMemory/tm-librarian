@@ -317,8 +317,11 @@ class LibrarianCommandEngine(object):
         # in Linux strips them out before getting back to the user.  POSIX?
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
-        value.append('user.LFS.Interleave')     # intrinsic
-        return { 'value': value }
+        # AllocationPolicy is auto-added at shelf creation and can't be
+        # removed.  Artificially add these "intrinsic" xattrs
+        value.append('user.LFS.AllocationPolicyList')
+        value.append('user.LFS.Interleave')
+        return { 'value': sorted(value) }
 
     def cmd_get_xattr(self, cmdict):
         """ Retrieve name/value pair for an extendend attribute of a shelf.
