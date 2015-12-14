@@ -235,7 +235,7 @@ class LibrarianDBackendSQL(object):
         self._cur.execute(db_query, (IG, allocated_value, num_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
-        return(book_data)
+        return book_data
 
     def get_books_on_shelf(self, shelf):
         """ Retrieve all books on a shelf.
@@ -244,9 +244,10 @@ class LibrarianDBackendSQL(object):
             Output---
               book data or None
         """
-        self._cur.execute('''SELECT * FROM books_on_shelves
-                             WHERE shelf_id = ?
-                             ORDER BY seq_num''', shelf.id)
+        self._cur.execute('''
+            SELECT id, intlv_group, book_num, allocated, attributes
+            FROM books JOIN books_on_shelves ON books.id = book_id
+            WHERE shelf_id = ? ORDER BY seq_num''', shelf.id)
         self._cur.iterclass = TMBook
         books = [ r for r in self._cur ]
         return books
