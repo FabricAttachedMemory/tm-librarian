@@ -8,6 +8,7 @@ import errno
 import math
 import os
 import stat
+import sys
 import tempfile
 import mmap
 from subprocess import getoutput
@@ -37,7 +38,7 @@ class shadow_support(object):
         self._igstart = {}
         for igstr in sorted(lfs_globals['books_per_IG'].keys()):
             ig = int(igstr)
-            print('IG %2d flatspace offset @ %d' % (ig, offset))
+            print('IG %2d flatspace offset @ %d (0x%x)' % (ig, offset, offset))
             self._igstart[ig] = offset
             books = int(lfs_globals['books_per_IG'][igstr])
             offset += books * self.book_size
@@ -495,7 +496,8 @@ class shadow_ivshmem(shadow_support):
         # Called during fault handler in kernel, don't die here :-)
         try:
             bos = self[shelf_name].bos
-            cmd, offset = xattr.split(':')
+            cmd, comm, pid, offset = xattr.split(':')
+            pid = int(pid)
             offset = int(offset)
             book_num = offset // self.book_size  # (0..n)
             book_offset = offset % self.book_size
@@ -504,23 +506,26 @@ class shadow_ivshmem(shadow_support):
             lza = bos[book_num]['lza']
 
             # FAME physical offset for virtual to physical mapping during fault
-            ivshmem_offset = fam_offset = self.shadow_offset(shelf_name, offset)
-            if fam_offset == -1:
+            ivshmem_offset = self.shadow_offset(shelf_name, offset)
+            if ivshmem_offset == -1:
                 return 'ERROR'
-            fam_offset += self.aperture_base
+            physaddr = self.aperture_base + ivshmem_offset
 
-            data = (':'.join(str(x) for x in
-                (lza, book_offset, self.book_size, self.aperture_base, fam_offset)))
+            # Save this construct for future "class aperture"
+            # data = ':'.join(str(x) for x in (
+            # lza, book_offset, self.book_size, self.aperture_base, physaddr))
+
+            data = 'direct:%s' % physaddr
 
             if self.verbose > 3:
-                print('shelf = %s, offset = %d (0x%x)' % (
-                    shelf_name, offset, offset))
+                print('Process %s[%d] shelf = %s, offset = %d (0x%x)' % (
+                    comm, pid, shelf_name, offset, offset))
                 print('shelf book seq=%d, lza=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num, lza, lza >> 13, lza & ((1 << 13) -1 )))
-                print('fam_offset = %d (0x%x)' % (fam_offset, fam_offset))
-                print('data returned to fault handler = %s' % (data))
+                print('physaddr = %d (0x%x)' % (physaddr, physaddr))
                 print('IVSHMEM backing file offset = %d (0x%x)' % (
                     ivshmem_offset, ivshmem_offset))
+                print('data returned to fault handler = %s' % (data))
 
             return data
 
