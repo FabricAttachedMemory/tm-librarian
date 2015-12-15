@@ -119,7 +119,7 @@ class shadow_support(object):
     # Piggybacked during mmap fault handling.  If the kernel receives
     # 'FALLBACK' it will use legacy, generic cache-based handler with stock
     # read() and write() spill and fill.  Override to do true mmaps.
-    def getxattr(self, shelf_name, attr):
+    def getxattr(self, shelf_name, xattr):
         return 'FALLBACK'
 
     def read(self, shelf_name, length, offset, fd):
@@ -386,11 +386,16 @@ class shadow_ivshmem(shadow_support):
         # has firewall table of 32M.  Make sure this is bigger.
         assert statinfo.st_size > 64 * 1 << 20, \
             'IVSHMEM at %s is not big enough, possible collision?' % bdf
+        self.aperture_size = statinfo.st_size
 
         # os.open vs. built-in allows all the low-level stuff I need.
         self._shadow_fd = os.open(mf, os.O_RDWR)
         self._mmap = mmap.mmap(
             self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+
+        print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
+              self.aperture_size - 1,
+              self.aperture_base, self.aperture_base + self.aperture_size - 1))
 
     def open(self, shelf, flags, mode=None):
         self[shelf.open_handle] = shelf
@@ -486,11 +491,11 @@ class shadow_ivshmem(shadow_support):
         del self[fd]
         return shelf
 
-    def getxattr(self, shelf_name, attr):
+    def getxattr(self, shelf_name, xattr):
         # Called during fault handler in kernel, don't die here :-)
         try:
             bos = self[shelf_name].bos
-            cmd, offset = attr.split(':')
+            cmd, offset = xattr.split(':')
             offset = int(offset)
             book_num = offset // self.book_size  # (0..n)
             book_offset = offset % self.book_size
@@ -499,7 +504,7 @@ class shadow_ivshmem(shadow_support):
             lza = bos[book_num]['lza']
 
             # FAME physical offset for virtual to physical mapping during fault
-            fam_offset = self.shadow_offset(shelf_name, offset)
+            ivshmem_offset = fam_offset = self.shadow_offset(shelf_name, offset)
             if fam_offset == -1:
                 return 'ERROR'
             fam_offset += self.aperture_base
@@ -508,10 +513,14 @@ class shadow_ivshmem(shadow_support):
                 (lza, book_offset, self.book_size, self.aperture_base, fam_offset)))
 
             if self.verbose > 3:
-                print("shelf = %s, offset = %d (0x%x)" % (shelf_name, offset, offset))
-                print("book_num = %d, lza = %d (0x%x)" % (book_num, lza, lza))
-                print("fam_offset = %d (0x%x)" % (fam_offset, fam_offset))
-                print("data = %s" % (data))
+                print('shelf = %s, offset = %d (0x%x)' % (
+                    shelf_name, offset, offset))
+                print('shelf book seq=%d, lza=0x%x -> IG=%d, IGoffset=%d' % (
+                    book_num, lza, lza >> 13, lza & ((1 << 13) -1 )))
+                print('fam_offset = %d (0x%x)' % (fam_offset, fam_offset))
+                print('data returned to fault handler = %s' % (data))
+                print('IVSHMEM backing file offset = %d (0x%x)' % (
+                    ivshmem_offset, ivshmem_offset))
 
             return data
 

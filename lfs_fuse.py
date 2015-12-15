@@ -279,8 +279,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # a reasonable assumption the shelf exists.
 
     @prentry
-    def getxattr(self, path, attr, position=0):
-        """Called with a specific namespace.name attr.  Can return either
+    def getxattr(self, path, xattr, position=0):
+        """Called with a specific namespace.name xattr.  Can return either
            a bytes array OR an int."""
         if position:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
@@ -292,8 +292,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Piggy back on getxattr to retrieve LZA during fault handling
         # input : "fault_get_lza":<byte offset into shelf>
         # output: <lza>:<book offset>:<book size>:<aperture base>
-        if "fault_get_lza" in attr:
-            data = self.shadow.getxattr(shelf_name, attr)
+        if "fault_get_lza" in xattr:
+            data = self.shadow.getxattr(shelf_name, xattr)
             return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
@@ -302,7 +302,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         try:
             rsp = self.librarian(
-                self.lcp('get_xattr', name=shelf_name, xattr=attr))
+                self.lcp('get_xattr', name=shelf_name, xattr=xattr))
             value = rsp['value']
             assert value is not None    # 'No such attribute'
             return value if isinstance(value, int) else bytes(value.encode())
