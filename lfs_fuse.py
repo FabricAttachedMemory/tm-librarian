@@ -100,8 +100,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # be ignored, so if there's potentially fatal stuff, do it in __init__()
 
     @prentry
-    def init(self, root, **kwargs):
-        pass
+    def init(self, root, *args, **kwargs):
+        assert not args and not kwargs, 'Unexpected parameters to init()'
 
         # FIXME: in C FUSE, data returned from here goes into 'getcontext'.
         # Note: I no longer remember my concern on this, look into it again.
