@@ -8,6 +8,7 @@ import errno
 import os
 import sys
 from pdb import set_trace
+from random import randint
 
 from book_shelf_bos import TMBook
 from frdnode import FRDnode, FRDintlv_group
@@ -105,6 +106,23 @@ class BookPolicy(object):
     def _policy_LZAdescending(self, books_needed):
         freebooks = self._policy_LZAascending(books_needed, ascending=False)
         return freebooks
+
+    def _policy_Random(self, books_needed):
+        # using IGs 0-79 on nodes 1-80
+        IG = 99999
+        # select random books from the entire FAM pool
+        book_pool = 99999
+        random_books = [ ]
+        db = self.LCEobj.db
+        freebooks = db.get_books_by_intlv_group(
+            IG, TMBook.ALLOC_FREE, book_pool, inverse=True)
+
+        while books_needed > 0:
+            index = randint(0, len(freebooks)-1)
+            random_books.append(freebooks.pop(index))
+            books_needed -= 1
+
+        return random_books
 
     def __call__(self, books_needed):
         '''Look up the appropriate routine or throw an error'''
