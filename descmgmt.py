@@ -2,6 +2,9 @@
 
 import time
 
+import array
+import fcntl
+import struct
 from collections import OrderedDict
 from pdb import set_trace
 from genericobj import GenericObject
@@ -38,9 +41,33 @@ class DescriptorManagement(GenericObject):
 
     _descriptors = OrderedDict()    # track # of page mappings inside an LZA
 
+    _DESBK_READ_OFF = 0xc0102100
+    _DESBK_PUT      = 0xc0102102
+
+    _descioctl = '/dev/descioctl'
+
     def __init__(self, nApertures = 3):
         self._nApertures = nApertures
-        pass
+        print([ hex(v) for v in  self.descTable])
+
+    @property
+    def descTable(self):
+        fd = open(self._descioctl, 'wb')
+        tmp = [ ]
+        for index in range(self._nApertures):
+            buf = array.array('Q', [index,] * 2)    # [0] == index, [1] == response
+            junk = fcntl.ioctl(fd.fileno(), self._DESBK_READ_OFF, buf)
+            tmp.append(buf[1])
+        fd.close()
+        return tmp
+
+    def desbk_set(self, index, LZA):
+        assert 0 <= index < self._nApertures, 'Bad index'
+        fd = open(self._descioctl, 'wb')
+        buf = array.array('Q', [index,] * 2)    # [0] == index, [1] == response
+        buf[1] = (LZA << 33) + 1
+        junk = fcntl.ioctl(fd, self._DESBK_PUT, buf)
+        fd.close()
 
     def allocate(self, faultLZA, pid):
         existing = self._descriptors.get(faultLZA, None)
@@ -51,6 +78,7 @@ class DescriptorManagement(GenericObject):
         if len(self._descriptors) < self._nApertures:
             retval = None
         else:
+            set_trace()
             # Evict one.  For now, simple FIFO.  Once other stuff is in
             # place (like vma_close, etc) sort via __cmp__.
             evictLZA, LZAdetails = self._descriptors.popitem(last=False)
