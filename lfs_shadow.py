@@ -17,6 +17,8 @@ from pdb import set_trace
 
 from tm_fuse import TmfsOSError
 
+from descmgmt import DescriptorManagement
+
 #--------------------------------------------------------------------------
 
 
@@ -398,6 +400,8 @@ class shadow_ivshmem(shadow_support):
               self.aperture_size - 1,
               self.aperture_base, self.aperture_base + self.aperture_size - 1))
 
+        self.descriptors = DescriptorManagement()
+
     def open(self, shelf, flags, mode=None):
         self[shelf.open_handle] = shelf
         return shelf.open_handle
@@ -503,7 +507,11 @@ class shadow_ivshmem(shadow_support):
             book_offset = offset % self.book_size
             if book_num >= len(bos):
                 return 'ERROR'
-            lza = bos[book_num]['lza']
+            LZA = bos[book_num]['lza']
+
+            evictLZA = self.descriptors.allocate(LZA, pid)
+            if evictLZA is not None:
+                print('---> EVICT LZA 0x%x' % evictLZA)
 
             # FAME physical offset for virtual to physical mapping during fault
             ivshmem_offset = self.shadow_offset(shelf_name, offset)
@@ -513,15 +521,15 @@ class shadow_ivshmem(shadow_support):
 
             # Save this construct for future "class aperture"
             # data = ':'.join(str(x) for x in (
-            # lza, book_offset, self.book_size, self.aperture_base, physaddr))
+            # LZA, book_offset, self.book_size, self.aperture_base, physaddr))
 
             data = 'direct:%s' % physaddr
 
             if self.verbose > 3:
                 print('Process %s[%d] shelf = %s, offset = %d (0x%x)' % (
                     comm, pid, shelf_name, offset, offset))
-                print('shelf book seq=%d, lza=0x%x -> IG=%d, IGoffset=%d' % (
-                    book_num, lza, lza >> 13, lza & ((1 << 13) -1 )))
+                print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
+                    book_num, LZA, LZA >> 13, LZA & ((1 << 13) -1 )))
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
                 print('IVSHMEM backing file offset = %d (0x%x)' % (
                     ivshmem_offset, ivshmem_offset))
