@@ -525,7 +525,7 @@ class shadow_ivshmem(shadow_support):
 
             # ivshmem does not have real apertures even though calculations
             # are being done.   Mapping is direct.
-            data = 'direct:%s' % physaddr
+            data = 'direct:%s:%s' % (physaddr, self.book_size)
 
             if self.verbose > 3:
                 print('Process %s[%d] shelf = %s, offset = %d (0x%x)' % (
