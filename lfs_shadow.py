@@ -523,6 +523,8 @@ class shadow_ivshmem(shadow_support):
             # data = ':'.join(str(x) for x in (
             # LZA, book_offset, self.book_size, self.aperture_base, physaddr))
 
+            # ivshmem does not have real apertures even though calculations
+            # are being done.   Mapping is direct.
             data = 'direct:%s' % physaddr
 
             if self.verbose > 3:
