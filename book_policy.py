@@ -6,9 +6,9 @@
 
 import errno
 import os
+import random
 import sys
 from pdb import set_trace
-from random import shuffle
 
 from book_shelf_bos import TMBook
 from frdnode import FRDnode, FRDintlv_group
@@ -83,10 +83,14 @@ class BookPolicy(object):
     def __repr__(self):
         return self.__str__()
 
-    def _IGlist2books(self, books_needed, IGs, exclude=False):
+    def _IGs2books(self, books_needed, IGs, exclude=False, shuffle=True):
         db = self.LCEobj.db
-        books = db.get_books_by_intlv_group(books_needed, IGs, exclude=exclude)
-        return books
+        # Randomization needs to work with EVERY possible book
+        tmp = 999999 if shuffle else books_needed
+        books = db.get_books_by_intlv_group(tmp, IGs, exclude=exclude)
+        if shuffle:
+            random.shuffle(books)
+        return books[:books_needed]
 
     def _policy_LocalNode(self, books_needed):
         return self._policy_Nearest(books_needed, LocalNode=True)
@@ -94,19 +98,18 @@ class BookPolicy(object):
     def _policy_Nearest(self, books_needed, LocalNode=False):
         '''Get books starting with "this" node, perhaps stopping there.'''
 
-        def _nodeset2candidates(books_needed, nodeset):
-            # Helper to get books from a set of nodes.   Grab candidate books,
+        def _nodes2books(books_needed, nodes, shuffle=True):
+            # Get books from a set of nodes.   Grab candidate books, maybe
             # randomize, and return what's requested.  "self" is upscope.
-            IGs = [ _node2ig(n) for n in nodeset ]
-            books = self._IGlist2books(999999, IGs)
-            shuffle(books)
-            return books[:books_needed]
+            if isinstance(nodes, int):
+                nodes = (nodes, )
+            IGs = [ _node2ig(n) for n in nodes ]
+            return self._IGs2books(books_needed, IGs, shuffle=shuffle)
 
         node = int(self.context['node_id'])
-        IGs = ( _node2ig(node), )
-        localbooks = self._IGlist2books(books_needed, IGs)
+        localbooks = _nodes2books(books_needed, node, shuffle=False)
         if LocalNode:
-            return localbooks
+            return localbooks   # stop now regardless of len(localbooks)
 
         # Are there enough local books?
         books_needed -= len(localbooks)
@@ -118,8 +121,7 @@ class BookPolicy(object):
         enc = FRDnode(node).enc
         lo = ((enc - 1) * 10) + 1
         encnodes = frozenset(range(lo, lo + 10))
-        encbooks = _nodeset2candidates(
-            books_needed, encnodes - frozenset((node,)))
+        encbooks = _nodes2books(books_needed, encnodes - frozenset((node,)))
 
         # Are there enough additional books in this enclosure?
         books_needed -= len(encbooks)
@@ -128,8 +130,8 @@ class BookPolicy(object):
             return localbooks + encbooks
 
         # Get the next batch from OUTSIDE this enclosure.
-        nonencnodes = frozenset(range(1, 81)) - encnodes
-        nonencbooks = _nodeset2candidates(books_needed, nonencnodes)
+        allnodes = frozenset(range(1, len(self.LCEobj.nodes) + 1))
+        nonencbooks = _nodes2books(books_needed, allnodes - encnodes)
 
         # It doesn't really matter if there are enough, this is it
         books_needed -= len(nonencbooks)
@@ -139,17 +141,13 @@ class BookPolicy(object):
     def _policy_RandomBooks(self, books_needed):
         '''Using all IGs, select random books from all of FAM.'''
         notIGs = (99999,)
-        books = self._IGlist2books(999999, notIGs, exclude=True)
-        shuffle(books)
-        return books[:books_needed]
+        return self._IGs2books(999999, notIGs, exclude=True, shuffle=True)
 
     def _policy_LZAascending(self, books_needed, ascending=True):
-        # using IGs 0-79 on nodes 1-80
-        IG = 99999
+        '''Using all IGs, select books from all of FAM in specified order.'''
         db = self.LCEobj.db
         freebooks = db.get_books_by_intlv_group(
-            IG, TMBook.ALLOC_FREE, books_needed,
-            inverse=True, ascending=ascending)
+            books_needed, (999999, ), exclude=True, ascending=ascending)
         return freebooks
 
     def _policy_LZAdescending(self, books_needed):
