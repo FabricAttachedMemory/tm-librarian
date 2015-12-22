@@ -8,7 +8,7 @@ import errno
 import os
 import sys
 from pdb import set_trace
-from random import randint, shuffle
+from random import shuffle
 
 from book_shelf_bos import TMBook
 from frdnode import FRDnode, FRDintlv_group
@@ -28,7 +28,7 @@ def _node2ig(node):
 class BookPolicy(object):
 
     POLICY_DEFAULT = 'LocalNode'
-    _policies = (POLICY_DEFAULT, 'RandomBook', 'Nearest',
+    _policies = (POLICY_DEFAULT, 'RandomBooks', 'Nearest',
                  'LZAascending', 'LZAdescending')
 
     @classmethod
@@ -85,43 +85,43 @@ class BookPolicy(object):
 
     def _IGlist2books(self, books_needed, IGs, exclude=False):
         db = self.LCEobj.db
-        freebooks = db.get_books_by_intlv_group(
-            books_needed, IGs, exclude=exclude)
-        return freebooks
+        books = db.get_books_by_intlv_group(books_needed, IGs, exclude=exclude)
+        return books
 
     def _policy_LocalNode(self, books_needed):
         return self._policy_Nearest(books_needed, LocalNode=True)
 
     def _policy_Nearest(self, books_needed, LocalNode=False):
+        '''Get books starting with "this" node, perhaps stopping there.'''
+
+        def _nodeset2candidates(books_needed, nodeset):
+            # Helper to get books from a set of nodes.   Grab candidate books,
+            # randomize, and return what's requested.  "self" is upscope.
+            IGs = [ _node2ig(n) for n in nodeset ]
+            books = self._IGlist2books(999999, IGs)
+            shuffle(books)
+            return books[:books_needed]
+
         node = int(self.context['node_id'])
         IGs = ( _node2ig(node), )
         localbooks = self._IGlist2books(books_needed, IGs)
         if LocalNode:
             return localbooks
 
-        # Are there enough?
+        # Are there enough local books?
         books_needed -= len(localbooks)
         assert books_needed >= 0, '"Nearest" policy internal error: node'
         if not books_needed:
             return localbooks
 
-        # Helper to get books from a set of nodes.  Grab all candidate
-        # books, randomize, and return what's needed.
-        def _nodeset2candidates(books_needed, nodeset):
-            IGs = [ _node2ig(n) for n in nodeset ]
-            books = self._IGlist2books(999999, IGs)
-            shuffle(books)
-            return books[:books_needed]
-
         # Get the next batch from elsewhere in this enclosure.
         enc = FRDnode(node).enc
         lo = ((enc - 1) * 10) + 1
         encnodes = frozenset(range(lo, lo + 10))
-        set_trace()
         encbooks = _nodeset2candidates(
             books_needed, encnodes - frozenset((node,)))
 
-        # Are there enough?
+        # Are there enough additional books in this enclosure?
         books_needed -= len(encbooks)
         assert books_needed >= 0, '"Nearest" policy internal error: enclosure'
         if not books_needed:
@@ -136,6 +136,13 @@ class BookPolicy(object):
         assert books_needed >= 0, '"Nearest" policy internal error: rack'
         return localbooks + encbooks + nonencbooks
 
+    def _policy_RandomBooks(self, books_needed):
+        '''Using all IGs, select random books from all of FAM.'''
+        notIGs = (99999,)
+        books = self._IGlist2books(999999, notIGs, exclude=True)
+        shuffle(books)
+        return books[:books_needed]
+
     def _policy_LZAascending(self, books_needed, ascending=True):
         # using IGs 0-79 on nodes 1-80
         IG = 99999
@@ -148,22 +155,6 @@ class BookPolicy(object):
     def _policy_LZAdescending(self, books_needed):
         freebooks = self._policy_LZAascending(books_needed, ascending=False)
         return freebooks
-
-    def _policy_RandomBook(self, books_needed, excludeIG=9999):
-        # using IGs 0-79 on nodes 1-80
-        # select random books from the entire FAM pool
-        book_pool = 99999
-        random_books = [ ]
-        db = self.LCEobj.db
-        freebooks = db.get_books_by_intlv_group(
-            excludeIG, TMBook.ALLOC_FREE, book_pool, inverse=True)
-
-        while books_needed > 0:
-            index = randint(0, len(freebooks) - 1)
-            random_books.append(freebooks.pop(index))
-            books_needed -= 1
-
-        return random_books
 
     def __call__(self, books_needed):
         '''Look up the appropriate routine or throw an error'''
