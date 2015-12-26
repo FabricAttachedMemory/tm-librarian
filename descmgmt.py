@@ -52,22 +52,26 @@ class DescriptorManagement(GenericObject):
 
     @property
     def descTable(self):
-        fd = open(self._descioctl, 'wb')
-        tmp = [ ]
-        for index in range(self._nApertures):
-            buf = array.array('Q', [index,] * 2)    # [0] == index, [1] == response
-            junk = fcntl.ioctl(fd.fileno(), self._DESBK_READ_OFF, buf)
-            tmp.append(buf[1])
-        fd.close()
-        return tmp
+        # Set up an array of 2 longs.  First is the index, second is response
+        buf = array.array('Q', [0, 0])
+        desbk = [ ]
+        with open(self._descioctl, 'wb') as f:
+            for index in range(self._nApertures):
+                buf[0] = index
+                try:
+                    junk = fcntl.ioctl(f, self._DESBK_READ_OFF, buf)
+                    desbk.append(buf[1])
+                except Exception as e:
+                    break
+        assert len(desbk) == self._nApertures, 'Bad descriptor table read'
+        return desbk
 
     def desbk_set(self, index, LZA):
         assert 0 <= index < self._nApertures, 'Bad index'
-        fd = open(self._descioctl, 'wb')
-        buf = array.array('Q', [index,] * 2)    # [0] == index, [1] == response
-        buf[1] = (LZA << 33) + 1
-        junk = fcntl.ioctl(fd, self._DESBK_PUT, buf)
-        fd.close()
+        # Set up an array of 2 longs.  First is the index, second is new value
+        buf = array.array('Q', [index, (LZA << 33) + 1 ])
+        with open(self._descioctl, 'wb') as f:
+            junk = fcntl.ioctl(f, self._DESBK_PUT, buf)
 
     def allocate(self, faultLZA, pid):
         existing = self._descriptors.get(faultLZA, None)
