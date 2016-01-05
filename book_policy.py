@@ -6,9 +6,9 @@
 
 import errno
 import os
+import random
 import sys
 from pdb import set_trace
-from random import randint
 
 from book_shelf_bos import TMBook
 from frdnode import FRDnode, FRDintlv_group
@@ -19,12 +19,17 @@ from frdnode import FRDnode, FRDintlv_group
 # user.LFS.xxxxx intrinsics.  Start with general logic checks.
 
 
+def _node2ig(node):
+    '''Right now nodes go from 1-80 but IGs are 0-79'''
+    assert 0 < node <= 80, 'Bad node value'
+    return node - 1
+
+
 class BookPolicy(object):
 
-    POLICY_DEFAULT = 'LocalOnly'
-    _policies = (POLICY_DEFAULT, 'LocalFirst',
-                 'LZAascending', 'LZAdescending',
-                 'Random')
+    POLICY_DEFAULT = 'LocalNode'
+    _policies = (POLICY_DEFAULT, 'RandomBooks', 'Nearest',
+                 'LZAascending', 'LZAdescending')
 
     @classmethod
     def xattr_assist(cls, LCEobj, cmdict, setting=False, removing=False):
@@ -63,6 +68,7 @@ class BookPolicy(object):
     # Return a list of books or raise an error.
 
     def __init__(self, LCEobj, shelf, context):
+        '''LCEobj members are used to enforce the 1:1 IG:node assumption'''
         assert len(LCEobj.IGs) == len(LCEobj.nodes), 'IG:node != 1:1'
         LCEobj.errno = errno.EINVAL
         self.LCEobj = LCEobj
@@ -77,52 +83,76 @@ class BookPolicy(object):
     def __repr__(self):
         return self.__str__()
 
-    def _policy_LocalOnly(self, books_needed, inverse=False):
-        # using IGs 0-79 on nodes 1-80
-        IG = self.context['node_id'] - 1
+    def _IGs2books(self, books_needed, IGs, exclude=False, shuffle=True):
         db = self.LCEobj.db
-        freebooks = db.get_books_by_intlv_group(
-            IG, TMBook.ALLOC_FREE, books_needed, inverse)
-        return freebooks
+        # Randomization needs to work with EVERY possible book
+        tmp = 999999 if shuffle else books_needed
+        books = db.get_books_by_intlv_group(tmp, IGs, exclude=exclude)
+        if shuffle:
+            random.shuffle(books)
+        return books[:books_needed]
 
-    def _policy_LocalFirst(self, books_needed):
-        localbooks = self._policy_LocalOnly(books_needed)
+    def _policy_LocalNode(self, books_needed):
+        return self._policy_Nearest(books_needed, LocalNode=True)
+
+    def _policy_Nearest(self, books_needed, LocalNode=False):
+        '''Get books starting with "this" node, perhaps stopping there.'''
+
+        def _nodes2books(books_needed, nodes, shuffle=True):
+            # Get books from a set of nodes.   Grab candidate books, maybe
+            # randomize, and return what's requested.  "self" is upscope.
+            if isinstance(nodes, int):
+                nodes = (nodes, )
+            IGs = [ _node2ig(n) for n in nodes ]
+            return self._IGs2books(books_needed, IGs, shuffle=shuffle)
+
+        node = int(self.context['node_id'])
+        localbooks = _nodes2books(books_needed, node, shuffle=False)
+        if LocalNode:
+            return localbooks   # stop now regardless of len(localbooks)
+
+        # Are there enough local books?
         books_needed -= len(localbooks)
-        assert books_needed >= 0, 'LocalFirst policy internal error'
+        assert books_needed >= 0, '"Nearest" policy internal error: node'
         if not books_needed:
             return localbooks
-        nonlocalbooks = self._policy_LocalOnly(books_needed, inverse=True)
-        return localbooks + nonlocalbooks
+
+        # Get the next batch from elsewhere in this enclosure.
+        enc = FRDnode(node).enc
+        lo = ((enc - 1) * 10) + 1
+        encnodes = frozenset(range(lo, lo + 10))
+        encbooks = _nodes2books(books_needed, encnodes - frozenset((node,)))
+
+        # Are there enough additional books in this enclosure?
+        books_needed -= len(encbooks)
+        assert books_needed >= 0, '"Nearest" policy internal error: enclosure'
+        if not books_needed:
+            return localbooks + encbooks
+
+        # Get the next batch from OUTSIDE this enclosure.
+        allnodes = frozenset(range(1, len(self.LCEobj.nodes) + 1))
+        nonencbooks = _nodes2books(books_needed, allnodes - encnodes)
+
+        # It doesn't really matter if there are enough, this is it
+        books_needed -= len(nonencbooks)
+        assert books_needed >= 0, '"Nearest" policy internal error: rack'
+        return localbooks + encbooks + nonencbooks
+
+    def _policy_RandomBooks(self, books_needed):
+        '''Using all IGs, select random books from all of FAM.'''
+        notIGs = (99999,)
+        return self._IGs2books(999999, notIGs, exclude=True, shuffle=True)
 
     def _policy_LZAascending(self, books_needed, ascending=True):
-        # using IGs 0-79 on nodes 1-80
-        IG = 99999
+        '''Using all IGs, select books from all of FAM in specified order.'''
         db = self.LCEobj.db
         freebooks = db.get_books_by_intlv_group(
-            IG, TMBook.ALLOC_FREE, books_needed,
-            inverse=True, ascending=ascending)
+            books_needed, (999999, ), exclude=True, ascending=ascending)
         return freebooks
 
     def _policy_LZAdescending(self, books_needed):
         freebooks = self._policy_LZAascending(books_needed, ascending=False)
         return freebooks
-
-    def _policy_Random(self, books_needed):
-        # using IGs 0-79 on nodes 1-80
-        IG = 99999
-        # select random books from the entire FAM pool
-        book_pool = 99999
-        random_books = [ ]
-        db = self.LCEobj.db
-        freebooks = db.get_books_by_intlv_group(
-            IG, TMBook.ALLOC_FREE, book_pool, inverse=True)
-
-        while books_needed > 0:
-            index = randint(0, len(freebooks)-1)
-            random_books.append(freebooks.pop(index))
-            books_needed -= 1
-
-        return random_books
 
     def __call__(self, books_needed):
         '''Look up the appropriate routine or throw an error'''
