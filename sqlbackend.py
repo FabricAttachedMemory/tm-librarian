@@ -203,35 +203,41 @@ class LibrarianDBackendSQL(object):
         assert len(books) <= 1, 'Matched more than one book'
         return books[0] if books else None
 
-    def get_books_by_intlv_group(self, IG, allocated_value, num_books,
-            inverse=False, ascending=True):
+    def get_books_by_intlv_group(self, max_books, IGs,
+                                 allocated=TMBook.ALLOC_FREE,
+                                 exclude=False,
+                                 ascending=True):
         """ Retrieve book(s) from "books" table using node
             Input---
-              node_id - id of node to filter on
-              status - status of book to filter on
-              num_rows - max number of rows to return
+              max_books - maximum number of books
+              IGs - list of interleave groups to filter: IN (....)
+              allocated - filter for "allocated" field
+              exclude - treat IGs as exclusion filter: NOT IN (....)
+              ascending - order by book_id == LZA
             Output---
-              book_data or error message
+              List of TMBooks up to max_books or raised error
         """
-        if allocated_value == -1:   # special case for demo/status
+        if allocated == -1:   # special case for demo/status
             self._cur.execute('''SELECT allocated FROM books
-                                 WHERE node_id=? ORDER BY id''',
-                              node_id)
+                                 WHERE intlv_group=? ORDER BY id''',
+                                 str(IGs[0]))
             self._cur.iterclass = 'default'
             return [ r[0] for r in self._cur.fetchall() ]
 
-        if inverse:
-            db_query = '''
-                    SELECT * FROM books
-                    WHERE intlv_group != ? AND allocated = ?
-                    ORDER BY id %s LIMIT ?'''
+        if IGs:
+            INclause = 'AND intlv_group %%s IN (%s)' % ','.join(
+                (str(i) for i in IGs))
+            INclause = INclause % ('NOT' if exclude else '')
         else:
-            db_query = '''
-                    SELECT * FROM books
-                    WHERE intlv_group = ? AND allocated = ?
-                    ORDER BY id %s LIMIT ?'''
-        db_query = db_query % ('ASC' if ascending else 'DESC')
-        self._cur.execute(db_query, (IG, allocated_value, num_books))
+            INclause = ''
+        order = 'ASC' if ascending else 'DESC'
+        # SQL injection yeah yeah yeah can't avoid these
+        sql = '''SELECT * from books
+                 WHERE allocated=?
+                 %s
+                 ORDER BY id %s
+                 LIMIT ?''' % (INclause, order)
+        self._cur.execute(sql, (allocated, max_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
         return book_data
