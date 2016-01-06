@@ -141,7 +141,7 @@ class BookPolicy(object):
     def _policy_RandomBooks(self, books_needed):
         '''Using all IGs, select random books from all of FAM.'''
         notIGs = (99999,)
-        return self._IGs2books(999999, notIGs, exclude=True, shuffle=True)
+        return self._IGs2books(books_needed, notIGs, exclude=True, shuffle=True)
 
     def _policy_LZAascending(self, books_needed, ascending=True):
         '''Using all IGs, select books from all of FAM in specified order.'''
