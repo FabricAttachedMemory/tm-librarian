@@ -10,18 +10,23 @@ from pdb import set_trace
 from genericobj import GenericObject
 
 class LZA(GenericObject):
+    '''Maintain stats for an LZA which represents an aperture base:
+       - aperture index
+       - PIDs that have faulted at least once
+       - number of faulting pages behind that PID'''
 
-    def __init__(self, LZA, pid):
-        self.LZA = LZA                  # probably redundant
-        self.pids = { pid: 1 }          # count
-        self.mtime = int(time.time())   # epoch
+    def __init__(self, LZA, pid, userVA):
+        self.LZA = LZA
+        self.pids = dict(((pid, [userVA, ]), ))
+        self.mtime = int(time.time())       # epoch
 
-    def update(self, pid):
+    def update(self, pid, userVA):
+        '''"self" was selected by LZA, so anything is possible'''
         try:
-            self.pids[pid] += 1         # Existing process, new fault
+            self.pids[pid].append(userVA)   # Existing process, new fault
         except KeyError:
-            self.pids.update({pid: 1})  # New process, first fault
-        self.mtime = int(time.time())   # epoch
+            self.pids[pid] = [userVA, ]     # New process, first fault
+        self.mtime = int(time.time())       # epoch
 
     def __cmp__(self, other):
         '''Oldest first, then by number of pids, then by total mappings'''
@@ -46,7 +51,7 @@ class DescriptorManagement(GenericObject):
 
     _descioctl = '/dev/descioctl'
 
-    def __init__(self, nApertures = 3):
+    def __init__(self, nApertures=3):
         self._nApertures = nApertures
         print([ hex(v) for v in  self.descTable])
 
@@ -73,10 +78,16 @@ class DescriptorManagement(GenericObject):
         with open(self._descioctl, 'wb') as f:
             junk = fcntl.ioctl(f, self._DESBK_PUT, buf)
 
-    def allocate(self, faultLZA, pid):
+    def allocate(self, faultLZA, pid, userVA):
+        '''Find a descriptor for the faulting LZA and PID.  Return value may
+           be None if an unused descriptor was available, or the LZA and PIDs
+           to evict to make room.'''
+
+        return None     # For checkin/current merge, ignore this
+
         existing = self._descriptors.get(faultLZA, None)
         if existing is not None:    # at least one pid exists in dict
-            existing.update(pid)
+            existing.update(pid, userVA)
             return None
 
         if len(self._descriptors) < self._nApertures:
@@ -86,7 +97,7 @@ class DescriptorManagement(GenericObject):
             # Evict one.  For now, simple FIFO.  Once other stuff is in
             # place (like vma_close, etc) sort via __cmp__.
             evictLZA, LZAdetails = self._descriptors.popitem(last=False)
-            retval = evictLZA
-        self._descriptors[faultLZA] = LZA(faultLZA, pid)     # FIFO append
+            retval = LZAdetails
+        self._descriptors[faultLZA] = LZA(faultLZA, pid, userVA)     # FIFO append
         return retval
 

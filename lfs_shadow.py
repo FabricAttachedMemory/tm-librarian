@@ -500,18 +500,22 @@ class shadow_ivshmem(shadow_support):
         # Called during fault handler in kernel, don't die here :-)
         try:
             bos = self[shelf_name].bos
-            cmd, comm, pid, offset = xattr.split(':')
+            cmd, comm, pid, offset, userVA = xattr.split(':')
             pid = int(pid)
             offset = int(offset)
-            book_num = offset // self.book_size  # (0..n)
+            userVA = int(userVA)
+            book_num = offset // self.book_size  # (0..n-1)
             book_offset = offset % self.book_size
             if book_num >= len(bos):
                 return 'ERROR'
             LZA = bos[book_num]['lza']
 
-            evictLZA = self.descriptors.allocate(LZA, pid)
+            evictLZA = self.descriptors.allocate(LZA, pid, userVA)
             if evictLZA is not None:
-                print('---> EVICT LZA 0x%x' % evictLZA)
+                # Contains a list of PIDs whose PTEs need to be invalidated
+                # over this physical range.
+                print('---> EVICT %s: %s' % (evictLZA, ','.join(
+                    [str(k) for k in evictLZA.pids.keys()])))
 
             # FAME physical offset for virtual to physical mapping during fault
             ivshmem_offset = self.shadow_offset(shelf_name, offset)
