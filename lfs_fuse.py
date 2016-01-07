@@ -477,8 +477,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def fallocate(self, path, mode, offset, length, fd=None):
         if mode > 0:
-            raise TmfsOSError(errno.EPERM)
-        self.truncate(path, length, None)
+            return -1
+        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        shelf = TMShelf(rsp)
+        if shelf.size_bytes >= offset + length:
+            return 0
+        self.truncate(path, offset+length, None)
 
     # Called when last reference to an open file is closed.
     @prentry
