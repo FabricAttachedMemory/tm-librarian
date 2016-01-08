@@ -40,7 +40,8 @@ class shadow_support(object):
         self._igstart = {}
         for igstr in sorted(lfs_globals['books_per_IG'].keys()):
             ig = int(igstr)
-            print('IG %2d flatspace offset @ %d (0x%x)' % (ig, offset, offset))
+            if self.verbose > 2:
+                print('IG %2d flatspace offset @ %d (0x%x)' % (ig, offset, offset))
             self._igstart[ig] = offset
             books = int(lfs_globals['books_per_IG'][igstr])
             offset += books * self.book_size
@@ -366,7 +367,8 @@ class shadow_ivshmem(shadow_support):
         assert lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'), \
             'IVSHMEM device not found'
         bdf = lspci[0].split()[0]
-        print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
+        if self.verbose > 2:
+            print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
         mf = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
         assert (os.path.isfile(mf)), '%s is not a file' % mf
 
@@ -396,11 +398,12 @@ class shadow_ivshmem(shadow_support):
         self._mmap = mmap.mmap(
             self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
 
-        print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
-              self.aperture_size - 1,
-              self.aperture_base, self.aperture_base + self.aperture_size - 1))
+        if self.verbose > 2:
+            print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
+                  self.aperture_size - 1,
+                  self.aperture_base, self.aperture_base + self.aperture_size - 1))
 
-        self.descriptors = DescriptorManagement()
+        self.descriptors = DescriptorManagement(args)
 
     def open(self, shelf, flags, mode=None):
         self[shelf.open_handle] = shelf
@@ -514,8 +517,9 @@ class shadow_ivshmem(shadow_support):
             if evictLZA is not None:
                 # Contains a list of PIDs whose PTEs need to be invalidated
                 # over this physical range.
-                print('---> EVICT %s: %s' % (evictLZA, ','.join(
-                    [str(k) for k in evictLZA.pids.keys()])))
+                if self.verbose > 2:
+                    print('---> EVICT %s: %s' % (evictLZA, ','.join(
+                        [str(k) for k in evictLZA.pids.keys()])))
 
             # FAME physical offset for virtual to physical mapping during fault
             ivshmem_offset = self.shadow_offset(shelf_name, offset)

@@ -14,15 +14,9 @@ from socket_handling import Server
 parser = argparse.ArgumentParser(description='The Machine Librarian')
 parser.add_argument(
     '--verbose',
-    help='level of runtime output, larger == more',
+    help='level of runtime output (0=ERROR, 1=PERF, 2=NOTICE, 3=INFO, 4=DEBUG, 5=OOB)',
     type=int,
     default=0)
-parser.add_argument(
-    '--perf',
-    help='suppress output and some functions for perf runs, larger= more',
-    type=int,
-    default=0)
-
 
 def main():
     """ Librarian main """
