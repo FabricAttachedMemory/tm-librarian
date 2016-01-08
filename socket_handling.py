@@ -18,7 +18,6 @@ class SocketReadWrite(object):
     blocking_retry_max = 5
 
     def __init__(self, **kwargs):
-        self._perf = kwargs.get('perf', 0)
         self.verbose = kwargs.get('verbose', 0)
         peertuple = kwargs.get('peertuple', None)
         selectable = kwargs.get('selectable', True)
@@ -42,9 +41,6 @@ class SocketReadWrite(object):
         self.clear()
         self.inOOB = []
         self.outbytes = bytes()
-        if self._perf:
-            self.verbose = 0
-
         self.blocking_retry = 0
 
     def __str__(self):
@@ -167,12 +163,11 @@ class SocketReadWrite(object):
             if self.inOOB:  # make caller deal with OOB first
                 return None
             last = len(self.instr)
-            if self.verbose > 4:
-                if last and not self._perf:
-                    if last > 60:
-                        print('INSTR: %d bytes' % last)
-                    else:
-                        print('INSTR: %s' % self.instr)
+            if last and self.verbose > 4:
+                if last > 60:
+                    print('INSTR: %d bytes' % last)
+                else:
+                    print('INSTR: %s' % self.instr)
             appended = 0
 
             # First time through OR go-around with partial buffer?
@@ -184,7 +179,7 @@ class SocketReadWrite(object):
 
                     appended = len(self.instr) - last
 
-                    if self.verbose > 1:
+                    if self.verbose > 2:
                         print('%s: received %d bytes' % (self._str, appended))
 
                     if not appended:  # Far side is gone without timeout
@@ -385,7 +380,7 @@ class Server(SocketReadWrite):
 
         while True:
 
-            if self.verbose:
+            if self.verbose > 2:
                 print('Waiting for request...')
             try:
                 readable, writeable, _ = select.select(
@@ -413,7 +408,7 @@ class Server(SocketReadWrite):
             for s in readable:
                 transactions += 1
 
-                if self._perf and transactions > xlimit:
+                if self.verbose == 1 and transactions > xlimit:
                     deltat = time.time() - t0
                     tps = int(float(transactions) / deltat)
                     print('%d transactions/second' % tps)
@@ -430,10 +425,10 @@ class Server(SocketReadWrite):
                         newsock = SocketReadWrite(
                             sock=sock,
                             peertuple=peertuple,
-                            perf=self._perf,
                             verbose=self.verbose)
                         clients.append(newsock)
-                        print('%s: new connection' % newsock)
+                        if self.verbose > 2:
+                            print('%s: new connection' % newsock)
                     except Exception as e:
                         pass
                     continue
@@ -479,10 +474,11 @@ class Server(SocketReadWrite):
                     continue  # no need to check OOB for now
 
                 if OOBmsg:
-                    print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
+                    if self.verbose > 4:
+                        print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
                     for c in clients:
                         if str(c) != str(s):
-                            if not self._perf:
+                            if self.verbose > 4:
                                 print(str(c))
                             c.send_result(OOBmsg)
 
