@@ -19,21 +19,14 @@ from frdnode import FRDnode
 
 from lfs_shadow import the_shadow_knows
 
-# 0 == all prints, 1 == fewer prints, >1 == turn off other stuff
-
-_perf = int(os.getenv('PERF', 0))   # FIXME: clunky
-
 # Decorator only for instance methods as it assumes args[0] == "self".
 # FIXME: find a better spot to place this.
 
 
 def prentry(func):
-    if _perf > 1:
-        return func  # No print, no OOB check
-
     def new_func(*args, **kwargs):
         self = args[0]
-        if not _perf:
+        if self.verbose > 2:
             print('----------------------------------')
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
@@ -85,7 +78,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # socket, so do it now.
 
         # connect() has an infinite retry
-        self.torms = socket_handling.Client(selectable=False, perf=_perf)
+        self.torms = socket_handling.Client(selectable=False)
         self.torms.connect(host=self.host, port=self.port)
         if self.verbose > 1:
             print('%s: connected' % self.torms)
@@ -641,7 +634,7 @@ if __name__ == '__main__':
         default=False)
     parser.add_argument(
         '--verbose',
-        help='level of runtime output, larger -> more',
+        help='level of runtime output (0=ERROR, 1=PERF, 2=NOTICE, 3=INFO, 4=DEBUG, 5=OOB)',
         type=int,
         default=0)
     args = parser.parse_args(sys.argv[1:])

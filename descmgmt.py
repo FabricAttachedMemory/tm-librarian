@@ -51,9 +51,12 @@ class DescriptorManagement(GenericObject):
 
     _descioctl = '/dev/descioctl'
 
-    def __init__(self, nApertures=3):
+    def __init__(self, args, nApertures=3):
+        self.verbose = args.verbose
         self._nApertures = nApertures
-        print([ hex(v) for v in  self.descTable])
+
+        if self.verbose > 2:
+            print([ hex(v) for v in  self.descTable])
 
     @property
     def descTable(self):
