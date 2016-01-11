@@ -39,20 +39,28 @@ class _LZAinuse(GenericObject):
             self.pids[pid] = [userVA, ]     # New process, first fault
         self.mtime = int(time.time())       # epoch
 
-    # Comparisons, for min().  First age, then by total mappings (pages).
+    # Comparisons for hash().  First age, then by total mappings (pages).
     def __eq__(self, other):
-        if self.mtime != other.mtime:
-            return False
-        selfmappings = sum(v for v in self.pids.values())
-        othermappings = sum(v for v in other.pids.values())
-        return selfmappings == othermappings
+        try:
+            if self.mtime != other.mtime:
+                return False
+            selfmappings = sum(v for v in self.pids.values())
+            othermappings = sum(v for v in other.pids.values())
+            return selfmappings == othermappings
+        except Exception as e:
+            return NotImplemented
 
+    # Comparisons for min().  First age, then by total mappings (pages).
     def __lt__(self, other):
-        if self.mtime >= other.mtime:
-            return False
-        selfmappings = sum(len(v) for v in self.pids.values())
-        othermappings = sum(len(v) for v in other.pids.values())
-        return selfmappings < othermappings
+        set_trace()
+        try:
+            if self.mtime >= other.mtime:
+                return False
+            selfmappings = sum(len(v) for v in self.pids.values())
+            othermappings = sum(len(v) for v in other.pids.values())
+            return selfmappings < othermappings
+        except Exception as e:
+            return NotImplemented
 
 class DescriptorManagement(GenericObject):
 
@@ -94,7 +102,6 @@ class DescriptorManagement(GenericObject):
         else:
             assert index in self._indices, 'Bad aperture index'
         return array.array('Q', [index, value])
->>>>>>> rocky_dev
 
     @property
     def descTable(self):
