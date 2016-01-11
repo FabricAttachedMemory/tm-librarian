@@ -578,8 +578,9 @@ def mount_LFS(args):
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     i = int(bool(args.shadow_ivshmem))
+    a = int(bool(args.shadow_apertures))
     assert sum(
-        (d, f, i)) == 1, 'Exactly one of shadow_[dir|file|ivshmem] is required'
+        (d, f, i, a)) == 1, 'Exactly one of shadow_[dir|file|ivshmem|apertures] is required'
 
     try:
         TMFS(LibrarianFS(args),
@@ -630,6 +631,11 @@ if __name__ == '__main__':
     parser.add_argument(
         '--shadow_ivshmem',
         help='use IVSHMEM backing (1st device listed)',
+        action='store_true',
+        default=False)
+    parser.add_argument(
+        '--shadow_apertures',
+        help='Like IVSHMEM but manages apertures, needs zbridge driver',
         action='store_true',
         default=False)
     parser.add_argument(
