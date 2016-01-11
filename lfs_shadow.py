@@ -562,7 +562,7 @@ def the_shadow_knows(args, lfs_globals):
             return shadow_directory(args, lfs_globals)
         elif args.shadow_file:
             return shadow_file(args, lfs_globals)
-        elif args.shadow_ivshmem:
+        elif args.shadow_ivshmem or args.shadow_apertures:
             return shadow_ivshmem(args, lfs_globals)
         elif args.fam:
             return fam(args, lfs_globals)

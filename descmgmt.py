@@ -74,6 +74,11 @@ class DescriptorManagement(GenericObject):
 
     def __init__(self, args, indices=None):
         self.verbose = args.verbose
+        self._enabled = args.shadow_apertures
+        if not self._enabled:
+            if self.verbose:
+                print('Descriptor management disabled')
+            return
         if indices is None:
             self._indices = (0, 1, 2)
         else:
@@ -105,6 +110,8 @@ class DescriptorManagement(GenericObject):
 
     @property
     def descTable(self):
+        if not self._enabled:
+            return None
         buf = self.buffer2longs()
         desbk = [ ]
         with open(self._descioctl, 'wb') as f:
@@ -120,6 +127,8 @@ class DescriptorManagement(GenericObject):
 
     def desbk_set(self, index, baseLZA):
         '''Convert baseLZA (20 bits of IG:booknum) to valid descriptor entry'''
+        if not self._enabled:
+            return
         assert 0 <= baseLZA < 2**20, 'baseLZA out of range'
         # LSB is the valid bit
         buf = self.buffer2longs(index, (baseLZA << self._BOOKSHIFT) + 1)
@@ -132,7 +141,8 @@ class DescriptorManagement(GenericObject):
            be None if an unused descriptor was available, or the LZA and PIDs
            to evict to make room.'''
 
-        # return None     # For checkin/current merge, ignore this
+        if not self._enabled:
+            return
 
         assert 0 <= baseLZA < 2**20, 'baseLZA out of range'
         self._consistent()
