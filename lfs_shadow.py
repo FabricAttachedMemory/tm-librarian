@@ -511,25 +511,23 @@ class shadow_ivshmem(shadow_support):
             book_offset = offset % self.book_size
             if book_num >= len(bos):
                 return 'ERROR'
-            LZA = bos[book_num]['lza']
+            baseLZA = bos[book_num]['lza']
 
-            evictLZA = self.descriptors.allocate(LZA, pid, userVA)
-            if evictLZA is not None:
+            eviction = self.descriptors.assign(baseLZA, pid, userVA)
+            if eviction is not None:
                 # Contains a list of PIDs whose PTEs need to be invalidated
                 # over this physical range.
                 if self.verbose > 2:
-                    print('---> EVICT %s: %s' % (evictLZA, ','.join(
-                        [str(k) for k in evictLZA.pids.keys()])))
+                    print('---> EVICT %s: %s' % (
+                        eviction.evictLZA.baseLZA,
+                        ','.join(
+                            [str(k) for k in eviction.evictLZA.pids.keys()])))
 
             # FAME physical offset for virtual to physical mapping during fault
             ivshmem_offset = self.shadow_offset(shelf_name, offset)
             if ivshmem_offset == -1:
                 return 'ERROR'
             physaddr = self.aperture_base + ivshmem_offset
-
-            # Save this construct for future "class aperture"
-            # data = ':'.join(str(x) for x in (
-            # LZA, book_offset, self.book_size, self.aperture_base, physaddr))
 
             # ivshmem does not have real apertures even though calculations
             # are being done.   Mapping is direct.
@@ -539,7 +537,10 @@ class shadow_ivshmem(shadow_support):
                 print('Process %s[%d] shelf = %s, offset = %d (0x%x)' % (
                     comm, pid, shelf_name, offset, offset))
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
-                    book_num, LZA, LZA >> 13, LZA & ((1 << 13) -1 )))
+                    book_num,
+                    baseLZA,
+                    baseLZA >> 13,
+                    baseLZA & ((1 << 13) -1 )))
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
                 print('IVSHMEM backing file offset = %d (0x%x)' % (
                     ivshmem_offset, ivshmem_offset))
