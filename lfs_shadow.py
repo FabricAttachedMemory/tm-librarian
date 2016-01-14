@@ -11,11 +11,12 @@ import stat
 import sys
 import tempfile
 import mmap
+from copy import deepcopy
 from subprocess import getoutput
 
 from pdb import set_trace
 
-from tm_fuse import TmfsOSError
+from tm_fuse import TmfsOSError, tmfs_get_context
 
 from descmgmt import DescriptorManagement
 
@@ -47,35 +48,76 @@ class shadow_support(object):
             offset += books * self.book_size
         self.book_shift = int(math.log(self.book_size, 2))
 
-    # Duck-type a dict, with multiple entries.  It's supposed to be a shelf!
-    def __setitem__(self, index, shelf):
-        self._shelfcache[index] = shelf
-        try:
-            if isinstance(index, int):
-                self._shelfcache[shelf.name] = shelf
-            else:
-                self._shelfcache[shelf.open_handle] = shelf
-        except Exception as e:
-            pass
-
-    def __getitem__(self, index):
-        return self._shelfcache.get(index, None)
-
-    def __contains__(self, index):
-        return index in self._shelfcache
-
-    def __delitem__(self, index):
-        if index not in self._shelfcache:
+    # Duck-type a dict with multiple keys pointing to a single, modified
+    # TMShelf object to deal with ALL opens and related data.  The data
+    # should assist PIDs that have the shelf open.  Account for multiple
+    # opens by same PID as well as different PIDs.
+    def __setitem__(self, fh, shelf):
+        assert isinstance(fh, int), 'Only integer fh is expected as key'
+        pid = tmfs_get_context()[2]
+        cached = self._shelfcache.get(shelf.name, None)
+        if cached is None:
+            # Create a copy because "open_handle" will be redefined.  This
+            # single copy will be retrievable by the shelf name and all of
+            # its open handles.  The copy itself has a list of the fh keys
+            # indexed by pid, so open_handle.keys() is all the pids.
+            cached = deepcopy(shelf)
+            self._shelfcache[cached.name] = cached
+            self._shelfcache[fh] = cached
+            cached.open_handle = { }
+            cached.open_handle[pid] = [ fh, ]
             return
-        tmp = self._shelfcache[index]
-        del self._shelfcache[index]
-        try:
-            if isinstance(index, int):   # Always true?
-                del self._shelfcache[tmp.name]
-            else:
-                del self._shelfcache[tmp.open_handle]
-        except KeyError:
+
+        if cached != shelf:     # probably BOS, maybe something else
+            set_trace()
             pass
+            raise NotImplementedError
+
+        # fh is unique (created by Librarian as table index).  Paranoia check.
+        all_fh = [ ]
+        for vlist in cached.open_handle.values():
+            all_fh += vlist
+        assert fh not in all_fh, 'Duplicate fh in open_handle'
+        self._shelfcache[fh] = cached
+        try:
+            cached.open_handle[pid].append(fh)
+        except KeyError as e:
+            cached.open_handle[pid] = [ fh, ]
+
+    def __getitem__(self, key):
+        # This should never fail.
+        return self._shelfcache[key]
+
+    def __contains__(self, key):
+        return key in self._shelfcache
+
+    def __delitem__(self, key):
+        cached = self._shelfcache[key]
+        if isinstance(key, int):   # A single fh
+            open_handles = cached.open_handle
+            for pid, fhlist in open_handles.items():
+                if key in fhlist:
+                    fhlist.remove(key)
+                    if not fhlist:
+                        del open_handles[pid]
+                    if len(open_handles):
+                        shelf = deepcopy(cached)    # Not done
+                    else:
+                        del self._shelfcache[cached.name]
+                        shelf = cached
+                    shelf.open_handle = key
+                    return shelf
+            raise AssertionError('Cannot find fh to delete')
+
+        # It's a string, as in remove the whole thing.
+        all_fh = [ ]
+        for vlist in cached.open_handle.values():
+            all_fh += vlist
+        for fh in all_fh:
+            del self._shelfcache[fh]
+        del self._shelfcache[cached.name]
+        cached.open_handle = all_fh
+        return cached   # Don't need a copy in this case
 
     def keys(self):
         return tuple(self._shelfcache.keys())
@@ -106,11 +148,7 @@ class shadow_support(object):
         return tmp
 
     # Provide ABC noop defaults.  Note they're not all actually noop.
-    # FIXME: currently this only supports a single open per node.
-    # Multiple opens from one process and/or multiple processes opening
-    # one shelf will behave in strange and undesireable ways.  We've got
-    # top men working on it.   TOP...............men.  Best guess:
-    # we'll have to hash on a tuple, not just open_handle.
+    # Top men are insuring this works with multiple opens of a shelf.
 
     def truncate(self, shelf, length, fd):
         self[shelf.open_handle] = shelf
@@ -336,9 +374,9 @@ class shadow_file(shadow_support):
 
         return wsize
 
-    def release(self, fd):
-        shelf = self[fd]
-        del self[fd]
+    def release(self, fh):
+        shelf = self[fh]
+        del self[fh]
         return shelf
 
 #--------------------------------------------------------------------------
@@ -494,9 +532,9 @@ class shadow_ivshmem(shadow_support):
 
         return wsize
 
-    def release(self, fd):
-        shelf = self[fd]
-        del self[fd]
+    def release(self, fh):
+        shelf = self[fh]
+        del self[fh]
         return shelf
 
     def getxattr(self, shelf_name, xattr):

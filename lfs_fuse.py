@@ -204,12 +204,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # or OSError(errno.ENOENT).  When tenants go live, EPERM can occur.
     # FIXME: move this into Librarian proper.  It should be doing
     # all the calculations, doubly so when we implement tenancy.
-    # fd is set if original call was fstat (vs stat or lstat), not sure
+    # fh is set if original call was fstat (vs stat or lstat), not sure
     # if it matters or not.  Maybe validate it against cache in shadow files?
 
     @prentry
-    def getattr(self, path, fd=None):
-        if fd is not None:
+    def getattr(self, path, fh=None):
+        if fh is not None:
             raise TmfsOSError(errno.ENOENT)  # never saw this in 4 months
 
         if path == '/':
@@ -407,15 +407,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
         self.get_bos(shelf)
-        fd = self.shadow.open(shelf, flags, mode)
-        return fd
+        # File handle is a proxy for FuSE to refer to "real" file descriptor.
+        fh = self.shadow.open(shelf, flags, mode)
+        return fh
 
     # from shell: touch | truncate /lfs/nofilebythisname
     # return os.open().
     @prentry
-    def create(self, path, mode, fi=None, supermode=None):
-        if fi is not None:
-            raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
+    def create(self, path, mode, fh=None, supermode=None):
+        if fh is not None:
+            raise TmfsOSError(errno.ENOSYS)    # never saw this in 6 months
         shelf_name = self.path2shelf(path)
         if supermode is None:
             mode &= 0o777
@@ -426,18 +427,17 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
         rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)
-        fd = self.shadow.create(shelf, mode)
-        return fd
+        # File handle is a proxy for FuSE to refer to "real" file descriptor.
+        fh = self.shadow.create(shelf, mode)
+        return fh
 
     @prentry
-    def read(self, path, length, offset, fd):
-
+    def read(self, path, length, offset, fh):
         shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, fd)
+        return self.shadow.read(shelf_name, length, offset, fh)
 
     @prentry
-    def write(self, path, buf, offset, fd):
-
+    def write(self, path, buf, offset, fh):
         shelf_name = self.path2shelf(path)
 
         # Resize shelf "on the fly" for writes past EOF
@@ -446,14 +446,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if self.shadow[shelf_name].size_bytes < req_size:
             self.truncate(path, req_size, None) # updates the cache
 
-        return self.shadow.write(shelf_name, buf, offset, fd)
+        return self.shadow.write(shelf_name, buf, offset, fh)
 
     @prentry
-    def truncate(self, path, length, fd=None):
-        '''truncate(2) calls with fd == None; based on path but access
+    def truncate(self, path, length, fh=None):
+        '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        # ALWAYS get the shelf by name, even if fd is valid.
+        # ALWAYS get the shelf by name, even if fh is valid.
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
@@ -465,10 +465,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
         self.get_bos(shelf)
-        return self.shadow.truncate(shelf, length, fd)
+        return self.shadow.truncate(shelf, length, fh)
 
     @prentry
-    def fallocate(self, path, mode, offset, length, fd=None):
+    def fallocate(self, path, mode, offset, length, fh=None):
         if mode > 0:
             return -1
         shelf_name = self.path2shelf(path)
@@ -480,27 +480,28 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # Called when last reference to an open file is closed.
     @prentry
-    def release(self, path, fd):  # fd == shadow file descriptor
+    def release(self, path, fh):  # fh == shadow file descriptor
         try:
-            shelf = self.shadow.release(fd)
-            req = self.lcp(
-                'close_shelf', id=shelf.id, open_handle=shelf.open_handle)
+            shelf = self.shadow.release(fh)
+            # FIXME: passing open_handle as a list CRASHES the Librarian.
+            # I did it by mistake once but this needs to be fixed.
+            req = self.lcp('close_shelf', id=shelf.id, open_handle=fh)
             self.librarian(req)  # None or raise
         except Exception as e:
             raise TmfsOSError(errno.ESTALE)
 
     @prentry
-    def flush(self, path, fd):
+    def flush(self, path, fh):
         '''May be called zero, one, or more times per shelf open.  It's a
            chance to report delayed errors, not a syscall passthru.'''
         return 0
 
     @prentry
-    def fsync(self, path, datasync, fd):
+    def fsync(self, path, datasync, fh):
         raise TmfsOSError(errno.ENOSYS)
 
     @prentry
-    def fsyncdir(self, path, datasync, fd):
+    def fsyncdir(self, path, datasync, fh):
         raise TmfsOSError(errno.ENOSYS)
 
     @prentry
@@ -542,9 +543,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if not nbooks:
             raise TmfsOSError(errno.EINVAL)
         mode &= 0o777
-        fd = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
-        self.truncate(path, nbooks * self.bsize, fd)
-        self.release(path, fd)
+        fh = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
+        self.truncate(path, nbooks * self.bsize, fh)
+        self.release(path, fh)
         # mknod(1m) immediately does a stat looking for S_IFBLK.
         # Not sure what else to do about shadow mode...
         return 0

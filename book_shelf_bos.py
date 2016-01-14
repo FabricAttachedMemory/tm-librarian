@@ -154,6 +154,10 @@ class TMShelf(BookShelfStuff):
                                                'bos',
                                                'open_handle'))
 
+    def __eq__(self, other):
+        return (self.id == other.id and
+                frozenset(self.bos) == frozenset(other.bos))
+
 #########################################################################
 
 
