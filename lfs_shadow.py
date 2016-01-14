@@ -92,17 +92,26 @@ class shadow_support(object):
         return key in self._shelfcache
 
     def __delitem__(self, key):
-        cached = self._shelfcache[key]
-        if isinstance(key, int):   # A single fh
+        is_fh = isinstance(key, int)
+        try:
+            cached = self._shelfcache[key]
+        except KeyError as e:
+            # Not currently open, something like "rm somefile"
+            if not is_fh:
+                return
+            raise AssertionError('Deleting a missing fh?')
+
+        if is_fh:   # Remove top-level reference and all sub-references
+            del self._shelfcache[key]
             open_handles = cached.open_handle
             for pid, fhlist in open_handles.items():
                 if key in fhlist:
                     fhlist.remove(key)
                     if not fhlist:
                         del open_handles[pid]
-                    if len(open_handles):
-                        shelf = deepcopy(cached)    # Not done
-                    else:
+                    if open_handles:                # Still some left so...
+                        shelf = deepcopy(cached)    # ...preserve cached copy
+                    else:                           # None left
                         del self._shelfcache[cached.name]
                         shelf = cached
                     shelf.open_handle = key
@@ -155,8 +164,32 @@ class shadow_support(object):
         return 0
 
     def unlink(self, shelf_name):
+        if shelf_name.startswith('.tmfs_hidden'):
+            # A perfect chance to zero the blocks
         del self[shelf_name]
         return 0
+
+    # "man fuse" regarding "hard_remove": an "rm" of a file with active
+    # opens tries to rename it, only issuing a real unlink when all opens
+    # have released.
+    def rename(self, old, new):
+        try:
+            # Retrieve shared object, fix it, and rebind to new name.
+            cached = self._shelfcache[old]
+            cached.name = new
+            del self._shelfcache[old]
+            self._shelfcache[new] = cached
+        except KeyError as e:
+            if new.startswith('.tmfs_hidden'):
+                # VFS thinks it's there so I should too
+                raise TmfsOSError(errno.ESTALE)
+        return 0
+
+    def release(self, fh):  # shadow_support, does right thing for caching
+        cached = self[fh]
+        del self[fh]
+        cached.open_handle = None
+        return cached
 
     # Piggybacked during mmap fault handling.  If the kernel receives
     # 'FALLBACK' it will use legacy, generic cache-based handler with stock
@@ -246,10 +279,9 @@ class shadow_directory(shadow_support):
         except OSError as e:
             raise TmfsOSError(e.errno)
 
-    def release(self, fd):
-        shelf = self[fd]
-        del self[fd]
-        os.close(fd)    # I don't think this ever raises....
+    def release(self, fh):
+        shelf = super(self.__class__, self).release(fh)
+        os.close(fh)    # I don't think this ever raises....
         return shelf
 
 #--------------------------------------------------------------------------
@@ -374,11 +406,6 @@ class shadow_file(shadow_support):
 
         return wsize
 
-    def release(self, fh):
-        shelf = self[fh]
-        del self[fh]
-        return shelf
-
 #--------------------------------------------------------------------------
 # Original class did read/write against the resource file by mmapping slices
 # against /sys/bus/pci/..../resource2.  mmap in kernel was handled by
@@ -389,6 +416,7 @@ class shadow_file(shadow_support):
 # address of the IVSHMEM device, but it couldn't do read and write.  Merging
 # the two classes (actually, just getxattr() from the previous "class fam")
 # gets the best of both worlds.
+
 
 class shadow_ivshmem(shadow_support):
 
@@ -531,11 +559,6 @@ class shadow_ivshmem(shadow_support):
             tbuf = b''
 
         return wsize
-
-    def release(self, fh):
-        shelf = self[fh]
-        del self[fh]
-        return shelf
 
     def getxattr(self, shelf_name, xattr):
         # Called during fault handler in kernel, don't die here :-)
