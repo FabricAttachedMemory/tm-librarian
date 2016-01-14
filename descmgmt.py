@@ -4,6 +4,8 @@ import time
 
 import array
 import fcntl
+import os
+import stat
 import struct
 from pdb import set_trace
 
@@ -79,6 +81,11 @@ class DescriptorManagement(GenericObject):
             if self.verbose:
                 print('Descriptor management disabled')
             return
+        try:
+            tmp = os.stat(self._descioctl)
+            assert tmp.st_mode & stat.S_IFCHR == stat.S_IFCHR   # man 2 stat
+        except Exception as e:
+            raise AssertionError('Missing %s' % self._descioctl)
         if indices is None:
             self._indices = (0, 1, 2)
         else:
