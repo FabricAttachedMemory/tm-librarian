@@ -175,6 +175,22 @@ class LibrarianCommandEngine(object):
         assert book, 'Book allocation change to %d failed' % newalloc
         return book
 
+    def cmd_rename_shelf(self, cmdict):
+        """Rename a shelf
+            In (dict)---
+                name (current)
+                id
+                newname
+            Out (dict) ---
+                shelf
+        """
+        self.errno = errno.ENOENT
+        shelf = self.cmd_get_shelf(cmdict)
+        shelf.name = cmdict['newname']
+        shelf.matchfields = 'name'
+        shelf = self.db.modify_shelf(shelf, commit=True)
+        return shelf
+
     def cmd_destroy_shelf(self, cmdict):
         """ For a shelf, zombify books (mark for zeroing) and remove xattrs
             In (dict)---
