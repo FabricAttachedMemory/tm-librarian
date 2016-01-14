@@ -554,6 +554,19 @@ class shadow_ivshmem(shadow_support):
 
 #--------------------------------------------------------------------------
 
+class fam(shadow_ivshmem):
+
+    def __init__(self, args, lfs_globals):
+
+        super(shadow_ivshmem, self).__init__(args, lfs_globals)
+
+        self.aperture_base = int(args.fam, 16)
+
+        if self.verbose > 2:
+            print('FAM aperture_base = 0x%x' % (self.aperture_base))
+
+        self.descriptors = DescriptorManagement(args)
+
 
 def the_shadow_knows(args, lfs_globals):
     '''args is command-line arguments from lfs_fuse.py'''
