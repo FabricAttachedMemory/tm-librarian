@@ -50,8 +50,12 @@ class LibrarianCommandProtocol(object):
             parms=('name', )
         ),
         'resize_shelf': GO(
-            doc='resize shelf to given size',
+            doc='resize shelf to given size in bytes',
             parms=('name', 'id', 'size_bytes' ),
+        ),
+        'rename_shelf': GO(
+            doc='rename shelf',
+            parms=('name', 'id', 'newname' ),
         ),
         'close_shelf': GO(
             doc='close shelf and end node access',
