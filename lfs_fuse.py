@@ -478,13 +478,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             return 0
         return self.truncate(path, offset+length, None)
 
-    # Called when last reference to an open file is closed.
+    # Called when last reference to an open file (in one PID) is closed.
     @prentry
     def release(self, path, fh):  # fh == shadow file descriptor
         try:
             shelf = self.shadow.release(fh)
             # FIXME: passing open_handle as a list CRASHES the Librarian.
-            # I did it by mistake once but this needs to be fixed.
+            # I did it by mistake once but this needs to be examined.
             req = self.lcp('close_shelf', id=shelf.id, open_handle=fh)
             self.librarian(req)  # None or raise
         except Exception as e:
@@ -510,12 +510,20 @@ class LibrarianFS(Operations):  # Name shows up in mount point
            file-relative blockno to device-relative block.'''
         raise TmfsOSError(errno.ENOSYS)
 
-    #######################################################################
-    # Not gonna happen...ever?
-
     @prentry
     def rename(self, old, new):
-        raise TmfsOSError(errno.ENOSYS)
+        # 0 or raise
+        old = self.path2shelf(old)
+        rsp = self.librarian(self.lcp('get_shelf', name=old))
+        shelf = TMShelf(rsp)
+        new = self.path2shelf(new)
+        self.shadow.rename(old, new)
+        req = self.lcp('rename_shelf', name=old, id=shelf.id, newname=new)
+        self.librarian(req)  # None or raise
+        return 0
+
+    #######################################################################
+    # Not gonna happen...ever?
 
     @prentry
     def chmod(self, path, mode, **kwargs):
