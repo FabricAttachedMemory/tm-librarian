@@ -4,11 +4,14 @@
 
 import errno
 import os
+import shlex
+import subprocess
 import stat
 import sys
 import time
 
 from pdb import set_trace
+from threading import Thread, Semaphore
 
 from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_context
 
@@ -19,6 +22,14 @@ from frdnode import FRDnode
 
 from lfs_shadow import the_shadow_knows
 
+###########################################################################
+
+
+def _zeroed(shelf):
+    print(shelf.name, shelf.size_bytes, 'has been zeroed')
+    os.chmod('/lfs/' + shelf.name, 0o456)
+
+###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
 # FIXME: find a better spot to place this.
 
@@ -87,6 +98,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.bsize = globals['book_size_bytes']
 
         self.shadow = the_shadow_knows(args, globals)
+        self.zerosema = Semaphore(value=8)
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
@@ -376,12 +388,34 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'f_namemax':    255,     # maximum filename length
         }
 
+    def _zero(self, shelf):
+        assert shelf.name.startswith('.lfs_pending_zero')
+        cmd = '/bin/dd if=/dev/zero of=/lfs/%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
+            shelf.name, shelf.size_bytes)
+        try:
+            self.zerosema.acquire()
+            args = shlex.split(cmd)
+            subprocess.call(args)
+        except Exception as e:
+            pass
+        self.zerosema.release()
+        cached = self.shadow[shelf.name]
+        if cached is not None:
+            fh = cached.open_handle.values()[0]
+            self.librarian(self.lcp('close_shelf', id=shelf.id, fh=fh))
+            del self.shadow[shelf.name]
+        self.librarian(self.lcp('destroy_shelf', name=shelf.name))
+
     @prentry
     def unlink(self, path, *args, **kwargs):
-        assert not args and not kwargs, 'unlink: nexpected args'
+        assert not args and not kwargs, 'unlink: unexpected args'
         shelf_name = self.path2shelf(path)
-        self.shadow.unlink(shelf_name)
-        rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
+        shelf = TMShelf(self.librarian(self.lcp('get_shelf', name=shelf_name)))
+        zeroname = '.lfs_pending_zero_%d' % shelf.id
+        if zeroname != shelf_name:
+            self.rename(shelf.name, zeroname)
+            shelf.name = zeroname
+        Thread(target=self._zero, args=(shelf, )).start()
         return 0
 
     @prentry
