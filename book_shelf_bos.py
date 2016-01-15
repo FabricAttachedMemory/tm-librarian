@@ -154,9 +154,18 @@ class TMShelf(BookShelfStuff):
                                                'bos',
                                                'open_handle'))
 
+    def __init__(self, *args, **kwargs):
+        super(self.__class__, self).__init__(*args, **kwargs)
+        self.bos = [ ]
+
     def __eq__(self, other):
-        return (self.id == other.id and
-                frozenset(self.bos) == frozenset(other.bos))
+        # If size_bytes match, then len(bos) must match.
+        if self.id != other.id or self.size_bytes != other.size_bytes:
+            return False
+        for book in self.bos:
+            if book not in other.bos:
+                return False
+        return True
 
 #########################################################################
 
