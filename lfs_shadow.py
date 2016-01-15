@@ -68,12 +68,32 @@ class shadow_support(object):
             cached.open_handle[pid] = [ fh, ]
             return
 
-        if cached != shelf:     # probably BOS, maybe something else
-            set_trace()
-            pass
-            raise NotImplementedError
+        # Has the shelf changed somehow?  If so, replace the cached copy
+        # and perhaps take other steps.  Break down the comparisons in
+        # book_shelf_bos.py::TMShelf::__eq__()
+        if cached != shelf:
+            invalidate = True   # and work to make it false
+            assert cached.id == shelf.id, 'Shelf aliasing error?'  # TSNH :-)
 
-        # fh is unique (created by Librarian as table index).  Paranoia check.
+            # If it grew, are the first "n" books still the same?
+            if shelf.size_bytes > cached.size_bytes:
+                for i, book in enumerate(cached.bos):
+                    if book != shelf.bos[i]:
+                        break
+                else:
+                    invalidate = False  # the first "n" books match
+            # look at cached to get references for replacement
+            for vlist in cached.open_handle.values():
+                for fh in vlist:
+                    self._shelfcache[fh] = shelf
+            self._shelfcache[shelf.name] = shelf
+            shelf.open_handle = cached.open_handle
+            if invalidate:
+                print('\n\tNEED TO INVALIDATE PTES!!!\n')
+            return
+
+        # fh is unique (created by Librarian as table index).  Paranoia check,
+        # then add the new key.
         all_fh = [ ]
         for vlist in cached.open_handle.values():
             all_fh += vlist
@@ -85,8 +105,7 @@ class shadow_support(object):
             cached.open_handle[pid] = [ fh, ]
 
     def __getitem__(self, key):
-        # This should never fail.
-        return self._shelfcache[key]
+        return self._shelfcache.get(key, None)
 
     def __contains__(self, key):
         return key in self._shelfcache
@@ -118,15 +137,19 @@ class shadow_support(object):
                     return shelf
             raise AssertionError('Cannot find fh to delete')
 
-        # It's a string, as in remove the whole thing.
+        # It's a string, as in remove the whole thing.  Don't need a
+        # deepcopy for the return value.
+        if cached.open_handle is None:  # probably "unlink"ing
+            return cached
         all_fh = [ ]
+        set_trace()
         for vlist in cached.open_handle.values():
             all_fh += vlist
         for fh in all_fh:
             del self._shelfcache[fh]
         del self._shelfcache[cached.name]
         cached.open_handle = all_fh
-        return cached   # Don't need a copy in this case
+        return cached
 
     def keys(self):
         return tuple(self._shelfcache.keys())
@@ -164,8 +187,6 @@ class shadow_support(object):
         return 0
 
     def unlink(self, shelf_name):
-        if shelf_name.startswith('.tmfs_hidden'):
-            # A perfect chance to zero the blocks
         del self[shelf_name]
         return 0
 
