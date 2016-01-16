@@ -429,6 +429,21 @@ class LibrarianCommandEngine(object):
             self.__class__.IGs = self.db.get_interleave_groups()
             assert self.nodes and self.IGs, 'Database is corrupt'
 
+            racknum = 1
+            racknodes = [ n for n in self.nodes if n.rack == racknum ]
+            while racknodes:
+                for encnum in range(1, 9):
+                    encnodes = [ n for n in racknodes if n.enc == encnum ]
+                    if not encnodes:
+                        continue
+                    encnodes = sorted(encnodes, key=attrgetter('node'))
+                    outstr = [ '%d:%d:%d' % (racknum, encnum, n.node) for
+                               n in encnodes ]
+                    print('Rack %d Enc %2d nodes:' % (racknum, encnum),
+                          ' '.join(outstr))
+                racknum += 1
+                racknodes = [ n for n in self.nodes if n.rack == racknum ]
+
             # Calculations for flat-space shadow backing were being done
             # on every node after pulling down allbooks[].  Send over
             # summary data instead.  Although the math doesn't care, human
