@@ -8,10 +8,10 @@ import shlex
 import subprocess
 import stat
 import sys
+import threading
 import time
 
 from pdb import set_trace
-from threading import Thread, Semaphore
 
 from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_context
 
@@ -21,13 +21,6 @@ import socket_handling
 from frdnode import FRDnode
 
 from lfs_shadow import the_shadow_knows
-
-###########################################################################
-
-
-def _zeroed(shelf):
-    print(shelf.name, shelf.size_bytes, 'has been zeroed')
-    os.chmod('/lfs/' + shelf.name, 0o456)
 
 ###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
@@ -61,13 +54,16 @@ def prentry(func):
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
-    _mode_default_blk = stat.S_IFBLK + 0o666
-    _mode_default_dir = stat.S_IFDIR + 0o777
+    _MODE_DEFAULT_BLK = stat.S_IFBLK + 0o666
+    _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
+
+    _ZERO_PREFIX = '.lfs_pending_zero_'
 
     def __init__(self, args):
         '''Validate command-line parameters'''
         self.verbose = args.verbose
         self.tormsURI = args.hostname
+        self.mountpoint = args.mountpoint
         elems = args.hostname.split(':')
         assert len(elems) <= 2
         self.host = elems[0]
@@ -98,7 +94,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.bsize = globals['book_size_bytes']
 
         self.shadow = the_shadow_knows(args, globals)
-        self.zerosema = Semaphore(value=8)
+        self.zerosema = threading.Semaphore(value=8)
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
@@ -113,6 +109,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def destroy(self, root):    # fusermount -u
+        assert threading.current_thread() is threading.main_thread()
         self.torms.close()
         del self.torms
 
@@ -147,6 +144,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Third level:  shelves
 
     def handleOOB(self):
+        # ALTERNATIVE: Put the message on a Queue for the main thread.
+        assert threading.current_thread() is threading.main_thread()
         for oob in self.torms.inOOB:
             print('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
         self.torms.clearOOB()
@@ -160,6 +159,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         (context['uid'],
          context['gid'],
          context['pid']) = tmfs_get_context()
+        context['tid'] = threading.get_ident()
         try:
             # validate primary keys
             command = cmdict['command']
@@ -222,7 +222,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def getattr(self, path, fh=None):
         if fh is not None:
-            raise TmfsOSError(errno.ENOENT)  # never saw this in 4 months
+            raise TmfsOSError(errno.ENOENT)  # never saw this in 5 months
 
         if path == '/':
             now = int(time.time())
@@ -252,7 +252,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_size':      shelf.size_bytes
         }
         if shelf_name.startswith('block'):
-            tmp['st_mode'] = self._mode_default_blk
+            tmp['st_mode'] = self._MODE_DEFAULT_BLK
         return tmp
 
     @prentry
@@ -388,34 +388,88 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'f_namemax':    255,     # maximum filename length
         }
 
+    @staticmethod
+    def _cmd2sub(cmd):
+        print(cmd, file=sys.stderr)
+        args = shlex.split(cmd)
+        p = subprocess.Popen(args)
+        time.sleep(2)   # Because poll() seems to have some lag time
+        return p
+
+    # Just say no to the socket.
     def _zero(self, shelf):
-        assert shelf.name.startswith('.lfs_pending_zero')
-        cmd = '/bin/dd if=/dev/zero of=/lfs/%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
-            shelf.name, shelf.size_bytes)
-        try:
-            self.zerosema.acquire()
-            args = shlex.split(cmd)
-            subprocess.call(args)
-        except Exception as e:
-            pass
-        self.zerosema.release()
-        cached = self.shadow[shelf.name]
-        if cached is not None:
-            fh = cached.open_handle.values()[0]
-            self.librarian(self.lcp('close_shelf', id=shelf.id, fh=fh))
-            del self.shadow[shelf.name]
-        self.librarian(self.lcp('destroy_shelf', name=shelf.name))
+        assert shelf.name.startswith(self._ZERO_PREFIX)
+        fullpath = '%s/%s' % (self.mountpoint, shelf.name)
+        dd = self._cmd2sub(
+            '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
+            fullpath, shelf.size_bytes))
+
+        with self.zerosema:
+            try:
+                print('dd: PID %d' % dd.pid)
+                polled = dd.poll()
+                while polled is not None and polled.returncode is None:
+                    try:
+                        dd.send_signal(os.SIGURS1)
+                        stdout, stderr = dd.communicate(timeout=5)
+                    except TimeoutExpired as e:
+                        print('\n\t%s\n' % stderr, file=sys.stderr)
+                    polled = dd.poll()
+            except Exception as e:
+                pass
+        if dd is not None:
+            dd.wait()
+
+        truncate = self._cmd2sub('/usr/bin/truncate -s0 %s' % fullpath)
+        if truncate is not None:
+            truncate.wait()
+
+        unlink = self._cmd2sub('/usr/bin/unlink %s' % fullpath)
+        if unlink is not None:
+            unlink.wait()
+
+    # "man fuse" regarding "hard_remove": an "rm" of a file with active
+    # opens tries to rename it, only issuing a real unlink when all opens
+    # have released.  If this is entered with such a renamed file, VFS
+    # thinks there are no open handles and so should LFS.  Similar logic
+    # should be followed on unlink of a zeroed file.
 
     @prentry
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'unlink: unexpected args'
         shelf_name = self.path2shelf(path)
+        hidden = shelf_name.startswith('.tmfs_hidden')
+        zeroed = shelf_name.startswith(self._ZERO_PREFIX)
         shelf = TMShelf(self.librarian(self.lcp('get_shelf', name=shelf_name)))
-        zeroname = '.lfs_pending_zero_%d' % shelf.id
+        if hidden or zeroed:
+            # Hopefully any dangling opens have resolved themselves
+            # by now, but just in case...
+            cached = self.shadow[shelf.name]
+            if cached is not None:
+                set_trace()
+                open_handles = cached.open_handle
+                if open_handles is not None:
+                    for fh in open_handles.values():
+                        try:
+                            self.librarian(self.lcp('close_shelf',
+                                                    id=shelf.id,
+                                                    fh=fh))
+                        except Exception as e:
+                            pass
+        self.shadow.unlink(shelf_name)  # cache cleanup
+
+        # Early exit: no work required, or the second pass on this shelf.
+        if (hidden or zeroed) and not shelf.size_bytes:
+            self.librarian(self.lcp('destroy_shelf', name=shelf.name))
+            return 0
+
+        # Schedule for zeroing; a second entry to unlink() will occur on
+        # this shelf with the new name.
+        zeroname = '%s%d' % (self._ZERO_PREFIX, shelf.id)
         if zeroname != shelf_name:
             self.rename(shelf.name, zeroname)
             shelf.name = zeroname
-        Thread(target=self._zero, args=(shelf, )).start()
+        threading.Thread(target=self._zero, args=(shelf, )).start()
         return 0
 
     @prentry

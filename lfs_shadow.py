@@ -120,7 +120,8 @@ class shadow_support(object):
                 return
             raise AssertionError('Deleting a missing fh?')
 
-        if is_fh:   # Remove top-level reference and all sub-references
+        if is_fh:
+            # Remove this direct shelf reference and those from other pids
             del self._shelfcache[key]
             open_handles = cached.open_handle
             for pid, fhlist in open_handles.items():
@@ -134,22 +135,23 @@ class shadow_support(object):
                         del self._shelfcache[cached.name]
                         shelf = cached
                     shelf.open_handle = key
-                    return shelf
+                    return
             raise AssertionError('Cannot find fh to delete')
 
         # It's a string, as in remove the whole thing.  Don't need a
-        # deepcopy for the return value.
+        # deepcopy for the return value.  This is only called from
+        # unlink, so VFS has done the filtering job on open handles.
         if cached.open_handle is None:  # probably "unlink"ing
-            return cached
+            return
         all_fh = [ ]
-        set_trace()
-        for vlist in cached.open_handle.values():
-            all_fh += vlist
-        for fh in all_fh:
-            del self._shelfcache[fh]
-        del self._shelfcache[cached.name]
+        open_handles = cached.open_handle
+        if open_handles is not None:
+            for vlist in cached.open_handle.values():
+                all_fh += vlist
+            for fh in all_fh:
+                del self._shelfcache[fh]
+            del self._shelfcache[cached.name]
         cached.open_handle = all_fh
-        return cached
 
     def keys(self):
         return tuple(self._shelfcache.keys())
@@ -191,8 +193,7 @@ class shadow_support(object):
         return 0
 
     # "man fuse" regarding "hard_remove": an "rm" of a file with active
-    # opens tries to rename it, only issuing a real unlink when all opens
-    # have released.
+    # opens tries to rename it.
     def rename(self, old, new):
         try:
             # Retrieve shared object, fix it, and rebind to new name.
@@ -247,6 +248,7 @@ class shadow_directory(shadow_support):
         return '%s/%s' % (self._shadowpath, shelf_name)
 
     def unlink(self, shelf_name):
+        # FIXME: not tested since unlink was expanded to do zeroing
         for k, v in self.items():
             if v[0].name == shelf_name:
                 del self[k]
