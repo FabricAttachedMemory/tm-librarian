@@ -94,15 +94,20 @@ class shadow_support(object):
 
         # fh is unique (created by Librarian as table index).  Paranoia check,
         # then add the new key.
-        all_fh = [ ]
-        for vlist in cached.open_handle.values():
-            all_fh += vlist
-        assert fh not in all_fh, 'Duplicate fh in open_handle'
-        self._shelfcache[fh] = cached
         try:
-            cached.open_handle[pid].append(fh)
-        except KeyError as e:
-            cached.open_handle[pid] = [ fh, ]
+            all_fh = [ ]
+            for vlist in cached.open_handle.values():
+                all_fh += vlist
+            assert fh not in all_fh, 'Duplicate fh in open_handle'
+            self._shelfcache[fh] = cached
+            try:
+                cached.open_handle[pid].append(fh)
+            except KeyError as e:
+                cached.open_handle[pid] = [ fh, ]
+        except Exception as e:
+            print(str(e))
+            set_trace()
+            raise
 
     def __getitem__(self, key):
         return self._shelfcache.get(key, None)
@@ -120,27 +125,23 @@ class shadow_support(object):
                 return
             raise AssertionError('Deleting a missing fh?')
 
+        del self._shelfcache[key]   # always
         if is_fh:
-            # Remove this direct shelf reference and those from other pids
-            del self._shelfcache[key]
+            # Remove this direct shelf reference plus the back link
             open_handles = cached.open_handle
             for pid, fhlist in open_handles.items():
                 if key in fhlist:
                     fhlist.remove(key)
                     if not fhlist:
                         del open_handles[pid]
-                    if open_handles:                # Still some left so...
-                        shelf = deepcopy(cached)    # ...preserve cached copy
-                    else:                           # None left
+                    if not open_handles:            # Last reference
                         del self._shelfcache[cached.name]
-                        shelf = cached
-                    shelf.open_handle = key
-                    return
+                return
+            # There has to be one
             raise AssertionError('Cannot find fh to delete')
 
-        # It's a string, as in remove the whole thing.  Don't need a
-        # deepcopy for the return value.  This is only called from
-        # unlink, so VFS has done the filtering job on open handles.
+        # It's a string so remove the whole thing.  This is only called
+        # from unlink; so VFS has done the filtering job on open handles.
         if cached.open_handle is None:  # probably "unlink"ing
             return
         all_fh = [ ]
@@ -148,10 +149,9 @@ class shadow_support(object):
         if open_handles is not None:
             for vlist in cached.open_handle.values():
                 all_fh += vlist
+            all_fh = frozenset(all_fh)  # paranoid: remove dupes
             for fh in all_fh:
                 del self._shelfcache[fh]
-            del self._shelfcache[cached.name]
-        cached.open_handle = all_fh
 
     def keys(self):
         return tuple(self._shelfcache.keys())
@@ -189,7 +189,11 @@ class shadow_support(object):
         return 0
 
     def unlink(self, shelf_name):
-        del self[shelf_name]
+        try:
+            del self[shelf_name]
+        except Exception as e:
+            set_trace()
+            raise
         return 0
 
     # "man fuse" regarding "hard_remove": an "rm" of a file with active
@@ -207,11 +211,11 @@ class shadow_support(object):
                 raise TmfsOSError(errno.ESTALE)
         return 0
 
-    def release(self, fh):  # shadow_support, does right thing for caching
-        cached = self[fh]
+    def release(self, fh):  # shadow_support
+        retval = deepcopy(self[fh])
+        retval.open_handle = fh
         del self[fh]
-        cached.open_handle = None
-        return cached
+        return retval
 
     # Piggybacked during mmap fault handling.  If the kernel receives
     # 'FALLBACK' it will use legacy, generic cache-based handler with stock
