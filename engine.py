@@ -103,7 +103,6 @@ class LibrarianCommandEngine(object):
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
         self.errno = errno.ESTALE
-        # FIXME: calculate open count and compare against shelf handle/id
         return shelf
 
     def cmd_list_shelves(self, cmdict):
