@@ -21,7 +21,14 @@ from tm_fuse import TmfsOSError, tmfs_get_context
 from descmgmt import DescriptorManagement
 
 #--------------------------------------------------------------------------
-
+# _shelfcache is essentially a copy of the Librarian's "opened_shelves"
+# table data generated on the fly.  The goal was to avoid a round trip
+# to the Librarian for many FuSE interactions.  This class duck-types a
+# dict with multiple keys (name and file handles).  The value is a single,
+# modified TMShelf object that holds all open-related data.  The data
+# will assist PTE management for processes holding the shelf open.
+# Account for multiple opens by same PID as well as different PIDs.
+# Multinode support will require OOB support and a few more Librarian calls.
 
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
@@ -31,8 +38,6 @@ class shadow_support(object):
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
-        # Originally did it by fd, then getxattr piggyback only does name.
-        # Grand unification!
         self._shelfcache = { }
 
         # Replaces ig_gap calculation.
@@ -48,11 +53,8 @@ class shadow_support(object):
             offset += books * self.book_size
         self.book_shift = int(math.log(self.book_size, 2))
 
-    # Duck-type a dict with multiple keys pointing to a single, modified
-    # TMShelf object to deal with ALL opens and related data.  The data
-    # should assist PIDs that have the shelf open.  Account for multiple
-    # opens by same PID as well as different PIDs.
     def __setitem__(self, fh, shelf):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         assert isinstance(fh, int), 'Only integer fh is expected as key'
         pid = tmfs_get_context()[2]
         cached = self._shelfcache.get(shelf.name, None)
@@ -110,12 +112,16 @@ class shadow_support(object):
             raise
 
     def __getitem__(self, key):
+        '''Part of the support for duck-typing a dict with multiple keys.
+           Suppress KeyError, returning None if no value exists.'''
         return self._shelfcache.get(key, None)
 
     def __contains__(self, key):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         return key in self._shelfcache
 
     def __delitem__(self, key):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         is_fh = isinstance(key, int)
         try:
             cached = self._shelfcache[key]
@@ -154,10 +160,16 @@ class shadow_support(object):
                 del self._shelfcache[fh]
 
     def keys(self):
-        return tuple(self._shelfcache.keys())
+        '''Part of the support for duck-typing a dict with multiple keys.'''
+        return self._shelfcache.keys()
 
     def items(self):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         return self._shelfcache.items()
+
+    def values(self):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
+        return self._shelfcache.values()
 
     # End of dictionary duck typing, now use that cache
 
@@ -184,8 +196,9 @@ class shadow_support(object):
     # Provide ABC noop defaults.  Note they're not all actually noop.
     # Top men are insuring this works with multiple opens of a shelf.
 
-    def truncate(self, shelf, length, fd):
-        self[shelf.open_handle] = shelf
+    def truncate(self, shelf, length, fh):
+        if fh is not None:
+            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not' % shelf.name
         return 0
 
     def unlink(self, shelf_name):
@@ -498,12 +511,16 @@ class shadow_ivshmem(shadow_support):
 
         self.descriptors = DescriptorManagement(args)
 
+    # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
+        assert isinstance(shelf.open_handle, int), 'Bad handle in shadow open'
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
+    # Single node: no caching.  Multinode might change that?
     def create(self, shelf, mode):
-        self[shelf.open_handle] = shelf
+        assert isinstance(shelf.open_handle, int), 'Bad handle in shadow create'
+        self[shelf.open_handle] = shelf     # should be first instance
         return shelf.open_handle
 
     def read(self, shelf_name, length, offset, fd):
