@@ -66,7 +66,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        # POSIX: create if not existent, else open
+        # POSIX: if extant, open it; else create and then open
         try:
             shelf = self.cmd_open_shelf(cmdict)
             return shelf
