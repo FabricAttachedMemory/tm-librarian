@@ -437,28 +437,33 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'unlink: unexpected args'
         shelf_name = self.path2shelf(path)
-        hidden = shelf_name.startswith('.tmfs_hidden')
-        zeroed = shelf_name.startswith(self._ZERO_PREFIX)
         shelf = TMShelf(self.librarian(self.lcp('get_shelf', name=shelf_name)))
-        if hidden or zeroed:
-            # Hopefully any dangling opens have resolved themselves
-            # by now, but just in case...
-            cached = self.shadow[shelf.name]
-            if cached is not None:
-                set_trace()
-                open_handles = cached.open_handle
-                if open_handles is not None:
-                    for fh in open_handles.values():
-                        try:
-                            self.librarian(self.lcp('close_shelf',
-                                                    id=shelf.id,
-                                                    fh=fh))
-                        except Exception as e:
-                            pass
-        self.shadow.unlink(shelf_name)  # cache cleanup
 
-        # Early exit: no work required, or the second pass on this shelf.
-        if (hidden or zeroed) and not shelf.size_bytes:
+        # Paranoia check for (dangling) opens.  Does VFS catch these first?
+        cached = self.shadow[shelf.name]
+        if cached is not None:                  # Not a good sign
+            open_handles = cached.open_handle
+            if open_handles is not None:        # Definitely a bad sign
+                set_trace()
+                raise TmfsOSError(errno.EBUSY)
+
+                # Once upon a time I forced it...
+                for fh in open_handles.values():
+                    try:
+                        self.librarian(self.lcp('close_shelf',
+                                                id=shelf.id,
+                                                fh=fh))
+                    except Exception as e:
+                        pass
+
+        self.shadow.unlink(shelf_name)  # empty cache INCLUDING dangling opens
+
+        # Early exit: no work required if:
+        # 1. it's zero bytes long
+        # 2. it's passed through zeroing, meaning this is the second trip to
+        #    unlink()..  Even if length is non-zero, remove it, assuming the
+        #   _zero subprocess failed.
+        if (not shelf.size_bytes) or shelf.name.startswith(self._ZERO_PREFIX):
             self.librarian(self.lcp('destroy_shelf', name=shelf.name))
             return 0
 
@@ -498,12 +503,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         fh = self.shadow.open(shelf, flags, mode)
         return fh
 
-    # from shell: touch | truncate /lfs/nofilebythisname
-    # return os.open().
+    # POSIX: Librarian returns an open shelf, either extant or newly created.
     @prentry
     def create(self, path, mode, fh=None, supermode=None):
         if fh is not None:
-            raise TmfsOSError(errno.ENOSYS)    # never saw this in 6 months
+            # createat(2), methinks, but I never saw this in 6 months
+            raise TmfsOSError(errno.ENOSYS)
         shelf_name = self.path2shelf(path)
         if supermode is None:
             mode &= 0o777
@@ -513,10 +518,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             tmpmode = supermode
         tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
         rsp = self.librarian(tmp)
-        shelf = TMShelf(rsp)
-        # File handle is a proxy for FuSE to refer to "real" file descriptor.
-        fh = self.shadow.create(shelf, mode)
-        return fh
+        shelf = TMShelf(rsp)                # This is an open shelf...
+        self.shadow.create(shelf, mode)     # ...added to the cache...
+        return shelf.open_handle            # ...with this value.
 
     @prentry
     def read(self, path, length, offset, fh):
