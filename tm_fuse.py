@@ -171,6 +171,24 @@ elif _system == 'Linux':
             ('st_atimespec', c_timespec),
             ('st_mtimespec', c_timespec),
             ('st_ctimespec', c_timespec)]
+    elif _machine == 'aarch64':
+        c_stat._fields_ = [
+            ('st_dev', c_ulong),
+            ('st_ino', c_ulong),
+            ('st_mode', c_uint),
+            ('st_nlink', c_uint),
+            ('st_uid', c_uint),
+            ('st_gid', c_uint),
+            ('st_rdev', c_ulong),
+            ('__pad1', c_ulong),
+            ('st_size', c_long),
+            ('st_blksize', c_int),
+            ('__pad2', c_int),
+            ('st_blocks', c_long),
+            ('st_atimespec', c_timespec),
+            ('st_mtimespec', c_timespec),
+            ('st_ctimespec', c_timespec)]
+
     else:
         # i686, use as fallback for everything else
         c_stat._fields_ = [
