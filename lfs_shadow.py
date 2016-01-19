@@ -21,7 +21,14 @@ from tm_fuse import TmfsOSError, tmfs_get_context
 from descmgmt import DescriptorManagement
 
 #--------------------------------------------------------------------------
-
+# _shelfcache is essentially a copy of the Librarian's "opened_shelves"
+# table data generated on the fly.  The goal was to avoid a round trip
+# to the Librarian for many FuSE interactions.  This class duck-types a
+# dict with multiple keys (name and file handles).  The value is a single,
+# modified TMShelf object that holds all open-related data.  The data
+# will assist PTE management for processes holding the shelf open.
+# Account for multiple opens by same PID as well as different PIDs.
+# Multinode support will require OOB support and a few more Librarian calls.
 
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
@@ -31,8 +38,6 @@ class shadow_support(object):
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
-        # Originally did it by fd, then getxattr piggyback only does name.
-        # Grand unification!
         self._shelfcache = { }
 
         # Replaces ig_gap calculation.
@@ -48,11 +53,8 @@ class shadow_support(object):
             offset += books * self.book_size
         self.book_shift = int(math.log(self.book_size, 2))
 
-    # Duck-type a dict with multiple keys pointing to a single, modified
-    # TMShelf object to deal with ALL opens and related data.  The data
-    # should assist PIDs that have the shelf open.  Account for multiple
-    # opens by same PID as well as different PIDs.
     def __setitem__(self, fh, shelf):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         assert isinstance(fh, int), 'Only integer fh is expected as key'
         pid = tmfs_get_context()[2]
         cached = self._shelfcache.get(shelf.name, None)
@@ -68,30 +70,58 @@ class shadow_support(object):
             cached.open_handle[pid] = [ fh, ]
             return
 
-        if cached != shelf:     # probably BOS, maybe something else
-            set_trace()
-            pass
-            raise NotImplementedError
+        # Has the shelf changed somehow?  If so, replace the cached copy
+        # and perhaps take other steps.  Break down the comparisons in
+        # book_shelf_bos.py::TMShelf::__eq__()
+        if cached != shelf:
+            invalidate = True   # and work to make it false
+            assert cached.id == shelf.id, 'Shelf aliasing error?'  # TSNH :-)
 
-        # fh is unique (created by Librarian as table index).  Paranoia check.
-        all_fh = [ ]
-        for vlist in cached.open_handle.values():
-            all_fh += vlist
-        assert fh not in all_fh, 'Duplicate fh in open_handle'
-        self._shelfcache[fh] = cached
+            # If it grew, are the first "n" books still the same?
+            if shelf.size_bytes > cached.size_bytes:
+                for i, book in enumerate(cached.bos):
+                    if book != shelf.bos[i]:
+                        break
+                else:
+                    invalidate = False  # the first "n" books match
+            # look at cached to get references for replacement
+            for vlist in cached.open_handle.values():
+                for fh in vlist:
+                    self._shelfcache[fh] = shelf
+            self._shelfcache[shelf.name] = shelf
+            shelf.open_handle = cached.open_handle
+            if invalidate:
+                print('\n\tNEED TO INVALIDATE PTES!!!\n')
+            return
+
+        # fh is unique (created by Librarian as table index).  Paranoia check,
+        # then add the new key.
         try:
-            cached.open_handle[pid].append(fh)
-        except KeyError as e:
-            cached.open_handle[pid] = [ fh, ]
+            all_fh = [ ]
+            for vlist in cached.open_handle.values():
+                all_fh += vlist
+            assert fh not in all_fh, 'Duplicate fh in open_handle'
+            self._shelfcache[fh] = cached
+            try:
+                cached.open_handle[pid].append(fh)
+            except KeyError as e:
+                cached.open_handle[pid] = [ fh, ]
+        except Exception as e:
+            print(str(e))
+            set_trace()
+            raise
 
     def __getitem__(self, key):
-        # This should never fail.
-        return self._shelfcache[key]
+        '''Part of the support for duck-typing a dict with multiple keys.
+           Suppress KeyError, returning None if no value exists.'''
+        return self._shelfcache.get(key, None)
 
     def __contains__(self, key):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         return key in self._shelfcache
 
     def __delitem__(self, key):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         is_fh = isinstance(key, int)
         try:
             cached = self._shelfcache[key]
@@ -101,38 +131,45 @@ class shadow_support(object):
                 return
             raise AssertionError('Deleting a missing fh?')
 
-        if is_fh:   # Remove top-level reference and all sub-references
-            del self._shelfcache[key]
+        del self._shelfcache[key]   # always
+        if is_fh:
+            # Remove this direct shelf reference plus the back link
             open_handles = cached.open_handle
             for pid, fhlist in open_handles.items():
                 if key in fhlist:
                     fhlist.remove(key)
                     if not fhlist:
                         del open_handles[pid]
-                    if open_handles:                # Still some left so...
-                        shelf = deepcopy(cached)    # ...preserve cached copy
-                    else:                           # None left
+                    if not open_handles:            # Last reference
                         del self._shelfcache[cached.name]
-                        shelf = cached
-                    shelf.open_handle = key
-                    return shelf
+                return
+            # There has to be one
             raise AssertionError('Cannot find fh to delete')
 
-        # It's a string, as in remove the whole thing.
+        # It's a string so remove the whole thing.  This is only called
+        # from unlink; so VFS has done the filtering job on open handles.
+        if cached.open_handle is None:  # probably "unlink"ing
+            return
         all_fh = [ ]
-        for vlist in cached.open_handle.values():
-            all_fh += vlist
-        for fh in all_fh:
-            del self._shelfcache[fh]
-        del self._shelfcache[cached.name]
-        cached.open_handle = all_fh
-        return cached   # Don't need a copy in this case
+        open_handles = cached.open_handle
+        if open_handles is not None:
+            for vlist in cached.open_handle.values():
+                all_fh += vlist
+            all_fh = frozenset(all_fh)  # paranoid: remove dupes
+            for fh in all_fh:
+                del self._shelfcache[fh]
 
     def keys(self):
-        return tuple(self._shelfcache.keys())
+        '''Part of the support for duck-typing a dict with multiple keys.'''
+        return self._shelfcache.keys()
 
     def items(self):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
         return self._shelfcache.items()
+
+    def values(self):
+        '''Part of the support for duck-typing a dict with multiple keys.'''
+        return self._shelfcache.values()
 
     # End of dictionary duck typing, now use that cache
 
@@ -159,19 +196,21 @@ class shadow_support(object):
     # Provide ABC noop defaults.  Note they're not all actually noop.
     # Top men are insuring this works with multiple opens of a shelf.
 
-    def truncate(self, shelf, length, fd):
-        self[shelf.open_handle] = shelf
+    def truncate(self, shelf, length, fh):
+        if fh is not None:
+            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not' % shelf.name
         return 0
 
     def unlink(self, shelf_name):
-        if shelf_name.startswith('.tmfs_hidden'):
-            # A perfect chance to zero the blocks
-        del self[shelf_name]
+        try:
+            del self[shelf_name]
+        except Exception as e:
+            set_trace()
+            raise
         return 0
 
     # "man fuse" regarding "hard_remove": an "rm" of a file with active
-    # opens tries to rename it, only issuing a real unlink when all opens
-    # have released.
+    # opens tries to rename it.
     def rename(self, old, new):
         try:
             # Retrieve shared object, fix it, and rebind to new name.
@@ -185,11 +224,11 @@ class shadow_support(object):
                 raise TmfsOSError(errno.ESTALE)
         return 0
 
-    def release(self, fh):  # shadow_support, does right thing for caching
-        cached = self[fh]
+    def release(self, fh):  # shadow_support
+        retval = deepcopy(self[fh])
+        retval.open_handle = fh
         del self[fh]
-        cached.open_handle = None
-        return cached
+        return retval
 
     # Piggybacked during mmap fault handling.  If the kernel receives
     # 'FALLBACK' it will use legacy, generic cache-based handler with stock
@@ -226,6 +265,7 @@ class shadow_directory(shadow_support):
         return '%s/%s' % (self._shadowpath, shelf_name)
 
     def unlink(self, shelf_name):
+        # FIXME: not tested since unlink was expanded to do zeroing
         for k, v in self.items():
             if v[0].name == shelf_name:
                 del self[k]
@@ -471,12 +511,16 @@ class shadow_ivshmem(shadow_support):
 
         self.descriptors = DescriptorManagement(args)
 
+    # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
+        assert isinstance(shelf.open_handle, int), 'Bad handle in shadow open'
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
+    # Single node: no caching.  Multinode might change that?
     def create(self, shelf, mode):
-        self[shelf.open_handle] = shelf
+        assert isinstance(shelf.open_handle, int), 'Bad handle in shadow create'
+        self[shelf.open_handle] = shelf     # should be first instance
         return shelf.open_handle
 
     def read(self, shelf_name, length, offset, fd):

@@ -66,7 +66,7 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
-        # POSIX: create if not existent, else open
+        # POSIX: if extant, open it; else create and then open
         try:
             shelf = self.cmd_open_shelf(cmdict)
             return shelf
@@ -103,7 +103,6 @@ class LibrarianCommandEngine(object):
         assert self._nbooks(shelf.size_bytes) == shelf.book_count, (
             '%s size metadata mismatch' % shelf.name)
         self.errno = errno.ESTALE
-        # FIXME: calculate open count and compare against shelf handle/id
         return shelf
 
     def cmd_list_shelves(self, cmdict):
@@ -428,6 +427,21 @@ class LibrarianCommandEngine(object):
             self.__class__.nodes = self.db.get_nodes()
             self.__class__.IGs = self.db.get_interleave_groups()
             assert self.nodes and self.IGs, 'Database is corrupt'
+
+            racknum = 1
+            racknodes = [ n for n in self.nodes if n.rack == racknum ]
+            while racknodes:
+                for encnum in range(1, 9):
+                    encnodes = [ n for n in racknodes if n.enc == encnum ]
+                    if not encnodes:
+                        continue
+                    encnodes = sorted(encnodes, key=attrgetter('node'))
+                    outstr = [ '%d:%d:%d' % (racknum, encnum, n.node) for
+                               n in encnodes ]
+                    print('Rack %d Enc %2d nodes:' % (racknum, encnum),
+                          ' '.join(outstr))
+                racknum += 1
+                racknodes = [ n for n in self.nodes if n.rack == racknum ]
 
             # Calculations for flat-space shadow backing were being done
             # on every node after pulling down allbooks[].  Send over

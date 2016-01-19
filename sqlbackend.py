@@ -334,9 +334,15 @@ class LibrarianDBackendSQL(object):
         sql = 'SELECT * FROM shelves WHERE %s' % qmarks
         self._cur.execute(sql, shelf.tuple(fields))
         self._cur.iterclass = TMShelf
-        shelves = [ r for r in self._cur ]  # FIXME: make an r.getone()?
+        shelves = [ r for r in self._cur ]
         assert len(shelves) <= 1, 'Matched more than one shelf'
-        return shelves[0] if shelves else None
+        if not shelves:
+            return None
+        shelf = shelves[0]
+        # FIXME: flesh out opened_shelves (dict of lists)->shelf.open_handle.
+        # It's okay now for single node, but multinode opens may need it
+        # and may take surgery on the socket data return values.
+        return shelf
 
     def get_shelf_all(self):
         """ Retrieve all shelves from "shelves" table.

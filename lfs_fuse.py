@@ -4,8 +4,11 @@
 
 import errno
 import os
+import shlex
+import subprocess
 import stat
 import sys
+import threading
 import time
 
 from pdb import set_trace
@@ -19,6 +22,7 @@ from frdnode import FRDnode
 
 from lfs_shadow import the_shadow_knows
 
+###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
 # FIXME: find a better spot to place this.
 
@@ -50,13 +54,16 @@ def prentry(func):
 
 class LibrarianFS(Operations):  # Name shows up in mount point
 
-    _mode_default_blk = stat.S_IFBLK + 0o666
-    _mode_default_dir = stat.S_IFDIR + 0o777
+    _MODE_DEFAULT_BLK = stat.S_IFBLK + 0o666
+    _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
+
+    _ZERO_PREFIX = '.lfs_pending_zero_'
 
     def __init__(self, args):
         '''Validate command-line parameters'''
         self.verbose = args.verbose
         self.tormsURI = args.hostname
+        self.mountpoint = args.mountpoint
         elems = args.hostname.split(':')
         assert len(elems) <= 2
         self.host = elems[0]
@@ -87,6 +94,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.bsize = globals['book_size_bytes']
 
         self.shadow = the_shadow_knows(args, globals)
+        self.zerosema = threading.Semaphore(value=8)
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
@@ -101,6 +109,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def destroy(self, root):    # fusermount -u
+        assert threading.current_thread() is threading.main_thread()
         self.torms.close()
         del self.torms
 
@@ -135,6 +144,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # Third level:  shelves
 
     def handleOOB(self):
+        # ALTERNATIVE: Put the message on a Queue for the main thread.
+        assert threading.current_thread() is threading.main_thread()
         for oob in self.torms.inOOB:
             print('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
         self.torms.clearOOB()
@@ -148,6 +159,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         (context['uid'],
          context['gid'],
          context['pid']) = tmfs_get_context()
+        context['tid'] = threading.get_ident()
         try:
             # validate primary keys
             command = cmdict['command']
@@ -210,7 +222,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def getattr(self, path, fh=None):
         if fh is not None:
-            raise TmfsOSError(errno.ENOENT)  # never saw this in 4 months
+            raise TmfsOSError(errno.ENOENT)  # never saw this in 5 months
 
         if path == '/':
             now = int(time.time())
@@ -240,7 +252,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_size':      shelf.size_bytes
         }
         if shelf_name.startswith('block'):
-            tmp['st_mode'] = self._mode_default_blk
+            tmp['st_mode'] = self._MODE_DEFAULT_BLK
         return tmp
 
     @prentry
@@ -316,7 +328,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def setxattr(self, path, xattr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
-        if options:
+        if options or position:
             set_trace()  # haven't actually seen it yet
 
         # 'Extend' user.xxxx syntax and screen for it here
@@ -376,12 +388,92 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'f_namemax':    255,     # maximum filename length
         }
 
+    @staticmethod
+    def _cmd2sub(cmd):
+        args = shlex.split(cmd)
+        p = subprocess.Popen(args)
+        time.sleep(2)   # Because poll() seems to have some lag time
+        print('%s: PID %d' % (args[0], p.pid), file=sys.stderr)
+        return p
+
+    # Just say no to the socket.
+    def _zero(self, shelf):
+        assert shelf.name.startswith(self._ZERO_PREFIX)
+        fullpath = '%s/%s' % (self.mountpoint, shelf.name)
+        dd = self._cmd2sub(
+            '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
+            fullpath, shelf.size_bytes))
+
+        with self.zerosema:
+            try:
+                polled = dd.poll()
+                while polled is not None and polled.returncode is None:
+                    try:
+                        dd.send_signal(os.SIGURS1)
+                        stdout, stderr = dd.communicate(timeout=5)
+                    except TimeoutExpired as e:
+                        print('\n\t%s\n' % stderr, file=sys.stderr)
+                    polled = dd.poll()
+            except Exception as e:
+                pass
+        if dd is not None:
+            dd.wait()
+
+        truncate = self._cmd2sub('/usr/bin/truncate -s0 %s' % fullpath)
+        if truncate is not None:
+            truncate.wait()
+
+        unlink = self._cmd2sub('/usr/bin/unlink %s' % fullpath)
+        if unlink is not None:
+            unlink.wait()
+
+    # "man fuse" regarding "hard_remove": an "rm" of a file with active
+    # opens tries to rename it, only issuing a real unlink when all opens
+    # have released.  If this is entered with such a renamed file, VFS
+    # thinks there are no open handles and so should LFS.  Similar logic
+    # should be followed on unlink of a zeroed file.
+
     @prentry
     def unlink(self, path, *args, **kwargs):
-        assert not args and not kwargs, 'unlink: nexpected args'
+        assert not args and not kwargs, 'unlink: unexpected args'
         shelf_name = self.path2shelf(path)
-        self.shadow.unlink(shelf_name)
-        rsp = self.librarian(self.lcp('destroy_shelf', name=shelf_name))
+        shelf = TMShelf(self.librarian(self.lcp('get_shelf', name=shelf_name)))
+
+        # Paranoia check for (dangling) opens.  Does VFS catch these first?
+        cached = self.shadow[shelf.name]
+        if cached is not None:                  # Not a good sign
+            open_handles = cached.open_handle
+            if open_handles is not None:        # Definitely a bad sign
+                set_trace()
+                raise TmfsOSError(errno.EBUSY)
+
+                # Once upon a time I forced it...
+                for fh in open_handles.values():
+                    try:
+                        self.librarian(self.lcp('close_shelf',
+                                                id=shelf.id,
+                                                fh=fh))
+                    except Exception as e:
+                        pass
+
+        self.shadow.unlink(shelf_name)  # empty cache INCLUDING dangling opens
+
+        # Early exit: no work required if:
+        # 1. it's zero bytes long
+        # 2. it's passed through zeroing, meaning this is the second trip to
+        #    unlink()..  Even if length is non-zero, remove it, assuming the
+        #   _zero subprocess failed.
+        if (not shelf.size_bytes) or shelf.name.startswith(self._ZERO_PREFIX):
+            self.librarian(self.lcp('destroy_shelf', name=shelf.name))
+            return 0
+
+        # Schedule for zeroing; a second entry to unlink() will occur on
+        # this shelf with the new name.
+        zeroname = '%s%d' % (self._ZERO_PREFIX, shelf.id)
+        if zeroname != shelf_name:
+            self.rename(shelf.name, zeroname)
+            shelf.name = zeroname
+        threading.Thread(target=self._zero, args=(shelf, )).start()
         return 0
 
     @prentry
@@ -411,12 +503,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         fh = self.shadow.open(shelf, flags, mode)
         return fh
 
-    # from shell: touch | truncate /lfs/nofilebythisname
-    # return os.open().
+    # POSIX: Librarian returns an open shelf, either extant or newly created.
     @prentry
     def create(self, path, mode, fh=None, supermode=None):
         if fh is not None:
-            raise TmfsOSError(errno.ENOSYS)    # never saw this in 6 months
+            # createat(2), methinks, but I never saw this in 6 months
+            raise TmfsOSError(errno.ENOSYS)
         shelf_name = self.path2shelf(path)
         if supermode is None:
             mode &= 0o777
@@ -426,10 +518,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             tmpmode = supermode
         tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
         rsp = self.librarian(tmp)
-        shelf = TMShelf(rsp)
-        # File handle is a proxy for FuSE to refer to "real" file descriptor.
-        fh = self.shadow.create(shelf, mode)
-        return fh
+        shelf = TMShelf(rsp)                # This is an open shelf...
+        self.shadow.create(shelf, mode)     # ...added to the cache...
+        return shelf.open_handle            # ...with this value.
 
     @prentry
     def read(self, path, length, offset, fh):
@@ -488,6 +579,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             req = self.lcp('close_shelf', id=shelf.id, open_handle=fh)
             self.librarian(req)  # None or raise
         except Exception as e:
+            set_trace()
             raise TmfsOSError(errno.ESTALE)
 
     @prentry
