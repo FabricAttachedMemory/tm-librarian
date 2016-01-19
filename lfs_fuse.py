@@ -328,7 +328,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def setxattr(self, path, xattr, valbytes, options, position=0):
         # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
-        if options:
+        if options or position:
             set_trace()  # haven't actually seen it yet
 
         # 'Extend' user.xxxx syntax and screen for it here
@@ -390,10 +390,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @staticmethod
     def _cmd2sub(cmd):
-        print(cmd, file=sys.stderr)
         args = shlex.split(cmd)
         p = subprocess.Popen(args)
         time.sleep(2)   # Because poll() seems to have some lag time
+        print('%s: PID %d' % (args[0], p.pid), file=sys.stderr)
         return p
 
     # Just say no to the socket.
@@ -406,7 +406,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         with self.zerosema:
             try:
-                print('dd: PID %d' % dd.pid)
                 polled = dd.poll()
                 while polled is not None and polled.returncode is None:
                     try:
@@ -576,6 +575,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             req = self.lcp('close_shelf', id=shelf.id, open_handle=fh)
             self.librarian(req)  # None or raise
         except Exception as e:
+            set_trace()
             raise TmfsOSError(errno.ESTALE)
 
     @prentry
