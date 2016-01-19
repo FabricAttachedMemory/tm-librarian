@@ -156,7 +156,12 @@ class TMShelf(BookShelfStuff):
 
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
-        self.bos = [ ]
+        # super.__init__ sets things to zero if the constructor dict is
+        # missing them.  Some fields need a different "missing" value.
+        if self.bos == 0:
+            self.bos = [ ]
+        if self.open_handle == 0:
+            self.open_handle = None
 
     def __eq__(self, other):
         # If size_bytes match, then len(bos) must match.
