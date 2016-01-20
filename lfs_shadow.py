@@ -216,7 +216,10 @@ class shadow_support(object):
 
     def truncate(self, shelf, length, fh):
         if fh is not None:
+            # This is an update, but there's no good way to flag that to
+            # __setitem__.  Do an idiot check here.
             assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not' % shelf.name
+        self[shelf.name] = shelf
         return 0
 
     def unlink(self, shelf_name):

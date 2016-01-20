@@ -535,7 +535,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
         if self.shadow[shelf_name].size_bytes < req_size:
-            self.truncate(path, req_size, None) # updates the cache
+            self.truncate(path, req_size, fh) # updates the cache
 
         return self.shadow.write(shelf_name, buf, offset, fh)
 
