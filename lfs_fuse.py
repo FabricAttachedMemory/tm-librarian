@@ -35,6 +35,10 @@ def prentry(func):
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
         ret = func(*args, **kwargs)
+        if self.verbose > 2:
+            print('Returning', str(ret))
+            if self.verbose > 5:
+                set_trace()
         return ret
 
     # Be a well-behaved decorator

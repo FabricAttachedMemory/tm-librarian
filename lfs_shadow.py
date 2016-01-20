@@ -110,11 +110,11 @@ class shadow_support(object):
                 else:
                     invalidate = False  # the first "n" books match
 
-            # look at cached to get references for replacement
-            for vlist in cached.open_handle.values():
-                for v_fh in vlist:
-                    self._shelfcache[v_fh] = shelf
-            self._shelfcache[shelf.name] = shelf
+            # Update cached object variant fields.  Beware references.
+            cached.size_bytes = shelf.size_bytes
+            cached.bos = deepcopy(shelf.bos)
+            cached.book_count = shelf.book_count
+            cached.mtime = shelf.mtime
             if invalidate:
                 print('\n\tNEED TO INVALIDATE PTES!!!\n')
 
