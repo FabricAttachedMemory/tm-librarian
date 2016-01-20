@@ -53,22 +53,46 @@ class shadow_support(object):
             offset += books * self.book_size
         self.book_shift = int(math.log(self.book_size, 2))
 
-    def __setitem__(self, fh, shelf):
+    def _consistent(self, cached):
+        try:
+            all_fh = [ ]
+            for vlist in cached.open_handle.values():
+                all_fh += vlist
+            for v_fh in all_fh:
+                assert v_fh in self._shelfcache, 'Inconsistent list members'
+        except Exception as e:
+            print('Shadow cache is corrupt:', str(e), file=sys.stderr)
+            set_trace()
+            raise
+
+    # Most uses send an open handle fh (integer) as key.  truncate by name
+    # is the exception.  An update needs to be reflected for all keys.
+    def __setitem__(self, key, shelf):
         '''Part of the support for duck-typing a dict with multiple keys.'''
-        assert isinstance(fh, int), 'Only integer fh is expected as key'
-        pid = tmfs_get_context()[2]
+        fh = shelf.open_handle
+        if fh is None:
+            assert key == shelf.name, 'Might take more thought on this'
+        else:
+            assert key == fh, 'Maybe this requires more thought, too'
         cached = self._shelfcache.get(shelf.name, None)
+        pid = tmfs_get_context()[2]
+
+        # Is it a completely new addtion?  Remember, only cache open shelves.
         if cached is None:
+            if fh is None:
+                return
             # Create a copy because "open_handle" will be redefined.  This
             # single copy will be retrievable by the shelf name and all of
             # its open handles.  The copy itself has a list of the fh keys
             # indexed by pid, so open_handle.keys() is all the pids.
             cached = deepcopy(shelf)
             self._shelfcache[cached.name] = cached
-            self._shelfcache[fh] = cached
+            self._shelfcache[key] = cached
             cached.open_handle = { }
-            cached.open_handle[pid] = [ fh, ]
+            cached.open_handle[pid] = [ key, ]
             return
+
+        self._consistent(cached)    # As long as I'm here...
 
         # Has the shelf changed somehow?  If so, replace the cached copy
         # and perhaps take other steps.  Break down the comparisons in
@@ -77,39 +101,32 @@ class shadow_support(object):
             invalidate = True   # and work to make it false
             assert cached.id == shelf.id, 'Shelf aliasing error?'  # TSNH :-)
 
-            # If it grew, are the first "n" books still the same?
-            if shelf.size_bytes > cached.size_bytes:
+            # If it grew OR remained the same size, are the first "n" books
+            # still the same?  Order matters.
+            if shelf.size_bytes >= cached.size_bytes:
                 for i, book in enumerate(cached.bos):
                     if book != shelf.bos[i]:
                         break
                 else:
                     invalidate = False  # the first "n" books match
+
             # look at cached to get references for replacement
             for vlist in cached.open_handle.values():
-                for fh in vlist:
-                    self._shelfcache[fh] = shelf
+                for v_fh in vlist:
+                    self._shelfcache[v_fh] = shelf
             self._shelfcache[shelf.name] = shelf
-            shelf.open_handle = cached.open_handle
             if invalidate:
                 print('\n\tNEED TO INVALIDATE PTES!!!\n')
-            return
 
-        # fh is unique (created by Librarian as table index).  Paranoia check,
-        # then add the new key.
+        # fh is unique (created by Librarian as table index).  Does it
+        # need to be appended?
+        if not isinstance(fh, int) or fh in self._shelfcache:
+            return
+        self._shelfcache[key] = cached
         try:
-            all_fh = [ ]
-            for vlist in cached.open_handle.values():
-                all_fh += vlist
-            assert fh not in all_fh, 'Duplicate fh in open_handle'
-            self._shelfcache[fh] = cached
-            try:
-                cached.open_handle[pid].append(fh)
-            except KeyError as e:
-                cached.open_handle[pid] = [ fh, ]
-        except Exception as e:
-            print(str(e))
-            set_trace()
-            raise
+            cached.open_handle[pid].append(key)
+        except KeyError as e:
+            cached.open_handle[pid] = [ key, ]  # new pid
 
     def __getitem__(self, key):
         '''Part of the support for duck-typing a dict with multiple keys.
@@ -130,6 +147,7 @@ class shadow_support(object):
             if not is_fh:
                 return
             raise AssertionError('Deleting a missing fh?')
+        self._consistent(cached)    # As long as I'm here...
 
         del self._shelfcache[key]   # always
         if is_fh:
