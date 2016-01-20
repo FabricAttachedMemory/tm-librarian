@@ -2,3 +2,4 @@ lfs_fuse.py		usr/lib/python3/dist-packages/tm-librarian
 lfs_shadow.py		usr/lib/python3/dist-packages/tm-librarian
 tm_fuse.py		usr/lib/python3/dist-packages/tm-librarian
 repl_client.py		usr/lib/python3/dist-packages/tm-librarian
+descmgmt.py		usr/lib/python3/dist-packages/tm-librarian
