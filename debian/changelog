@@ -1,3 +1,10 @@
+tm-librarian (0.0.6) UNRELEASED; urgency=medium
+
+  * Support for TMAS, filesystem resize on the fly, multiple opens of
+    a shelf by a single process or multiple processes.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 25 Jan 2016 13:26:51 -0700
+
 tm-librarian (0.0.5) UNRELEASED; urgency=medium
 
   * Load/Store (fault handling) and filesystem read/write support
