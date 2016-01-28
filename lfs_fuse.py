@@ -89,7 +89,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # socket, so do it now.
 
         # connect() has an infinite retry
-        self.torms = socket_handling.Client(selectable=False)
+        self.torms = socket_handling.Client(selectable=False, verbose=self.verbose)
         self.torms.connect(host=self.host, port=self.port)
         if self.verbose > 1:
             print('%s: connected' % self.torms)
