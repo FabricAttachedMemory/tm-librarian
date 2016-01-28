@@ -182,8 +182,6 @@ class SQLassist(object):
                     self._cursor.execute(query, parms)
             except Exception as e:  # includes sqlite3.Error
                 self.execfail = str(e)
-                if self.execfail:
-                    raise
             return
         return exec_wrapper
 
