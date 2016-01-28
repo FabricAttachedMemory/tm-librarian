@@ -35,48 +35,40 @@ class SQLite3assist(SQLassist):
         assert tmp, 'Empty schema'
         return tmp
 
+    def _execAndCheck(self, sql, values, commit):
+        assert values, 'missing values for %s' % sql
+        self.execute(sql, values)
+        # First is explicit failure like UNIQUE collision or bad SQL,
+        # second is more generic
+        if self.execfail:
+            raise AssertionError('%s failed: %s' % (sql, self.execfail))
+        if self.rowcount != 1:
+            self.rollback()
+            raise AssertionError('%s failed: %s' % (sql, self.execfail))
+        if commit:
+            self.commit()
+
     def INSERT(self, table, values, commit=True):
         '''Values are a COMPLETE tuple following ordered schema.  Primary
            key (always 'id')  can be "None" for DB to autoselect.'''
-        assert values, 'missing values for INSERT'
         qmarks = ', '.join(['?'] * len(values))
-        self.execute(
-            'INSERT INTO %s VALUES (%s)' % (table, qmarks),
-            values
-        )
-        # First is explicit failure like UNIQUE collision, second is generic
-        if self.execfail:
-            raise AssertionError(
-                'INSERT %s failed: %s' % (table, self.execfail))
-        if self.rowcount != 1:
-            self.rollback()
-            raise AssertionError('INSERT INTO %s failed' % table)
-        if commit:
-            self.commit()
+        sql = 'INSERT INTO %s VALUES (%s)' % (table, qmarks)
+        self._execAndCheck(sql, values, commit)
         return self.lastrowid   # good with or without commit
 
     def UPDATE(self, table, setclause, values, commit=False):
         '''setclause is effective key=val, key=val sequence'''
+        assert setclause, 'missing setclause for UPDATE'
         sql = 'UPDATE %s SET %s' % (table, setclause)
-        self.execute(sql, values)
-        if self.rowcount != 1:
-            self.rollback()
-            raise AssertionError('UPDATE %s failed' % table)
-        if commit:
-            self.commit()
+        self._execAndCheck(sql, values, commit)
 
     # FIXME: move fields2qmarks in here (makes sense), then just pass
     # the data object?  Or do schema manips belong "one level up" ?
     def DELETE(self, table, where, values, commit=False):
         '''Values are a COMPLETE tuple following ordered schema'''
-        assert values, 'missing values for DELETE'
+        assert where, 'missing where for DELETE'
         sql = 'DELETE FROM %s WHERE %s' % (table, where)
-        self.execute(sql, values)
-        if self.rowcount != 1:
-            self.rollback()
-            raise AssertionError('DELETE FROM %s %s failed' % (table, values))
-        if commit:
-            self.commit()
+        self._execAndCheck(sql, values, commit)
 
     #
     # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and

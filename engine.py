@@ -503,7 +503,9 @@ class LibrarianCommandEngine(object):
 
         if errmsg:  # Looks better _cooked
             print('%s failed: %s: %s' %
-                (cmdict['command'], errno.errorcode[self.errno], errmsg),
+                (cmdict['command'],
+                 errno.errorcode.get(self.errno, 'EEEEEEEK!'),
+                 errmsg),
                 file=sys.stderr)
             return { 'errmsg': errmsg, 'errno': self.errno }, None
 
