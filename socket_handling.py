@@ -433,7 +433,8 @@ class Server(SocketReadWrite):
                         pass
                     continue
 
-                try:
+                result = OOBmsg = None
+                try:    # get the next command from a client
                     cmdict = s.recv_all()
                     if cmdict is None:  # need more, not available now
                         continue
@@ -443,21 +444,24 @@ class Server(SocketReadWrite):
                             print('%s: %s' % (s, cmdict['command']))
                         else:
                             print('%s: %s' % (s, str(cmdict)))
-                    result = OOBmsg = None
-                    result, OOBmsg = handler(cmdict)
                 except ConnectionError as e:  # Base class in Python3
                     print(str(e))
                     clients.remove(s)
                     if s in to_write:
                         to_write.remove(s)
                     continue
-                except Exception as e:  # Internal, lower level stuff
-                    if e.__class__ in (AssertionError, RuntimeError):
-                        msg = str(e)
-                    else:
-                        msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
-                    print('%s: %s' % (s, msg))
+                except Exception as e:  # Shouldn't happen
+                    msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
+                    print('%s: %s' % (s, msg), file=sys.stderr)
                     set_trace()
+                    raise
+
+                try:    # process the next command
+                    result, OOBmsg = handler(cmdict)
+                except Exception as e:  # Shouldn't happen
+                    set_trace()
+                    msg = 'UNEXPECTED HANDLER ERROR: %s' % str(e)
+                    print('%s: %s' % (s, msg), file=sys.stderr)
                     raise
 
                 # NO "finally": it circumvents "continue" in error clause(s)
