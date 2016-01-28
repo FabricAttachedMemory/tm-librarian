@@ -578,12 +578,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def release(self, path, fh):  # fh == shadow file descriptor
         try:
             shelf = self.shadow.release(fh)
-            # FIXME: passing open_handle as a list CRASHES the Librarian.
-            # I did it by mistake once but this needs to be examined.
             req = self.lcp('close_shelf', id=shelf.id, open_handle=fh)
             self.librarian(req)  # None or raise
         except Exception as e:
-            set_trace()
             raise TmfsOSError(errno.ESTALE)
 
     @prentry
