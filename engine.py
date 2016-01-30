@@ -416,6 +416,7 @@ class LibrarianCommandEngine(object):
 
     def __init__(self, backend, optargs=None, cooked=False):
         innerE = None
+        self.verbose = getattr(optargs, 'verbose', 0)
         try:
             self.db = backend
             globals = self.db.get_globals()
@@ -438,8 +439,9 @@ class LibrarianCommandEngine(object):
                     encnodes = sorted(encnodes, key=attrgetter('node'))
                     outstr = [ '%d:%d:%d' % (racknum, encnum, n.node) for
                                n in encnodes ]
-                    print('Rack %d Enc %2d nodes:' % (racknum, encnum),
-                          ' '.join(outstr))
+                    if self.verbose:
+                        print('Rack %d Enc %2d nodes:' % (racknum, encnum),
+                            ' '.join(outstr))
                 racknum += 1
                 racknodes = [ n for n in self.nodes if n.rack == racknum ]
 
@@ -502,11 +504,12 @@ class LibrarianCommandEngine(object):
             errmsg = 'INTERNAL CODING ERROR: %s' % str(e)
 
         if errmsg:  # Looks better _cooked
-            print('%s failed: %s: %s' %
-                (cmdict['command'],
-                 errno.errorcode.get(self.errno, 'EEEEEEEK!'),
-                 errmsg),
-                file=sys.stderr)
+            if self.verbose > 2:
+                print('%s failed: %s: %s' %
+                    (cmdict['command'],
+                    errno.errorcode.get(self.errno, 'EEEEEEEK!'),
+                    errmsg),
+                    file=sys.stderr)
             return { 'errmsg': errmsg, 'errno': self.errno }, None
 
         if isinstance(ret, dict):
