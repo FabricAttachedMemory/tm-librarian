@@ -584,8 +584,8 @@ class shadow_ivshmem(shadow_support):
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
                     baseLZA,
-                    baseLZA >> 13,
-                    baseLZA & ((1 << 13) -1 )))
+                    (baseLZA >> 46),
+                    ((baseLZA >> 33) & ((1 << 13) - 1))))
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
                 print('IVSHMEM backing file offset = %d (0x%x)' % (
                     ivshmem_offset, ivshmem_offset))
