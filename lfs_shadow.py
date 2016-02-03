@@ -481,6 +481,13 @@ class shadow_file(shadow_support):
 
 class shadow_ivshmem(shadow_support):
 
+    _IG_SHIFT = 46
+    _IG_MASK = ((1 << 7) - 1)
+    _BOOK_SHIFT = 33
+    _BOOK_MASK = ((1 << 13) - 1)
+    _BOOKLET_SHIFT = 16
+    _BOOKLET_MASK = ((1 << 17) - 1)
+
     def __init__(self, args, lfs_globals):
 
         super(self.__class__, self).__init__(args, lfs_globals)
@@ -531,6 +538,14 @@ class shadow_ivshmem(shadow_support):
                   self.aperture_base, self.aperture_base + self.aperture_size - 1))
 
         self.descriptors = DescriptorManagement(args)
+
+    def LZAtoIG(self, lza):
+        return ((lza >> shadow_ivshmem._IG_SHIFT) &
+            shadow_ivshmem._IG_MASK)
+
+    def LZAtoBookNum(self, lza):
+        return ((lza >> shadow_ivshmem._BOOK_SHIFT) &
+            shadow_ivshmem._BOOK_MASK)
 
     # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
@@ -584,8 +599,8 @@ class shadow_ivshmem(shadow_support):
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
                     baseLZA,
-                    (baseLZA >> 46),
-                    ((baseLZA >> 33) & ((1 << 13) - 1))))
+                    self.LZAtoIG(baseLZA),
+                    self.LZAtoBookNum(baseLZA)))
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
                 print('IVSHMEM backing file offset = %d (0x%x)' % (
                     ivshmem_offset, ivshmem_offset))
