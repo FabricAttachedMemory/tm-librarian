@@ -109,12 +109,6 @@ class DescMgmt(GenericObject):
         if self.verbose > 2:
             print(','.join(out))
 
-    def LZAtoIG(self, lza):
-        return ((lza >> self._IG_SHIFT) & self._IG_MASK)
-
-    def LZAtoBookNum(self, lza):
-        return ((lza >> self._BOOK_SHIFT) & self._BOOK_MASK)
-
     def _consistent(self):
         assert len(self._available) + len(self._descriptors) == len(self._indices), 'MEBST INCONSISTENT DESCRIPTORS'
 
