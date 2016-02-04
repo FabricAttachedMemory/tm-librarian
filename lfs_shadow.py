@@ -18,7 +18,7 @@ from pdb import set_trace
 
 from tm_fuse import TmfsOSError, tmfs_get_context
 
-from descmgmt import DescriptorManagement
+from descmgmt import DescMgmt
 
 #--------------------------------------------------------------------------
 # _shelfcache is essentially a copy of the Librarian's "opened_shelves"
@@ -481,13 +481,6 @@ class shadow_file(shadow_support):
 
 class shadow_ivshmem(shadow_support):
 
-    _IG_SHIFT = 46
-    _IG_MASK = ((1 << 7) - 1)
-    _BOOK_SHIFT = 33
-    _BOOK_MASK = ((1 << 13) - 1)
-    _BOOKLET_SHIFT = 16
-    _BOOKLET_MASK = ((1 << 17) - 1)
-
     def __init__(self, args, lfs_globals):
 
         super(self.__class__, self).__init__(args, lfs_globals)
@@ -537,13 +530,13 @@ class shadow_ivshmem(shadow_support):
                   self.aperture_size - 1,
                   self.aperture_base, self.aperture_base + self.aperture_size - 1))
 
-        self.descriptors = DescriptorManagement(args)
+        self.descriptors = DescMgmt(args)
 
     def LZAtoIG(self, lza):
-        return ((lza >> self._IG_SHIFT) & self._IG_MASK)
+        return ((lza >> DescMgmt._IG_SHIFT) & DescMgmt._IG_MASK)
 
     def LZAtoBookNum(self, lza):
-        return ((lza >> self._BOOK_SHIFT) & self._BOOK_MASK)
+        return ((lza >> DescMgmt._BOOK_SHIFT) & DescMgmt._BOOK_MASK)
 
     # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
@@ -623,7 +616,7 @@ class fam(shadow_ivshmem):
         if self.verbose > 2:
             print('FAM aperture_base = 0x%x' % (self.aperture_base))
 
-        self.descriptors = DescriptorManagement(args)
+        self.descriptors = DescMgmt(args)
 
 
 def the_shadow_knows(args, lfs_globals):

@@ -16,6 +16,7 @@ from pdb import set_trace
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group
+from descmgmt import DescMgmt
 
 #--------------------------------------------------------------------------
 
@@ -145,8 +146,8 @@ def get_book_id(bn, node_id, ig):
           [53:63] - reserved (zeros)
     '''
     if ig is None:
-        return (bn << 33) + (node_id << 46)
-    return (bn << 33) + (ig << 46)
+        return (bn << DescMgmt._BOOK_SHIFT) + (node_id << DescMgmt._IG_SHIFT)
+    return (bn << DescMgmt._BOOK_SHIFT) + (ig << DescMgmt._IG_SHIFT)
 
 #--------------------------------------------------------------------------
 # If optional item is there, calculate everything.  Assume it's the
@@ -425,7 +426,7 @@ if __name__ == '__main__':
     #   [53:63] - reserved (zeros)
     for ig in IGs:
         for igoffset in range(ig.total_books):
-            lza = (ig.num << 46) + (igoffset << 33)
+            lza = (ig.num << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                     (lza, ig.num, igoffset, 0, 0))
