@@ -540,12 +540,10 @@ class shadow_ivshmem(shadow_support):
         self.descriptors = DescriptorManagement(args)
 
     def LZAtoIG(self, lza):
-        return ((lza >> shadow_ivshmem._IG_SHIFT) &
-            shadow_ivshmem._IG_MASK)
+        return ((lza >> self._IG_SHIFT) & self._IG_MASK)
 
     def LZAtoBookNum(self, lza):
-        return ((lza >> shadow_ivshmem._BOOK_SHIFT) &
-            shadow_ivshmem._BOOK_MASK)
+        return ((lza >> self._BOOK_SHIFT) & self._BOOK_MASK)
 
     # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
