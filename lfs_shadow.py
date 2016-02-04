@@ -532,12 +532,6 @@ class shadow_ivshmem(shadow_support):
 
         self.descriptors = DescMgmt(args)
 
-    def LZAtoIG(self, lza):
-        return ((lza >> DescMgmt._IG_SHIFT) & DescMgmt._IG_MASK)
-
-    def LZAtoBookNum(self, lza):
-        return ((lza >> DescMgmt._BOOK_SHIFT) & DescMgmt._BOOK_MASK)
-
     # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in shadow open'
@@ -590,8 +584,8 @@ class shadow_ivshmem(shadow_support):
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
                     baseLZA,
-                    self.LZAtoIG(baseLZA),
-                    self.LZAtoBookNum(baseLZA)))
+                    ((baseLZA >> DescMgmt._IG_SHIFT) & DescMgmt._IG_MASK),
+                    ((baseLZA >> DescMgmt._BOOK_SHIFT) & DescMgmt._BOOK_MASK)))
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
                 print('IVSHMEM backing file offset = %d (0x%x)' % (
                     ivshmem_offset, ivshmem_offset))
