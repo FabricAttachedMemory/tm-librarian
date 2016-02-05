@@ -16,6 +16,7 @@ from pdb import set_trace
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group
+from descmgmt import DescMgmt
 
 #--------------------------------------------------------------------------
 
@@ -138,13 +139,15 @@ def get_intlv_group(bn, node_id, ig):
 
 
 def get_book_id(bn, node_id, ig):
-    ''' Create a book id
-        [0:12]  - unique book number (0..8191) for given interleave group
-        [13:19] - unique interleave group number (0..127) for given system
+    ''' Create a book id/LZA
+          [0:32]  - book offset (zeros)
+          [33:45] - book number within interleave group (0 - 8191)
+          [46:52] - interleave group (0 - 127)
+          [53:63] - reserved (zeros)
     '''
     if ig is None:
-        return bn + (node_id << 13)
-    return bn + (ig << 13)
+        return (bn << DescMgmt._BOOK_SHIFT) + (node_id << DescMgmt._IG_SHIFT)
+    return (bn << DescMgmt._BOOK_SHIFT) + (ig << DescMgmt._IG_SHIFT)
 
 #--------------------------------------------------------------------------
 # If optional item is there, calculate everything.  Assume it's the
@@ -413,17 +416,20 @@ if __name__ == '__main__':
                     (mc.node_id, ig.num, mc.module_size_books, mc.value))
     cur.commit()
 
-    # Finally, the tricky one.  "Books" are allocated behind IGs, not nodes.
-    # An LZA a set of bit fields: IG (7) | book num (13) | book offset (33)
-    # for real hardware (8G books).  Note the IG:booknum pair is left-shifted
-    # by the bitsize of a book.  The id field is now more than a simple
-    # index, it's the LZA.  By earlier agreement we only store the pair.
+    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
+    # fields: IG (7) | book num (13) | book offset (33) for real hardware
+    # (8G books). The "id" field is now more than a simple index, it's
+    # the LZA, layout:
+    #   [0:32]  - book offset
+    #   [33:45] - book number within interleave group (0 - 8191)
+    #   [46:52] - interleave group (0 - 127)
+    #   [53:63] - reserved (zeros)
     for ig in IGs:
         for igoffset in range(ig.total_books):
-            book_id = (ig.num << 13) + igoffset
+            lza = (ig.num << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                    (book_id, ig.num, igoffset, 0, 0))
+                    (lza, ig.num, igoffset, 0, 0))
         cur.commit()    # every IG
 
     cur.commit()

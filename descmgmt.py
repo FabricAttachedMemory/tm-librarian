@@ -64,13 +64,18 @@ class _LZAinuse(GenericObject):
         except Exception as e:
             return NotImplemented
 
-class DescriptorManagement(GenericObject):
+class DescMgmt(GenericObject):
 
     _descioctl = '/dev/descioctl'
     _DESBK_READ_OFF = 0xc0102100    # IOR('!', ...)
     _DESBK_PUT      = 0xc0102102    # IOW('!', ...)
 
-    _BOOKSHIFT = 33                 # Bits of offset for 20 bit IG:booknum
+    _IG_SHIFT = 46                  # Bits of offset for 7 bit IG
+    _IG_MASK = ((1 << 7) - 1)       # Mask for 7 bit IG
+    _BOOK_SHIFT = 33                # Bits of offset for 20 bit book number
+    _BOOK_MASK = ((1 << 13) - 1)    # Mask for 13 bit book number
+    _BOOKLET_SHIFT = 16             # Bits of offset for 17 bit booklet number
+    _BOOKLET_MASK = ((1 << 17) - 1) # Mask for 17 bit booklet number
 
     _evenmask = (2**64) - 1 - 1     # one for 64 bits of 1s, then clear the LSB
 
@@ -97,7 +102,7 @@ class DescriptorManagement(GenericObject):
         for index, desc in enumerate(self.descTable):
             out.append(hex(desc))
             if desc & 1:   # Descriptor valid bit
-                LZA = (desc & self._evenmask) >> self._BOOKSHIFT
+                LZA = (desc & self._evenmask) >> self._BOOK_SHIFT
                 self._descriptors[LZA] = _LZAinuse(LZA, index)
             else:
                 self._available.append(index)
@@ -138,7 +143,7 @@ class DescriptorManagement(GenericObject):
             return
         assert 0 <= baseLZA < 2**20, 'baseLZA out of range'
         # LSB is the valid bit
-        buf = self.buffer2longs(index, (baseLZA << self._BOOKSHIFT) + 1)
+        buf = self.buffer2longs(index, (baseLZA << self._BOOK_SHIFT) + 1)
         with open(self._descioctl, 'wb') as f:
             junk = fcntl.ioctl(f, self._DESBK_PUT, buf)
 
