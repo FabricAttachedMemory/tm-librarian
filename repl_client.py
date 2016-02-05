@@ -10,8 +10,6 @@ import socket_handling
 
 import cmdproto
 
-verbose = 1
-
 #--------------------------------------------------------------------------
 
 
@@ -35,18 +33,16 @@ def setup_command_generator(uil_repeat=None, script=None):
 #--------------------------------------------------------------------------
 
 
-def main(node_id, serverhost, onetime=None):
+def main(physloc, serverhost, verbose, onetime=None):
     """Optionally connect to the server, then wait for user input to
        send to the server, printing out the response."""
-
-    global verbose
 
     # Right now it's just identification, not auth[entication|orization]
     context = {
         'uid': os.geteuid(),
         'gid': os.getegid(),
         'pid': os.getpid(),
-        'node_id': node_id
+        'node_id': physloc.split(':')[2]
     }
     lcp = cmdproto.LibrarianCommandProtocol(context)
 
@@ -66,7 +62,7 @@ def main(node_id, serverhost, onetime=None):
         delay = 0.0
         uigen = setup_command_generator()
 
-    def substitute_vars(uil, node_id, prevrsp):
+    def substitute_vars(uil, physloc, prevrsp):
         for i in range(1, len(uil)):
             arg = uil[i]
             if arg[0] == '$':
@@ -75,7 +71,7 @@ def main(node_id, serverhost, onetime=None):
                 if 'value' in prevrsp:
                     uil[i] = str(prevrsp['value'].get(var, 'NONE'))
             elif arg.endswith('$NODE'):
-                uil[i] = arg.replace('$NODE', '%03d' % node_id)
+                uil[i] = arg.replace('$NODE', '%s' % physloc)
 
     reset()
     rspdict = None
@@ -85,7 +81,7 @@ def main(node_id, serverhost, onetime=None):
                 user_input_list = next(uigen)
             else:
                 user_input_list = copy.copy(onetime)
-            substitute_vars(user_input_list, node_id, rspdict)
+            substitute_vars(user_input_list, physloc, rspdict)
             command = user_input_list[0]
 
             # Directives
@@ -178,9 +174,9 @@ if __name__ == '__main__':
         type=int,
         default=1)
     parser.add_argument(
-        'node_id',
-        help='Numeric node id',
-        type=int)
+        'physloc',
+        help='Node physical location "rack:enc:node"',
+        type=str)
     parser.add_argument(
         'hostname',
         help='ToRMS host running the Librarian',
@@ -192,7 +188,5 @@ if __name__ == '__main__':
         default=None)
     args = parser.parse_args(sys.argv[1:])
 
-    # argparse "choices" expands this in help message, less than helpful
-    assert 1 <= args.node_id < 1000, 'Node ID must be from 1 - 999'
     verbose = args.verbose
-    main(args.node_id, args.hostname, args.onetime)
+    main(args.physloc, args.hostname, args.verbose, args.onetime)

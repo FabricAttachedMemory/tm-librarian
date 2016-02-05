@@ -204,42 +204,38 @@ class LibrarianDBackendSQL(object):
         return books[0] if books else None
 
     def get_books_by_intlv_group(self, max_books, IGs,
-                                 allocated=TMBook.ALLOC_FREE,
+                                 allocated=[TMBook.ALLOC_FREE],
                                  exclude=False,
                                  ascending=True):
         """ Retrieve book(s) from "books" table using node
             Input---
               max_books - maximum number of books
               IGs - list of interleave groups to filter: IN (....)
-              allocated - filter for "allocated" field
+              allocated - list of ilter(s) for "allocated" field
               exclude - treat IGs as exclusion filter: NOT IN (....)
               ascending - order by book_id == LZA
             Output---
               List of TMBooks up to max_books or raised error
         """
-        if allocated == -1:   # special case for demo/status
-            self._cur.execute('''SELECT allocated FROM books
-                                 WHERE intlv_group=? ORDER BY id''',
-                                 str(IGs[0]))
-            self._cur.iterclass = 'default'
-            return [ r[0] for r in self._cur.fetchall() ]
-
         if IGs:
             INclause = 'AND intlv_group %%s IN (%s)' % ','.join(
                 (str(i) for i in IGs))
             INclause = INclause % ('NOT' if exclude else '')
         else:
             INclause = ''
+        ALLOCclause = 'WHERE allocated IN (%s)' % ','.join(
+            (str(i) for i in allocated))
         order = 'ASC' if ascending else 'DESC'
         # SQL injection yeah yeah yeah can't avoid these
         sql = '''SELECT * from books
-                 WHERE allocated=?
+                 %s
                  %s
                  ORDER BY id %s
-                 LIMIT ?''' % (INclause, order)
-        self._cur.execute(sql, (allocated, max_books))
+                 LIMIT ?''' % (ALLOCclause, INclause, order)
+        self._cur.execute(sql, (max_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
+        print("sql: %s" % sql)
         return book_data
 
     def get_books_on_shelf(self, shelf):
@@ -269,16 +265,16 @@ class LibrarianDBackendSQL(object):
         books = [ r for r in self._cur ]
         return books
 
-    def get_book_info_all(self, node_id):
-        """ Retrieve books on a given node from "books" table
-            joined with "books_on_shelves" and "shelves" tables.
+    def get_book_info_all(self, intlv_group):
+        """ Retrieve books from a given interleave group from "books"
+            table joined with "books_on_shelves" and "shelves" tables.
             Input---
-              node_id
+              intlv_group
             Output---
               book data or None
         """
         db_query = """SELECT books.id,
-                             books.node_id,
+                             books.intlv_group,
                              books.allocated,
                              books.attributes,
                              books.intlv_group,
@@ -295,9 +291,9 @@ class LibrarianDBackendSQL(object):
                              ON books.id = books_on_shelves.book_id
                              LEFT OUTER JOIN shelves
                              ON books_on_shelves.shelf_id = shelves.id
-                             WHERE books.node_id = ?
+                             WHERE books.intlv_group = ?
             """
-        self._cur.execute(db_query, (node_id))
+        self._cur.execute(db_query, (intlv_group))
         self._cur.iterclass = 'default'
         book_data = [ r for r in self._cur ]
         return(book_data)
