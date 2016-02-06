@@ -105,14 +105,14 @@ class LibrarianCommandProtocol(object):
             parms=None,
          ),
 
-        'get_book_alloc': GO(
-            doc='Return allocation state of each book in a node',
-            parms=('node_id', ),
+        'get_book_ig': GO(
+            doc='get all books in an interleave group',
+            parms=('intlv_group', ),
          ),
 
         'get_book_info_all': GO(
-            doc='get all books for a node joined with shelf information',
-            parms=('node_id', ),
+            doc='get all books for an interleave group joined with shelf information',
+            parms=('intlv_group', ),
         ),
 
     }   # _commands
