@@ -204,19 +204,21 @@ class LibrarianDBackendSQL(object):
         return books[0] if books else None
 
     def get_books_by_intlv_group(self, max_books, IGs,
-                                 allocated=[TMBook.ALLOC_FREE],
+                                 allocated=None,
                                  exclude=False,
                                  ascending=True):
         """ Retrieve book(s) from "books" table using node
             Input---
               max_books - maximum number of books
               IGs - list of interleave groups to filter: IN (....)
-              allocated - list of ilter(s) for "allocated" field
+              allocated - list of filter(s) for "allocated" field
               exclude - treat IGs as exclusion filter: NOT IN (....)
               ascending - order by book_id == LZA
             Output---
               List of TMBooks up to max_books or raised error
         """
+        if allocated is None:
+            allocated = [TMBook.ALLOC_FREE]
         if IGs:
             INclause = 'AND intlv_group %%s IN (%s)' % ','.join(
                 (str(i) for i in IGs))
@@ -274,7 +276,6 @@ class LibrarianDBackendSQL(object):
               book data or None
         """
         db_query = """SELECT books.id,
-                             books.intlv_group,
                              books.allocated,
                              books.attributes,
                              books.intlv_group,
