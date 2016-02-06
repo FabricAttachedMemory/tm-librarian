@@ -401,14 +401,15 @@ class LibrarianCommandEngine(object):
             'OOBmsg': cmdict['msg']
         }
 
-    def cmd_get_book_alloc(self, cmdict):
-        return self.db.get_book_by_node(cmdict['node_id'], -1, 9999)
+    def cmd_get_book_ig(self, cmdict):
+        allocated = [ TMBook.ALLOC_FREE, TMBook.ALLOC_INUSE, TMBook.ALLOC_ZOMBIE ]
+        return self.db.get_books_by_intlv_group(9999, cmdict['intlv_group'], allocated)
 
     def cmd_get_book_all(self, cmdict):
         return self.db.get_book_all()
 
     def cmd_get_book_info_all(self, cmdict):
-        return self.db.get_book_info_all(cmdict['node_id'])
+        return self.db.get_book_info_all(cmdict['intlv_group'])
 
     #######################################################################
 
