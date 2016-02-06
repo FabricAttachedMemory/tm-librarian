@@ -237,7 +237,6 @@ class LibrarianDBackendSQL(object):
         self._cur.execute(sql, (max_books))
         self._cur.iterclass = TMBook
         book_data = [ r for r in self._cur ]
-        print("sql: %s" % sql)
         return book_data
 
     def get_books_on_shelf(self, shelf):
