@@ -11,14 +11,14 @@ import stat
 import sys
 import tempfile
 import mmap
+import ctypes
+
 from copy import deepcopy
 from subprocess import getoutput
-
 from pdb import set_trace
-
 from tm_fuse import TmfsOSError, tmfs_get_context
-
 from descmgmt import DescMgmt
+from tm_ioctl_opt import *
 
 #--------------------------------------------------------------------------
 # _shelfcache is essentially a copy of the Librarian's "opened_shelves"
@@ -262,6 +262,9 @@ class shadow_support(object):
 
     def write(self, shelf_name, buf, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
+
+    def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
+        return -1
 
 #--------------------------------------------------------------------------
 
@@ -596,6 +599,39 @@ class shadow_ivshmem(shadow_support):
         except Exception as e:
             print('!!! ERROR IN FAULT HANDLER: %s' % str(e), file=sys.stderr)
             return ''
+
+    def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
+
+        LFS_GET_PHYS_FROM_OFFSET = IOWR(ord("L"), 0x01, ctypes.c_ulong)
+
+        if (cmd == LFS_GET_PHYS_FROM_OFFSET):
+
+            # data ---
+            #   in : byte offset into shelf
+            #   out: physical address for book at offset
+
+            # read data sent in by user
+            inbuf = ctypes.create_string_buffer(8)
+            ctypes.memmove(inbuf, data, 8)
+            offset = (int.from_bytes(inbuf, byteorder='little'))
+
+            lfs_offset = self.shadow_offset(shelf_name, offset)
+            if lfs_offset == -1:
+                return -1
+            physaddr = self.aperture_base + lfs_offset
+
+            # send data back to user
+            outbuf = physaddr.to_bytes(8, byteorder='little')
+            ctypes.memmove(data, outbuf, 8)
+
+            if self.verbose > 1:
+                print("LFS_GET_PHYS_FROM_OFFSET: shelf_name = %s" % shelf_name)
+                print("offset = %d (0x%x), physaddr = %d (0x%x)" %
+                    (offset, offset, physaddr, physaddr))
+
+            return 0
+        else:
+            return -1
 
 #--------------------------------------------------------------------------
 

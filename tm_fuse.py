@@ -333,9 +333,8 @@ class tmfs_operations(Structure):
         # Padding for flags variable
         ('flag', c_voidp),
 
-        #('ioctl', CFUNCTYPE(c_int, c_char_p, c_int, c_void_p,
-        #                    POINTER(tmfs_file_info), c_uint, c_void_p)),
-        ('ioctl', c_voidp),
+        ('ioctl', CFUNCTYPE(c_int, c_char_p, c_uint, c_void_p,
+                            POINTER(tmfs_file_info), c_uint, c_void_p)),
 
         #('poll', CFUNCTYPE(c_int, c_char_p, POINTER(tmfs_file_info),
         #                   POINTER(tmfs_pollhandle), c_uint)),
@@ -463,6 +462,15 @@ class TMFS(object):
 
     def getattr(self, path, buf):
         return self.fgetattr(path, buf, None)
+
+    def ioctl(self, path, cmd, arg, fip, flags, data):
+        if self.raw_fi:
+          fh = fip.contents
+        else:
+          fh = fip.contents.fh
+
+        return self.operations('ioctl', path.decode(self.encoding),
+            cmd, arg, fh, flags, data)
 
     def readlink(self, path, buf, bufsize):
         ret = self.operations('readlink', path.decode(self.encoding)) \
