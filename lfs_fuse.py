@@ -563,6 +563,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return self.shadow.truncate(shelf, length, fh)
 
     @prentry
+    def ioctl(self, path, cmd, arg, fh, flags, data):
+        shelf_name = self.path2shelf(path)
+        return self.shadow.ioctl(shelf_name, cmd, arg, fh, flags, data)
+
+    @prentry
     def fallocate(self, path, mode, offset, length, fh=None):
         if mode > 0:
             return -1
