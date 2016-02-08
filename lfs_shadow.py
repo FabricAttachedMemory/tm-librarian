@@ -18,7 +18,7 @@ from subprocess import getoutput
 from pdb import set_trace
 from tm_fuse import TmfsOSError, tmfs_get_context
 from descmgmt import DescMgmt
-from tm_ioctl_opt import *
+import tm_ioctl_opt as IOCTL
 
 #--------------------------------------------------------------------------
 # _shelfcache is essentially a copy of the Librarian's "opened_shelves"
@@ -602,7 +602,7 @@ class shadow_ivshmem(shadow_support):
 
     def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
 
-        LFS_GET_PHYS_FROM_OFFSET = IOWR(ord("L"), 0x01, ctypes.c_ulong)
+        LFS_GET_PHYS_FROM_OFFSET = IOCTL.IOWR(ord("L"), 0x01, ctypes.c_ulong)
 
         if (cmd == LFS_GET_PHYS_FROM_OFFSET):
 
