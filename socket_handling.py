@@ -95,7 +95,7 @@ class SocketReadWrite(object):
             outbytes = dumps(obj).encode()
         else:
             outbytes = obj.encode()
-        if self.verbose > 1:
+        if self.verbose > 2:
             print('%s: sending %s' % (self, 'NULL' if obj
                   is None else '%d bytes' % len(outbytes)))
 
@@ -163,7 +163,7 @@ class SocketReadWrite(object):
             if self.inOOB:  # make caller deal with OOB first
                 return None
             last = len(self.instr)
-            if last and self.verbose > 4:
+            if last and self.verbose > 3:
                 if last > 60:
                     print('INSTR: %d bytes' % last)
                 else:

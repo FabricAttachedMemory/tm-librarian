@@ -14,6 +14,7 @@ from pdb import set_trace
 from functools import total_ordering
 
 from genericobj import GenericObject
+import tm_ioctl_opt as IOCTL
 
 @total_ordering
 class _LZAinuse(GenericObject):
@@ -67,7 +68,7 @@ class _LZAinuse(GenericObject):
 class DescMgmt(GenericObject):
 
     _descioctl = '/dev/descioctl'
-    _DESBK_READ_OFF = 0xc0102100    # IOR('!', ...)
+    _DESBK_READ_OFF = 0xc0102100    # IOWR('!', ...)
     _DESBK_PUT      = 0xc0102102    # IOW('!', ...)
 
     _IG_SHIFT = 46                  # Bits of offset for 7 bit IG

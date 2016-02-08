@@ -24,20 +24,27 @@ from lfs_shadow import the_shadow_knows
 
 ###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
-# FIXME: find a better spot to place this.
-
+# 0=ERROR, 1=PERF, 2=NOTICE, 3=INFO, 4=DEBUG, 5=OOB)',
+# Value     Client (lfs_fuse et al)         Server (Librarian et al)
+# == 1      nada                            transactions/second
+# >= 2      entry point entry values
+# >= 3      entry point return values
+#           book lists
+#           address space values
+# >= 4      Socket byte streams             Socket byte streams
+# >= 5      set_trace() (prentry)
 
 def prentry(func):
     def new_func(*args, **kwargs):
-        self = args[0]
-        if self.verbose > 2:
+        verbose = getattr(args[0], 'verbose', 0)
+        if verbose > 1:
             print('----------------------------------')
             tmp = ', '.join([str(a) for a in args[1:]])
             print('%s(%s)' % (func.__name__, tmp[:60]))
         ret = func(*args, **kwargs)
-        if self.verbose > 2:
+        if verbose > 2:
             print('Returning', str(ret))
-            if self.verbose > 5:
+            if verbose > 4:
                 set_trace()
         return ret
 
