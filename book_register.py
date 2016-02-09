@@ -84,12 +84,10 @@ def load_config(inifile):
             legal = frozenset((
                 'node_id',
                 'nvm_size',
-                'intlv_group',
             ))
             required = frozenset((
                 'node_id',
                 'nvm_size',
-                'intlv_group',
             ))
         else:
             raise SystemExit('Illegal section "%s"' % s)
@@ -192,43 +190,31 @@ def load_book_data(inifile):
     if FRDnodes is not None:
         return book_size_bytes, FRDnodes, IGs
 
-    usage('Explicit node and IG definitions are not yet implemented.')
-
     # No short cuts, grind it out for the nodes.
-    section2books = {}
-    intlv_groups = {}
+    FRDnodes = []
     for section in other_sections:
-        set_trace()
         sdata = dict(section.items())
-        section2books[section.name] = []
         node_id = int(sdata["node_id"], 10)
-        ig = int(sdata["intlv_group"], 10)
         nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
 
         if nvm_size % book_size_bytes != 0:
             usage("[%s] NVM size not multiple of book size" % section)
 
         num_books = int(nvm_size / book_size_bytes)
+
         if num_books < 1:
             usage('num_books must be greater than zero')
 
-        if ig in intlv_groups:
-            book_num = intlv_groups[ig]
-        else:
-            book_num = 0
-            intlv_groups.update({ig: book_num})
+        module_size_books = num_books // 4
+        if module_size_books * 4 != num_books:
+            usage('Books per node is not divisible by 4')
 
-        for book in range(num_books):
-            tmp = TMBook(
-                node_id=node_id,
-                id=get_book_id(book_num, node_id, ig),
-                intlv_group=get_intlv_group(book_num, node_id, ig)
-            )
-            section2books[section].append(tmp)
-            book_num += 1
-            intlv_groups[ig] = book_num
+        newNode = FRDnode(node_id, module_size_books=module_size_books)
+        FRDnodes.append(newNode)
 
-    return(book_size_bytes, section2books)
+    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+
+    return(book_size_bytes, FRDnodes, IGs)
 
 #---------------------------------------------------------------------------
 # https://www.sqlite.org/lang_createtable.html#rowid (2 days later)

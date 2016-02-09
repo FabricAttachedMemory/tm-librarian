@@ -75,8 +75,6 @@ class LibrarianDBackendSQL(object):
                               module_size_books=r.module_size_books)
             try:
                 tmpIGs[r.IG].append(val)
-                # FIXME: move this to book_register.py
-                assert tmpIGs[0][0].module_size_books == val.module_size_books
             except KeyError as e:
                 tmpIGs[r.IG] = [ val, ]
         IGs = [ FRDintlv_group(IG, MCs) for IG, MCs in tmpIGs.items() ]
