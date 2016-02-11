@@ -551,7 +551,7 @@ class shadow_ivshmem(shadow_support):
         # Called during fault handler in kernel, don't die here :-)
         try:
             bos = self[shelf_name].bos
-            cmd, comm, pid, offset, userVA = xattr.split(':')
+            cmd, comm, pid, offset, userVA = xattr.split(',')
             pid = int(pid)
             offset = int(offset)
             userVA = int(userVA)
@@ -579,7 +579,7 @@ class shadow_ivshmem(shadow_support):
 
             # ivshmem does not have real apertures even though calculations
             # are being done.   Mapping is direct.
-            data = 'direct:%s:%s' % (physaddr, self.book_size)
+            data = 'direct,%s,%s' % (physaddr, self.book_size)
 
             if self.verbose > 3:
                 print('Process %s[%d] shelf = %s, offset = %d (0x%x)' % (
