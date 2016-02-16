@@ -62,6 +62,7 @@ directory.
 
 Regression testing
 
-rw_test.py - open shelf read/write/verify data using file and mmap operations.
+rw_test.py - open shelf read/write/verify data using file and mmap operations
+check-book.py - read/write/read/verify books on a shelf
 
 ---------------------------------------------------------------------------
