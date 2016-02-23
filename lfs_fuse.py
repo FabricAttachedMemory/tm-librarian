@@ -693,11 +693,11 @@ def mount_LFS(args):
         raise SystemExit('Bad physical location %s' % args.physloc)
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
-    i = int(bool(args.shadow_ivshmem))
-    a = int(bool(args.shadow_apertures))
-    t = int(bool(args.fam))
-    assert sum(
-        (d, f, i, a, t)) == 1, 'Exactly one of shadow_[dir|file|ivshmem|apertures] | fam is required'
+    tmp = sum((d, f))
+    if tmp == 1:
+        assert not args.apertures, 'shadow_xxxx does not support apertures'
+    elif tmp > 1:
+        raise RuntimeError('Only one of shadow_[dir|file] is allowed')
 
     try:
         TMFS(LibrarianFS(args),
@@ -717,24 +717,30 @@ if __name__ == '__main__':
     import sys
 
     parser = argparse.ArgumentParser(
-        description='Librarian File System Daemon (LFSd)')
+        description='Librarian File System daemon (lfs_fuse.py)')
     parser.add_argument(
         'hostname',
         help='ToRMS host running the Librarian',
-        type=str)
-    parser.add_argument(
-        'mountpoint',
-        help='Local directory mountpoint',
         type=str)
     parser.add_argument(
         'physloc',
         help='Node physical location "rack:enc:node"',
         type=str)
     parser.add_argument(
+        '--apertures',
+        help='FAME only, uses "direct" mapping by default',
+        action='store_true',
+        default=False)
+    parser.add_argument(
         '--daemon',
         help='Daemonize the program',
         action='store_true',
         default=False)
+    parser.add_argument(
+        '--mountpoint',
+        help='Local directory mountpoint',
+        type=str,
+        default='/lfs')
     parser.add_argument(
         '--shadow_dir',
         help='directory path for individual shelf shadow files',
@@ -743,21 +749,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--shadow_file',
         help='file path for one regular shadow file',
-        type=str,
-        default='')
-    parser.add_argument(
-        '--shadow_ivshmem',
-        help='use IVSHMEM backing (1st device listed)',
-        action='store_true',
-        default=False)
-    parser.add_argument(
-        '--shadow_apertures',
-        help='Like IVSHMEM but manages apertures, needs zbridge driver',
-        action='store_true',
-        default=False)
-    parser.add_argument(
-        '--fam',
-        help='TMAS and real Hardware, supply the aperture base value in hexadecimal format',
         type=str,
         default='')
     parser.add_argument(
