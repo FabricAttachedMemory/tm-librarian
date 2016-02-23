@@ -485,54 +485,19 @@ class shadow_file(shadow_support):
 class shadow_ivshmem(shadow_support):
 
     def __init__(self, args, lfs_globals):
+        '''args is expected to have valid attributes for IVSHMEM.'''
 
         super(self.__class__, self).__init__(args, lfs_globals)
 
-        # Retrieve ivshmem information.  Our convention states the first
-        # IVSHMEM device found is used as fabric-attached memory.  Parse the
-        # first block of lines of lspci -vv for Bus-Device-Function and
-        # BAR2 information.
-
-        lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
-        assert lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'), \
-            'IVSHMEM device not found'
-        bdf = lspci[0].split()[0]
-        if self.verbose > 2:
-            print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
-        mf = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
-        assert (os.path.isfile(mf)), '%s is not a file' % mf
-
-        region2 = [ l for l in lspci if 'Region 2:' in l ][0]
-        assert ('(64-bit, prefetchable)' in region2), \
-            'IVSHMEM region 2 not found for device %s' % bdf
-        self.aperture_base = int(region2.split('Memory at')[1].split()[0], 16)
-        assert self.aperture_base, \
-            'Could not retrieve base address of IVSHMEM device at %s' % bdf
-
-        # Compare requirements to file size
-        statinfo = os.stat(mf)
-        assert self._mode_rw_file == self._mode_rw_file & statinfo.st_mode, \
-            '%s is not RW' % mf
-        assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
-            'st_size (%d) < nvm_bytes_total (%d)' % \
-            (statinfo.st_size, lfs_globals['nvm_bytes_total'])
-
-        # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
-        # has firewall table of 32M.  Make sure this is bigger.
-        assert statinfo.st_size > 64 * 1 << 20, \
-            'IVSHMEM at %s is not big enough, possible collision?' % bdf
-        self.aperture_size = statinfo.st_size
+        # The field is called aperture_base even if direct mapping is used.
+        self.aperture_base = args.aperture_base
+        self.aperture_size = args.aperture_size
+        assert self.aperture_base and self.aperture_size, 'This is very bad'
 
         # os.open vs. built-in allows all the low-level stuff I need.
-        self._shadow_fd = os.open(mf, os.O_RDWR)
+        self._shadow_fd = os.open(args.memoryfile, os.O_RDWR)
         self._mmap = mmap.mmap(
             self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
-
-        if self.verbose > 2:
-            print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
-                  self.aperture_size - 1,
-                  self.aperture_base, self.aperture_base + self.aperture_size - 1))
-
         self.descriptors = DescMgmt(args)
 
     # Single node: no caching.  Multinode might change that?
@@ -648,20 +613,76 @@ class fam(shadow_ivshmem):
 
         self.descriptors = DescMgmt(args)
 
+def _detect_memory_space(args, lfs_globals):
+    # Retrieve ivshmem information.  Our convention states the first
+    # IVSHMEM device found is used as fabric-attached memory.  Parse the
+    # first block of lines of lspci -vv for Bus-Device-Function and
+    # BAR2 information.
+
+    try:
+        lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
+        if 'not found' in lspci[0]:
+            print('lspci(1) is missing, assuming TM(AS)')
+    except Exception as e:
+        lspci = ( '', '')
+        pass
+
+    # If not QEMU and IVSHMEM, ass-u-me TMAS or real TM
+    if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
+        print('IVSHMEM cannot be found, assuming TM(AS)')
+        args.ishw = True
+        args.apertures = True
+        args.aperture_base = 0x8686868686   # RTFERS
+        args.aperture_size = 'really big'
+        return
+    args.ishw = False
+
+    bdf = lspci[0].split()[0]
+    if args.verbose > 2:
+        print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
+    args.memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
+    assert (os.path.isfile(args.memoryfile)), '%s is not a file' % args.memoryfile
+
+    region2 = [ l for l in lspci if 'Region 2:' in l ][0]
+    assert ('(64-bit, prefetchable)' in region2), \
+        'IVSHMEM region 2 not found for device %s' % bdf
+    args.aperture_base = int(region2.split('Memory at')[1].split()[0], 16)
+    assert args.aperture_base, \
+        'Could not retrieve base address of IVSHMEM device at %s' % bdf
+
+    # Compare requirements to file size
+    statinfo = os.stat(args.memoryfile)
+    assert shadow_support._mode_rw_file == shadow_support._mode_rw_file & statinfo.st_mode, \
+        '%s is not RW' % args.memoryfile
+    assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
+        'st_size (%d) < nvm_bytes_total (%d)' % \
+        (statinfo.st_size, lfs_globals['nvm_bytes_total'])
+
+    # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
+    # has firewall table of 32M.  Make sure this is bigger.
+    assert statinfo.st_size > 64 * 1 << 20, \
+        'IVSHMEM at %s is not big enough, possible collision?' % bdf
+    args.aperture_size = statinfo.st_size
+
+    if args.verbose > 2:
+        print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
+              args.aperture_size - 1,
+              args.aperture_base, args.aperture_base + args.aperture_size - 1))
 
 def the_shadow_knows(args, lfs_globals):
-    '''args is command-line arguments from lfs_fuse.py'''
+    '''This is a factory.  args is command-line arguments from
+       lfs_fuse.py and lfs_globals was received from the librarian.'''
     try:
         if args.shadow_dir:
             return shadow_directory(args, lfs_globals)
         elif args.shadow_file:
             return shadow_file(args, lfs_globals)
-        elif args.shadow_ivshmem or args.shadow_apertures:
-            return shadow_ivshmem(args, lfs_globals)
-        elif args.fam:
-            return fam(args, lfs_globals)
+
+        _detect_memory_space(args, lfs_globals)
+        if args.ishw:
+            raise RuntimeError('Not ready for prime time or TM(AS)')
         else:
-            raise ValueError('Illegal shadow setting "%s"' % args.shadow_dir)
+            return shadow_ivshmem(args, lfs_globals)
     except Exception as e:
         msg = str(e)
     # seems to be ignored, as is SystemExit
