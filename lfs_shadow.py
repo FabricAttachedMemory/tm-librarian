@@ -631,9 +631,9 @@ def _detect_memory_space(args, lfs_globals):
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
         print('IVSHMEM cannot be found, assuming TM(AS)')
         args.ishw = True
-        args.apertures = True
-        args.aperture_base = 0x8686868686   # RTFERS
-        args.aperture_size = 'really big'
+        args.apertures = False              # Descriptors are hardcoded now
+        args.aperture_base = 0x01600000000  # RTFERS
+        args.aperture_size = 1906 * lfs_globals['book_size']
         return
     args.ishw = False
 
@@ -679,10 +679,7 @@ def the_shadow_knows(args, lfs_globals):
             return shadow_file(args, lfs_globals)
 
         _detect_memory_space(args, lfs_globals)
-        if args.ishw:
-            raise RuntimeError('Not ready for prime time or TM(AS)')
-        else:
-            return shadow_ivshmem(args, lfs_globals)
+        return shadow_ivshmem(args, lfs_globals)
     except Exception as e:
         msg = str(e)
     # seems to be ignored, as is SystemExit
