@@ -2,13 +2,13 @@ Source: tm-librarian
 Section: unknown
 Priority: optional
 Maintainer: Greg Pearson <greg.pearson@hpe.com>
-Build-Depends: debhelper (>= 9), dh-python, python3
+Build-Depends: debhelper (>= 9), dh-python, python3 (>= 3.2)
 Standards-Version: 3.9.6
 X-Python3-Version: >= 3.2
 
 Package: tm-librarian-common
 Architecture: all
-Depends:
+Depends: python3 (>= 3.2)
 Recommends: attr
 Description: The Machine Librarian
  The Machine NVM management common

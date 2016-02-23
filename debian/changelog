@@ -1,3 +1,10 @@
+tm-librarian (0.0.7) UNRELEASED; urgency=medium
+
+  * Support for caching of book data during fault handling,
+    default book allocation policy is now RandomBooks.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 23 Feb 2016 11:13:26 -0700
+
 tm-librarian (0.0.6) UNRELEASED; urgency=medium
 
   * Support for TMAS, filesystem resize on the fly, multiple opens of
