@@ -300,6 +300,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
            a bytes array OR an int."""
         if position:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
+        if xattr.startswith('security'):
+            return bytes(0)
 
         shelf_name = self.path2shelf(path)
         if not shelf_name:  # path == '/'
@@ -337,15 +339,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     _badjson = tuple(map(str.encode, ('"', "'", '{', '}')))
 
     @prentry
-    def setxattr(self, path, xattr, valbytes, options, position=0):
-        # options from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
-        if options or position:
-            set_trace()  # haven't actually seen it yet
+    def setxattr(self, path, xattr, valbytes, flags, position=0):
+        # flags from linux/xattr.h: XATTR_CREATE = 1, XATTR_REPLACE = 2
+        if flags or position:
+            raise TmfsOSError(errno.ENOSYS)     # haven't actually seen it yet
 
         # 'Extend' user.xxxx syntax and screen for it here
         elems = xattr.split('.')
         if elems[0] != 'user' or len(elems) < 2:
-            raise FuseOSError(errno.EINVAL)
+            raise TmfsOSError(errno.EINVAL)
 
         shelf_name = self.path2shelf(path)
         for bad in self._badjson:
