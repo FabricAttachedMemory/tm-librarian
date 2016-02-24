@@ -82,7 +82,7 @@ class DescMgmt(GenericObject):
 
     def __init__(self, args, indices=None):
         self.verbose = args.verbose
-        self._enabled = args.shadow_apertures
+        self._enabled = args.apertures
         if not self._enabled:
             if self.verbose:
                 print('Descriptor management disabled')
