@@ -27,8 +27,8 @@ def _node2ig(node):
 
 class BookPolicy(object):
 
-    POLICY_DEFAULT = 'LocalNode'
-    _policies = (POLICY_DEFAULT, 'RandomBooks', 'Nearest',
+    POLICY_DEFAULT = 'RandomBooks'
+    _policies = (POLICY_DEFAULT, 'LocalNode', 'Nearest',
                  'LZAascending', 'LZAdescending')
 
     @classmethod
