@@ -494,10 +494,6 @@ class shadow_ivshmem(shadow_support):
         self.aperture_size = args.aperture_size
         assert self.aperture_base and self.aperture_size, 'This is very bad'
 
-        # os.open vs. built-in allows all the low-level stuff I need.
-        self._shadow_fd = os.open(args.memoryfile, os.O_RDWR)
-        self._mmap = mmap.mmap(
-            self._shadow_fd, 0, prot=mmap.PROT_READ | mmap.PROT_WRITE)
         self.descriptors = DescMgmt(args)
 
     # Single node: no caching.  Multinode might change that?
@@ -633,7 +629,7 @@ def _detect_memory_space(args, lfs_globals):
         args.ishw = True
         args.apertures = False              # Descriptors are hardcoded now
         args.aperture_base = 0x01600000000  # RTFERS
-        args.aperture_size = 1906 * lfs_globals['book_size']
+        args.aperture_size = 1906 * lfs_globals['book_size_bytes']
         return
     args.ishw = False
 
