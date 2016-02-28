@@ -695,7 +695,7 @@ def mount_LFS(args):
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
     if tmp == 1:
-        assert not args.apertures, 'shadow_xxxx does not support apertures'
+        assert not args.descriptors, 'shadow_xxxx does not support descriptors'
     elif tmp > 1:
         raise RuntimeError('Only one of shadow_[dir|file] is allowed')
 
@@ -705,6 +705,7 @@ def mount_LFS(args):
              dev=True,
              allow_other=True,
              noatime=True,
+             noexec=True,
              foreground=not bool(args.daemon),
              nothreads=True)
     except Exception as e:
@@ -727,10 +728,10 @@ if __name__ == '__main__':
         help='Node physical location "rack:enc:node"',
         type=str)
     parser.add_argument(
-        '--apertures',
-        help='FAME only, uses "direct" mapping by default',
-        action='store_true',
-        default=False)
+        '--descriptors',
+        help='Descriptor count (default == 0 == disabled, use direct mapping)',
+        type=int,
+        default=0)
     parser.add_argument(
         '--daemon',
         help='Daemonize the program',
