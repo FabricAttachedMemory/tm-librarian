@@ -1,12 +1,12 @@
 #!/usr/bin/python -tt
-
-import time
+'''Descriptors.'''
 
 import array
 import fcntl
 import os
 import stat
 import struct
+import time
 from pdb import set_trace
 
 # Python3: __cmp__ went away, use this decorator with __lt__ and __eq__
@@ -65,7 +65,10 @@ class _LZAinuse(GenericObject):
         except Exception as e:
             return NotImplemented
 
-class DescMgmt(GenericObject):
+class DescriptorManagement(GenericObject):
+
+    NVM_BK = 0x01600000000          # Thus speaketh the chipset ERS
+    NDESCRIPTORS = 1906             # Non-secure starting at the above BAR
 
     _descioctl = '/dev/descioctl'
     _DESBK_READ_OFF = 0xc0102100    # IOWR('!', ...)
@@ -80,35 +83,37 @@ class DescMgmt(GenericObject):
 
     _evenmask = (2**64) - 1 - 1     # one for 64 bits of 1s, then clear the LSB
 
-    def __init__(self, args, indices=None):
+    def __init__(self, args):
         self.verbose = args.verbose
-        self._enabled = args.apertures
-        if not self._enabled:
-            if self.verbose:
+        if not args.descriptors:
+            self._indices = False   # sentinel
+            if self.verbose > 1:
                 print('Descriptor management disabled')
             return
+
+        # Validate the device file from zbridge driver
         try:
             tmp = os.stat(self._descioctl)
             assert tmp.st_mode & stat.S_IFCHR == stat.S_IFCHR   # man 2 stat
         except Exception as e:
-            raise AssertionError('Missing %s' % self._descioctl)
-        if indices is None:
-            self._indices = (0, 1, 2)
-        else:
-            assert min(indices) >=0 and max(indices) < 2000, 'Bad index range'
-            self._indices = tuple(indices)
+            raise AssertionError('Missing or invalid  %s' % self._descioctl)
+
+        # Originally coded for discontiguous apertures. Leave it that way
+        # even though SFW swears it will stay contiguous.
+        assert args.descriptors <= self.NDESCRIPTORS, 'Descriptor count out of range'
+        self._indices = frozenset(tuple(range(args.descriptors)))
         self._available = [ ]
         self._descriptors = { }    # track pages inside a book
-        out = [ ]
+        txtout = [ ]
         for index, desc in enumerate(self.descTable):
-            out.append(hex(desc))
+            txtout.append(hex(desc))
             if desc & 1:   # Descriptor valid bit
                 LZA = (desc & self._evenmask) >> self._BOOK_SHIFT
                 self._descriptors[LZA] = _LZAinuse(LZA, index)
             else:
                 self._available.append(index)
         if self.verbose > 2:
-            print(','.join(out))
+            print(','.join(txtout))
 
     def _consistent(self):
         assert len(self._available) + len(self._descriptors) == len(self._indices), 'MEBST INCONSISTENT DESCRIPTORS'
@@ -123,7 +128,7 @@ class DescMgmt(GenericObject):
 
     @property
     def descTable(self):
-        if not self._enabled:
+        if not self._indices:
             return None
         buf = self.buffer2longs()
         desbk = [ ]
@@ -140,7 +145,7 @@ class DescMgmt(GenericObject):
 
     def desbk_set(self, index, baseLZA):
         '''Convert baseLZA (20 bits of IG:booknum) to valid descriptor entry'''
-        if not self._enabled:
+        if not self._indices:
             return
         assert 0 <= baseLZA < 2**20, 'baseLZA out of range'
         # LSB is the valid bit
@@ -154,7 +159,7 @@ class DescMgmt(GenericObject):
            be None if an unused descriptor was available, or the LZA and PIDs
            to evict to make room.'''
 
-        if not self._enabled:
+        if not self._indices:
             return
 
         assert 0 <= baseLZA < 2**20, 'baseLZA out of range'
