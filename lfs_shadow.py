@@ -17,7 +17,7 @@ from copy import deepcopy
 from subprocess import getoutput
 from pdb import set_trace
 from tm_fuse import TmfsOSError, tmfs_get_context
-from descmgmt import DescMgmt
+from descmgmt import DescriptorManagement as DescMgmt
 import tm_ioctl_opt as IOCTL
 
 #--------------------------------------------------------------------------
@@ -209,6 +209,7 @@ class shadow_support(object):
         book_start = book_num * self.book_size
         book_offset = shelf_offset % self.book_size
         tmp = self._igstart[intlv_group] + book_start + book_offset
+        assert tmp < self.aperture_size, 'BAD SHADOW OFFSET'
         return tmp
 
     # Provide ABC noop defaults.  Note they're not all actually noop.
@@ -471,21 +472,21 @@ class shadow_file(shadow_support):
         return wsize
 
 #--------------------------------------------------------------------------
-# Original class did read/write against the resource file by mmapping slices
-# against /sys/bus/pci/..../resource2.  mmap in kernel was handled by
-# legacy generic fault handles that used read/write.  There was a lot of
+# Original IVSHMEM class did read/write against the resource file by mmapping
+# slices # against /sys/bus/pci/..../resource2.  mmap in kernel was handled
+# by legacy generic fault handles that used read/write.  There was a lot of
 # overhead but it was functional against true global shared memory.
 
 # 'class fam' supported true mmap in the kernel against the physical
 # address of the IVSHMEM device, but it couldn't do read and write.  Merging
 # the two classes (actually, just getxattr() from the previous "class fam")
-# gets the best of both worlds.
+# gets the best of both worlds (IVHSMEM and HW FAM) in one class.
 
 
-class shadow_ivshmem(shadow_support):
+class apertures(shadow_support):
 
     def __init__(self, args, lfs_globals):
-        '''args is expected to have valid attributes for IVSHMEM.'''
+        '''args needs to have valid attributes for IVSHMEM and descriptors.'''
 
         super(self.__class__, self).__init__(args, lfs_globals)
 
@@ -493,18 +494,15 @@ class shadow_ivshmem(shadow_support):
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
         assert self.aperture_base and self.aperture_size, 'This is very bad'
-
         self.descriptors = DescMgmt(args)
 
-    # Single node: no caching.  Multinode might change that?
     def open(self, shelf, flags, mode=None):
-        assert isinstance(shelf.open_handle, int), 'Bad handle in shadow open'
+        assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
         self[shelf.open_handle] = shelf
         return shelf.open_handle
 
-    # Single node: no caching.  Multinode might change that?
     def create(self, shelf, mode):
-        assert isinstance(shelf.open_handle, int), 'Bad handle in shadow create'
+        assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
         self[shelf.open_handle] = shelf     # should be first instance
         return shelf.open_handle
 
@@ -514,10 +512,10 @@ class shadow_ivshmem(shadow_support):
             bos = self[shelf_name].bos
             cmd, comm, pid, offset, userVA = xattr.split(',')
             pid = int(pid)
-            offset = int(offset)
+            PABO = int(offset)  # page-aligned byte offset into shelf
             userVA = int(userVA)
-            book_num = offset // self.book_size  # (0..n-1)
-            book_offset = offset % self.book_size
+            book_num = PABO // self.book_size  # (0..n-1)
+            book_offset = PABO % self.book_size
             if book_num >= len(bos):
                 return 'ERROR'
             baseLZA = bos[book_num]['lza']
@@ -531,35 +529,34 @@ class shadow_ivshmem(shadow_support):
                         eviction.evictLZA.baseLZA,
                         ','.join(
                             [str(k) for k in eviction.evictLZA.pids.keys()])))
-
-            # FAME physical offset for virtual to physical mapping during fault
-            ivshmem_offset = self.shadow_offset(shelf_name, offset)
-            if ivshmem_offset == -1:
+                print('Needs more development on descriptors')
                 return 'ERROR'
-            physaddr = self.aperture_base + ivshmem_offset
+            else:
+                # physical offset for virtual to physical mapping during fault
+                phys_offset = self.shadow_offset(shelf_name, PABO)
+                if phys_offset == -1:
+                    return 'ERROR'
+                physaddr = self.aperture_base + phys_offset
+                data = 'direct,%s,%s,%s' % (baseLZA, physaddr, self.book_size)
 
-            # ivshmem does not have real apertures even though calculations
-            # are being done.   Mapping is direct.
-            data = 'direct,%s,%s,%s' % (baseLZA, physaddr, self.book_size)
-
-            if self.verbose > 3:
-                print('Process %s[%d] shelf = %s, offset = %d (0x%x)' % (
-                    comm, pid, shelf_name, offset, offset))
+            if self.verbose > 3:    # Since this IS in a page fault :-)
+                print('Process %s[%d] shelf = %s, PABO = %d (0x%x)' % (
+                    comm, pid, shelf_name, PABO, PABO))
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
                     baseLZA,
                     ((baseLZA >> DescMgmt._IG_SHIFT) & DescMgmt._IG_MASK),
                     ((baseLZA >> DescMgmt._BOOK_SHIFT) & DescMgmt._BOOK_MASK)))
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
-                print('IVSHMEM backing file offset = %d (0x%x)' % (
-                    ivshmem_offset, ivshmem_offset))
+                print('physical backing area offset = %d (0x%x)' % (
+                    phys_offset, phys_offset))
                 print('data returned to fault handler = %s' % (data))
 
             return data
 
         except Exception as e:
             print('!!! ERROR IN FAULT HANDLER: %s' % str(e), file=sys.stderr)
-            return ''
+            return 'ERROR'
 
     def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
 
@@ -596,18 +593,6 @@ class shadow_ivshmem(shadow_support):
 
 #--------------------------------------------------------------------------
 
-class fam(shadow_ivshmem):
-
-    def __init__(self, args, lfs_globals):
-
-        super(shadow_ivshmem, self).__init__(args, lfs_globals)
-
-        self.aperture_base = int(args.fam, 16)
-
-        if self.verbose > 2:
-            print('FAM aperture_base = 0x%x' % (self.aperture_base))
-
-        self.descriptors = DescMgmt(args)
 
 def _detect_memory_space(args, lfs_globals):
     # Retrieve ivshmem information.  Our convention states the first
@@ -623,21 +608,22 @@ def _detect_memory_space(args, lfs_globals):
         lspci = ( '', '')
         pass
 
-    # If not QEMU and IVSHMEM, ass-u-me TMAS or real TM
+    # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
-        print('IVSHMEM cannot be found, assuming TM(AS)')
+        if args.verbose > 1:
+            print('IVSHMEM cannot be found, assuming TM(AS)')
         args.ishw = True
-        args.apertures = False              # Descriptors are hardcoded now
-        args.aperture_base = 0x01600000000  # RTFERS
-        args.aperture_size = 1906 * lfs_globals['book_size_bytes']
+        args.descriptors = False            # now: hardcoded for direct mapping
+        args.aperture_base = DescMgmt.NVM_MK
+        args.aperture_size = DescMgmt.NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
-    args.ishw = False
 
+    args.ishw = False
     bdf = lspci[0].split()[0]
-    if args.verbose > 2:
+    if args.verbose > 1:
         print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
-    args.memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
-    assert (os.path.isfile(args.memoryfile)), '%s is not a file' % args.memoryfile
+    memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
+    assert (os.path.isfile(memoryfile)), '%s is not a file' % memoryfile
 
     region2 = [ l for l in lspci if 'Region 2:' in l ][0]
     assert ('(64-bit, prefetchable)' in region2), \
@@ -647,9 +633,9 @@ def _detect_memory_space(args, lfs_globals):
         'Could not retrieve base address of IVSHMEM device at %s' % bdf
 
     # Compare requirements to file size
-    statinfo = os.stat(args.memoryfile)
+    statinfo = os.stat(memoryfile)
     assert shadow_support._mode_rw_file == shadow_support._mode_rw_file & statinfo.st_mode, \
-        '%s is not RW' % args.memoryfile
+        '%s is not RW' % memoryfile
     assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
         'st_size (%d) < nvm_bytes_total (%d)' % \
         (statinfo.st_size, lfs_globals['nvm_bytes_total'])
@@ -675,7 +661,7 @@ def the_shadow_knows(args, lfs_globals):
             return shadow_file(args, lfs_globals)
 
         _detect_memory_space(args, lfs_globals)
-        return shadow_ivshmem(args, lfs_globals)
+        return apertures(args, lfs_globals)
     except Exception as e:
         msg = str(e)
     # seems to be ignored, as is SystemExit
