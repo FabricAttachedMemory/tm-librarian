@@ -30,6 +30,7 @@ import tm_ioctl_opt as IOCTL
 # Account for multiple opens by same PID as well as different PIDs.
 # Multinode support will require OOB support and a few more Librarian calls.
 
+
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
 
@@ -481,7 +482,10 @@ class shadow_file(shadow_support):
 # address of the IVSHMEM device, but it couldn't do read and write.  Merging
 # the two classes (actually, just getxattr() from the previous "class fam")
 # gets the best of both worlds (IVHSMEM and HW FAM) in one class.
-
+# FIXME: open() and create() here and in shadow_[dir|file] can be coalesced
+# so they all call super(shadow_support).  First of all, bring the two
+# shadows up to speed with respect to the shadow_cache.  Then other
+# mods will make sense.
 
 class apertures(shadow_support):
 
@@ -520,24 +524,36 @@ class apertures(shadow_support):
                 return 'ERROR'
             baseLZA = bos[book_num]['lza']
 
-            eviction = self.descriptors.assign(baseLZA, pid, userVA)
-            if eviction is not None:
-                # Contains a list of PIDs whose PTEs need to be invalidated
-                # over this physical range.
-                if self.verbose > 2:
-                    print('---> EVICT %s: %s' % (
-                        eviction.evictLZA.baseLZA,
-                        ','.join(
-                            [str(k) for k in eviction.evictLZA.pids.keys()])))
-                print('Needs more development on descriptors')
-                return 'ERROR'
-            else:
+            # This call hides a lot of detail and some of this logic should
+            # be encapsulated in a better place.  If descriptors aren't enabled
+            # what comes back is a flat-NVM address for direct mapping.  If
+            # descriptors ARE enabled then get index and eviction info.  This
+            # short section of code needs some encapsulation rework.
+
+            if not self.descriptors.enabled:
                 # physical offset for virtual to physical mapping during fault
                 phys_offset = self.shadow_offset(shelf_name, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 physaddr = self.aperture_base + phys_offset
                 data = 'direct,%s,%s,%s' % (baseLZA, physaddr, self.book_size)
+            else:
+                desc = self.descriptors.assign(baseLZA, pid, userVA)
+                physaddr = self.aperture_base + (desc.index * self.book_size)
+                # Same starting data items as "direct"
+                data = 'descriptor,%s,%s,%s,%s' % (
+                    baseLZA, physaddr, self.book_size, desc.index)
+                if desc.evictLZA is not None:
+                    # Contains a list of PIDs whose PTEs need to be invalidated
+                    # over this physical range.
+                    pids = ','.join(
+                                [str(k) for k in desc.evictLZA.pids.keys()])
+                    if self.verbose > 2:
+                        print('---> EVICT %s: %s' % (
+                            desc.evictLZA.baseLZA, pids))
+                    data += ',' + pids
+                    print('Needs more development in kernel to extract pids')
+                    return 'ERROR'
 
             if self.verbose > 3:    # Since this IS in a page fault :-)
                 print('Process %s[%d] shelf = %s, PABO = %d (0x%x)' % (
@@ -651,6 +667,9 @@ def _detect_memory_space(args, lfs_globals):
               args.aperture_size - 1,
               args.aperture_base, args.aperture_base + args.aperture_size - 1))
 
+#--------------------------------------------------------------------------
+
+
 def the_shadow_knows(args, lfs_globals):
     '''This is a factory.  args is command-line arguments from
        lfs_fuse.py and lfs_globals was received from the librarian.'''
@@ -660,6 +679,7 @@ def the_shadow_knows(args, lfs_globals):
         elif args.shadow_file:
             return shadow_file(args, lfs_globals)
 
+        # FIXME: this could be folded into the class, for now just modify args
         _detect_memory_space(args, lfs_globals)
         return apertures(args, lfs_globals)
     except Exception as e:
