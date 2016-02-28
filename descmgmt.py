@@ -153,6 +153,10 @@ class DescriptorManagement(GenericObject):
         with open(self._descioctl, 'wb') as f:
             junk = fcntl.ioctl(f, self._DESBK_PUT, buf)
 
+    @property
+    def enabled(self):
+        return bool(self._indices)
+
     def assign(self, baseLZA, pid, userVA, isBook=True):
         '''Find a descriptor for the faulting LZA and PID. baseLZA is the
            20 bit IG:booknum value (per book_register.py). Return value may
@@ -160,14 +164,15 @@ class DescriptorManagement(GenericObject):
            to evict to make room.'''
 
         if not self._indices:
-            return
+            return None
 
         assert 0 <= baseLZA < 2**20, 'baseLZA out of range'
         self._consistent()
         existing = self._descriptors.get(baseLZA, None)
         if existing is not None:    # at least one pid exists in dict
             existing.update(pid, userVA)
-            return None
+            existing.evictLZA = None
+            return existing
 
         # If an aperture is available, take it, else evict/reuse
         if self._available:
@@ -178,6 +183,7 @@ class DescriptorManagement(GenericObject):
                 self._descriptors[baseLZA] = newLZA
                 self._available.pop(0)
                 self._consistent()  # trap this one
+                existing.evictLZA = None
             except AssertionError as e:
                 set_trace()
                 pass
@@ -185,7 +191,7 @@ class DescriptorManagement(GenericObject):
                 set_trace()
                 pass
             self._consistent()      # pass this one up
-            return None
+            return newLZA           # or should this get self.desbk[index] ?
 
         evictLZA = min(self._descriptors.values())
         newLZA = _LZAinuse(baseLZA, evictLZA.index, pid, userVA, isBook)
@@ -193,5 +199,6 @@ class DescriptorManagement(GenericObject):
         # Chickens and eggs are here as I shouldn't reprogram the descriptor
         # table until flushing/PTE invalidation has occurred for all affected
         # PIDs.
-        return GenericObject(evictLZA=evictLZA, newLZA=newLZA)
+        newLZA.evictLZA = evictLZA
+        return newLZA
 
