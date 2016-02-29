@@ -498,6 +498,7 @@ class apertures(shadow_support):
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
         assert self.aperture_base and self.aperture_size, 'This is very bad'
+        self.isFAME = args.isFAME
         self.descriptors = DescMgmt(args)
 
     def open(self, shelf, flags, mode=None):
@@ -518,42 +519,11 @@ class apertures(shadow_support):
             pid = int(pid)
             PABO = int(offset)  # page-aligned byte offset into shelf
             userVA = int(userVA)
-            book_num = PABO // self.book_size  # (0..n-1)
-            book_offset = PABO % self.book_size
+            book_num = PABO // self.book_size       # (0..n-1)
+            book_offset = PABO % self.book_size     # What is this for????
             if book_num >= len(bos):
                 return 'ERROR'
             baseLZA = bos[book_num]['lza']
-
-            # This call hides a lot of detail and some of this logic should
-            # be encapsulated in a better place.  If descriptors aren't enabled
-            # what comes back is a flat-NVM address for direct mapping.  If
-            # descriptors ARE enabled then get index and eviction info.  This
-            # short section of code needs some encapsulation rework.
-
-            if not self.descriptors.enabled:
-                # physical offset for virtual to physical mapping during fault
-                phys_offset = self.shadow_offset(shelf_name, PABO)
-                if phys_offset == -1:
-                    return 'ERROR'
-                physaddr = self.aperture_base + phys_offset
-                data = 'direct,%s,%s,%s' % (baseLZA, physaddr, self.book_size)
-            else:
-                desc = self.descriptors.assign(baseLZA, pid, userVA)
-                physaddr = self.aperture_base + (desc.index * self.book_size)
-                # Same starting data items as "direct"
-                data = 'descriptor,%s,%s,%s,%s' % (
-                    baseLZA, physaddr, self.book_size, desc.index)
-                if desc.evictLZA is not None:
-                    # Contains a list of PIDs whose PTEs need to be invalidated
-                    # over this physical range.
-                    pids = ','.join(
-                                [str(k) for k in desc.evictLZA.pids.keys()])
-                    if self.verbose > 2:
-                        print('---> EVICT %s: %s' % (
-                            desc.evictLZA.baseLZA, pids))
-                    data += ',' + pids
-                    print('Needs more development in kernel to extract pids')
-                    return 'ERROR'
 
             if self.verbose > 3:    # Since this IS in a page fault :-)
                 print('Process %s[%d] shelf = %s, PABO = %d (0x%x)' % (
@@ -563,15 +533,89 @@ class apertures(shadow_support):
                     baseLZA,
                     ((baseLZA >> DescMgmt._IG_SHIFT) & DescMgmt._IG_MASK),
                     ((baseLZA >> DescMgmt._BOOK_SHIFT) & DescMgmt._BOOK_MASK)))
-                print('physaddr = %d (0x%x)' % (physaddr, physaddr))
-                print('physical backing area offset = %d (0x%x)' % (
-                    phys_offset, phys_offset))
-                print('data returned to fault handler = %s' % (data))
 
+            # The physical address to be mapped starting at "aperture_base"
+            # is calculated based on "platform" without regard to descriptors:
+            # - IVSHMEM aka FAME:
+            #   - direct map into entire "space" vi shadow_offset().
+            # - TMAS or real TM node aka "TM(AS)":
+            #   - indexed book-sized offset into aperture space
+
+            # This should return something useful for all platforms.
+            desc = self.descriptors.assign(baseLZA, pid, userVA)
+            if self.isFAME:
+                phys_offset = self.shadow_offset(shelf_name, PABO)
+                if phys_offset == -1:
+                    return 'ERROR'
+                physaddr = self.aperture_base + phys_offset
+                desc = None     # force errors during development
+            else:
+                physaddr = self.aperture_base + (desc.index * self.book_size)
+            if self.verbose > 3:
+                print('physaddr = %d (0x%x)' % (physaddr, physaddr))
+
+            # If descriptors are NOT enabled, no further work needs to be
+            # done.  This can only be true for the IVHSHMEM platform.
+            # If descriptors ARE enabled, it's possible a set of PID:VMA
+            # pairs need to be invalidated and flushed before the descriptor
+            # can be changed and the faulting address mapped in to this
+            # process (ie, resolve this fault).  Those things have to be done
+            # under lock (in the kernel) before the fault can be released
+            # (return from fault handler in the kernel).
+
+            # If total # of books <= total number of descriptors: there should
+            # never be any evictions.  Right now zbridge driver is hardcoding
+            # descriptors directly in the "3.9 nodes of NVM" scenario.  That
+            # should be detected by the startup in descmgmt.py and can be
+            # used to flesh out "evictionless" behavior.
+
+            # Other stuff:
+            # 0. We need a table of locks in lfs.c, size 128, indexed by IG.
+            #    When this Python routine returns the kernel should lock
+            #    the IG, then proceed with further processing.
+            # 1. Need an API to return book size to user, among other things.
+            #    I think it will be needed for (non)coherent marking of
+            #    addresses.  This might be a good use of getxattr on "/lfs",
+            #    although an ioctl on an open file might be more future-proof.
+            # 2. Need an ioctl on an offset in a file to discover if it's
+            #    node local or not (ie, needs explicit flushing or not).
+            # 3. Real workloads are gonna generate a lot of VMAs.  I think
+            #    the linear search is going to bog down and we'll switch
+            #    to find_vma().  Along those lines we need to figure out
+            #    just what VMA merging does to the vm_private_data field.
+
+            if not self.descriptors.enabled:
+                # "Legacy" IVSHMEM mode.  IG locking is not technically
+                # required but "wouldn't hurt" while fleshing out some of
+                # the kernel logic.  For now, use the keyword to not lock.
+                data = 'direct,%s,%s,%s' % (baseLZA, physaddr, self.book_size)
+            else:
+                # Same starting data items as "direct", new keyword == lock.
+                data = 'aperture,%s,%s,%s,%s' % (
+                    baseLZA, physaddr, self.book_size,)
+                if desc.evictLZA is not None:
+                    # Kernel string parsing needs to detect more stuff comes
+                    # after the three main pieces of info.  It contains a list
+                    # of PIDs whose PTEs need to be invalidated
+                    # over this physical range.  I think I may need to send
+                    # the PID and VMA, this current code is incomplete.
+                    pids = ','.join(
+                                [str(k) for k in desc.evictLZA.pids.keys()])
+                    if self.verbose > 1:    # Raise level as dev goes on
+                        print('---> EVICT %s: %s' % (
+                            desc.evictLZA.baseLZA, pids))
+                    data += ',' + pids
+                    print('Needs more development in kernel to extract pids')
+                    return 'ERROR'
+
+            if self.verbose > 3:
+                print('data returned to fault handler = %s' % (data))
             return data
 
         except Exception as e:
-            print('!!! ERROR IN FAULT HANDLER: %s' % str(e), file=sys.stderr)
+            print('!!! ERROR IN FAULT HANDLER (%d): %s' % (
+                sys.exc_info()[2].tb_lineno, str(e)),
+                file=sys.stderr)
             return 'ERROR'
 
     def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
@@ -628,13 +672,13 @@ def _detect_memory_space(args, lfs_globals):
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
         if args.verbose > 1:
             print('IVSHMEM cannot be found, assuming TM(AS)')
-        args.ishw = True
+        args.isFAME = False
         args.descriptors = False            # now: hardcoded for direct mapping
-        args.aperture_base = DescMgmt.NVM_MK
+        args.aperture_base = DescMgmt.NVM_BK
         args.aperture_size = DescMgmt.NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
 
-    args.ishw = False
+    args.isFAME = True
     bdf = lspci[0].split()[0]
     if args.verbose > 1:
         print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
