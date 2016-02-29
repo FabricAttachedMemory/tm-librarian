@@ -16,7 +16,7 @@ from pdb import set_trace
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group
-from descmgmt import DescMgmt
+from descmgmt import DescriptorManagement as DescMgmt
 
 #--------------------------------------------------------------------------
 
