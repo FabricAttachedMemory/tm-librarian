@@ -519,15 +519,14 @@ class apertures(shadow_support):
             pid = int(pid)
             PABO = int(offset)  # page-aligned byte offset into shelf
             userVA = int(userVA)
-            book_num = PABO // self.book_size       # (0..n-1)
-            book_offset = PABO % self.book_size     # What is this for????
+            book_num = PABO // self.book_size  # (0..n-1)
             if book_num >= len(bos):
                 return 'ERROR'
             baseLZA = bos[book_num]['lza']
 
-            if self.verbose > 3:    # Since this IS in a page fault :-)
-                print('Process %s[%d] shelf = %s, PABO = %d (0x%x)' % (
-                    comm, pid, shelf_name, PABO, PABO))
+            if self.verbose > 3:  # Since this IS in a page fault :-)
+                print('process %s[%d] shelf=%s, PABO=%d (0x%x), VA=0x%x' % (
+                    comm, pid, shelf_name, PABO, PABO, userVA))
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
                     baseLZA,
@@ -537,20 +536,22 @@ class apertures(shadow_support):
             # The physical address to be mapped starting at "aperture_base"
             # is calculated based on "platform" without regard to descriptors:
             # - IVSHMEM aka FAME:
-            #   - direct map into entire "space" vi shadow_offset().
+            #   - direct map into entire "space" via shadow_offset()
             # - TMAS or real TM node aka "TM(AS)":
             #   - indexed book-sized offset into aperture space
 
             # This should return something useful for all platforms.
             desc = self.descriptors.assign(baseLZA, pid, userVA)
-            if self.isFAME:
+
+            if self.isFAME or not self.descriptors.enabled:
                 phys_offset = self.shadow_offset(shelf_name, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 physaddr = self.aperture_base + phys_offset
-                desc = None     # force errors during development
+                desc = None  # force errors during development
             else:
                 physaddr = self.aperture_base + (desc.index * self.book_size)
+
             if self.verbose > 3:
                 print('physaddr = %d (0x%x)' % (physaddr, physaddr))
 
