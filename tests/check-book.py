@@ -6,7 +6,8 @@ import mmap
 import binascii
 import argparse
 
-def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size, book_start, chunk_size, chunk_cnt):
+def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size,
+    book_start, chunk_size, chunk_cnt, access_type):
 
     with open(shelf_name, 'r+b') as f:
 
@@ -31,7 +32,15 @@ def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size, book_start,
 
             for pos in range(0, chunk_cnt):
 
-                book_offset = (pos * chunk_size)
+                if access_type == 'seq':
+                    book_offset = (pos * chunk_size)
+                else:
+                    pos2 = pos - pos // 2
+                    if pos%2 == 0:
+                        book_offset = (pos2 * chunk_size)
+                    else:
+                        book_offset = book_size - (pos2 * chunk_size)
+
                 cur_offset = offset + book_offset
 
                 print("book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
@@ -75,30 +84,86 @@ if __name__ == '__main__':
     LENGTH=128
     CHUNK_SIZE=4096
     CHUNK_CNT=1
+    ACCESS_TYPES = [ 'seq', 'bounce' ]
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument(action='store', dest='shelf_name', help='shelf/file to read/write/read/verify')
-    parser.add_argument('-v', action='store_true', dest='verbose', help='verbose output')
-    parser.add_argument('-d', action='store_true', dest='debug', help='debug output')
-    parser.add_argument('-n', action='store', dest='book_max', default=BOOK_MAX, type=int, help='number of books to verify')
-    parser.add_argument('-l', action='store', dest='length', default=LENGTH, type=int, help='size in bytes of read/write')
-    parser.add_argument('-s', action='store', dest='book_start', default=BOOK_START, type=int, help='book number to start at')
-    parser.add_argument('-b', action='store', dest='book_size', default=BOOK_SIZE, type=int, help='number of bytes in a book')
-    parser.add_argument('-z', action='store', dest='chunk_size', default=CHUNK_SIZE, type=int, help='size in bytes of book chunks')
-    parser.add_argument('-c', action='store', dest='chunk_cnt', default=CHUNK_CNT, type=int, help='number of book chunks to access')
+    parser.add_argument(
+        action='store',
+        dest='shelf_name',
+        help='shelf/file to read/write/read/verify')
+    parser.add_argument(
+        '-v',
+        action='store_true',
+        dest='verbose',
+        help='verbose output')
+    parser.add_argument(
+        '-d',
+        action='store_true',
+        dest='debug',
+        help='debug output')
+    parser.add_argument(
+        '-n',
+        action='store',
+        dest='book_max',
+        default=BOOK_MAX,
+        type=int,
+        help='number of books to verify')
+    parser.add_argument(
+        '-l',
+        action='store',
+        dest='length',
+        default=LENGTH,
+        type=int,
+        help='size in bytes of read/write')
+    parser.add_argument(
+        '-s',
+        action='store',
+        dest='book_start',
+        default=BOOK_START,
+        type=int,
+        help='book number to start at')
+    parser.add_argument(
+        '-b',
+        action='store',
+        dest='book_size',
+        default=BOOK_SIZE,
+        type=int,
+        help='number of bytes in a book')
+    parser.add_argument(
+        '-z',
+        action='store',
+        dest='chunk_size',
+        default=CHUNK_SIZE,
+        type=int,
+        help='size in bytes of book chunks')
+    parser.add_argument(
+        '-c',
+        action='store',
+        dest='chunk_cnt',
+        default=CHUNK_CNT,
+        type=int,
+        help='number of book chunks to access')
+    parser.add_argument(
+        '-t',
+        action='store',
+        dest='access_type',
+        choices= ACCESS_TYPES,
+        default='seq',
+        help='book chunk access type')
 
     args = parser.parse_args()
 
     if (args.debug):
-        print("args.shelf_name = %s" % args.shelf_name)
-        print("args.verbose    = %s" % args.verbose)
-        print("args.book_max   = %d" % args.book_max)
-        print("args.length     = %d" % args.length)
-        print("args.book_size  = %d" % args.book_size)
-        print("args.book_start = %d" % args.book_start)
-        print("args.chunk_size = %d" % args.chunk_size)
-        print("args.chunk_cnt  = %d" % args.chunk_cnt)
+        print("args.shelf_name  = %s" % args.shelf_name)
+        print("args.verbose     = %s" % args.verbose)
+        print("args.book_max    = %d" % args.book_max)
+        print("args.length      = %d" % args.length)
+        print("args.book_size   = %d" % args.book_size)
+        print("args.book_start  = %d" % args.book_start)
+        print("args.chunk_size  = %d" % args.chunk_size)
+        print("args.chunk_cnt   = %d" % args.chunk_cnt)
+        print("args.access_type = %s" % args.access_type)
 
     try:
         st = os.stat(args.shelf_name)
@@ -130,6 +195,7 @@ if __name__ == '__main__':
         print("  st_ctime_ns : 0x%x" % st.st_ctime_ns)
 
     rw_mmap( args.shelf_name, args.verbose, args.debug, args.book_max,
-        args.length, args.book_size, args.book_start, args.chunk_size, args.chunk_cnt)
+        args.length, args.book_size, args.book_start, args.chunk_size,
+        args.chunk_cnt, args.access_type)
 
     sys.exit(0)
