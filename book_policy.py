@@ -9,6 +9,7 @@ import os
 import random
 import sys
 from pdb import set_trace
+from collections import defaultdict
 
 from book_shelf_bos import TMBook
 from frdnode import FRDnode, FRDintlv_group
@@ -29,7 +30,7 @@ class BookPolicy(object):
 
     POLICY_DEFAULT = 'RandomBooks'
     _policies = (POLICY_DEFAULT, 'LocalNode', 'Nearest',
-                 'LZAascending', 'LZAdescending')
+                 'LZAascending', 'LZAdescending', 'RequestIG')
 
     @classmethod
     def xattr_assist(cls, LCEobj, cmdict, setting=False, removing=False):
@@ -41,23 +42,39 @@ class BookPolicy(object):
         if setting:
             assert value is not None, 'Trying to set a null value'
         elems = xattr.split('.')
+
+        # Simple request special values
+
+        if elems[1] == 'interleave_request' and setting:
+            reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
+            interleave_groups = LCEobj.db.get_interleave_groups()
+            currentIGs = [ig.num for ig in interleave_groups]
+            assert set(reqIGs).issubset(currentIGs), \
+                'Requested IGs not subset of existing IGs'
+
         if elems[1] != 'LFS':       # simple get or set, leave it to caller
             return (xattr, value)
 
         # LFS special values
+
         assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
         assert not removing, 'Removal of LFS xattrs is prohibited'
+
+        shelf = LCEobj.cmd_get_shelf(cmdict)
 
         if elems[2] == 'AllocationPolicy':
             if setting:
                 assert value in cls._policies, \
                     'Bad AllocationPolicy "%s"' % value
+                if value != 'RequestIG':
+                    # Remove RequestIG specific attributes
+                    LCEobj.db.remove_xattr(shelf, 'user.interleave_request')
+                    LCEobj.db.remove_xattr(shelf, 'user.interleave_request_pos')
         elif elems[2] == 'AllocationPolicyList':
             assert not setting, 'Setting AllocationPolicyList is prohibited'
             value = ','.join(cls._policies)
         elif elems[2] == 'Interleave':
             assert not setting, 'Setting Interleave is prohibited'
-            shelf = LCEobj.cmd_get_shelf(cmdict)
             bos = LCEobj.db.get_books_on_shelf(shelf)
             value = bytes([ b.intlv_group for b in bos ]).decode()
         else:
@@ -153,6 +170,56 @@ class BookPolicy(object):
     def _policy_LZAdescending(self, books_needed):
         freebooks = self._policy_LZAascending(books_needed, ascending=False)
         return freebooks
+
+    def _policy_RequestIG(self, books_needed):
+        '''Select books from IGs specified in interleave_request attribute.
+           If interleave_request_pos is present use it as the starting point.'''
+        db = self.LCEobj.db
+        self.LCEobj.errno = errno.ENOSPC
+        ig_req = db.get_xattr(self.shelf, 'user.interleave_request')
+        assert ig_req is not None, 'RequestIG policy requires interleave_request attribute'
+
+        # Get a starting position for the interleave_request list
+        pos = db.get_xattr(self.shelf, 'user.interleave_request_pos')
+        try:
+            ig_pos = int(pos)
+            if ig_pos < 0 or ig_pos > (len(ig_req)-1):
+                ig_pos = 0
+        except TypeError as err:
+            ig_pos = 0
+            resp = db.create_xattr(self.shelf, 'user.interleave_request_pos', 0)
+        except ValueError as err:
+            ig_pos = 0
+
+        reqIGs = [ord(ig_req[i:i+1]) for i in range(0, len(ig_req), 1)]
+
+        # Determine number of books needed from each IG
+        igCnt = defaultdict(int)
+        cur = ig_pos
+        for cnt in range(0, books_needed):
+            ig = reqIGs[cur%len(reqIGs)]
+            igCnt[ig] += 1
+            cur += 1
+
+        # Allocate specified number of books from each selected IG
+        booksIG = {}
+        for ig in igCnt.keys():
+            booksIG[ig] = db.get_books_by_intlv_group(igCnt[ig], (ig, ), exclude=False)
+
+        # Build list of books using request_interleave pattern
+        self.LCEobj.errno = errno.ENOSPC
+        bookList = []
+        cur = ig_pos
+        for cnt in range(0, books_needed):
+            ig = reqIGs[cur%len(reqIGs)]
+            assert len(booksIG[ig]) != 0, 'Not enough books in IG to satisfy request'
+            bookList.append(booksIG[ig].pop(0))
+            cur += 1
+
+        # Save current position in interleave_request list
+        resp = db.modify_xattr(self.shelf, 'user.interleave_request_pos', cur%len(reqIGs))
+
+        return bookList
 
     def __call__(self, books_needed):
         '''Look up the appropriate routine or throw an error'''
