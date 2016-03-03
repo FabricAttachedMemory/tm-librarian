@@ -68,8 +68,10 @@ class BookPolicy(object):
                     'Bad AllocationPolicy "%s"' % value
                 if value != 'RequestIG':
                     # Remove RequestIG specific attributes
-                    LCEobj.db.remove_xattr(shelf, 'user.interleave_request')
-                    LCEobj.db.remove_xattr(shelf, 'user.interleave_request_pos')
+                    if (LCEobj.db.get_xattr(shelf, 'user.interleave_request') != None):
+                        LCEobj.db.remove_xattr(shelf, 'user.interleave_request')
+                    if (LCEobj.db.get_xattr(shelf, 'user.interleave_request_pos') != None):
+                        LCEobj.db.remove_xattr(shelf, 'user.interleave_request_pos')
         elif elems[2] == 'AllocationPolicyList':
             assert not setting, 'Setting AllocationPolicyList is prohibited'
             value = ','.join(cls._policies)
