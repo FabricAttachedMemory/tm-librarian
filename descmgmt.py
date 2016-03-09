@@ -83,7 +83,7 @@ class DescriptorManagement(GenericObject):
 
     _evenmask = (2**64) - 1 - 1     # one for 64 bits of 1s, then clear the LSB
 
-    def __init__(self, args):
+    def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
         if not args.descriptors:
             self._indices = False   # sentinel
@@ -92,28 +92,16 @@ class DescriptorManagement(GenericObject):
             return
 
         # Validate the device file from zbridge driver
-        try:
-            tmp = os.stat(self._descioctl)
-            assert tmp.st_mode & stat.S_IFCHR == stat.S_IFCHR   # man 2 stat
-        except Exception as e:
-            raise AssertionError('Missing or invalid  %s' % self._descioctl)
+        # try:
+            # tmp = os.stat(self._descioctl)
+            # assert tmp.st_mode & stat.S_IFCHR == stat.S_IFCHR   # man 2 stat
+        # except Exception as e:
+            # raise AssertionError('Missing or invalid  %s' % self._descioctl)
 
-        # Originally coded for discontiguous apertures. Leave it that way
-        # even though SFW swears it will stay contiguous.
+        assert lfs_globals['books_total'] <= args.descriptors, 'Only supporting "Direct Descriptors" for now'
         assert args.descriptors <= self.NDESCRIPTORS, 'Descriptor count out of range'
-        self._indices = frozenset(tuple(range(args.descriptors)))
-        self._available = [ ]
-        self._descriptors = { }    # track pages inside a book
-        txtout = [ ]
-        for index, desc in enumerate(self.descTable):
-            txtout.append(hex(desc))
-            if desc & 1:   # Descriptor valid bit
-                LZA = (desc & self._evenmask) >> self._BOOK_SHIFT
-                self._descriptors[LZA] = _LZAinuse(LZA, index)
-            else:
-                self._available.append(index)
-        if self.verbose > 2:
-            print(','.join(txtout))
+
+        return
 
     def _consistent(self):
         assert len(self._available) + len(self._descriptors) == len(self._indices), 'MEBST INCONSISTENT DESCRIPTORS'

@@ -308,9 +308,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             return bytes(0)
 
         # Piggy back on getxattr to retrieve LZA during fault handling
-        # input : "fault_get_lza":<byte offset into shelf>
-        # output: <lza>:<book offset>:<book size>:<aperture base>
-        if "fault_get_lza" in xattr:
+        # input : _get_lza_for_<reason>,cmd,PID,PABO
+        # output: mode,baseaddr,booksize,m,B,LZA,PA,B,LZA,PA....
+        if xattr.startswith('_get_lza_for_'):
             data = self.shadow.getxattr(shelf_name, xattr)
             return bytes(data.encode())
 
@@ -602,6 +602,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''May be called zero, one, or more times per shelf open.  It's a
            chance to report delayed errors, not a syscall passthru.'''
         return 0
+
+    # @prentry
+    # def opendir(self, path, *args, **kwargs):
+        # raise TmfsOSError(errno.ENOSYS)
 
     @prentry
     def fsync(self, path, datasync, fh):
