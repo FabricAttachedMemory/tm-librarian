@@ -313,6 +313,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if xattr.startswith('_get_lza_for_'):
             data = self.shadow.getxattr(shelf_name, xattr)
             return bytes(data.encode())
+        elif xattr == '_get_booksize_mode_aperbase':
+            set_trace()
+            data = '%s,%d,%s' % ('1', '2', '3')
+            return 'ERROR'
+            return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
         # security.selinux, system.posix_acl_access, and posix_acl_default.
@@ -374,6 +379,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def statfs(self, path):  # "df" command; example used statVfs.
+        set_trace()
         globals = self.librarian(self.lcp('get_fs_stats'))
         blocks = globals['books_total']
         bfree = bavail = blocks - globals['books_used']

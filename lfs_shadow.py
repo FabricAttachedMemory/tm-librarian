@@ -489,6 +489,11 @@ class shadow_file(shadow_support):
 
 class apertures(shadow_support):
 
+    _MODE_DIRECT = 1        # See tmfs::lfs.c ADDRESS_MODES
+    _MODE_DIRECT_DESC = 2
+    _MODE_1906_DESC = 3
+    _MODE_FULL_DESC = 4
+
     def __init__(self, args, lfs_globals):
         '''args needs to have valid attributes for IVSHMEM and descriptors.'''
 
@@ -500,6 +505,12 @@ class apertures(shadow_support):
         assert self.aperture_base and self.aperture_size, 'This is very bad'
         self.isFAME = args.isFAME
         self.descriptors = DescMgmt(args, lfs_globals)
+
+        self.mode = 0
+        if not self.descriptors.enabled:
+            self.mode = self._MODE_DIRECT
+       else:
+           self.mode = self._MODE_1906_DESC
 
     def open(self, shelf, flags, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
@@ -553,12 +564,13 @@ class apertures(shadow_support):
             # should be detected by the startup in descmgmt.py and can be
             # used to flesh out "evictionless" behavior.
 
-            if not self.descriptors.enabled:    # "Legacy" IVSHMEM mode.
-                data = 'direct,0,%s,1,%s,%s,%s' % (self.book_size,
-                    book_num, baseLZA, phys_addr)
-            else:                               # Creep up on it
-                data = 'desc1906,%s,%s,1,%s,%s,0' % (
-                    self.aperture_base, self.book_size, book_num, baseLZA)
+            data = '%d,' % self.mode
+            if self.mode == self._MODE_DIRECT:      # "Legacy" IVSHMEM mode.
+                data += '1,%s,%s,%s' % (book_num, baseLZA, phys_addr)
+            elif self.mode = self._MODE_1906_DESC:  # creep up on it
+                data += '1,%s,%s,0' % (book_num, baseLZA)
+            else:
+                data = 'ERROR'
 
             if self.verbose > 3:
                 print('data returned to fault handler = %s' % (data))
