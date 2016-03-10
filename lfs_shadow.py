@@ -17,7 +17,6 @@ from copy import deepcopy
 from subprocess import getoutput
 from pdb import set_trace
 from tm_fuse import TmfsOSError, tmfs_get_context
-from descmgmt import DescriptorManagement as DescMgmt
 import tm_ioctl_opt as IOCTL
 
 #--------------------------------------------------------------------------
@@ -489,10 +488,21 @@ class shadow_file(shadow_support):
 
 class apertures(shadow_support):
 
-    _MODE_DIRECT = 1        # See tmfs::lfs.c ADDRESS_MODES
-    _MODE_DIRECT_DESC = 2
-    _MODE_1906_DESC = 3
-    _MODE_FULL_DESC = 4
+    _MODE_NONE = 0          # See tmfs::lfs.c ADDRESS_MODES
+    _MODE_DIRECT = 1        # FAME flat area only.
+    _MODE_DIRECT_DESC = 2   # FAME, but talk to zbridge.
+    _MODE_1906_DESC = 3     # TMAS: Zbridge directly programs DESBK, no chat
+    _MODE_FULL_DESC = 4     # TMAS: full operation
+
+    _NDESCRIPTORS = 1906            # Non-secure starting at the above BAR
+    _NVM_BK = 0x01600000000         # Thus speaketh the chipset ERS
+
+    _IG_SHIFT = 46                  # Bits of offset for 7 bit IG
+    _IG_MASK = ((1 << 7) - 1)       # Mask for 7 bit IG
+    _BOOK_SHIFT = 33                # Bits of offset for 20 bit book number
+    _BOOK_MASK = ((1 << 13) - 1)    # Mask for 13 bit book number
+    _BOOKLET_SHIFT = 16             # Bits of offset for 17 bit booklet number
+    _BOOKLET_MASK = ((1 << 17) - 1) # Mask for 17 bit booklet number
 
     def __init__(self, args, lfs_globals):
         '''args needs to have valid attributes for IVSHMEM and descriptors.'''
@@ -502,15 +512,21 @@ class apertures(shadow_support):
         # The field is called aperture_base even if direct mapping is used.
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
-        assert self.aperture_base and self.aperture_size, 'This is very bad'
         self.isFAME = args.isFAME
-        self.descriptors = DescMgmt(args, lfs_globals)
 
-        self.mode = 0
-        if not self.descriptors.enabled:
+        self.mode = self._MODE_NONE
+        if not args.descriptors:
+            assert self.isFAME, 'No-descriptor mode only usable under FAME'
+            print('Descriptor management disabled')
             self.mode = self._MODE_DIRECT
         else:
-            self.mode = self._MODE_1906_DESC
+            assert lfs_globals['books_total'] <= args.descriptors, \
+                'Only supporting "Direct Descriptors" for now'
+            assert args.descriptors <= self.NDESCRIPTORS, \
+                'Descriptor count out of range'
+            self.mode = self._MODE_1906_DESC    # this is all for today
+
+        assert self.aperture_base and self.aperture_size, 'This is very bad'
 
     def open(self, shelf, flags, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
@@ -541,19 +557,8 @@ class apertures(shadow_support):
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
                     baseLZA,
-                    ((baseLZA >> DescMgmt._IG_SHIFT) & DescMgmt._IG_MASK),
-                    ((baseLZA >> DescMgmt._BOOK_SHIFT) & DescMgmt._BOOK_MASK)))
-
-            if self.isFAME or not self.descriptors.enabled:
-                phys_offset = self.shadow_offset(shelf_name, PABO)
-                if phys_offset == -1:
-                    return 'ERROR'
-                phys_addr = self.aperture_base + phys_offset
-            else:
-                phys_addr = self.aperture_base + (desc.index * self.book_size)
-
-            if self.verbose > 3:
-                print('phys_addr = %d (0x%x)' % (phys_addr, phys_addr))
+                    ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
+                    ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
 
             # If descriptors are NOT enabled, no further work needs to be
             # done.  This can only be true for the IVHSHMEM platform.
@@ -561,14 +566,20 @@ class apertures(shadow_support):
             # If total # of books <= total number of descriptors: there should
             # never be any evictions.  Right now zbridge driver is hardcoding
             # descriptors directly in the "3.9 nodes of NVM" scenario.  That
-            # should be detected by the startup in descmgmt.py and can be
+            # was be detected by this __init__ and can be
             # used to flesh out "evictionless" behavior.
 
             data = '%d,' % self.mode
             if self.mode == self._MODE_DIRECT:      # "Legacy" IVSHMEM mode.
+                phys_offset = self.shadow_offset(shelf_name, PABO)
+                if phys_offset == -1:
+                    return 'ERROR'
+                phys_addr = self.aperture_base + phys_offset
                 data += '1,%s,%s,%s' % (book_num, baseLZA, phys_addr)
+
             elif self.mode == self._MODE_1906_DESC:  # creep up on it
                 data += '1,%s,%s,0' % (book_num, baseLZA)
+
             else:
                 data = 'ERROR'
 
@@ -638,8 +649,8 @@ def _detect_memory_space(args, lfs_globals):
             print('IVSHMEM cannot be found, assuming TM(AS)')
         args.isFAME = False
         args.descriptors = False            # now: hardcoded for direct mapping
-        args.aperture_base = DescMgmt.NVM_BK
-        args.aperture_size = DescMgmt.NDESCRIPTORS * lfs_globals['book_size_bytes']
+        args.aperture_base = apertures._NVM_BK
+        args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
 
     args.isFAME = True
