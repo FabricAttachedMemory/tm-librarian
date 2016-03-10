@@ -509,8 +509,8 @@ class apertures(shadow_support):
         self.mode = 0
         if not self.descriptors.enabled:
             self.mode = self._MODE_DIRECT
-       else:
-           self.mode = self._MODE_1906_DESC
+        else:
+            self.mode = self._MODE_1906_DESC
 
     def open(self, shelf, flags, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
@@ -567,7 +567,7 @@ class apertures(shadow_support):
             data = '%d,' % self.mode
             if self.mode == self._MODE_DIRECT:      # "Legacy" IVSHMEM mode.
                 data += '1,%s,%s,%s' % (book_num, baseLZA, phys_addr)
-            elif self.mode = self._MODE_1906_DESC:  # creep up on it
+            elif self.mode == self._MODE_1906_DESC:  # creep up on it
                 data += '1,%s,%s,0' % (book_num, baseLZA)
             else:
                 data = 'ERROR'
