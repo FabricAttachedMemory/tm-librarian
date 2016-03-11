@@ -91,17 +91,18 @@ class DescriptorManagement(GenericObject):
                 print('Descriptor management disabled')
             return
 
-        # Validate the device file from zbridge driver
-        # try:
-            # tmp = os.stat(self._descioctl)
-            # assert tmp.st_mode & stat.S_IFCHR == stat.S_IFCHR   # man 2 stat
-        # except Exception as e:
-            # raise AssertionError('Missing or invalid  %s' % self._descioctl)
-
         assert lfs_globals['books_total'] <= args.descriptors, 'Only supporting "Direct Descriptors" for now'
         assert args.descriptors <= self.NDESCRIPTORS, 'Descriptor count out of range'
 
-        return
+        return  ################ This is all since caching is now in kernel
+
+        # Validate the device file from zbridge driver
+        try:
+            tmp = os.stat(self._descioctl)
+            assert tmp.st_mode & stat.S_IFCHR == stat.S_IFCHR   # man 2 stat
+        except Exception as e:
+            raise AssertionError('Missing or invalid  %s' % self._descioctl)
+
 
     def _consistent(self):
         assert len(self._available) + len(self._descriptors) == len(self._indices), 'MEBST INCONSISTENT DESCRIPTORS'

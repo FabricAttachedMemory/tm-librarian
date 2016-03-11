@@ -101,10 +101,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if self.verbose > 1:
             print('%s: connected' % self.torms)
 
-        globals = self.librarian(self.lcp('get_fs_stats'))
-        self.bsize = globals['book_size_bytes']
+        lfs_globals = self.librarian(self.lcp('get_fs_stats'))
+        self.bsize = lfs_globals['book_size_bytes']
 
-        self.shadow = the_shadow_knows(args, globals)
+        self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
     # started with "mount" operation.  root is usually ('/', ) probably
@@ -313,6 +313,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if xattr.startswith('_get_lza_for_'):
             data = self.shadow.getxattr(shelf_name, xattr)
             return bytes(data.encode())
+        elif xattr == '_get_booksize_mode_aperbase':
+            data = '%s,%d,%s' % (
+                self.shadow.book_size, self.shadow.mode, self.shadow.aperture_base)
+            return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
         # security.selinux, system.posix_acl_access, and posix_acl_default.
@@ -374,16 +378,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def statfs(self, path):  # "df" command; example used statVfs.
-        globals = self.librarian(self.lcp('get_fs_stats'))
-        blocks = globals['books_total']
-        bfree = bavail = blocks - globals['books_used']
+        lfs_globals = self.librarian(self.lcp('get_fs_stats'))
+        blocks = lfs_globals['books_total']
+        bfree = bavail = blocks - lfs_globals['books_used']
         # 2015-12-06: df works with 8M books but breaks with 8G.  My guess:
         # a 32-bit int somewhere.  Not sure if this matters anyhow.
         # Use a 4K block size, modify other attributes accordingly.
         bsize = 4096
         # This assumes book_size_bytes is evenly divisible by
         # bsize, if not the stats will be wrong.
-        bm = int(globals['book_size_bytes'] / bsize)
+        bm = int(lfs_globals['book_size_bytes'] / bsize)
         blocks *= bm
         bfree *= bm
         bavail *= bm
