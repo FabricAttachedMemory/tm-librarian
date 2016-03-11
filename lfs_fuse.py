@@ -307,15 +307,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if not shelf_name:  # path == '/'
             return bytes(0)
 
-        # Piggy back on getxattr to retrieve LZA during fault handling
-        # input : _get_lza_for_<reason>,cmd,PID,PABO
-        # output: mode,baseaddr,booksize,m,B,LZA,PA,B,LZA,PA....
-        if xattr.startswith('_get_lza_for_'):
+        # Piggy back for queries by kernel (globals & fault handling)
+        if xattr.startswith('_obtain_'):
             data = self.shadow.getxattr(shelf_name, xattr)
-            return bytes(data.encode())
-        elif xattr == '_get_booksize_mode_aperbase':
-            data = '%s,%d,%s' % (
-                self.shadow.book_size, self.shadow.mode, self.shadow.aperture_base)
             return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
