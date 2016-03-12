@@ -557,6 +557,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         # ALWAYS get the shelf by name, even if fh is valid.
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
+        set_trace()
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
                        name=shelf_name,
