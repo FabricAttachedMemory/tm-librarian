@@ -43,11 +43,14 @@ class shadow_support(object):
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
         self.addr_mode = args.addr_mode
-
-        # Replaces ig_gap calculation.
-
-        offset = 0
+        self.zero_on_unlink = True
         self._igstart = {}
+        if self.__class__.__name__ == 'shadow_directory':  # file per shelf
+            return
+
+        # Backing store (shadow_file or FAME) is contiguous but IG ranges
+        # are not.  Map IG ranges onto areas of backing store.
+        offset = 0
         for igstr in sorted(lfs_globals['books_per_IG'].keys()):
             ig = int(igstr)
             if self.verbose > 2:
@@ -66,8 +69,9 @@ class shadow_support(object):
                 assert v_fh in self._shelfcache, 'Inconsistent list members'
         except Exception as e:
             print('Shadow cache is corrupt:', str(e), file=sys.stderr)
-            set_trace()
-            raise
+            if self.verbose > 3:
+                set_trace()
+            raise TmfsOSError(errno.EBADFD)
 
     # Most uses send an open handle fh (integer) as key.  truncate by name
     # is the exception.  An update needs to be reflected for all keys.
@@ -248,10 +252,26 @@ class shadow_support(object):
                 raise TmfsOSError(errno.ESTALE)
         return 0
 
-    def release(self, fh):  # shadow_support
-        retval = deepcopy(self[fh])
-        retval.open_handle = fh
-        del self[fh]
+    # Idiot checking and caching: shadow_support.  These routines should
+    # be called LAST, after any localized ops on the shelf, like _fd.
+    def open(self, shelf, flags, mode=None):
+        assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
+
+    # Idiot checking and caching: shadow_support
+    def create(self, shelf, flags, mode=None):
+        assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
+        assert self[shelf.name] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
+        self[shelf.open_handle] = shelf     # should be first one
+        return shelf.open_handle
+
+    # Idiot checking and UNcaching: shadow_support
+    def release(self, fh):                  # Must be an fh, not an fd
+        cached = self[fh]
+        retval = deepcopy(cached)
+        retval.open_handle = fh             # could be larger list
+        del self[cached.name]
         return retval
 
     # Piggybacked for kernel to ask for stuff.  Even in --shadow_[dir|file]
@@ -265,7 +285,7 @@ class shadow_support(object):
                 data = '%s,%d,%s' % (
                     self.book_size, self.addr_mode, self.aperture_base)
                 return data
-            return 'FALLBACK'   # if not overridden
+            return 'FALLBACK'   # might be circumvented by subclass
         except Exception as e:
             print('!!! ERROR IN GENERIC KERNEL XATTR HANDLER (%d): %s' % (
                 sys.exc_info()[2].tb_lineno, str(e)),
@@ -291,6 +311,7 @@ class shadow_directory(shadow_support):
 
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__(args, lfs_globals)
+        self.zero_on_unlink = False   # OS "clears" per-shelf backing file
         assert os.path.isdir(
             args.shadow_dir), 'No such directory %s' % args.shadow_dir
         self._shadowpath = args.shadow_dir
@@ -320,47 +341,64 @@ class shadow_directory(shadow_support):
         if mode is None:
             mode = 0o666
         try:
-            fd = os.open(self.shadowpath(shelf.name), flags, mode=mode)
+            shelf._fd = os.open(self.shadowpath(shelf.name), flags, mode=mode)
         except OSError as e:
             if flags & os.O_CREAT:
                 if e.errno != errno.EEXIST:
                     raise TmfsOSError(e.errno)
             else:
                 raise TmfsOSError(e.errno)
-        self[fd] = shelf
-        return fd
 
     def open(self, shelf, flags, mode=None):
-        return self._create_open_common(shelf, flags, mode)
+        self._create_open_common(shelf, flags, mode)
+        super(self.__class__, self).open(shelf, flags, mode)    # caching
+        return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def create(self, shelf, mode=None):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
-        return self._create_open_common(shelf, flags, mode)
+        self._create_open_common(shelf, flags, mode)
+        super(self.__class__, self).create(shelf, flags, mode)  # caching
+        return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def read(self, shelf_name, length, offset, fd):
+        assert self[shelf_name]._fd == fd, 'fd mismatch on read'
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
     def write(self, shelf_name, buf, offset, fd):
+        assert self[shelf_name]._fd == fd, 'fd mismatch on write'
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
-    def truncate(self, shelf, length, fd):
+    def truncate(self, shelf, length, fd):  # shadow_dir, yes an fd
         try:
-            if fd:
-                assert shelf == self[fd], 'Oops'
+            if fd:  # It's an open shelf
+                assert self[shelf.name]._fd == fd, 'fd mismatch on truncate'
             os.truncate(
-                fd if fd is not None else self.shadowpath(shelf.name),
+                shelf._fd if shelf._fd >= 0 else self.shadowpath(shelf.name),
                 length)
-            if fd is not None:
-                self[fd].size_bytes = length
+            shelf.size_bytes = length
+            if shelf.open_handle is None:
+                shelf = self[shelf.name]
+                if shelf is not None:
+                    shelf.size_bytes = length
             return 0
         except OSError as e:
             raise TmfsOSError(e.errno)
 
-    def release(self, fh):
-        shelf = super(self.__class__, self).release(fh)
-        os.close(fh)    # I don't think this ever raises....
+    def release(self, fd):              # shadow_dir: yes this is an fd
+        os.close(fd)                    # never a raise()
+        for shelf in self.values():     # search for fd to uncache shelf
+            if shelf._fd == fd:
+                for v in shelf.open_handle.values():
+                    fh = v[0]
+                    break
+                break
+        else:
+            raise RuntimeError('release: fd=%s is not cached' % fd)
+        super(self.__class__, self).release(fh)
+        shelf.open_handle = fh
+        shelf._fd = -1
         return shelf
 
 #--------------------------------------------------------------------------
@@ -529,14 +567,10 @@ class apertures(shadow_support):
         self.isFAME = args.isFAME
 
     def open(self, shelf, flags, mode=None):
-        assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
-        self[shelf.open_handle] = shelf
-        return shelf.open_handle
+        return super(self.__class__, self).open(shelf, flags, mode)
 
     def create(self, shelf, mode):
-        assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
-        self[shelf.open_handle] = shelf     # should be first instance
-        return shelf.open_handle
+        return super(self.__class__, self).create(shelf, flags, mode)
 
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
