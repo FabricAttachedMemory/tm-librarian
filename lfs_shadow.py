@@ -39,17 +39,17 @@ class shadow_support(object):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
         self._shelfcache = { }
-        self.isFAME = args.isFAME
-        self.aperture_base = args.aperture_base
-        self.aperture_size = args.aperture_size
-        self.addr_mode = args.addr_mode
         self.zero_on_unlink = True
-        self._igstart = {}
-        if self.__class__.__name__ == 'shadow_directory':  # file per shelf
-            return
 
-        # Backing store (shadow_file or FAME) is contiguous but IG ranges
-        # are not.  Map IG ranges onto areas of backing store.
+        # These are only set after _detect_address_space which isn't called
+        # for shadow_[dir|file]
+        for attr in ('addr_mode', 'aperture_base', 'aperture_size', 'isFAME', ):
+            setattr(self, attr, getattr(args, attr, 0))
+
+        # Backing store (shadow_file or FAME direct) is contiguous but IG
+        # ranges are not.  Map IG ranges onto areas of backing store.  Not
+        # used for shadow_dir but it's not worth the effort to suppress.
+        self._igstart = {}
         offset = 0
         for igstr in sorted(lfs_globals['books_per_IG'].keys()):
             ig = int(igstr)
@@ -744,12 +744,12 @@ def the_shadow_knows(args, lfs_globals):
     '''This is a factory.  args is command-line arguments from
        lfs_fuse.py and lfs_globals was received from the librarian.'''
     try:
-        _detect_memory_space(args, lfs_globals)     # Modifies args
-
         if args.shadow_dir:
             return shadow_directory(args, lfs_globals)
         elif args.shadow_file:
             return shadow_file(args, lfs_globals)
+
+        _detect_memory_space(args, lfs_globals)     # Modifies args
         return apertures(args, lfs_globals)
     except Exception as e:
         msg = str(e)
