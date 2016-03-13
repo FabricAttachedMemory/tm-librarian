@@ -39,11 +39,18 @@ class shadow_support(object):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
         self._shelfcache = { }
-
-        # Replaces ig_gap calculation.
-
-        offset = 0
+        self.isFAME = args.isFAME
+        self.aperture_base = args.aperture_base
+        self.aperture_size = args.aperture_size
+        self.addr_mode = args.addr_mode
+        self.zero_on_unlink = True
         self._igstart = {}
+        if self.__class__.__name__ == 'shadow_directory':  # file per shelf
+            return
+
+        # Backing store (shadow_file or FAME) is contiguous but IG ranges
+        # are not.  Map IG ranges onto areas of backing store.
+        offset = 0
         for igstr in sorted(lfs_globals['books_per_IG'].keys()):
             ig = int(igstr)
             if self.verbose > 2:
@@ -62,8 +69,9 @@ class shadow_support(object):
                 assert v_fh in self._shelfcache, 'Inconsistent list members'
         except Exception as e:
             print('Shadow cache is corrupt:', str(e), file=sys.stderr)
-            set_trace()
-            raise
+            if self.verbose > 3:
+                set_trace()
+            raise TmfsOSError(errno.EBADFD)
 
     # Most uses send an open handle fh (integer) as key.  truncate by name
     # is the exception.  An update needs to be reflected for all keys.
@@ -72,8 +80,6 @@ class shadow_support(object):
         fh = shelf.open_handle
         if fh is None:
             assert key == shelf.name, 'Might take more thought on this'
-        else:
-            assert key == fh, 'Maybe this requires more thought, too'
         cached = self._shelfcache.get(shelf.name, None)
         pid = tmfs_get_context()[2]
 
@@ -246,17 +252,45 @@ class shadow_support(object):
                 raise TmfsOSError(errno.ESTALE)
         return 0
 
-    def release(self, fh):  # shadow_support
-        retval = deepcopy(self[fh])
-        retval.open_handle = fh
-        del self[fh]
+    # Idiot checking and caching: shadow_support.  These routines should
+    # be called LAST, after any localized ops on the shelf, like _fd.
+    def open(self, shelf, flags, mode=None):
+        assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
+        self[shelf.open_handle] = shelf
+        return shelf.open_handle
+
+    # Idiot checking and caching: shadow_support
+    def create(self, shelf, flags, mode=None):
+        assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
+        assert self[shelf.name] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
+        self[shelf.open_handle] = shelf     # should be first one
+        return shelf.open_handle
+
+    # Idiot checking and UNcaching: shadow_support
+    def release(self, fh):                  # Must be an fh, not an fd
+        cached = self[fh]
+        retval = deepcopy(cached)
+        retval.open_handle = fh             # could be larger list
+        del self[cached.name]
         return retval
 
-    # Piggybacked during mmap fault handling.  If the kernel receives
-    # 'FALLBACK' it will use legacy, generic cache-based handler with stock
-    # read() and write() spill and fill.  Override to do true mmaps.
+    # Piggybacked for kernel to ask for stuff.  Even in --shadow_[dir|file]
+    # it wants globals, handle that here.  During mmap fault handling it
+    # wants more.  In shadow modes return 'FALLBACK' to get legacy, generic
+    # cache-based handler with stock read() and write() spill and fill.
+    # Overridden in class apertures to do true mmaps.
     def getxattr(self, shelf_name, xattr):
-        return 'FALLBACK'
+        try:
+            if xattr == '_obtain_booksize_addrmode_aperbase':
+                data = '%s,%d,%s' % (
+                    self.book_size, self.addr_mode, self.aperture_base)
+                return data
+            return 'FALLBACK'   # might be circumvented by subclass
+        except Exception as e:
+            print('!!! ERROR IN GENERIC KERNEL XATTR HANDLER (%d): %s' % (
+                sys.exc_info()[2].tb_lineno, str(e)),
+                file=sys.stderr)
+            return 'ERROR'
 
     def read(self, shelf_name, length, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
@@ -277,6 +311,7 @@ class shadow_directory(shadow_support):
 
     def __init__(self, args, lfs_globals):
         super(self.__class__, self).__init__(args, lfs_globals)
+        self.zero_on_unlink = False   # OS "clears" per-shelf backing file
         assert os.path.isdir(
             args.shadow_dir), 'No such directory %s' % args.shadow_dir
         self._shadowpath = args.shadow_dir
@@ -306,47 +341,64 @@ class shadow_directory(shadow_support):
         if mode is None:
             mode = 0o666
         try:
-            fd = os.open(self.shadowpath(shelf.name), flags, mode=mode)
+            shelf._fd = os.open(self.shadowpath(shelf.name), flags, mode=mode)
         except OSError as e:
             if flags & os.O_CREAT:
                 if e.errno != errno.EEXIST:
                     raise TmfsOSError(e.errno)
             else:
                 raise TmfsOSError(e.errno)
-        self[fd] = shelf
-        return fd
 
     def open(self, shelf, flags, mode=None):
-        return self._create_open_common(shelf, flags, mode)
+        self._create_open_common(shelf, flags, mode)
+        super(self.__class__, self).open(shelf, flags, mode)    # caching
+        return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def create(self, shelf, mode=None):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
-        return self._create_open_common(shelf, flags, mode)
+        self._create_open_common(shelf, flags, mode)
+        super(self.__class__, self).create(shelf, flags, mode)  # caching
+        return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def read(self, shelf_name, length, offset, fd):
+        assert self[shelf_name]._fd == fd, 'fd mismatch on read'
         os.lseek(fd, offset, os.SEEK_SET)
         return os.read(fd, length)
 
     def write(self, shelf_name, buf, offset, fd):
+        assert self[shelf_name]._fd == fd, 'fd mismatch on write'
         os.lseek(fd, offset, os.SEEK_SET)
         return os.write(fd, buf)
 
-    def truncate(self, shelf, length, fd):
+    def truncate(self, shelf, length, fd):  # shadow_dir, yes an fd
         try:
-            if fd:
-                assert shelf == self[fd], 'Oops'
+            if fd:  # It's an open shelf
+                assert self[shelf.name]._fd == fd, 'fd mismatch on truncate'
             os.truncate(
-                fd if fd is not None else self.shadowpath(shelf.name),
+                shelf._fd if shelf._fd >= 0 else self.shadowpath(shelf.name),
                 length)
-            if fd is not None:
-                self[fd].size_bytes = length
+            shelf.size_bytes = length
+            if shelf.open_handle is None:
+                shelf = self[shelf.name]
+                if shelf is not None:
+                    shelf.size_bytes = length
             return 0
         except OSError as e:
             raise TmfsOSError(e.errno)
 
-    def release(self, fh):
-        shelf = super(self.__class__, self).release(fh)
-        os.close(fh)    # I don't think this ever raises....
+    def release(self, fd):              # shadow_dir: yes this is an fd
+        os.close(fd)                    # never a raise()
+        for shelf in self.values():     # search for fd to uncache shelf
+            if shelf._fd == fd:
+                for v in shelf.open_handle.values():
+                    fh = v[0]
+                    break
+                break
+        else:
+            raise RuntimeError('release: fd=%s is not cached' % fd)
+        super(self.__class__, self).release(fh)
+        shelf.open_handle = fh
+        shelf._fd = -1
         return shelf
 
 #--------------------------------------------------------------------------
@@ -495,7 +547,7 @@ class apertures(shadow_support):
     _MODE_1906_DESC = 3     # TMAS: Zbridge directly programs DESBK, no chat
     _MODE_FULL_DESC = 4     # TMAS: full operation
 
-    _NDESCRIPTORS = 1906            # Non-secure starting at the above BAR
+    _NDESCRIPTORS = 1906            # Non-secure starting at the BAR...
     _NVM_BK = 0x01600000000         # Thus speaketh the chipset ERS
 
     _IG_SHIFT = 46                  # Bits of offset for 7 bit IG
@@ -515,33 +567,19 @@ class apertures(shadow_support):
         self.aperture_size = args.aperture_size
         self.isFAME = args.isFAME
 
-        self.mode = self._MODE_NONE
-        if not args.descriptors:
-            assert self.isFAME, 'No-descriptor mode only usable under FAME'
-            print('Descriptor management disabled')
-            self.mode = self._MODE_DIRECT
-        else:
-            assert lfs_globals['books_total'] <= args.descriptors, \
-                'Only supporting "Direct Descriptors" for now'
-            assert args.descriptors <= self.NDESCRIPTORS, \
-                'Descriptor count out of range'
-            self.mode = self._MODE_1906_DESC    # this is all for today
-
-        assert self.aperture_base and self.aperture_size, 'This is very bad'
-
     def open(self, shelf, flags, mode=None):
-        assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
-        self[shelf.open_handle] = shelf
-        return shelf.open_handle
+        return super(self.__class__, self).open(shelf, flags, mode)
 
     def create(self, shelf, mode):
-        assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
-        self[shelf.open_handle] = shelf     # should be first instance
-        return shelf.open_handle
+        return super(self.__class__, self).create(shelf, flags, mode)
 
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
         try:
+            data = super(self.__class__, self).getxattr(shelf_name, xattr)
+            if data != 'FALLBACK':
+                return data
+
             bos = self[shelf_name].bos
             cmd, comm, pid, PABO = xattr.split(',')
             pid = int(pid)
@@ -567,29 +605,26 @@ class apertures(shadow_support):
             # If total # of books <= total number of descriptors: there should
             # never be any evictions.  Right now zbridge driver is hardcoding
             # descriptors directly in the "3.9 nodes of NVM" scenario.  That
-            # was be detected by this __init__ and can be
+            # would be detected by this __init__ and can be
             # used to flesh out "evictionless" behavior.
 
-            data = '%d,' % self.mode
-            if self.mode == self._MODE_DIRECT:      # "Legacy" IVSHMEM mode.
+            if self.addr_mode == self._MODE_DIRECT:   # "Legacy" IVSHMEM mode.
                 phys_offset = self.shadow_offset(shelf_name, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
-                phys_addr = self.aperture_base + phys_offset
-                data += '1,%s,%s,%s' % (book_num, baseLZA, phys_addr)
-
-            elif self.mode == self._MODE_1906_DESC:  # creep up on it
-                data += '1,%s,%s,0' % (book_num, baseLZA)
-
+                map_addr = self.aperture_base + phys_offset
+            elif self.addr_mode == self._MODE_1906_DESC:  # creep up on it
+                map_addr = 0   # no-op here, kernel will calc aperture
             else:
-                data = 'ERROR'
+                raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
 
+            data = '%d,%s,%s,%s' % (self.addr_mode, book_num, baseLZA, map_addr)
             if self.verbose > 3:
                 print('data returned to fault handler = %s' % (data))
             return data
 
         except Exception as e:
-            print('!!! ERROR IN FAULT HANDLER (%d): %s' % (
+            print('!!! ERROR IN LZA LOOKUP HANDLER (%d): %s' % (
                 sys.exc_info()[2].tb_lineno, str(e)),
                 file=sys.stderr)
             return 'ERROR'
@@ -631,30 +666,45 @@ class apertures(shadow_support):
 
 
 def _detect_memory_space(args, lfs_globals):
-    # Retrieve ivshmem information.  Our convention states the first
+    # Discern ivshmem information.  Our convention states the first
     # IVSHMEM device found is used as fabric-attached memory.  Parse the
     # first block of lines of lspci -vv for Bus-Device-Function and
     # BAR2 information.
 
+    if args.shadow_dir or args.shadow_file:
+        assert not args.descriptors, 'Cannot use descriptors in this mode'
+        args.addr_mode = apertures._MODE_NONE
+        args.isFAME = False
+        args.aperture_base = 0  # will get tweaked later
+        args.aperture_size = 0
+        return
+
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
         if 'not found' in lspci[0]:
-            print('lspci(1) is missing, assuming TM(AS)')
+            print('lspci(1) is missing, assuming TM(AS)', file=sys.stderr)
     except Exception as e:
         lspci = ( '', '')
         pass
 
-    # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.
+    # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
+    # direct descriptor mode for now, Zbridge preloads all 1906.
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
-        if args.verbose > 1:
-            print('IVSHMEM cannot be found, assuming TM(AS)')
         args.isFAME = False
-        args.descriptors = False            # now: hardcoded for direct mapping
+        if args.verbose > 1:
+            print('IVSHMEM cannot be found, assuming TM(AS) and fixed 1906')
+        assert lfs_globals['books_total'] <= args.descriptors, \
+            'Only supporting "Direct Descriptors" for now'
+        assert args.descriptors <= apertures.NDESCRIPTORS, \
+            'Descriptor count out of range'
+        args.addr_mode = apertures._MODE_1906_DESC
         args.aperture_base = apertures._NVM_BK
         args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
 
     args.isFAME = True
+
+    # Parse lspci output
     bdf = lspci[0].split()[0]
     if args.verbose > 1:
         print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
@@ -681,6 +731,7 @@ def _detect_memory_space(args, lfs_globals):
     assert statinfo.st_size > 64 * 1 << 20, \
         'IVSHMEM at %s is not big enough, possible collision?' % bdf
     args.aperture_size = statinfo.st_size
+    args.addr_mode = apertures._MODE_DIRECT
 
     if args.verbose > 2:
         print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
@@ -694,15 +745,18 @@ def the_shadow_knows(args, lfs_globals):
     '''This is a factory.  args is command-line arguments from
        lfs_fuse.py and lfs_globals was received from the librarian.'''
     try:
+        _detect_memory_space(args, lfs_globals)     # Modifies args
+
         if args.shadow_dir:
             return shadow_directory(args, lfs_globals)
         elif args.shadow_file:
             return shadow_file(args, lfs_globals)
-
-        # FIXME: this could be folded into the class, for now just modify args
-        _detect_memory_space(args, lfs_globals)
         return apertures(args, lfs_globals)
     except Exception as e:
         msg = str(e)
+        print('!!! ERROR IN PLATFORM DETERMINATION (%d): %s' % (
+            sys.exc_info()[2].tb_lineno, msg),
+            file=sys.stderr)
+
     # seems to be ignored, as is SystemExit
     raise OSError(errno.EINVAL, 'lfs_shadow: %s' % msg)

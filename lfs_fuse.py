@@ -307,15 +307,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if not shelf_name:  # path == '/'
             return bytes(0)
 
-        # Piggy back on getxattr to retrieve LZA during fault handling
-        # input : _get_lza_for_<reason>,cmd,PID,PABO
-        # output: mode,baseaddr,booksize,m,B,LZA,PA,B,LZA,PA....
-        if xattr.startswith('_get_lza_for_'):
+        # Piggy back for queries by kernel (globals & fault handling)
+        if xattr.startswith('_obtain_'):
             data = self.shadow.getxattr(shelf_name, xattr)
-            return bytes(data.encode())
-        elif xattr == '_get_booksize_mode_aperbase':
-            data = '%s,%d,%s' % (
-                self.shadow.book_size, self.shadow.mode, self.shadow.aperture_base)
             return bytes(data.encode())
 
         # "ls" starts with simple getattr but then comes here for
@@ -475,12 +469,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         self.shadow.unlink(shelf_name)  # empty cache INCLUDING dangling opens
 
-        # Early exit: no work required if:
+        # Early exit: no explicit zeroing required if:
         # 1. it's zero bytes long
         # 2. it's passed through zeroing, meaning this is the second trip to
         #    unlink()..  Even if length is non-zero, remove it, assuming the
         #   _zero subprocess failed.
-        if (not shelf.size_bytes) or shelf.name.startswith(self._ZERO_PREFIX):
+        # 3. The shadow subclass doesn't need it
+        if ((not shelf.size_bytes) or
+             shelf.name.startswith(self._ZERO_PREFIX) or
+             (not self.shadow.zero_on_unlink)):
             self.librarian(self.lcp('destroy_shelf', name=shelf.name))
             return 0
 
@@ -517,8 +514,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(rsp)
         self.get_bos(shelf)
         # File handle is a proxy for FuSE to refer to "real" file descriptor.
-        fh = self.shadow.open(shelf, flags, mode)
-        return fh
+        # Different shadow types may return different things for kernel.
+        fx = self.shadow.open(shelf, flags, mode)
+        return fx
 
     # POSIX: Librarian returns an open shelf, either extant or newly created.
     @prentry
@@ -536,8 +534,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
         rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)                # This is an open shelf...
-        self.shadow.create(shelf, mode)     # ...added to the cache...
-        return shelf.open_handle            # ...with this value.
+        fx = self.shadow.create(shelf, mode)     # ...added to the cache...
+        return fx            # ...with this value.
 
     @prentry
     def read(self, path, length, offset, fh):
@@ -593,10 +591,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # Called when last reference to an open file (in one PID) is closed.
     @prentry
-    def release(self, path, fh):  # fh == shadow file descriptor
+    def release(self, path, fh):
         try:
             shelf = self.shadow.release(fh)
-            req = self.lcp('close_shelf', id=shelf.id, open_handle=fh)
+            req = self.lcp(
+                'close_shelf', id=shelf.id, open_handle=shelf.open_handle)
             self.librarian(req)  # None or raise
         except Exception as e:
             raise TmfsOSError(errno.ESTALE)
