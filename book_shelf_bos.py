@@ -149,10 +149,12 @@ class TMShelf(BookShelfStuff):
 
     # Gotta do this here or the mechanism doesn't work.  "bos" will
     # probably only be used on the client(s) as this type of info
-    # is reasonably ephemeral in The Librarian.
+    # is reasonably ephemeral in The Librarian.  _fd is only used
+    # by shadow_dir as the fd of the per-shelf backing file.
     __slots__ = frozenset((_ordered_schema) + (BookShelfStuff._MFname,
                                                'bos',
-                                               'open_handle'))
+                                               'open_handle',
+                                               '_fd'))
 
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)
@@ -162,6 +164,8 @@ class TMShelf(BookShelfStuff):
             self.bos = [ ]
         if self.open_handle == 0:
             self.open_handle = None
+        if self._fd == 0:
+            self._fd = -1
 
     def __eq__(self, other):
         # If size_bytes match, then len(bos) must match.
