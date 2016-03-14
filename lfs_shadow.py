@@ -436,6 +436,7 @@ class shadow_file(shadow_support):
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
         self.aperture_size = statinfo.st_size
 
+        self.aperture_size = lfs_globals['nvm_bytes_total']
         self._shadow_fd = fd
 
     # open() and create() only need to do caching as handled by superclass
