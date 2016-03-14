@@ -260,7 +260,7 @@ class shadow_support(object):
         return shelf.open_handle
 
     # Idiot checking and caching: shadow_support
-    def create(self, shelf, flags, mode=None):
+    def create(self, shelf, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
         assert self[shelf.name] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
         self[shelf.open_handle] = shelf     # should be first one
@@ -357,7 +357,7 @@ class shadow_directory(shadow_support):
     def create(self, shelf, mode=None):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         self._create_open_common(shelf, flags, mode)
-        super(self.__class__, self).create(shelf, flags, mode)  # caching
+        super(self.__class__, self).create(shelf, mode)  # caching
         return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def read(self, shelf_name, length, offset, fd):
@@ -438,13 +438,7 @@ class shadow_file(shadow_support):
 
         self._shadow_fd = fd
 
-    def open(self, shelf, flags, mode=None):
-        self[shelf.open_handle] = shelf
-        return shelf.open_handle
-
-    def create(self, shelf, mode):
-        self[shelf.open_handle] = shelf
-        return shelf.open_handle
+    # open() and create() only need to do caching as handled by superclass
 
     def read(self, shelf_name, length, offset, fd):
 
@@ -567,11 +561,7 @@ class apertures(shadow_support):
         self.aperture_size = args.aperture_size
         self.isFAME = args.isFAME
 
-    def open(self, shelf, flags, mode=None):
-        return super(self.__class__, self).open(shelf, flags, mode)
-
-    def create(self, shelf, mode):
-        return super(self.__class__, self).create(shelf, flags, mode)
+    # open() and create() only need to do caching as handled by superclass
 
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
