@@ -300,12 +300,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
            a bytes array OR an int."""
         if position:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
-        if xattr.startswith('security'):
-            return bytes(0)
 
         shelf_name = self.path2shelf(path)
-        if not shelf_name:  # path == '/'
-            return bytes(0)
 
         # Piggy back for queries by kernel (globals & fault handling)
         if xattr.startswith('_obtain_'):
@@ -315,6 +311,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # "ls" starts with simple getattr but then comes here for
         # security.selinux, system.posix_acl_access, and posix_acl_default.
         # ls -l can also do the same thing on '/'.  Save the round trips.
+
+        if xattr.startswith('security') or not shelf_name:  # path == '/'
+            return bytes(0)
 
         try:
             rsp = self.librarian(
