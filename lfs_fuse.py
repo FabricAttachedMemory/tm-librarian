@@ -43,7 +43,8 @@ def prentry(func):
             print('%s(%s)' % (func.__name__, tmp[:60]))
         ret = func(*args, **kwargs)
         if verbose > 2:
-            print('Returning', str(ret))
+            tmp = str(ret)
+            print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
             if verbose > 4:
                 set_trace()
         return ret
@@ -57,7 +58,7 @@ def prentry(func):
 ###########################################################################
 # __init__ is called before doing the "mount" (ie, libfuse.so is not
 # invoked until after this returns).  Errors that that get raised from
-# __init__ will terminate the process which probably a good thing.
+# __init__ will terminate the process which is probably a good thing.
 
 # Errors raised anywhere else (including "init") get swallowed by fuse.py
 # so that lfs_fuse.py can struggle on.   That's another good thing overall
