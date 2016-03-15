@@ -436,6 +436,7 @@ class shadow_file(shadow_support):
         assert self._mode_rw_file == self._mode_rw_file & statinfo.st_mode, \
             '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
+        self.aperture_size = statinfo.st_size
 
         self.aperture_size = lfs_globals['nvm_bytes_total']
         self._shadow_fd = fd
