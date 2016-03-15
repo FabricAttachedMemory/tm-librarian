@@ -41,10 +41,12 @@ class shadow_support(object):
         self._shelfcache = { }
         self.zero_on_unlink = True
 
-        # These are only set after _detect_address_space which isn't called
-        # for shadow_[dir|file]
-        for attr in ('addr_mode', 'aperture_base', 'aperture_size', 'isFAME', ):
-            setattr(self, attr, getattr(args, attr, 0))
+        # Along with book size, tmfs kernel module always asks for these.
+        # See getxattr below; these are default values unless overwritten
+        # by subclasses.
+
+        self.addr_mode = apertures._MODE_NONE
+        self.aperture_base = 0
 
         # Backing store (shadow_file or FAME direct) is contiguous but IG
         # ranges are not.  Map IG ranges onto areas of backing store.  Not
@@ -528,15 +530,11 @@ class shadow_file(shadow_support):
 # address of the IVSHMEM device, but it couldn't do read and write.  Merging
 # the two classes (actually, just getxattr() from the previous "class fam")
 # gets the best of both worlds (IVHSMEM and HW FAM) in one class.
-# FIXME: open() and create() here and in shadow_[dir|file] can be coalesced
-# so they all call super(shadow_support).  First of all, bring the two
-# shadows up to speed with respect to the shadow_cache.  Then other
-# mods will make sense.
 
 class apertures(shadow_support):
 
     _MODE_NONE = 0          # See tmfs::lfs.c ADDRESS_MODES
-    _MODE_DIRECT = 1        # FAME flat area only.
+    _MODE_DIRECT = 1        # FAME flat area only, suppress zbridge calls
     _MODE_DIRECT_DESC = 2   # FAME, but talk to zbridge.
     _MODE_1906_DESC = 3     # TMAS: Zbridge directly programs DESBK, no chat
     _MODE_FULL_DESC = 4     # TMAS: full operation
@@ -559,7 +557,6 @@ class apertures(shadow_support):
         # The field is called aperture_base even if direct mapping is used.
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
-        self.isFAME = args.isFAME
 
     # open() and create() only need to do caching as handled by superclass
 
@@ -567,8 +564,10 @@ class apertures(shadow_support):
         # Called from kernel (fault, RW, atomics), don't die here :-)
         try:
             data = super(self.__class__, self).getxattr(shelf_name, xattr)
-            if data != 'FALLBACK':
+            if data != 'FALLBACK':  # superclass handles some things
                 return data
+            assert xattr == '_obtain_lza_for_page_fault', \
+                'BAD KERNEL XATTR %s' % xattr
 
             bos = self[shelf_name].bos
             cmd, comm, pid, PABO = xattr.split(',')
@@ -598,12 +597,12 @@ class apertures(shadow_support):
             # would be detected by this __init__ and can be
             # used to flesh out "evictionless" behavior.
 
-            if self.addr_mode == self._MODE_DIRECT:   # "Legacy" IVSHMEM mode.
+            if self.addr_mode in (self._MODE_DIRECT, self._MODE_DIRECT_DESC):
                 phys_offset = self.shadow_offset(shelf_name, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 map_addr = self.aperture_base + phys_offset
-            elif self.addr_mode == self._MODE_1906_DESC:  # creep up on it
+            elif self.addr_mode in (self._MODE_1906_DESC, self._MODE_FULL_DESC):
                 map_addr = 0   # no-op here, kernel will calc aperture
             else:
                 raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
@@ -656,18 +655,12 @@ class apertures(shadow_support):
 
 
 def _detect_memory_space(args, lfs_globals):
+    '''Not compatible with, and will ignore, other shadow_xxxx options.'''
     # Discern ivshmem information.  Our convention states the first
     # IVSHMEM device found is used as fabric-attached memory.  Parse the
     # first block of lines of lspci -vv for Bus-Device-Function and
     # BAR2 information.
 
-    if args.shadow_dir or args.shadow_file:
-        assert not args.descriptors, 'Cannot use descriptors in this mode'
-        args.addr_mode = apertures._MODE_NONE
-        args.isFAME = False
-        args.aperture_base = 0  # will get tweaked later
-        args.aperture_size = 0
-        return
 
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
@@ -680,21 +673,17 @@ def _detect_memory_space(args, lfs_globals):
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
-        args.isFAME = False
         if args.verbose > 1:
             print('IVSHMEM cannot be found, assuming TM(AS) and fixed 1906')
-        assert lfs_globals['books_total'] <= args.descriptors, \
-            'Only supporting "Direct Descriptors" for now'
-        assert args.descriptors <= apertures.NDESCRIPTORS, \
-            'Descriptor count out of range'
-        args.addr_mode = apertures._MODE_1906_DESC
+        if args.fixed1906:
+            args.addr_mode = apertures._MODE_1906_DESC
+        else:
+            args.addr_mode = apertures._MODE_FULL_DESC
         args.aperture_base = apertures._NVM_BK
         args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
 
-    args.isFAME = True
-
-    # Parse lspci output
+    # Might be FAME, start parsing lspci output
     bdf = lspci[0].split()[0]
     if args.verbose > 1:
         print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
@@ -721,7 +710,10 @@ def _detect_memory_space(args, lfs_globals):
     assert statinfo.st_size > 64 * 1 << 20, \
         'IVSHMEM at %s is not big enough, possible collision?' % bdf
     args.aperture_size = statinfo.st_size
-    args.addr_mode = apertures._MODE_DIRECT
+    if args.noZ:
+        args.addr_mode = apertures._MODE_DIRECT
+    else:
+        args.addr_mode = apertures._MODE_DIRECT_DESC
 
     if args.verbose > 2:
         print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
@@ -734,11 +726,29 @@ def _detect_memory_space(args, lfs_globals):
 def the_shadow_knows(args, lfs_globals):
     '''This is a factory.  args is command-line arguments from
        lfs_fuse.py and lfs_globals was received from the librarian.'''
+
     try:
         if args.shadow_dir:
             return shadow_directory(args, lfs_globals)
         elif args.shadow_file:
             return shadow_file(args, lfs_globals)
+
+        if args.fixed1906:  # Idiot check the topology
+            assert args.physloc.rack == 1, \
+                'Bad rack for --fixed1906'
+            assert args.physloc.enc == 1, \
+                'Bad enclosure for --fixed1906'
+            assert args.physloc.node in range(1, 5), \
+                'Bad node for --fixed1906'
+            books_per_IG = lfs_globals['books_per_IG']
+            IGs = frozenset(int(k) for k in books_per_IG.keys())
+            assert frozenset(range(0, 4)) == IGs, \
+                'Bad IG topology for --fixed1906'
+            for IG in (0, 1, 2):
+                assert books_per_IG[str(IG)] == 512, \
+                    'Bad book count for --fixed1906 IG %d' % IG
+            assert lfs_globals['books_total'] == apertures._NDESCRIPTORS, \
+                'Bad book count for --fixed1906 IG 3'
 
         _detect_memory_space(args, lfs_globals)     # Modifies args
         return apertures(args, lfs_globals)
