@@ -702,7 +702,9 @@ def mount_LFS(args):
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
     if tmp == 1:
-        assert not args.descriptors, 'shadow_xxxx does not support descriptors'
+        if args.fixed1906:
+            print('shadow_xxxx overrides fixed1906')
+            args.fixed1906 = False
     elif tmp > 1:
         raise RuntimeError('Only one of shadow_[dir|file] is allowed')
 
@@ -735,10 +737,15 @@ if __name__ == '__main__':
         help='Node physical location "rack:enc:node"',
         type=str)
     parser.add_argument(
-        '--descriptors',
-        help='Descriptor count (default == 0 == disabled, use direct mapping)',
-        type=int,
-        default=0)
+        '--fixed1906',
+        help='Magic mode dependent on zbridge descriptor autoprogramming',
+        action='store_false',
+        default=True)       # for now
+    parser.add_argument(
+        '--noZ',
+        help='Don\'t talk to zbridge driver (FAME only)',
+        action='store_false',
+        default=True)       # for now
     parser.add_argument(
         '--daemon',
         help='Daemonize the program',
