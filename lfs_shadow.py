@@ -743,15 +743,19 @@ def the_shadow_knows(args, lfs_globals):
                 'Bad enclosure for --fixed1906'
             assert args.physloc.node in range(1, 5), \
                 'Bad node for --fixed1906'
-            books_per_IG = lfs_globals['books_per_IG']
-            IGs = frozenset(int(k) for k in books_per_IG.keys())
-            assert frozenset(range(0, 4)) == IGs, \
-                'Bad IG topology for --fixed1906'
-            for IG in (0, 1, 2):
-                assert books_per_IG[str(IG)] == 512, \
-                    'Bad book count for --fixed1906 IG %d' % IG
-            assert lfs_globals['books_total'] == apertures._NDESCRIPTORS, \
-                'Bad book count for --fixed1906 IG 3'
+
+            # TODO: These break TMAS, we need to be able
+            # to start TMAS with 1,2,3 or 4 nodes with a
+            # corresponding .ini file.
+            #books_per_IG = lfs_globals['books_per_IG']
+            #IGs = frozenset(int(k) for k in books_per_IG.keys())
+            #assert frozenset(range(0, 4)) == IGs, \
+            #    'Bad IG topology for --fixed1906'
+            #for IG in (0, 1, 2):
+            #    assert books_per_IG[str(IG)] == 512, \
+            #        'Bad book count for --fixed1906 IG %d' % IG
+            #assert lfs_globals['books_total'] == apertures._NDESCRIPTORS, \
+            #    'Bad book count for --fixed1906 IG 3'
 
         _detect_memory_space(args, lfs_globals)     # Modifies args
         return apertures(args, lfs_globals)
