@@ -559,6 +559,8 @@ class apertures(shadow_support):
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
 
+        self.addr_mode = args.addr_mode
+
     # open() and create() only need to do caching as handled by superclass
 
     def getxattr(self, shelf_name, xattr):
@@ -567,7 +569,7 @@ class apertures(shadow_support):
             data = super(self.__class__, self).getxattr(shelf_name, xattr)
             if data != 'FALLBACK':  # superclass handles some things
                 return data
-            assert xattr == '_obtain_lza_for_page_fault', \
+            assert xattr.startswith('_obtain_lza_for_page_fault'), \
                 'BAD KERNEL XATTR %s' % xattr
 
             bos = self[shelf_name].bos
@@ -580,8 +582,8 @@ class apertures(shadow_support):
             baseLZA = bos[book_num]['lza']
 
             if self.verbose > 3:  # Since this IS in the kernel :-)
-                reason = xattr.split('_for_')[1]
-                print('Get LZA: %s: process %s[%d] shelf=%s, PABO=%d (0x%x)' %
+                reason = cmd.split('_for_')[1]
+                print('Get LZA (%s): process %s[%d] shelf=%s, PABO=%d (0x%x)' %
                     (reason, comm, pid, shelf_name, PABO, PABO))
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     book_num,
