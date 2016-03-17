@@ -273,7 +273,7 @@ class shadow_support(object):
         cached = self[fh]
         retval = deepcopy(cached)
         retval.open_handle = fh             # could be larger list
-        del self[cached.name]
+        del self[fh]
         return retval
 
     # Piggybacked for kernel to ask for stuff.  Even in --shadow_[dir|file]
