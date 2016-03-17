@@ -123,7 +123,7 @@ class shadow_support(object):
             cached.bos = deepcopy(shelf.bos)
             cached.book_count = shelf.book_count
             cached.mtime = shelf.mtime
-            if invalidate:
+            if invalidate and self.verbose > 2:
                 print('\n\tNEED TO INVALIDATE PTES!!!\n')
 
         # fh is unique (created by Librarian as table index).  Does it
@@ -441,7 +441,7 @@ class shadow_file(shadow_support):
         self.aperture_size = lfs_globals['nvm_bytes_total']
         self._shadow_fd = fd
 
-    # open() and create() only need to do caching as handled by superclass
+    # open(), create(), release() only do caching as handled by superclass
 
     def read(self, shelf_name, length, offset, fd):
 
@@ -561,7 +561,7 @@ class apertures(shadow_support):
 
         self.addr_mode = args.addr_mode
 
-    # open() and create() only need to do caching as handled by superclass
+    # open(), create(), release() only do caching as handled by superclass
 
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
