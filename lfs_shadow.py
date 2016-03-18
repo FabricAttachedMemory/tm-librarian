@@ -123,7 +123,7 @@ class shadow_support(object):
             cached.bos = deepcopy(shelf.bos)
             cached.book_count = shelf.book_count
             cached.mtime = shelf.mtime
-            if invalidate:
+            if invalidate and self.verbose > 2:
                 print('\n\tNEED TO INVALIDATE PTES!!!\n')
 
         # fh is unique (created by Librarian as table index).  Does it
@@ -441,7 +441,7 @@ class shadow_file(shadow_support):
         self.aperture_size = lfs_globals['nvm_bytes_total']
         self._shadow_fd = fd
 
-    # open() and create() only need to do caching as handled by superclass
+    # open(), create(), release() only do caching as handled by superclass
 
     def read(self, shelf_name, length, offset, fd):
 
@@ -535,10 +535,10 @@ class shadow_file(shadow_support):
 class apertures(shadow_support):
 
     _MODE_NONE = 0          # See tmfs::lfs.c ADDRESS_MODES
-    _MODE_DIRECT = 1        # FAME flat area only, suppress zbridge calls
-    _MODE_DIRECT_DESC = 2   # FAME, but talk to zbridge.
+    _MODE_FAME = 1          # FAME direct flat area only, no zbridge calls
+    _MODE_FAME_DESC = 2     # FAME direct, but talk to zbridge (no real HW)
     _MODE_1906_DESC = 3     # TMAS: Zbridge directly programs DESBK, no chat
-    _MODE_FULL_DESC = 4     # TMAS: full operation
+    _MODE_FULL_DESC = 4     # TM(AS): full operation
 
     _NDESCRIPTORS = 1906            # Non-secure starting at the BAR...
     _NVM_BK = 0x01600000000         # Thus speaketh the chipset ERS
@@ -561,7 +561,7 @@ class apertures(shadow_support):
 
         self.addr_mode = args.addr_mode
 
-    # open() and create() only need to do caching as handled by superclass
+    # open(), create(), release() only do caching as handled by superclass
 
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
@@ -600,7 +600,7 @@ class apertures(shadow_support):
             # would be detected by this __init__ and can be
             # used to flesh out "evictionless" behavior.
 
-            if self.addr_mode in (self._MODE_DIRECT, self._MODE_DIRECT_DESC):
+            if self.addr_mode in (self._MODE_FAME, self._MODE_FAME_DESC):
                 phys_offset = self.shadow_offset(shelf_name, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
@@ -714,9 +714,9 @@ def _detect_memory_space(args, lfs_globals):
         'IVSHMEM at %s is not big enough, possible collision?' % bdf
     args.aperture_size = statinfo.st_size
     if args.noZ:
-        args.addr_mode = apertures._MODE_DIRECT
+        args.addr_mode = apertures._MODE_FAME
     else:
-        args.addr_mode = apertures._MODE_DIRECT_DESC
+        args.addr_mode = apertures._MODE_FAME_DESC
 
     if args.verbose > 2:
         print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
