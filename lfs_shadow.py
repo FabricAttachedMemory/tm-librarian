@@ -200,7 +200,7 @@ class shadow_support(object):
     # End of dictionary duck typing, now use that cache
 
     def shadow_offset(self, shelf_name, shelf_offset):
-        '''Translate shelf-relative offset to flat shadow file offset'''
+        '''Translate shelf-relative offset to flat shadow (file) offset'''
         bos = self[shelf_name].bos
         bos_index = shelf_offset // self.book_size  # (0..n)
 
@@ -591,22 +591,27 @@ class apertures(shadow_support):
                     ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
                     ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
 
-            # If descriptors are NOT enabled, no further work needs to be
-            # done.  This can only be true for the IVHSHMEM platform.
-
-            # If total # of books <= total number of descriptors: there should
-            # never be any evictions.  Right now zbridge driver is hardcoding
-            # descriptors directly in the "3.9 nodes of NVM" scenario.  That
-            # would be detected by this __init__ and can be
-            # used to flesh out "evictionless" behavior.
+            # FAME modes need the "flattened IG" address into the memory area.
+            # shadow_offset() returns a full byte-accurate address (for use
+            # in shadow_file) which is "too much info" for the kernel.  It
+            # will do the right page-masking and essentially ignore those
+            # last bits of "accuracy".  DON'T DO THE OFFSET ADDITION TWICE!
 
             if self.addr_mode in (self._MODE_FAME, self._MODE_FAME_DESC):
                 phys_offset = self.shadow_offset(shelf_name, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 map_addr = self.aperture_base + phys_offset
-            elif self.addr_mode in (self._MODE_1906_DESC, self._MODE_FULL_DESC):
-                map_addr = 0   # no-op here, kernel will calc aperture
+            elif self.addr_mode == self._MODE_1906_DESC:
+                # Should match kernel calculations.  # books <= # descriptors
+                # and DESBK is preprogrammed so LZA -> aperture number.
+                aper_num = ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
+                desc_offset = aper_num * self.book_size
+                book_offset = PABO % self.book_size
+                map_addr = self.aperture_base + desc_offset + book_offset
+            elif self.addr_mode == self._MODE_FULL_DESC:
+                # MUST be done in kernel because zbridge slot lookup is needed
+                map_addr = 0
             else:
                 raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
 
