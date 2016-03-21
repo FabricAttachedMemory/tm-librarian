@@ -605,7 +605,7 @@ class apertures(shadow_support):
             elif self.addr_mode == self._MODE_1906_DESC:
                 # Should match kernel calculations.  # books <= # descriptors
                 # and DESBK is preprogrammed so LZA -> aperture number.
-                aper_num = ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
+                aper_num = ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)
                 desc_offset = aper_num * self.book_size
                 book_offset = PABO % self.book_size
                 map_addr = self.aperture_base + desc_offset + book_offset
