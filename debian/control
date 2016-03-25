@@ -1,7 +1,10 @@
 Source: tm-librarian
-Section: unknown
+Section: misc	
 Priority: optional
 Maintainer: Greg Pearson <greg.pearson@hpe.com>
+XS-Requester: l4tm@groups.int.hpe.com
+Origin: HPE
+XS-Source-Origin: native
 Build-Depends: debhelper (>= 9), dh-python, python3 (>= 3.2)
 Standards-Version: 3.9.6
 X-Python3-Version: >= 3.2
