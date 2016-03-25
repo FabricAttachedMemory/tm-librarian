@@ -1,0 +1,2 @@
+version=3
+https://hlinux-gitlab.us.rdlabs.hpecorp.net/l4tm/librarian/tags .*/v(\d.+)
