@@ -1,5 +1,5 @@
 Source: tm-librarian
-Section: misc	
+Section: misc
 Priority: optional
 Maintainer: Greg Pearson <greg.pearson@hpe.com>
 XS-Requester: l4tm@groups.int.hpe.com
@@ -18,14 +18,14 @@ Description: The Machine Librarian
 
 Package: tm-librarian-server
 Architecture: all
-Depends: tm-librarian-common
+Depends:python3 (>= 3.2), tm-librarian-common
 Recommends:
 Description: The Machine Librarian
  The Machine NVM management server
 
 Package: tm-librarian-client
 Architecture: all
-Depends: tm-librarian-common
+Depends:python3 (>= 3.2), tm-librarian-common
 Recommends:
 Description: The Machine Librarian
  The Machine NVM management client
