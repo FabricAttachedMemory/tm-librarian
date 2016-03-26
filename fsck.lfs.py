@@ -75,24 +75,78 @@ def finish_unlink(db):
             book.allocated = TMBook.ALLOC_FREE
             book.matchfields = 'allocated'
             db.modify_book(book)
-            pass
         db.delete_shelf(shelf)
         db.commit()
 
+###########################################################################
+
+
 def zombie_sith(db):
-    '''Return all zombie books to free pool'''
-    print('not implemented')
+    '''Return zombie books to free pool'''
+    db.execute('SELECT * FROM books where allocated=?', TMBook.ALLOC_ZOMBIE)
+    db.iterclass = TMBook
+    zombie_books = [ z for z in db ]
+    print('%d detected' % len(zombie_books))
+    if not zombie_books:
+        return
+    for book in zombie_books:
+        book.allocated = TMBook.ALLOC_FREE
+        book.matchfields = 'allocated'
+        db.modify_book(book)
+    db.commit()
     pass
 
-def orphaned_books(db):
-    '''Return all orphan books to free pool'''
-    print('not implemented')
-    pass
+###########################################################################
 
-def verify_shelves(db):
-    '''Verify all assigned books on a shelf are allocated'''
-    print('not implemented')
-    pass
+
+def verify_shelves_return_orphaned_books(db):
+    '''Verify book ownership & return orphan books to free pool'''
+    # Run this AFTER zombie clears so DB contains only INUSE and FREE
+    # books.  Make set of all allocated books.  Then for each shelf:
+    #   Insure all shelf books are in all_books
+    #   Remove shelf books from all_books set
+    # Any leftovers are orphons
+    db.execute('SELECT id FROM books where allocated=?', TMBook.ALLOC_INUSE)
+    used_books = [ u[0] for u in db ]
+    used_books = frozenset(used_books)
+    print('%d books in use' % len(used_books))
+    shelves = db.get_shelf_all()    # Keep going even if empty, you'll see
+
+    # Seq nums okay?  Eliminate dupes and check
+    fatal = False
+    for shelf in shelves:
+        shelf.bos = db.get_bos_by_shelf_id(shelf.id)
+        seqs = frozenset(bos.seq_num for bos in shelf.bos)
+        if len(seqs) != len(shelf.bos):
+            print('\t duplicate sequence numbers in', shelf.name)
+            fatal = True
+    if fatal:
+        raise RuntimeError('Problems detected with no repair automation')
+
+    # Book allocations
+    for shelf in shelves:
+        shelf.bos = db.get_books_on_shelf(shelf)
+        bookset = frozenset(b.id for b in shelf.bos)
+        if used_books.intersection(bookset) != bookset:
+            unallocated = bookset - used_books
+            # FIXME: seq_nums are valid and there are no zombies
+            for u in unallocated:
+                book = db.get_book_by_id(u)
+                book.allocated = TMBook.ALLOC_INUSE
+                book.matchfields = 'allocated'
+                db.modify_book(book)
+                book_set = book_set + frozenset(book.id)
+            db.commit()
+        used_books = used_books - bookset
+
+    if used_books:
+        print('\tClearing %d book(s) marked as allocated but shelfless')
+        for book_id in used_books:
+            notused = db.get_book_by_id(book_id)
+            notused.allocated = TMBook.ALLOC_FREE
+            book.matchfields = 'allocated'
+            db.modify_book(book)
+        db.commit()
 
 ###########################################################################
 
@@ -125,13 +179,15 @@ if __name__ == '__main__':
     capacity(db)
 
     for f in (stale_handles, finish_unlink, zombie_sith,
-              orphaned_books, verify_shelves):
+              verify_shelves_return_orphaned_books):
         try:
             print(f.__doc__, end=': ')
             f(db)
             print('')
         except Exception as e:
             db.rollback()
+            print('Send %s to rocky.craig@hpe.com' % sys.argv[1],
+                file=sys.stderr)
             raise SystemExit(str(e))
 
     capacity(db)
