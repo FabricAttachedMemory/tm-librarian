@@ -120,7 +120,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Note: I no longer remember my concern on this, look into it again.
 
     @prentry
-    def destroy(self, root):    # fusermount -u
+    def destroy(self, path):    # fusermount -u or SIGINT aka control-C
         assert threading.current_thread() is threading.main_thread()
         self.torms.close()
         del self.torms
@@ -420,7 +420,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 polled = dd.poll()
                 while polled is not None and polled.returncode is None:
                     try:
-                        dd.send_signal(os.SIGURS1)
+                        dd.send_signal(os.SIGUSR1)
                         stdout, stderr = dd.communicate(timeout=5)
                     except TimeoutExpired as e:
                         print('\n\t%s\n' % stderr, file=sys.stderr)

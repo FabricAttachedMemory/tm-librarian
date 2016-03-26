@@ -474,11 +474,24 @@ class LibrarianDBackendSQL(object):
                                          (shelf.id, xattr),
                                          commit=True)
 
-    def commit(self):
-        self._cur.commit()
+    # Basic operations (SELECT, custom DELETEs) need the cursor but
+    # using it directly feels "clunky".  Hide it behind facades for
+    # anything not matching the above methods.  Iteration requires
+    #special handling.   Everything else is delegated to __getattr__.
 
-    def close(self):
-        self._cur.close()
+    @property
+    def iterclass(self):
+        return self._cur.iterclass
+
+    @iterclass.setter
+    def iterclass(self, value):
+        self._cur.iterclass = value
+
+    def __iter__(self):
+        return self._cur
+
+    def __getattr__(self, name):
+        return getattr(self._cur, name)
 
 #--------------------------------------------------------------------------
 
