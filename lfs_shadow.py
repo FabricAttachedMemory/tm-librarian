@@ -123,8 +123,12 @@ class shadow_support(object):
             cached.bos = deepcopy(shelf.bos)
             cached.book_count = shelf.book_count
             cached.mtime = shelf.mtime
+
+            # Originally intended to support book caching in user space,
+            # this logic may still find use...
             if invalidate and self.verbose > 2:
-                print('\n\tNEED TO INVALIDATE PTES!!!\n')
+                # print('\n\tNEED TO INVALIDATE PTES!!!\n')
+                pass
 
         # fh is unique (created by Librarian as table index).  Does it
         # need to be appended?
