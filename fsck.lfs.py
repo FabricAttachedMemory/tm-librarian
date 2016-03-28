@@ -27,7 +27,7 @@ def _prompt(msg, defaultY=True):
 # Account for oddities:
 # 1. Somehow opened_shelves points to a non-existent shelf (LEFT JOIN)
 
-def stale_handles(db):
+def _10_stale_handles(db):
     '''Remove stale file handles (dangling opens)'''
     sql = '''SELECT name, shelf_id, node_id, pid
              FROM opened_shelves LEFT JOIN shelves
@@ -52,7 +52,7 @@ def stale_handles(db):
 ###########################################################################
 
 
-def finish_unlink(db):
+def _20_finish_unlink(db):
     '''Finalize partially-unlinked files'''
 
     patterns = ('.lfs_pending_zero_%', '.tmfs_hidden%')
@@ -81,7 +81,7 @@ def finish_unlink(db):
 ###########################################################################
 
 
-def zombie_sith(db):
+def _30_zombie_sith(db):
     '''Return zombie books to free pool'''
     db.execute('SELECT * FROM books where allocated=?', TMBook.ALLOC_ZOMBIE)
     db.iterclass = TMBook
@@ -99,7 +99,7 @@ def zombie_sith(db):
 ###########################################################################
 
 
-def verify_shelves_return_orphaned_books(db):
+def _40_verify_shelves_return_orphaned_books(db):
     '''Verify book ownership & return orphan books to free pool'''
     # Run this AFTER zombie clears so DB contains only INUSE and FREE
     # books.  Make set of all allocated books.  Then for each shelf:
@@ -151,6 +151,21 @@ def verify_shelves_return_orphaned_books(db):
 ###########################################################################
 
 
+def _50_clear_orphaned_xattrs(db):
+    '''Remove orphaned extended attributes'''
+    db.execute('SELECT id FROM shelves')
+    shelf_ids = frozenset(r[0] for r in db.fetchall())
+    db.execute('SELECT shelf_id FROM shelf_xattrs')
+    xattr_ids = frozenset(r[0] for r in db.fetchall())
+    orphans = xattr_ids - shelf_ids
+    print('%d detected' % len(orphans))
+    for orphan in orphans:
+        db.DELETE('shelf_xattrs', 'shelf_id=?', (orphan, ))
+    db.commit()
+
+###########################################################################
+
+
 def capacity(db):
     '''Print stats until a problem occurs'''
     db.execute('SELECT books_total FROM globals')
@@ -178,8 +193,12 @@ if __name__ == '__main__':
 
     capacity(db)
 
-    for f in (stale_handles, finish_unlink, zombie_sith,
-              verify_shelves_return_orphaned_books):
+    # Order matters.
+    for f in (_10_stale_handles,
+              _20_finish_unlink,
+              _30_zombie_sith,
+              _40_verify_shelves_return_orphaned_books,
+              _50_clear_orphaned_xattrs):
         try:
             print(f.__doc__, end=': ')
             f(db)
@@ -189,6 +208,8 @@ if __name__ == '__main__':
             print('Send %s to rocky.craig@hpe.com' % sys.argv[1],
                 file=sys.stderr)
             raise SystemExit(str(e))
+
+    print('Finalizing database')    # FIXME: compaction, ????
 
     capacity(db)
     db.close()
