@@ -6,11 +6,68 @@ import mmap
 import binascii
 import argparse
 
-def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size,
-    book_start, chunk_size, chunk_cnt, access_type, max_iter):
+def rw_mm(m, cur_offset, length, verbose):
 
     obuf_rand = os.urandom(length)
-    obuf_zero = b"\x00" * length
+
+    m.seek(cur_offset)
+    ibuf = b"\x00" * length
+    ibuf = m.read(length)
+    if (verbose > 0):
+        print("read: %s" % (binascii.hexlify(ibuf)))
+
+    m.seek(cur_offset)
+    m.write(obuf_rand)
+    if (verbose > 0):
+        print("write: cur_offset = %d (0x%x), size = %d" %
+            (cur_offset, cur_offset, len(obuf_rand)))
+        print("write: %s" % (binascii.hexlify(obuf_rand)))
+
+    m.seek(cur_offset)
+    ibuf = b"\x00" * length
+    ibuf = m.read(length)
+    if (verbose > 0):
+        print("read: %s" % (binascii.hexlify(ibuf)))
+
+    if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
+        if (verbose > 0):
+            print("verify passed")
+    else:
+        print("verify failed")
+
+def rw_fs(f, cur_offset, length, verbose):
+
+    obuf_rand = os.urandom(length)
+
+    f.seek(cur_offset)
+    ibuf = b"\x00" * length
+    ibuf = f.read(length)
+    if (verbose > 0):
+        print("read: %s" % (binascii.hexlify(ibuf)))
+
+    f.seek(cur_offset)
+    f.write(obuf_rand)
+    f.flush()
+    if (verbose > 0):
+        print("write: cur_offset = %d (0x%x), size = %d" %
+            (cur_offset, cur_offset, len(obuf_rand)))
+        print("write: %s" % (binascii.hexlify(obuf_rand)))
+
+    f.seek(cur_offset)
+    ibuf = b"\x00" * length
+    ibuf = f.read(length)
+    if (verbose > 0):
+        print("read: %s" % (binascii.hexlify(ibuf)))
+
+    if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
+        if (verbose > 0):
+            print("verify passed")
+    else:
+        print("verify failed")
+
+def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
+    book_start, chunk_size, chunk_cnt, access_type, max_iter, trans_type):
+
     offset = ((book_start - 1) * book_size)
     book_num = book_start
     book_end = book_start + book_max
@@ -26,8 +83,10 @@ def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size,
         print("length = %d" % length)
         print("max_iter = %d" % max_iter)
 
-    f = open(shelf_name, 'r+b')
-    m = mmap.mmap(f.fileno(), 0)
+    f = open(shelf_name, 'r+b', buffering=0)
+
+    if trans_type == 'mm':
+        m = mmap.mmap(f.fileno(), 0)
 
     while cur_iter <= max_iter:
 
@@ -46,32 +105,13 @@ def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size,
 
                 cur_offset = offset + book_offset
 
-                print("[%2d] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
-                   (cur_iter, book_num, pos, book_offset, cur_offset, len(obuf_rand)))
+                print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
+                    (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, length))
 
-                m.seek(cur_offset)
-                ibuf = b"\x00" * length
-                ibuf = m.read(length)
-                if (verbose > 0):
-                    print("read: %s" % (binascii.hexlify(ibuf)))
-
-                m.seek(cur_offset)
-                m.write(obuf_rand)
-                if (verbose > 0):
-                    print("write: cur_offset = %d (0x%x), size = %d" % (cur_offset, cur_offset, len(obuf_rand)))
-                    print("write: %s" % (binascii.hexlify(obuf_rand)))
-
-                m.seek(cur_offset)
-                ibuf = b"\x00" * length
-                ibuf = m.read(length)
-                if (verbose > 0):
-                    print("read: %s" % (binascii.hexlify(ibuf)))
-
-                if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
-                    if (verbose > 0):
-                        print("verify passed")
-                else:
-                    print("verify failed")
+                if trans_type == 'mm':
+                    rw_mm(m, cur_offset, length, verbose)
+                else: # trans_type == 'fs'
+                    rw_fs(f, cur_offset, length, verbose)
 
             book_num += 1
             offset += book_size
@@ -80,7 +120,9 @@ def rw_mmap(shelf_name, verbose, debug, book_max, length, book_size,
         offset = ((book_start - 1) * book_size)
         cur_iter += 1
 
-    m.close()
+    if trans_type == 'mm':
+        m.close()
+
     f.close()
 
 if __name__ == '__main__':
@@ -92,6 +134,7 @@ if __name__ == '__main__':
     CHUNK_SIZE=4096
     CHUNK_CNT=1
     ACCESS_TYPES = [ 'seq', 'bounce' ]
+    TRANS_TYPES = [ 'mm', 'fs' ]
     MAX_ITER=1
 
     parser = argparse.ArgumentParser(
@@ -160,12 +203,19 @@ if __name__ == '__main__':
         type=int,
         help='number of iterations to run')
     parser.add_argument(
-        '-t',
+        '-a',
         action='store',
         dest='access_type',
         choices= ACCESS_TYPES,
         default='seq',
         help='book chunk access type')
+    parser.add_argument(
+        '-t',
+        action='store',
+        dest='trans_type',
+        choices= TRANS_TYPES,
+        default='mm',
+        help='type of transaction (mmap \'mm\' or filesystem \'fs\')')
 
     args = parser.parse_args()
 
@@ -179,7 +229,8 @@ if __name__ == '__main__':
         print("args.chunk_size  = %d" % args.chunk_size)
         print("args.chunk_cnt   = %d" % args.chunk_cnt)
         print("args.access_type = %s" % args.access_type)
-        print("args.max_iter    = %s" % args.max_iter)
+        print("args.max_iter    = %d" % args.max_iter)
+        print("args.trans_type  = %s" % args.trans_type)
 
     try:
         st = os.stat(args.shelf_name)
@@ -210,8 +261,8 @@ if __name__ == '__main__':
         print("  st_mtime_ns : 0x%x" % st.st_mtime_ns)
         print("  st_ctime_ns : 0x%x" % st.st_ctime_ns)
 
-    rw_mmap( args.shelf_name, args.verbose, args.debug, args.book_max,
+    rw_books( args.shelf_name, args.verbose, args.debug, args.book_max,
         args.length, args.book_size, args.book_start, args.chunk_size,
-        args.chunk_cnt, args.access_type, args.max_iter)
+        args.chunk_cnt, args.access_type, args.max_iter, args.trans_type)
 
     sys.exit(0)
