@@ -682,11 +682,15 @@ def _detect_memory_space(args, lfs_globals):
     # direct descriptor mode for now, Zbridge preloads all 1906.
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
         if args.verbose > 1:
-            print('IVSHMEM cannot be found, assuming TM(AS) and fixed 1906')
+            print('IVSHMEM cannot be found, assuming TM(AS)')
         if args.fixed1906:
             args.addr_mode = apertures._MODE_1906_DESC
+            if args.verbose > 2:
+                print('addr_mode = MODE_1906_DESC (requires zbridge desc autoprogramming)')
         else:
             args.addr_mode = apertures._MODE_FULL_DESC
+            if args.verbose > 2:
+                print('addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
         args.aperture_base = apertures._NVM_BK
         args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
@@ -718,10 +722,14 @@ def _detect_memory_space(args, lfs_globals):
     assert statinfo.st_size > 64 * 1 << 20, \
         'IVSHMEM at %s is not big enough, possible collision?' % bdf
     args.aperture_size = statinfo.st_size
-    if args.noZ:
-        args.addr_mode = apertures._MODE_FAME
-    else:
+    if args.enable_Z:
         args.addr_mode = apertures._MODE_FAME_DESC
+        if args.verbose > 2:
+            print('addr_mode = MODE_FAME_DESC (with zbridge/flushtm interaction)')
+    else:
+        args.addr_mode = apertures._MODE_FAME
+        if args.verbose > 2:
+            print('addr_mode = MODE_FAME (without zbridge/flushtm interaction)')
 
     if args.verbose > 2:
         print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (

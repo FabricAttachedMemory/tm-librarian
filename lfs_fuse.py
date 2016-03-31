@@ -738,14 +738,14 @@ if __name__ == '__main__':
         type=str)
     parser.add_argument(
         '--fixed1906',
-        help='Magic mode dependent on zbridge descriptor autoprogramming',
-        action='store_false',
-        default=True)       # for now
+        help='Magic mode dependent on zbridge descriptor autoprogramming (TM(AS) only)',
+        action='store_true',
+        default=False)
     parser.add_argument(
-        '--noZ',
-        help='Don\'t talk to zbridge driver (FAME only)',
-        action='store_false',
-        default=True)       # for now
+        '--enable_Z',
+        help='Enable zbridge/flushtm interaction (FAME only)',
+        action='store_true',
+        default=False)
     parser.add_argument(
         '--daemon',
         help='Daemonize the program',
