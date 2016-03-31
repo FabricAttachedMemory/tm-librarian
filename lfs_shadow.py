@@ -673,7 +673,7 @@ def _detect_memory_space(args, lfs_globals):
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
         if 'not found' in lspci[0]:
-            print('lspci(1) is missing, assuming TM(AS)/HW', file=sys.stderr)
+            print('lspci(1) is missing, assuming TM(AS)', file=sys.stderr)
     except Exception as e:
         lspci = ( '', '')
         pass
@@ -682,7 +682,7 @@ def _detect_memory_space(args, lfs_globals):
     # direct descriptor mode for now, Zbridge preloads all 1906.
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
         if args.verbose > 1:
-            print('IVSHMEM cannot be found, assuming TM(AS)/HW')
+            print('IVSHMEM cannot be found, assuming TM(AS)')
         if args.fixed1906:
             args.addr_mode = apertures._MODE_1906_DESC
             if args.verbose > 2:

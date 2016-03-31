@@ -738,7 +738,7 @@ if __name__ == '__main__':
         type=str)
     parser.add_argument(
         '--fixed1906',
-        help='Magic mode dependent on zbridge descriptor autoprogramming (TMAS/HW only)',
+        help='Magic mode dependent on zbridge descriptor autoprogramming (TM(AS) only)',
         action='store_true',
         default=False)
     parser.add_argument(
