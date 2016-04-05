@@ -7,3 +7,4 @@ engine.py		usr/lib/python3/dist-packages/tm-librarian
 sqlbackend.py		usr/lib/python3/dist-packages/tm-librarian
 sqlassist.py		usr/lib/python3/dist-packages/tm-librarian
 backend_sqlite3.py	usr/lib/python3/dist-packages/tm-librarian
+fsck.lfs.py		usr/lib/python3/dist-packages/tm-librarian
