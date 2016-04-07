@@ -109,7 +109,8 @@ def load_config(inifile):
 def multiplier(instr, section, book_size_bytes=0):
     suffix = instr[-1].upper()
     if suffix not in 'BKMGT':
-        usage('Illegal size multiplier "%s" in [%s]' % (suffix, section))
+        raise ValueError(
+            'Illegal size multiplier "%s" in [%s]' % (suffix, section))
     rsize = int(instr[:-1])
     if suffix == 'K':
         return rsize * 1024
@@ -122,7 +123,8 @@ def multiplier(instr, section, book_size_bytes=0):
 
     # Suffix is 'B' to reach this point
     if not book_size_bytes:
-        usage('multiplier suffix "B" not useable in [%s]' % section)
+        raise ValueError(
+            'multiplier suffix "B" not useable in [%s]' % section)
     return rsize * book_size_bytes
 
 #--------------------------------------------------------------------------
