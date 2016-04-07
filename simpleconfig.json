@@ -1,0 +1,232 @@
+{
+	"_comment": "Coordinates are expressed in a way that requires concatenation with their parent to create a full coordinate - e.g. makes it easier to cut and paste sections",
+	"coordinate": "machine_rev/1/datacenter/pa1",
+	"managementServer": 
+	{
+		"_comment": "This file would need to be in a known location, readable by MSW.  Could be file:, could be http:",
+		"softwareRecipeUri": "file:softwareReceipe.js",
+		"keyManager": 
+		{
+			"_comment": "Does the KM have a REST API?",
+			"restUri": "https://top.of.rack:12000/rest/v1",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+
+		"identityService": 
+		{
+			"port": 636,
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+
+		"authorisationService": 
+		{
+			"port": 5000,
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+
+		"osProvisioningService": 
+		{
+			"_comment": "How do we talk to the OSPS?"
+		},
+
+		"librarian": 
+		{
+			"_comment": "Some data needed to initialise Librarian is detailed within the racks description below",
+			"bookSize": "8G",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+
+		"assemblyAgent": 
+		{
+			"_comment": "We could put all these services behind a proxy and simplify to https://top.of.rack/aa/rest/v1 or even https://top.of.rack/aa",
+			"restUri": "https://top.of.rack:10000/rest/v1",
+			"pauseBeforePower": false,
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+
+		"monitoringService": 
+		{
+			"restUri": "https://top.of.rack:11000/rest/v1",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		}
+	},
+
+	"advancedPowerManager": 
+	{
+		"coordinate": "",
+		"controlIpv4Address": "192.x.x.x"
+	},
+
+	"racks": 
+	[
+		{
+			"coordinate": "frame/A1.above_floor/rack/1",
+			"enclosures": 
+			[
+				{
+					"coordinate": "enclosure/1",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"_comment": "msCollector entries are used by the Monitoring Service to identify collectors that need to be started and the source they should interrogate",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"id": "<public key from Key Manager>",
+								"socMacAddress": "00:00:00:00:00:00"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.x"
+							},
+
+							"media_controllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1T"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1T"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1T"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1T"
+								}
+							],
+
+							"fabricComponentId": "??",
+							"msCollector": "nodemp"
+						},
+						{
+							"coordinate": "node/2",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"id": "<public key from Key Manager>",
+								"socMacAddress": "00:00:00:00:00:00"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.x"
+							},
+
+							"media_controllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1T"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1T"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1T"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1T"
+								}
+							],
+
+							"fabricComponentId": "??",
+							"msCollector": "nodemp"
+						}
+					]
+				}
+
+			]
+		}
+
+	],
+
+	"interleaveGroups": 
+	[
+		{
+			"groupId": 0,
+			"media_controllers": 
+			[
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
+				"memorySize": "ignored"
+			    },
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2",
+				"memorySize": "ignored"
+			    },
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3",
+				"memorySize": "ignored"
+			    },
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4",
+				"memorySize": "ignored"
+			    }
+			]
+		},
+		{
+			"groupId": 1,
+			"media_controllers": 
+			[
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
+				"memorySize": "ignored"
+			    },
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2",
+				"memorySize": "ignored"
+			    },
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3",
+				"memorySize": "ignored"
+			    },
+			    {
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4",
+				"memorySize": "ignored"
+			    }
+			]
+		}
+
+	]
+}
