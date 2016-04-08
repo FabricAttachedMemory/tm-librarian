@@ -1,7 +1,0 @@
-genericobj.py		usr/lib/python3/dist-packages/tm-librarian
-socket_handling.py	usr/lib/python3/dist-packages/tm-librarian
-cmdproto.py		usr/lib/python3/dist-packages/tm-librarian
-book_shelf_bos.py	usr/lib/python3/dist-packages/tm-librarian
-frdnode.py		usr/lib/python3/dist-packages/tm-librarian
-descmgmt.py		usr/lib/python3/dist-packages/tm-librarian
-tm_ioctl_opt.py		usr/lib/python3/dist-packages/tm-librarian

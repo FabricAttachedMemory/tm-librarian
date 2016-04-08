@@ -9,23 +9,9 @@ Build-Depends: debhelper (>= 9), dh-python, python3 (>= 3.2)
 Standards-Version: 3.9.6
 X-Python3-Version: >= 3.2
 
-Package: tm-librarian-common
+Package: tm-librarian
 Architecture: all
 Depends: python3 (>= 3.2)
 Recommends: attr
-Description: The Machine Librarian
- The Machine NVM management common
-
-Package: tm-librarian-server
-Architecture: all
-Depends:python3 (>= 3.2), tm-librarian-common
-Recommends:
-Description: The Machine Librarian
- The Machine NVM management server
-
-Package: tm-librarian-client
-Architecture: all
-Depends:python3 (>= 3.2), tm-librarian-common
-Recommends:
-Description: The Machine Librarian
- The Machine NVM management client
+Description: Librarian and LFS utilities
+  Librarian and LFS fabric attached memory management tools for The Machine
