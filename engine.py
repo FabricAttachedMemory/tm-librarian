@@ -259,6 +259,15 @@ class LibrarianCommandEngine(object):
         # Can I leave real early?
         if new_size_bytes == shelf.size_bytes:
             return shelf
+
+        # Can this call be rejected?
+        openers = self.db.get_shelf_openers(
+            shelf, cmdict['context'], include_me=False)
+        self.errno = errno.EMFILE
+        assert not openers or new_size_bytes > shelf.size_bytes, \
+            'Cannot shrink multiply-opened shelf'
+
+        # Go for it
         shelf.size_bytes = new_size_bytes
 
         # How about a little early?
