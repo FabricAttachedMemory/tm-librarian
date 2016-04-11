@@ -66,3 +66,9 @@ rw_test.py - open shelf read/write/verify data using file and mmap operations
 check-book.py - read/write/read/verify books on a shelf
 
 ---------------------------------------------------------------------------
+
+mmap(2) stress testing with maptrap
+
+Compile maptrap.c per the comment at the start of the file.  It has
+many options for multithreaded, multistride, R/W, private/shared,
+pause or free-run, sizing....
