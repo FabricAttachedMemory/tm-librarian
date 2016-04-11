@@ -18,6 +18,7 @@ def rw_mm(m, cur_offset, length, verbose):
 
     m.seek(cur_offset)
     m.write(obuf_rand)
+    m.flush()
     if (verbose > 0):
         print("write: cur_offset = %d (0x%x), size = %d" %
             (cur_offset, cur_offset, len(obuf_rand)))
@@ -66,7 +67,8 @@ def rw_fs(f, cur_offset, length, verbose):
         print("verify failed")
 
 def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
-    book_start, chunk_size, chunk_cnt, access_type, max_iter, trans_type):
+    book_start, chunk_size, chunk_cnt, access_type, max_iter,
+    trans_type, mmap_offset, mmap_length):
 
     offset = ((book_start - 1) * book_size)
     book_num = book_start
@@ -82,11 +84,14 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
         print("book_end = %d" % book_end)
         print("length = %d" % length)
         print("max_iter = %d" % max_iter)
+        print("mmap_offset = %d" % mmap_offset)
+        print("mmap_length = %d" % mmap_length)
 
     f = open(shelf_name, 'r+b', buffering=0)
 
     if trans_type == 'mm':
-        m = mmap.mmap(f.fileno(), 0)
+        m = mmap.mmap(f.fileno(), length=mmap_length, offset=mmap_offset)
+        print("mmap offset = %d, length = %d" % (mmap_offset, mmap_length))
 
     while cur_iter <= max_iter:
 
@@ -136,6 +141,8 @@ if __name__ == '__main__':
     ACCESS_TYPES = [ 'seq', 'bounce' ]
     TRANS_TYPES = [ 'mm', 'fs' ]
     MAX_ITER=1
+    MMAP_OFFSET=0
+    MMAP_LENGTH=0
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -216,6 +223,20 @@ if __name__ == '__main__':
         choices= TRANS_TYPES,
         default='mm',
         help='type of transaction (mmap \'mm\' or filesystem \'fs\')')
+    parser.add_argument(
+        '-o',
+        action='store',
+        dest='mmap_offset',
+        default=MMAP_OFFSET,
+        type=int,
+        help='mmap offset in bytes (default is beginning of file')
+    parser.add_argument(
+        '-x',
+        action='store',
+        dest='mmap_length',
+        default=MMAP_LENGTH,
+        type=int,
+        help='mmap length in bytes (default is end of file')
 
     args = parser.parse_args()
 
@@ -231,6 +252,8 @@ if __name__ == '__main__':
         print("args.access_type = %s" % args.access_type)
         print("args.max_iter    = %d" % args.max_iter)
         print("args.trans_type  = %s" % args.trans_type)
+        print("args.mmap_offset = %s" % args.mmap_offset)
+        print("args.mmap_length = %s" % args.mmap_length)
 
     try:
         st = os.stat(args.shelf_name)
@@ -242,6 +265,24 @@ if __name__ == '__main__':
         total_books = 1
     else:
         total_books = (st.st_size // args.book_size)
+
+    if (args.mmap_offset > st.st_size):
+        print("offset (%d) is greater than file size (%d)" % (args.mmap_offset, st.st_size))
+        sys.exit(0)
+
+    if (args.mmap_length > st.st_size):
+        print("length (%d) is greater than file size (%d)" % (args.mmap_length, st.st_size))
+        sys.exit(0)
+
+    if ((args.mmap_offset + args.mmap_length) > st.st_size):
+        print("offset+length (%d) is greater than file size (%d)" %
+            ((args.mmap_length+args.mmap_offset), st.st_size))
+        sys.exit(0)
+
+    if (args.mmap_length == 0):
+        mmap_length = st.st_size - args.mmap_offset
+    else:
+        mmap_length = args.mmap_length
 
     print("shelf = %s, size = %d bytes / %d book(s)" %
         (args.shelf_name, st.st_size, total_books))
@@ -263,6 +304,7 @@ if __name__ == '__main__':
 
     rw_books( args.shelf_name, args.verbose, args.debug, args.book_max,
         args.length, args.book_size, args.book_start, args.chunk_size,
-        args.chunk_cnt, args.access_type, args.max_iter, args.trans_type)
+        args.chunk_cnt, args.access_type, args.max_iter, args.trans_type,
+        args.mmap_offset, mmap_length)
 
     sys.exit(0)
