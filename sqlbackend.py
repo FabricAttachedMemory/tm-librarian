@@ -319,9 +319,9 @@ class LibrarianDBackendSQL(object):
     def get_shelf(self, shelf):
         """ Retrieve one shelf from "shelves" table.
             Input---
-              shelf_id - id of shelf to get
+              shelf - shelf object with minimum info to key a lookup
             Output---
-              shelf_id or error message
+              shelf object with details or RAISED error message
         """
         fields = shelf.matchfields
         qmarks = self._fields2qmarks(fields, ' AND ')
@@ -337,6 +337,27 @@ class LibrarianDBackendSQL(object):
         # It's okay now for single node, but multinode opens may need it
         # and may take surgery on the socket data return values.
         return shelf
+
+    def get_shelf_openers(self, shelf, context, include_me=False):
+        """ Retrieve a list of actors holding a shelf open.
+            Input---
+              shelf - shelf object with minimum info to key a lookup
+              context - contains (node_id, pid) of requestor
+              except_me - filter requestor out of results
+            Output---
+              List of (NodeID, PID) tuples holding the shelf open.
+        """
+        self._cur.execute('''SELECT node_id, pid
+                             FROM opened_shelves
+                             WHERE shelf_id = ?''', shelf.id)
+        self._cur.iterclass = None
+        tmp = self._cur.fetchall()
+        if include_me:
+            tmp = [ (node_id, pid) for node_id, pid in tmp ]
+        else:
+            tmp = [ (node_id, pid) for node_id, pid in tmp if
+                node_id != context['node_id'] or pid != context['pid'] ]
+        return tmp
 
     def get_shelf_all(self):
         """ Retrieve all shelves from "shelves" table.
