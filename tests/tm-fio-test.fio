@@ -1,0 +1,118 @@
+# FIO testing configuration file
+# Install fio "apt-get install fio"
+# Setup Librarian and LFS
+# Execute test "fio tm-fio-test.fio"
+# More info:
+#   man fio
+#   /usr/share/doc/fio
+
+[global]
+size=1g
+time_based
+runtime=60
+
+# mmap
+
+[job1]
+filename=/lfs/fio-job1-5
+ioengine=mmap
+readwrite=randrw
+bs=4k
+
+[job2]
+filename=/lfs/fio-job1-5
+ioengine=mmap
+readwrite=randrw
+bs=8k
+
+[job3]
+filename=/lfs/fio-job1-5
+ioengine=mmap
+readwrite=randrw
+bs=10k
+
+[job4]
+filename=/lfs/fio-job1-5
+ioengine=mmap
+readwrite=readwrite
+bs=64k
+
+[job5]
+filename=/lfs/fio-job1-5
+ioengine=mmap
+readwrite=readwrite
+bs=1k
+
+# posixaio
+
+[job6]
+filename=/lfs/fio-job6-10
+ioengine=posixaio
+readwrite=randrw
+bs=4k
+
+[job7]
+filename=/lfs/fio-job6-10
+ioengine=posixaio
+readwrite=randrw
+bs=8k
+
+[job8]
+filename=/lfs/fio-job6-10
+ioengine=posixaio
+readwrite=randrw
+bs=10k
+
+[job9]
+filename=/lfs/fio-job6-10
+ioengine=posixaio
+readwrite=readwrite
+bs=64k
+
+[job10]
+filename=/lfs/fio-job6-10
+ioengine=posixaio
+readwrite=readwrite
+bs=1k
+
+# sync
+
+[job11]
+filename=/lfs/fio-job11-15
+ioengine=sync
+readwrite=randrw
+bs=4k
+
+[job12]
+filename=/lfs/fio-job11-15
+ioengine=sync
+readwrite=randrw
+bs=8k
+
+[job13]
+filename=/lfs/fio-job11-15
+ioengine=sync
+readwrite=randrw
+bs=10k
+
+[job14]
+filename=/lfs/fio-job11-15
+ioengine=sync
+readwrite=readwrite
+bs=64k
+
+[job15]
+filename=/lfs/fio-job11-15
+ioengine=sync
+readwrite=readwrite
+bs=1k
+
+# mmap with threads
+
+[job16]
+filename=/lfs/fio-job16
+ioengine=mmap
+readwrite=randrw
+bs=4k
+numjobs=5
+threads=1
