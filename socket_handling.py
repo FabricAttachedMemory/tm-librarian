@@ -209,6 +209,10 @@ class SocketReadWrite(object):
                 self.safe_setblocking()  # undo timeout (idempotent)
 
             # Only the JSON decode can be allowed to throw an error.
+            # Json raw_decode() can return something other than a dict.
+            # Scalars indicate a partial parsing of the middle of a full
+            # JSON response. Let the parser keep at it until it exhausts
+            # those symbols.
             while self.instr:
                 try:
                     if len(self.inOOB) > self._OOBlimit and \
@@ -216,6 +220,8 @@ class SocketReadWrite(object):
                         return None  # Deal with this part of the flood
                     result, nextjson = self.jsond.raw_decode(self.instr)
                     self.instr = self.instr[nextjson:]
+                    if not isinstance(result, dict):
+                        continue
                     OOBmsg = result.get('OOBmsg', False)
                     if OOBmsg:  # and that's the whole result
                         self.inOOB.append(OOBmsg)
@@ -230,8 +236,9 @@ class SocketReadWrite(object):
 
                     # Is this a failure after re-read and if so did it help?
                     if needmore and needmore == self.instr:
-                        self.clear()
-                        return None  # might be some dangling OOBs
+                        # A "return None" might be better here when OOB
+                        # processing is actually used.
+                        break
 
                     # There's only a 1 in bufsz chance that a read really
                     # ended exactly on the boundary.  In other words, a
@@ -260,10 +267,9 @@ class SocketReadWrite(object):
                     return None
 
                 except Exception as e:
-                    set_trace()
-                    raise ThisIsReallyBadError
+                    raise RuntimeError('JSON decode results have been misinterpreted')
 
-                raise ButThisIsWorseError
+                raise RuntimeError('Unexpectedly reached end of JSON parsing loop')
 
     def clear(self):
         self.instr = ''
