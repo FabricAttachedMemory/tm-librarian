@@ -188,20 +188,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
 			    }
 			]
 		},
@@ -210,20 +206,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4",
-				"memorySize": "ignored"
+				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
 			    }
 			]
 		}

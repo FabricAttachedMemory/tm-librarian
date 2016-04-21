@@ -10,6 +10,7 @@ import math
 import os
 import sys
 import configparser
+import json
 import argparse
 from pdb import set_trace
 
@@ -17,6 +18,9 @@ from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group
 from descmgmt import DescriptorManagement as DescMgmt
+from tmconfig import TMConfig
+
+verbose = 0
 
 #--------------------------------------------------------------------------
 
@@ -175,7 +179,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 #--------------------------------------------------------------------------
 
 
-def load_book_data(inifile):
+def load_book_data_ini(inifile):
 
     Gname, G, other_sections = load_config(inifile)
 
@@ -189,34 +193,202 @@ def load_book_data(inifile):
         raise SystemExit('book_size_bytes must be a power of 2')
 
     FRDnodes, IGs = extrapolate(Gname, G, node_count, book_size_bytes)
-    if FRDnodes is not None:
-        return book_size_bytes, FRDnodes, IGs
+    if FRDnodes is None:
+        # No short cuts, grind it out for the nodes.
+        FRDnodes = []
+        for section in other_sections:
+            sdata = dict(section.items())
+            node_id = int(sdata["node_id"], 10)
+            nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
 
-    # No short cuts, grind it out for the nodes.
-    FRDnodes = []
-    for section in other_sections:
-        sdata = dict(section.items())
-        node_id = int(sdata["node_id"], 10)
-        nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
+            if nvm_size % book_size_bytes != 0:
+                usage("[%s] NVM size not multiple of book size" % section)
 
-        if nvm_size % book_size_bytes != 0:
-            usage("[%s] NVM size not multiple of book size" % section)
+            num_books = int(nvm_size / book_size_bytes)
 
-        num_books = int(nvm_size / book_size_bytes)
+            if num_books < 1:
+                usage('num_books must be greater than zero')
 
-        if num_books < 1:
-            usage('num_books must be greater than zero')
+            module_size_books = num_books // 4
+            if module_size_books * 4 != num_books:
+                usage('Books per node is not divisible by 4')
 
-        module_size_books = num_books // 4
-        if module_size_books * 4 != num_books:
-            usage('Books per node is not divisible by 4')
-
-        newNode = FRDnode(node_id, module_size_books=module_size_books)
-        FRDnodes.append(newNode)
+            newNode = FRDnode(node_id, module_size_books=module_size_books)
+            FRDnodes.append(newNode)
 
     IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
 
-    return(book_size_bytes, FRDnodes, IGs)
+    # Real machine hardware only has 13 bits of book number in an LZA
+    for ig in IGs:
+        assert ig.total_books < 8192, 'Illegal IG book count'
+
+    books_total = 0
+    for node in FRDnodes:
+        books_total += sum(mc.module_size_books for mc in node.MCs)
+    nvm_bytes_total = books_total * book_size_bytes
+    if verbose > 0:
+        print('book size = %s (%d)' % (G['book_size_bytes'], book_size_bytes))
+        print('%d books == %d (0x%016x) total NVM bytes' % (
+            books_total, nvm_bytes_total, nvm_bytes_total))
+    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
+    create_empty_db(cur)
+    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
+                'LIBRARIAN 0.985',
+                book_size_bytes,
+                nvm_bytes_total,
+                books_total,
+                len(FRDnodes)))
+    cur.commit()
+
+    # Now the other tables, keep it clear..  Some of these will be used
+    # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
+
+    for node in FRDnodes:
+        cur.execute(
+            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
+            (node.node_id, node.rack, node.enc, node.node, node.MAC))
+    cur.commit()
+
+    # That was easy.  Here's another one.
+    for ig in IGs:
+        if verbose > 1:
+            print("InterleaveGroup: %d" % ig.num)
+            for mc in ig.MCs:
+                print("  %s, rawCID = %d" % (mc, mc.value))
+        for mc in ig.MCs:
+            cur.execute(
+                'INSERT INTO FAModules VALUES(?, ?, ?, ?)',
+                (mc.node_id, ig.num, mc.module_size_books, mc.value))
+    cur.commit()
+
+    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
+    # fields: IG (7) | book num (13) | book offset (33) for real hardware
+    # (8G books). The "id" field is now more than a simple index, it's
+    # the LZA, layout:
+    #   [0:32]  - book offset
+    #   [33:45] - book number within interleave group (0 - 8191)
+    #   [46:52] - interleave group (0 - 127)
+    #   [53:63] - reserved (zeros)
+    for ig in IGs:
+        for igoffset in range(ig.total_books):
+            lza = (ig.num << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
+            if verbose > 2:
+                print("lza 0x%016x, IG = %s, igoffset = %d" % (lza, ig.num, igoffset))
+            cur.execute(
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
+                (lza, ig.num, igoffset, 0, 0))
+        cur.commit()    # every IG
+
+    cur.commit()
+    cur.close()
+
+#--------------------------------------------------------------------------
+
+
+def load_book_data_json(jsonfile):
+
+    config = TMConfig(jsonfile, verbose=False)
+
+    if config.error:
+        raise SystemExit(config.error)
+
+    racks = config.racks
+    encs = config.enclosures
+    nodes = config.nodes
+    MCs = config.mediaControllers
+    IGs = config.interleaveGroups
+    book_size_bytes = multiplier(config.bookSize, 'global')
+
+    if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
+        raise SystemExit('book_size_bytes is out of range [1K, 8G]')
+    # Python 3 bin() prints a string in binary: '0b000101...'
+    if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
+        raise SystemExit('book_size_bytes must be a power of 2')
+
+    books_total = 0
+    nvm_bytes_total = 0
+    for ig in IGs:
+        for mc in ig.mediaControllers:
+            mco = MCs[mc.coordinate]
+            for item in mco:
+                mem_size = multiplier(item.memorySize, 'MCs')
+                ig_total_books = mem_size / book_size_bytes
+                # Real machine hardware only has 13 bits of book number in an LZA
+                assert ig_total_books < 8192, 'Illegal IG book count'
+                books_total += ig_total_books
+                nvm_bytes_total += mem_size
+
+    if verbose > 0:
+        print('%d rack(s), %d enclosure(s), %d node(s), %d media controller(s), %d IG(s)' %
+            (len(racks), len(encs), len(nodes), len(MCs), len(IGs)))
+        print('book size = %s (%d)' % (config.bookSize, book_size_bytes))
+        print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
+            books_total, book_size_bytes, nvm_bytes_total, nvm_bytes_total))
+
+    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
+    create_empty_db(cur)
+    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
+                'LIBRARIAN 0.985',
+                book_size_bytes,
+                nvm_bytes_total,
+                books_total,
+                len(nodes)))
+    cur.commit()
+
+    for rack in racks:
+        for enc in rack.enclosures:
+            for node in enc.nodes:
+                if verbose > 1:
+                    print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
+                        (node.node_id, node.soc.socMacAddress, node.rack, node.enc, node.node))
+                cur.execute(
+                    'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
+                    (node.node_id, node.rack, node.enc, node.node, node.soc.socMacAddress))
+    cur.commit()
+
+    for ig in IGs:
+        if verbose > 1:
+            print("InterleaveGroup: %d" % ig.groupId)
+        for mc in ig.mediaControllers:
+            mco = MCs[mc.coordinate]
+            for item in mco:
+                mem_size = multiplier(item.memorySize, 'mediaControllers')
+                module_size_books = mem_size / book_size_bytes
+                if verbose > 1:
+                    print("  node_id = %s, IG = %s, books = %d, rawCID = %d" %
+                        (item.node_id, ig.groupId, module_size_books, item.rawCID))
+                cur.execute(
+                    'INSERT INTO FAModules VALUES(?, ?, ?, ?)',
+                    (item.node_id, ig.groupId, module_size_books, item.rawCID))
+    cur.commit()
+
+    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
+    # fields: IG (7) | book num (13) | book offset (33) for real hardware
+    # (8G books). The "id" field is now more than a simple index, it's
+    # the LZA, layout:
+    #   [0:32]  - book offset
+    #   [33:45] - book number within interleave group (0 - 8191)
+    #   [46:52] - interleave group (0 - 127)
+    #   [53:63] - reserved (zeros)
+    for ig in IGs:
+        total_books = 0
+        mem_size = 0
+        for mc in ig.mediaControllers:
+            mco = MCs[mc.coordinate]
+            for item in mco:
+                mem_size += multiplier(item.memorySize, 'mediaControllers')
+        total_books = int(mem_size / book_size_bytes)
+        for igoffset in range(total_books):
+            lza = (ig.groupId << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
+            if verbose > 2:
+                print("lza 0x%016x, IG = %s, igoffset = %d" % (lza, ig.groupId, igoffset))
+            cur.execute(
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
+                (lza, ig.groupId, igoffset, 0, 0))
+        cur.commit()    # every IG
+
+    cur.commit()
+    cur.close()
 
 #---------------------------------------------------------------------------
 # https://www.sqlite.org/lang_createtable.html#rowid (2 days later)
@@ -350,76 +522,31 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description='Create database and populate books from .ini file')
-    parser.add_argument(dest='ifile', help='book .ini file')
+    parser.add_argument(dest='cfile', help='book configuration file (.ini or .json format')
     parser.add_argument('-f', dest="force", action='store_true',
                         help='force overwrite of given database file')
     parser.add_argument('-d', dest='dfile', default=':memory:',
                         help='database file to create')
+    parser.add_argument('-v', dest='verbose', default='0', type=int,
+                        help='verbose output (0..n)')
     args = parser.parse_args()
+
+    verbose = args.verbose
 
     if os.path.isfile(args.dfile):
         if not args.force:
             raise SystemError('database file exists: %s' % args.dfile)
         os.unlink(args.dfile)
 
-    # Retrieve data, calculate global values and store them
-    book_size_bytes, FRDnodes, IGs = load_book_data(args.ifile)
-    book_size_bits = int(math.log(book_size_bytes, 2))  # needed later
+    if not os.path.isfile(args.cfile):
+        raise SystemError('configuration file does not exists: %s' % args.cfile)
 
-    # Real machine hardware only has 13 bits of book number in an LZA
-    for ig in IGs:
-        assert ig.total_books < 8192, 'Illegal IG book count'
+    # Determine format of config file
+    with open(args.cfile, 'r') as f:
+        try:
+            tmp_cfile = json.loads(f.read())
+            load_book_data_json(args.cfile)
+        except ValueError as e:
+            load_book_data_ini(args.cfile)
 
-    books_total = 0
-    for node in FRDnodes:
-        books_total += sum(mc.module_size_books for mc in node.MCs)
-    nvm_bytes_total = books_total * book_size_bytes
-    print('%d books == %d (0x%016x) total NVM bytes' % (
-        books_total, nvm_bytes_total, nvm_bytes_total))
-    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
-    create_empty_db(cur)
-    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
-                'LIBRARIAN 0.985',
-                book_size_bytes,
-                nvm_bytes_total,
-                books_total,
-                len(FRDnodes)))
-    cur.commit()
-
-    # Now the other tables, keep it clear..  Some of these will be used
-    # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
-
-    for node in FRDnodes:
-        cur.execute(
-            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
-                (node.node_id, node.rack, node.enc, node.node, node.MAC))
-    cur.commit()
-
-    # That was easy.  Here's another one.
-    for ig in IGs:
-        for mc in ig.MCs:
-            print(str(mc))
-            cur.execute(
-                'INSERT INTO FAModules VALUES(?, ?, ?, ?)',
-                    (mc.node_id, ig.num, mc.module_size_books, mc.value))
-    cur.commit()
-
-    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
-    # fields: IG (7) | book num (13) | book offset (33) for real hardware
-    # (8G books). The "id" field is now more than a simple index, it's
-    # the LZA, layout:
-    #   [0:32]  - book offset
-    #   [33:45] - book number within interleave group (0 - 8191)
-    #   [46:52] - interleave group (0 - 127)
-    #   [53:63] - reserved (zeros)
-    for ig in IGs:
-        for igoffset in range(ig.total_books):
-            lza = (ig.num << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
-            cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                    (lza, ig.num, igoffset, 0, 0))
-        cur.commit()    # every IG
-
-    cur.commit()
-    cur.close()
     raise SystemExit(0)
