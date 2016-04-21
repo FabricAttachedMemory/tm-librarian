@@ -106,7 +106,7 @@
 								"ipv4Address": "10.254.x.x"
 							},
 
-							"media_controllers": 
+							"mediaControllers": 
 							[
 								{
 									"coordinate": "memory_board/1/media_controller/1",
@@ -147,7 +147,7 @@
 								"ipv4Address": "10.254.x.x"
 							},
 
-							"media_controllers": 
+							"mediaControllers": 
 							[
 								{
 									"coordinate": "memory_board/1/media_controller/1",
@@ -185,7 +185,7 @@
 	[
 		{
 			"groupId": 0,
-			"media_controllers": 
+			"mediaControllers": 
 			[
 			    {
 				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
@@ -207,7 +207,7 @@
 		},
 		{
 			"groupId": 1,
-			"media_controllers": 
+			"mediaControllers": 
 			[
 			    {
 				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
