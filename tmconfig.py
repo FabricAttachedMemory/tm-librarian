@@ -3,8 +3,8 @@
 # Read a JSON document constructed per the Software ERS that describes
 # the topology of an instance of The Machine.  Turn JSON into an object
 # with attributes that follow the descent of the collections, i.e.,
-# obj.racks.enclosures.nodes.media_controllers. Provide properties
-# that are entire collections, i.e., obj.media_controllers.
+# obj.racks.enclosures.nodes.mediaControllers. Provide properties
+# that are entire collections, i.e., obj.mediaControllers.
 
 import inspect
 import json
@@ -14,8 +14,30 @@ import sys
 from pdb import set_trace
 from pprint import pprint
 
-from book_register import multiplier
 from genericobj import GenericObject
+
+###########################################################################
+def multiplier(instr, section, book_size_bytes=0):
+
+    suffix = instr[-1].upper()
+    if suffix not in 'BKMGT':
+        raise ValueError(
+            'Illegal size multiplier "%s" in [%s]' % (suffix, section))
+    rsize = int(instr[:-1])
+    if suffix == 'K':
+        return rsize * 1024
+    if suffix == 'M':
+        return rsize * 1024 * 1024
+    elif suffix == 'G':
+        return rsize * 1024 * 1024 * 1024
+    elif suffix == 'T':
+        return rsize * 1024 * 1024 * 1024 * 1024
+
+    # Suffix is 'B' to reach this point
+    if not book_size_bytes:
+        raise ValueError(
+            'multiplier suffix "B" not useable in [%s]' % section)
+    return rsize * book_size_bytes
 
 ###########################################################################
 # Because Drew.
@@ -49,8 +71,8 @@ class _GOnodes(GenericObject):
     __qualname__ = 'nodes'
 
 
-class _GOmedia_controllers(GenericObject):
-    __qualname__ = 'media_controllers'
+class _GOmediaControllers(GenericObject):
+    __qualname__ = 'mediaControllers'
 
 
 ###########################################################################
@@ -142,16 +164,26 @@ class TMConfig(GenericObject):
 
         self.racks = tupledict(self.racks)  # top level needs handling now
         allMCs = [ ]
+        node_id = 1
         for rack in self.racks:
             rack.coordinate = self.coordinate + '/' + rack.coordinate
             for enc in rack.enclosures:
                 enc.coordinate = rack.coordinate + '/' + enc.coordinate
                 for node in enc.nodes:
                     node.coordinate = enc.coordinate + '/' + node.coordinate
-                    for mc in node.media_controllers:
+                    node.rack = rack.coordinate.split('/')[-1]
+                    node.enc = enc.coordinate.split('/')[-1]
+                    node.node = node.coordinate.split('/')[-1]
+                    node.node_id = node_id
+                    node_id += 1
+                    for mc in node.mediaControllers:
                         mc.coordinate = node.coordinate + '/' + mc.coordinate
                         assert mc.coordinate not in allMCs, \
                             'Duplicate MC coordinate %s' % mc.coordinate
+                        mc.node_id = node.node_id
+                        # CID == enc[11-9]:node[8-4]:subCID[3-0] making an 11-bit CID
+                        subCID = int(mc.coordinate.split('/')[-1])
+                        mc.rawCID = (int(node.enc) << 8) + (int(node.node_id) << 4) + subCID
                         allMCs.append(mc.coordinate)
 
         # IGs already have absolute coordinates.  Compare them to the nodes.
@@ -160,7 +192,7 @@ class TMConfig(GenericObject):
             assert IG.groupId not in groupIds, \
                 'Duplicate interleave group ID %d' % IG.groupId
             groupIds.append(IG.groupId)
-            for mc in IG.media_controllers:
+            for mc in IG.mediaControllers:
                 if  mc.coordinate not in allMCs:
                     msg = 'IG MC %s not found in any node' % mc.coordinate
                     set_trace()
@@ -183,6 +215,13 @@ class TMConfig(GenericObject):
         return tupledict(enclosures)
 
     @property
+    def IGs(self):
+        IGs = []
+        for IG in self.interleaveGroups:
+            IGs.extend(IG)
+        return tupledict(IGs)
+
+    @property
     def nodes(self):
         nodes = []
         for enc in self.enclosures:
@@ -190,10 +229,10 @@ class TMConfig(GenericObject):
         return tupledict(nodes)
 
     @property
-    def media_controllers(self):
+    def mediaControllers(self):
         MCs = []
         for node in self.nodes:
-            MCs.extend(node.media_controllers)
+            MCs.extend(node.mediaControllers)
         return tupledict(MCs)
 
     @property
@@ -210,7 +249,7 @@ if __name__ == '__main__':
     racks = config.racks
     encs = config.enclosures
     nodes = config.nodes
-    MCs = config.media_controllers
+    MCs = config.mediaControllers
     print('%d racks, %d enclosures, %d nodes, %d media controllers' %
         (len(racks), len(encs), len(nodes), len(MCs)))
     print('Book size = %d' % config.bookSize)
