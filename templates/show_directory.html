@@ -1,0 +1,22 @@
+<!doctype html>
+<HTML>
+<HEAD><TITLE>LMP - List Directory</TITLE>
+</HEAD>
+
+<BODY>
+<H3>LMP - List Directory (version {{ api_version }})</H3>
+    <UL>
+        <LI>owner -> {{ owner }}</LI>
+        <LI>group -> {{ group }}</LI>
+        <LI>mode -> {{ mode }}</LI>
+    </UL>
+    {% for e in entries %}
+    <H4>shelf:</H4>
+    <UL>
+        {% for key, value in e.items() %}
+            <LI>{{ key }} -> {{ value }}</LI>
+        {% endfor %}
+    </UL>
+    {% endfor %}
+</BODY>
+</HTML>

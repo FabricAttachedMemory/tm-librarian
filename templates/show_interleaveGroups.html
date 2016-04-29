@@ -1,0 +1,23 @@
+<!doctype html>
+<HTML>
+<HEAD><TITLE>LMP - List of Interleave Groups</TITLE>
+</HEAD>
+
+<BODY>
+<H3>LMP - List of Interleave Groups (version {{ api_version }})</H3>
+    {% for ig in interleaveGroups %}
+    <H4>interleaveGroups:</H4>
+    <UL>
+        <LI>groupId -> {{ ig['groupId'] }}</LI>
+        <LI>baseAddress -> {{ ig['baseAddress'] }}</LI>
+        <LI>size -> {{ ig['size'] }}</LI>
+        <H4>mediaControllers:</H4>
+        <UL>
+        {% for mc in ig['mediaControllers'] %}
+            <LI>{{ mc }}</LI>
+        {% endfor %}
+        </UL>
+    </UL>
+    {% endfor %}
+</BODY>
+</HTML>

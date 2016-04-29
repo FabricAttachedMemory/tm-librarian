@@ -1,0 +1,20 @@
+<!doctype html>
+<HTML>
+<HEAD><TITLE>LMP - List of Books</TITLE>
+</HEAD>
+
+<BODY>
+<H3>LMP - List of Books (version {{ api_version }})</H3>
+    <UL>
+        <LI>book_size -> {{ book_size }}</LI>
+    </UL>
+    {% for b in books %}
+    <H4>book:</H4>
+    <UL>
+        {% for key, value in b.items() %}
+            <LI>{{ key }} -> {{ value }}</LI>
+        {% endfor %}
+    </UL>
+    {% endfor %}
+</BODY>
+</HTML>

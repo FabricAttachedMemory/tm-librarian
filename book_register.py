@@ -16,7 +16,7 @@ from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
-from frdnode import FRDnode, FRDintlv_group
+from frdnode import FRDnode, FRDintlv_group, FRDFAModule
 from descmgmt import DescriptorManagement as DescMgmt
 from tmconfig import TMConfig
 
@@ -245,8 +245,13 @@ def load_book_data_ini(inifile):
 
     for node in FRDnodes:
         cur.execute(
-            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
-            (node.node_id, node.rack, node.enc, node.node, node.MAC))
+            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
+            (node.node_id, node.rack, node.enc, node.node, 'None', 'None'))
+
+        cur.execute(
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?)',
+            (node.node_id, 'None', FRDnode.SOC_STATUS_ACTIVE, 'None', 'None'))
+
     cur.commit()
 
     # That was easy.  Here's another one.
@@ -257,8 +262,9 @@ def load_book_data_ini(inifile):
                 print("  %s, rawCID = %d" % (mc, mc.value))
         for mc in ig.MCs:
             cur.execute(
-                'INSERT INTO FAModules VALUES(?, ?, ?, ?)',
-                (mc.node_id, ig.num, mc.module_size_books, mc.value))
+                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
+                (mc.node_id, ig.num, mc.module_size_books, mc.value,
+                FRDFAModule.MC_STATUS_ACTIVE, 'None', (mc.module_size_books * book_size_bytes)))
     cur.commit()
 
     # Books are allocated behind IGs, not nodes. An LZA is a set of bit
@@ -340,10 +346,16 @@ def load_book_data_json(jsonfile):
             for node in enc.nodes:
                 if verbose > 1:
                     print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
-                        (node.node_id, node.soc.socMacAddress, node.rack, node.enc, node.node))
+                        (node.node_id, node.soc.macAddress, node.rack, node.enc, node.node))
                 cur.execute(
-                    'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?)',
-                    (node.node_id, node.rack, node.enc, node.node, node.soc.socMacAddress))
+                    'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
+                    (node.node_id, node.rack, node.enc, node.node, node.coordinate, node.serialNumber))
+
+                cur.execute(
+                    'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?)',
+                    (node.node_id, node.soc.macAddress, FRDnode.SOC_STATUS_ACTIVE,
+                    node.soc.coordinate, node.soc.tlsPublicCertificate))
+
     cur.commit()
 
     for ig in IGs:
@@ -358,8 +370,9 @@ def load_book_data_json(jsonfile):
                     print("  node_id = %s, IG = %s, books = %d, rawCID = %d" %
                         (item.node_id, ig.groupId, module_size_books, item.rawCID))
                 cur.execute(
-                    'INSERT INTO FAModules VALUES(?, ?, ?, ?)',
-                    (item.node_id, ig.groupId, module_size_books, item.rawCID))
+                    'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
+                    (item.node_id, ig.groupId, module_size_books, item.rawCID,
+                    FRDFAModule.MC_STATUS_ACTIVE, item.coordinate, mem_size))
     cur.commit()
 
     # Books are allocated behind IGs, not nodes. An LZA is a set of bit
@@ -408,16 +421,28 @@ def create_empty_db(cur):
             """
         cur.execute(table_create)
 
-        # FRD: max 80.  To be technically pure, node == SoC + NVM, and it's
-        # the SoC that has the MAC, so SoCs "should" have their own table.
-        # This simplification is probaby ok.  index == quadruple.
+        # FRD: max 80.
+        # index == quadruple.
         table_create = """
             CREATE TABLE FRDnodes (
             node_id,
             rack INT,
             enc INT,
             node INT,
-            MAC INT
+            coordinate TEXT,
+            serialNumber TEXT
+            )
+            """
+        cur.execute(table_create)
+
+        # SOC
+        table_create = """
+            CREATE TABLE SOCs (
+            node_id,
+            MAC TEXT,
+            status INT,
+            coordinate TEXT,
+            tlsPublicCertificate TEXT
             )
             """
         cur.execute(table_create)
@@ -428,7 +453,10 @@ def create_empty_db(cur):
             node_id INT,
             IG INT,
             module_size_books INT,
-            rawCID INT
+            rawCID INT,
+            status INT,
+            coordinate TEXT,
+            memorySize INT
             )
             """
         cur.execute(table_create)

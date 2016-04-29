@@ -59,7 +59,6 @@ class LibrarianDBackendSQL(object):
         # Module_size_books was only used during book_register.py
         nodes = [ FRDnode(node=r.node,
                           enc=r.enc,
-                          MAC=r.MAC,
                           module_size_books=-1)
                   for r in self._cur ]
         return nodes

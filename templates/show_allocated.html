@@ -1,0 +1,15 @@
+<!doctype html>
+<HTML>
+<HEAD><TITLE>LMP - List Allocated</TITLE>
+</HEAD>
+
+<BODY>
+<H3>LMP - List Allocated (version {{ api_version }})</H3>
+    <H4>memory:</H4>
+    <UL>
+        {% for key, value in memory.items() %}
+            <LI>{{ key }} -> {{ value }}</LI>
+        {% endfor %}
+    </UL>
+</BODY>
+</HTML>
