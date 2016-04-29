@@ -14,7 +14,14 @@ import sys
 from pdb import set_trace
 from pprint import pprint
 
-from genericobj import GenericObject
+###########################################################################
+# This will be included from manifesting, as well as run during unit test.
+# http://stackoverflow.com/questions/16981921/relative-imports-in-python-3
+
+if __name__ != '__main__':
+    from .genericobj import GenericObject
+else:
+    from genericobj import GenericObject
 
 ###########################################################################
 def multiplier(instr, section, book_size_bytes=0):
@@ -70,10 +77,13 @@ class _GOenclosures(GenericObject):
 class _GOnodes(GenericObject):
     __qualname__ = 'nodes'
 
+    @property
+    def dotname(self):
+        return 'rack.%s.enc.%s.node.%s' % (self.rack, self.enc, self.node)
+
 
 class _GOmediaControllers(GenericObject):
     __qualname__ = 'mediaControllers'
-
 
 ###########################################################################
 
@@ -241,7 +251,6 @@ class TMConfig(GenericObject):
 
 ###########################################################################
 
-
 if __name__ == '__main__':
     config = TMConfig(sys.argv[1], verbose=True)
     if config.error:
@@ -262,5 +271,6 @@ if __name__ == '__main__':
 
     # This is implicitly across all enclosures
     MCs_in_all_node_2s = MCs['node/2']
+    print(nodes[0].dotname)
     set_trace()
     pass
