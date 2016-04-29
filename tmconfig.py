@@ -93,11 +93,20 @@ class tupledict(tuple):
        it as a snippet to match against coordinate values.'''
 
     def __getitem__(self, index_or_key):
-        if isinstance(index_or_key, int):
-            return super().__getitem__(index_or_key)
-        assert isinstance (index_or_key, str), 'Either an int or str'
-        tmp = tuple(i for i in iter(self) if index_or_key in i.coordinate)
-        return tmp
+        try:
+            i = int(index_or_key)
+            try:
+                return super().__getitem__(i)
+            except Exception:
+                return None
+        except ValueError:
+            pass
+        try:
+            key = str(index_or_key)
+            tmp = tuple(i for i in iter(self) if key in i.coordinate)
+            return tmp
+        except Exception:
+            return None
 
 ###########################################################################
 
