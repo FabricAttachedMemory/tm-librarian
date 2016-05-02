@@ -19,6 +19,10 @@ sqlassist.py			usr/lib/python3/dist-packages/tm-librarian
 sqlbackend.py			usr/lib/python3/dist-packages/tm-librarian
 tm_fuse.py			usr/lib/python3/dist-packages/tm-librarian
 tm_ioctl_opt.py			usr/lib/python3/dist-packages/tm-librarian
+lmp.py				usr/lib/python3/dist-packages/tm-librarian
+lmp_config.py			usr/lib/python3/dist-packages/tm-librarian
+fame.json			usr/lib/python3/dist-packages/tm-librarian
+simpleconfig.json		usr/lib/python3/dist-packages/tm-librarian
 tests/check-book.py		usr/lib/python3/dist-packages/tm-librarian/tests
 tests/maptrap.c			usr/lib/python3/dist-packages/tm-librarian/tests
 tests/README			usr/lib/python3/dist-packages/tm-librarian/tests
@@ -26,3 +30,12 @@ tests/rw_test.py		usr/lib/python3/dist-packages/tm-librarian/tests
 tests/test_book_register.py	usr/lib/python3/dist-packages/tm-librarian/tests
 tests/test_code_format_pep8.py	usr/lib/python3/dist-packages/tm-librarian/tests
 tests/tm-fio-test.fio		usr/lib/python3/dist-packages/tm-librarian/tests
+templates/show_allocated.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_nodes.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_directory.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_global.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_views.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_active.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_books.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_shelf.html	usr/lib/python3/dist-packages/tm-librarian/templates
+templates/show_interleaveGroups.html	usr/lib/python3/dist-packages/tm-librarian/templates

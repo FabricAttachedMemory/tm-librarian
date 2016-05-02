@@ -116,9 +116,10 @@ class BookShelfStuff(object):      # could become a mixin
 
 class TMBook(BookShelfStuff):
 
-    ALLOC_FREE = 0
-    ALLOC_INUSE = 1
-    ALLOC_ZOMBIE = 2
+    ALLOC_FREE = 0    # available for allocation
+    ALLOC_INUSE = 1   # allocated in shelves
+    ALLOC_ZOMBIE = 2  # being prepared for allocation
+    ALLOC_OFFLINE = 3 # unavailable for allocation
 
     _ordered_schema = (  # a little dodgy
         'id',

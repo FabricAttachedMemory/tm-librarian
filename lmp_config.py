@@ -1,0 +1,3 @@
+DEBUG = True
+PORT = 31179
+HOST = '0.0.0.0'

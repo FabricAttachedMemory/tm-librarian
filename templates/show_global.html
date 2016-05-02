@@ -1,0 +1,33 @@
+<!doctype html>
+<HTML>
+<HEAD><TITLE>LMP - Global Memory Information</TITLE>
+</HEAD>
+
+<BODY>
+<H3>LMP - Global Memory Information (version {{ api_version }})</H3>
+    <H4>memory:</H4>
+          {% for key, value in memory.items() %}
+          <UL>
+            <LI>{{ key}} -> {{ value }}</LI>
+          </UL>
+          {% endfor %}
+    <H4>socs:</H4>
+          {% for key, value in socs.items() %}
+          <UL>
+            <LI>{{ key}} -> {{ value }}</LI>
+          </UL>
+          {% endfor %}
+    <H4>pools:</H4>
+          {% for key, value in pools.items() %}
+          <UL>
+            <LI>{{ key}} -> {{ value }}</LI>
+          </UL>
+          {% endfor %}
+    <H4>active:</H4>
+          {% for key, value in active.items() %}
+          <UL>
+            <LI>{{ key}} -> {{ value }}</LI>
+          </UL>
+          {% endfor %}
+</BODY>
+</HTML>

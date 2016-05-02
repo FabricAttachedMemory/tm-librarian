@@ -35,6 +35,9 @@ class FRDnodeID(object):
 class FRDFAModule(FRDnodeID):
     '''One Media Controller (MC) and the books of NVM behind it.'''
 
+    MC_STATUS_OFFLINE = 0
+    MC_STATUS_ACTIVE = 1
+
     def __init__(self, raw=None, enc=None, node=None, ordMC=None,
                  module_size_books=0):
         self.module_size_books = module_size_books
@@ -123,7 +126,10 @@ class MCCIDlist(object):
 
 class FRDnode(FRDnodeID):
 
-    def __init__(self, node, enc=None, MAC=None, module_size_books=0,
+    SOC_STATUS_OFFLINE = 0
+    SOC_STATUS_ACTIVE = 1
+
+    def __init__(self, node, enc=None, module_size_books=0,
                  autoMCs=True):
         node_id = None
         if enc is None:
@@ -150,7 +156,6 @@ class FRDnode(FRDnodeID):
         self.node = node
         self.enc = enc
         self.rack = rack
-        self.MAC = MAC
         if node_id is not None:     # property check
             assert self.node_id == node_id
         if not autoMCs:     # Done later, probably custom module_size_books

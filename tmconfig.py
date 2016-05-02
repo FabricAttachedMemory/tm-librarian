@@ -19,7 +19,11 @@ from pprint import pprint
 # http://stackoverflow.com/questions/16981921/relative-imports-in-python-3
 
 if __name__ != '__main__':
-    from .genericobj import GenericObject
+    # FIXME: a hack until we figure this out
+    try:
+        from .genericobj import GenericObject
+    except Exception:
+        from genericobj import GenericObject
 else:
     from genericobj import GenericObject
 
@@ -190,6 +194,7 @@ class TMConfig(GenericObject):
                 enc.coordinate = rack.coordinate + '/' + enc.coordinate
                 for node in enc.nodes:
                     node.coordinate = enc.coordinate + '/' + node.coordinate
+                    node.soc.coordinate = node.coordinate + '/' + node.soc.coordinate 
                     node.rack = rack.coordinate.split('/')[-1]
                     node.enc = enc.coordinate.split('/')[-1]
                     node.node = node.coordinate.split('/')[-1]

@@ -1,0 +1,18 @@
+<!doctype html>
+<HTML>
+<HEAD><TITLE>Librarian Monitoring Protocol (LMP)</TITLE>
+</HEAD>
+
+<BODY>
+<H1>Available Views:</H1>
+<UL>
+    <LI>/nodes - list nodes in The Machine instance managed by the Librarian</LI>
+    <LI>/interleaveGroups - list interleave groups in The Machine instance managed by the Librarian</LI>
+    <LI>/allocated/{coordinate} - list allocations across The Machine</LI>
+    <LI>/active/{coordinate} - list memory access by SOCs across The Machine</LI>
+    <LI>/shelf/{pathname} - list directory information (pathname = directory)</LI>
+    <LI>/shelf/{pathname} - list shelf information (pathname = shelf)</LI>
+    <LI>/books/{interleave-group} - list information about all books</LI>
+</UL>
+</BODY>
+</HTML>
