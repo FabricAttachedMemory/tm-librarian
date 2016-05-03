@@ -18,16 +18,14 @@ from pprint import pprint
 # This will be included from manifesting, as well as run during unit test.
 # http://stackoverflow.com/questions/16981921/relative-imports-in-python-3
 
-if __name__ != '__main__':
-    # FIXME: a hack until we figure this out
-    try:
-        from .genericobj import GenericObject
-    except Exception:
-        from genericobj import GenericObject
-else:
-    from genericobj import GenericObject
+try:
+    from .genericobj import GenericObject   # external imports
+except Exception as e:
+    from genericobj import GenericObject    # __main__ below
 
 ###########################################################################
+
+
 def multiplier(instr, section, book_size_bytes=0):
 
     suffix = instr[-1].upper()
@@ -52,6 +50,7 @@ def multiplier(instr, section, book_size_bytes=0):
 
 ###########################################################################
 # Because Drew.
+
 
 class OptionBaseOneTuple(tuple):
     def __getitem__(self, index):
@@ -178,8 +177,7 @@ class TMConfig(GenericObject):
         except Exception as e:
             self.error = 'Line %d: %s' % (
                 sys.exc_info()[2].tb_lineno, str(e))
-            set_trace()
-            raise RuntimeError(str(e))
+            raise RuntimeError(self.error)
 
         # Fixups and consistency checks.  Flesh out all relative coordinates
         # into absolutes and check for dupes, which intrinsically checks
