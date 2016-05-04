@@ -80,10 +80,28 @@ class _GOenclosures(GenericObject):
 class _GOnodes(GenericObject):
     __qualname__ = 'nodes'
 
+    def __init__(self, **kwargs):
+        assert 'hostname' not in kwargs, '"hostname" collides with property'
+        super().__init__(**kwargs)
+        self._hostname = None
+
     @property
     def dotname(self):
         return 'rack.%s.enc.%s.node.%s' % (self.rack, self.enc, self.node)
 
+    @property
+    def hostname(self):
+        if self._hostname is None:
+            self._hostname = 'node%02d' % (
+                (int(self.rack) - 1) * 80 +
+                (int(self.enc) - 1) * 10 +
+                int(self.node)
+            )
+        return self._hostname
+
+    @hostname.setter
+    def hostname(self, value):
+        self._hostname = str(value)
 
 class _GOmediaControllers(GenericObject):
     __qualname__ = 'mediaControllers'
@@ -283,6 +301,6 @@ if __name__ == '__main__':
 
     # This is implicitly across all enclosures
     MCs_in_all_node_2s = MCs['node/2']
-    print(nodes[0].dotname)
+    print(nodes[0].dotname, nodes[0].hostname)
     set_trace()
     pass

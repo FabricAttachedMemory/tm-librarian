@@ -23,6 +23,15 @@ class FRDnodeID(object):
     def node_id(self):
         return (self.rack - 1) * 80 + (self.enc - 1) * 10 + self.node
 
+    @property
+    def hostname(self):
+        return 'node%02d' % self.node_id
+
+    @property
+    def REN(self):
+        '''Rack # Enc # Node # as a string'''
+        return 'r%de%dn%d' % (self.rack, self.enc, self.node)
+
     def __eq__(self, other):
         return self.node_id == other.node_id
 
@@ -215,4 +224,7 @@ if __name__ == '__main__':
     assert IGs[15].MCs[2] - IGs[16].MCs[3] == 3
     assert IGs[15].MCs[2] - IGs[26].MCs[3] == 5
     set_trace()
-    pass
+    junk = FRDnode(3)
+    print(junk.hostname, junk.REN)
+    junk = FRDnode(3, enc=4)
+    print(junk.hostname, junk.REN)
