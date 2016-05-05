@@ -24,7 +24,7 @@
 			"tlsPublicCertificate": "<Base64 encoded certificate>"
 		},
 
-		"osProvisioningService": 
+		"manifesting": 
 		{
 			"_comment": "How do we talk to the OSPS?"
 		},
