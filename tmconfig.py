@@ -210,7 +210,7 @@ class TMConfig(GenericObject):
                 enc.coordinate = rack.coordinate + '/' + enc.coordinate
                 for node in enc.nodes:
                     node.coordinate = enc.coordinate + '/' + node.coordinate
-                    node.soc.coordinate = node.coordinate + '/' + node.soc.coordinate 
+                    node.soc.coordinate = node.coordinate + '/' + node.soc.coordinate
                     node.rack = rack.coordinate.split('/')[-1]
                     node.enc = enc.coordinate.split('/')[-1]
                     node.node = node.coordinate.split('/')[-1]
@@ -276,10 +276,48 @@ class TMConfig(GenericObject):
         return tupledict(MCs)
 
     @property
+    def services(self):
+        allServices = { }
+
+        # There's old and new, but there could be both
+        if hasattr(self, 'managementServer'): # old style
+            svcnames = self.managementServer.__dict__.keys()
+            try:
+                del svcnames['_comment']
+            except Exception as e:
+                pass
+            for name in svcnames:
+                assert name not in allServices, \
+                    'Duplicate service ' + name
+                allServices[name] = \
+                    getattr(self.managementServer, name)
+            pass
+
+        if hasattr(self, 'servers'):    # new style
+            for server in self.servers:
+                hostname = server.ipv4Address
+                for service in server.services:
+                    assert service not in allServices, \
+                        'Duplicate service ' + service
+                    try:
+                        service.restUri = service.restUri.replace(
+                            '${ipv4Address}', hostname)
+                    except AttributeError as e:
+                        pass
+                    allServices[service.service] = service
+        else:
+            self.servers = 'Me, myself, and I'
+
+        if not allServices:
+            raise RuntimeError('Cannot find any services')
+        return allServices
+
+    @property
     def bookSize(self):
-        return self.managementServer.librarian.bookSize
+        return self.services['librarian'].bookSize
 
 ###########################################################################
+
 
 if __name__ == '__main__':
     config = TMConfig(sys.argv[1], verbose=True)
