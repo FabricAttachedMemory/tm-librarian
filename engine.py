@@ -75,8 +75,14 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
-        self.db.create_xattr(
-            shelf, 'user.LFS.AllocationPolicy', BookPolicy.POLICY_DEFAULT)
+        self.db.create_xattr(shelf,
+            BookPolicy.XATTR_ALLOCATION_POLICY, BookPolicy.POLICY_DEFAULT)
+
+        # Will be ignored until AllocationPolicy set to RequestIG.  I just
+        # want it to show up in a full xattr dump (getfattr -d /lfs/xxxx)
+        self.db.create_xattr(shelf, BookPolicy.XATTR_IG_REQ, '')
+        self.db.create_xattr(shelf, BookPolicy.XATTR_IG_REQ_POS, '')
+
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
     def cmd_get_shelf(self, cmdict, match_id=False):
@@ -342,7 +348,7 @@ class LibrarianCommandEngine(object):
         shelf = self.cmd_get_shelf(cmdict)
         value = self.db.list_xattrs(shelf)
         # AllocationPolicy is auto-added at shelf creation and can't be
-        # removed.  Artificially add these "intrinsic" xattrs
+        # removed.  Artificially add these "intrinsic" xattrs.
         value.append('user.LFS.AllocationPolicyList')
         value.append('user.LFS.Interleave')
         return { 'value': sorted(value) }

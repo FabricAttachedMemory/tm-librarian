@@ -32,6 +32,10 @@ class BookPolicy(object):
     _policies = (POLICY_DEFAULT, 'LocalNode', 'Nearest',
                  'LZAascending', 'LZAdescending', 'RequestIG')
 
+    XATTR_ALLOCATION_POLICY = 'user.LFS.AllocationPolicy'
+    XATTR_IG_REQ = 'user.LFS.InterleaveRequest'
+    XATTR_IG_REQ_POS = 'user.LFS.InterleaveRequestPos'
+
     @classmethod
     def xattr_assist(cls, LCEobj, cmdict, setting=False, removing=False):
         '''More error checking and legwork for user.LFS.xxxxx.  LCEobj is
@@ -42,41 +46,36 @@ class BookPolicy(object):
         if setting:
             assert value is not None, 'Trying to set a null value'
         elems = xattr.split('.')
-
-        # Simple request special values
-
-        if elems[1] == 'interleave_request' and setting:
-            reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
-            interleave_groups = LCEobj.db.get_interleave_groups()
-            currentIGs = [ig.num for ig in interleave_groups]
-            assert set(reqIGs).issubset(currentIGs), \
-                'Requested IGs not subset of existing IGs'
-
-        if elems[1] != 'LFS':       # simple get or set, leave it to caller
+        # If it's not a special LFS variable, let the caller handle it
+        if elems[1] != 'LFS':
             return (xattr, value)
-
-        # LFS special values
 
         assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
         assert not removing, 'Removal of LFS xattrs is prohibited'
-
         shelf = LCEobj.cmd_get_shelf(cmdict)
 
-        if elems[2] == 'AllocationPolicy':
+        no_set = 'Setting %s is prohibited' % xattr
+        if elems[2] == 'InterleaveRequest':
+            # Value can just fall through but there might be extra work
+            if setting:
+                reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
+                interleave_groups = LCEobj.db.get_interleave_groups()
+                currentIGs = [ig.num for ig in interleave_groups]
+                assert set(reqIGs).issubset(currentIGs), \
+                    'Requested IGs not subset of known IGs'
+                # Reset current position in pattern.
+                LCEobj.db.modify_xattr(shelf, cls.XATTR_IG_REQ_POS, 0)
+        elif elems[2] == 'InterleaveRequestPos':
+            assert not setting, no_set
+        elif elems[2] == 'AllocationPolicy':
             if setting:
                 assert value in cls._policies, \
                     'Bad AllocationPolicy "%s"' % value
-                if value != 'RequestIG':
-                    # Remove RequestIG specific attributes
-                    if (LCEobj.db.get_xattr(shelf, 'user.interleave_request') != None):
-                        LCEobj.db.remove_xattr(shelf, 'user.interleave_request')
-                    if (LCEobj.db.get_xattr(shelf, 'user.interleave_request_pos') != None):
-                        LCEobj.db.remove_xattr(shelf, 'user.interleave_request_pos')
         elif elems[2] == 'AllocationPolicyList':
-            assert not setting, 'Setting AllocationPolicyList is prohibited'
+            assert not setting, no_set
             value = ','.join(cls._policies)
         elif elems[2] == 'Interleave':
-            assert not setting, 'Setting Interleave is prohibited'
+            assert not setting, no_set
             bos = LCEobj.db.get_books_on_shelf(shelf)
             value = bytes([ b.intlv_group for b in bos ]).decode()
         else:
@@ -177,19 +176,23 @@ class BookPolicy(object):
         '''Select books from IGs specified in interleave_request attribute.
            If interleave_request_pos is present use it as the starting point.'''
         db = self.LCEobj.db
-        self.LCEobj.errno = errno.ENOSPC
-        ig_req = db.get_xattr(self.shelf, 'user.interleave_request')
-        assert ig_req is not None, 'RequestIG policy requires interleave_request attribute'
+        ig_req = db.get_xattr(self.shelf, self.XATTR_IG_REQ)
+        self.LCEobj.errno = errno.ERANGE
+        assert ig_req is not None, \
+            'RequestIG policy requires prior %s' % self.XATTR_IG_REQ
+        assert len(ig_req), \
+            'RequestIG policy requires prior %s' % self.XATTR_IG_REQ
 
         # Get a starting position for the interleave_request list
-        pos = db.get_xattr(self.shelf, 'user.interleave_request_pos')
+        self.LCEobj.errno = errno.ENOSPC
+        pos = db.get_xattr(self.shelf, self.XATTR_IG_REQ_POS)
         try:
             ig_pos = int(pos)
-            if ig_pos < 0 or ig_pos > (len(ig_req)-1):
+            if ig_pos < 0 or ig_pos > (len(ig_req) - 1):
                 ig_pos = 0
-        except TypeError as err:
+        except TypeError as err:    # TSNH, see create_shelf.  Legacy paranoia.
             ig_pos = 0
-            resp = db.create_xattr(self.shelf, 'user.interleave_request_pos', 0)
+            resp = db.create_xattr(self.shelf, self.XATTR_IG_REQ_POS, ig_pos)
         except ValueError as err:
             ig_pos = 0
 
@@ -199,7 +202,7 @@ class BookPolicy(object):
         igCnt = defaultdict(int)
         cur = ig_pos
         for cnt in range(0, books_needed):
-            ig = reqIGs[cur%len(reqIGs)]
+            ig = reqIGs[cur % len(reqIGs)]
             igCnt[ig] += 1
             cur += 1
 
@@ -213,13 +216,13 @@ class BookPolicy(object):
         bookList = []
         cur = ig_pos
         for cnt in range(0, books_needed):
-            ig = reqIGs[cur%len(reqIGs)]
+            ig = reqIGs[cur % len(reqIGs)]
             assert len(booksIG[ig]) != 0, 'Not enough books in IG to satisfy request'
             bookList.append(booksIG[ig].pop(0))
             cur += 1
 
         # Save current position in interleave_request list
-        resp = db.modify_xattr(self.shelf, 'user.interleave_request_pos', cur%len(reqIGs))
+        db.modify_xattr(self.shelf, self.XATTR_IG_REQ_POS, cur % len(reqIGs))
 
         return bookList
 
