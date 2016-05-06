@@ -26,7 +26,8 @@
 
 		"manifesting": 
 		{
-			"_comment": "How do we talk to the OSPS?"
+			"_comment": "How do we talk to the OSPS?",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
 		},
 
 		"librarian": 
