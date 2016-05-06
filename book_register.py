@@ -295,8 +295,8 @@ def load_book_data_json(jsonfile):
 
     config = TMConfig(jsonfile, verbose=False)
 
-    if config.error:
-        raise SystemExit(config.error)
+    if config.FTFY:     # or could raise SystemExit()
+        print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
 
     racks = config.racks
     encs = config.enclosures
