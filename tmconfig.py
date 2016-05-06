@@ -191,6 +191,7 @@ class TMConfig(GenericObject):
             self._json = json.loads(original)
             for key, value in self._json.items():
                 TMConfig.unroll(self, key, value, verbose=verbose)
+            self._allServices = None
             self.error = ''
         except Exception as e:
             self.error = 'Line %d: %s' % (
@@ -225,6 +226,11 @@ class TMConfig(GenericObject):
                         subCID = int(mc.coordinate.split('/')[-1])
                         mc.rawCID = (int(node.enc) << 8) + (int(node.node_id) << 4) + subCID
                         allMCs.append(mc.coordinate)
+
+                    # Find it earlier, report it with more clarity
+                    for attr in ('tlsPublicCertificate', ):
+                        assert hasattr(node, attr), \
+                            'node "%s" missing %s' % (node.dotname, attr)
 
         # IGs already have absolute coordinates.  Compare them to the nodes.
         groupIds = [ ]
@@ -277,40 +283,65 @@ class TMConfig(GenericObject):
 
     @property
     def services(self):
-        allServices = { }
+        if self._allServices is not None:
+            return self._allServices
+        self._allServices = { }
 
-        # There's old and new, but there could be both
-        if hasattr(self, 'managementServer'): # old style
-            svcnames = self.managementServer.__dict__.keys()
+        # There's old and new, but there could be both.  Try old first,
+        # perhaps cobble up new style records and fall through.
+        tmp = getattr(self, 'managementServer', None)
+        if tmp is not None:
+            fakeNew = GenericObject(
+                services=[],
+            )
+            ipv4Address = ''   # all restUri attributes should agree
+            for name, detail in tmp.__dict__.items():
+                if isinstance(detail, GenericObject):
+                    detail.service = name
+                    fakeNew.services.append(detail)
+                    tmp = getattr(detail, 'restUri', '')
+                    if tmp:
+                        try:
+                            tmp = tmp.split(':')[1].split('/')[-1]
+                        except Exception as e:
+                            continue
+                        if ipv4Address:
+                            assert ipv4Address == tmp, \
+                                'managementServer:%s URI hostname mismatch' % name
+                        else:
+                            ipv4Address = tmp
+                else:
+                    setattr(fakeNew, name, detail)
+
+            assert ipv4Address, 'Cannot discern managementServer hostname'
+            fakeNew.ipv4Address = ipv4Address
             try:
-                del svcnames['_comment']
-            except Exception as e:
-                pass
-            for name in svcnames:
-                assert name not in allServices, \
-                    'Duplicate service ' + name
-                allServices[name] = \
-                    getattr(self.managementServer, name)
-            pass
+                self.servers.append(fakeNew)
+            except AttributeError as e:
+                self.servers = ( fakeNew, )
 
         if hasattr(self, 'servers'):    # new style
             for server in self.servers:
                 hostname = server.ipv4Address
                 for service in server.services:
-                    assert service not in allServices, \
+                    assert service not in self._allServices, \
                         'Duplicate service ' + service
+
+                    # Find it earlier, report it with more clarity
+                    for attr in ('tlsPublicCertificate', ):
+                        assert hasattr(service, attr), \
+                            'Service "%s" missing %s' % (service.service, attr)
                     try:
                         service.restUri = service.restUri.replace(
                             '${ipv4Address}', hostname)
                     except AttributeError as e:
                         pass
-                    allServices[service.service] = service
-        else:
-            self.servers = 'Me, myself, and I'
+                    self._allServices[service.service] = service
 
-        if not allServices:
+        if not self._allServices:
             raise RuntimeError('Cannot find any services')
-        return allServices
+
+        return self._allServices
 
     @property
     def bookSize(self):
