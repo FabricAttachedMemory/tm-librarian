@@ -183,20 +183,29 @@ class TMConfig(GenericObject):
           set_trace()
           raise
 
+    # Fix That For You so book_register can run to completion
+    def _FTFY(self, attrs, obj, errfmt, vartuple):
+        '''errfrmt and vartuple should agree on identifying obj.'''
+        errfmt += ' missing %s'     # for the attribute
+        for attr in attrs:
+            if hasattr(obj, attr):
+                continue
+            self.FTFY.append(errfmt % (vartuple + (attr, )))
+            setattr(obj, attr, 'You forgot an attribute.  BAD GEEK! BAD!')
+
     def __init__(self, path, verbose=False):
         setattr(_GOnodes, self.__class__.__name__, self)
+        self.verbose = verbose
+        self.FTFY = [ ]
         try:
-            self.verbose = verbose
             original = open(path, 'r').read()
             self._json = json.loads(original)
             for key, value in self._json.items():
                 TMConfig.unroll(self, key, value, verbose=verbose)
             self._allServices = None
-            self.error = ''
         except Exception as e:
-            self.error = 'Line %d: %s' % (
-                sys.exc_info()[2].tb_lineno, str(e))
-            raise RuntimeError(self.error)
+            raise RuntimeError(
+                'Line %d: %s' % (sys.exc_info()[2].tb_lineno, str(e)))
 
         # Fixups and consistency checks.  Flesh out all relative coordinates
         # into absolutes and check for dupes, which intrinsically checks
@@ -228,9 +237,12 @@ class TMConfig(GenericObject):
                         allMCs.append(mc.coordinate)
 
                     # Find it earlier, report it with more clarity
-                    for attr in ('tlsPublicCertificate', ):
-                        assert hasattr(node, attr), \
-                            'node "%s" missing %s' % (node.dotname, attr)
+                    self._FTFY(
+                        ('tlsPublicCertificate', ),
+                        node.soc,
+                        'node SOC "%s"',
+                        (node.dotname, )
+                    )
 
         # IGs already have absolute coordinates.  Compare them to the nodes.
         groupIds = [ ]
@@ -328,9 +340,12 @@ class TMConfig(GenericObject):
                         'Duplicate service ' + service
 
                     # Find it earlier, report it with more clarity
-                    for attr in ('tlsPublicCertificate', ):
-                        assert hasattr(service, attr), \
-                            'Service "%s" missing %s' % (service.service, attr)
+                    self._FTFY(
+                        ('tlsPublicCertificate', ),
+                        service,
+                        'service "%s"',
+                        (service.service, )
+                    )
                     try:
                         service.restUri = service.restUri.replace(
                             '${ipv4Address}', hostname)
@@ -352,8 +367,9 @@ class TMConfig(GenericObject):
 
 if __name__ == '__main__':
     config = TMConfig(sys.argv[1], verbose=True)
-    if config.error:
-        raise SystemExit(config.error)
+    print()
+    if config.FTFY:
+        print('Added missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
     racks = config.racks
     encs = config.enclosures
     nodes = config.nodes

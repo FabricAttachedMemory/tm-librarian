@@ -140,7 +140,6 @@
 							"soc": 
 							{
 								"coordinate": "soc_board/1/soc/1",
-								"tlsPublicCertificate": "None",
 								"macAddress": "02:02:02:02:02:02"
 							},
 
