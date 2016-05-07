@@ -12,7 +12,11 @@
     <H4>book:</H4>
     <UL>
         {% for key, value in b.items() %}
-            <LI>{{ key }} -> {{ value }}</LI>
+            {% if key == 'lza' %}
+                <LI>lza -> {{ '0x%016x' % value }}</LI>
+            {% else %}
+                <LI>{{ key }} -> {{ value }}</LI>
+            {% endif %}
         {% endfor %}
     </UL>
     {% endfor %}

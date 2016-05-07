@@ -32,7 +32,7 @@ def _response_bad(errmsg, status_code=418):
 
 @mainapp.before_request
 def check_version(*args, **kwargs):
-    if not requestor_wants_json(request):   # Ignore versioning for HTML
+    if not requestor_wants_json(request):  # Ignore versioning for HTML
         return None
     hdr_accept = request.headers['Accept']
     version = -1.0
@@ -91,6 +91,7 @@ def show_views():
 
     return render_template(
         'show_views.html',
+        url=request.url,
         api_version=mainapp.config['API_VERSION'])
 
 
@@ -202,39 +203,39 @@ def show_global():
 @mainapp.route('/lmp/nodes/')
 def show_nodes():
     try:
-       cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
-       l_nodes = []
-       cur.execute('SELECT * FROM FRDnodes')
-       cur.iterclass = 'default'
-       nodes = [ r for r in cur ]
-       for n in nodes:
-           cur.execute('SELECT * FROM SOCs WHERE node_id=?', n.node_id)
-           cur.iterclass = 'default'
-           socs = [ r for r in cur ]
-           for s in socs:
-               d_soc = {}
-               d_soc['coordinate'] = s.coordinate
-               d_soc['tlsPublicCertificate'] = s.tlsPublicCertificate
-               d_soc['macAddress'] = s.MAC
+        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        l_nodes = []
+        cur.execute('SELECT * FROM FRDnodes')
+        cur.iterclass = 'default'
+        nodes = [ r for r in cur ]
+        for n in nodes:
+            cur.execute('SELECT * FROM SOCs WHERE node_id=?', n.node_id)
+            cur.iterclass = 'default'
+            socs = [ r for r in cur ]
+            for s in socs:
+                d_soc = {}
+                d_soc['coordinate'] = s.coordinate
+                d_soc['tlsPublicCertificate'] = s.tlsPublicCertificate
+                d_soc['macAddress'] = s.MAC
 
-           cur.execute('SELECT * FROM FAModules WHERE node_id=?', n.node_id)
-           cur.iterclass = 'default'
-           mcs = [ r for r in cur ]
-           l_mcs = []
-           for m in mcs:
-               d_mc = {}
-               d_mc['coordinate'] = m.coordinate
-               d_mc['memorySize'] = m.memorySize
-               l_mcs.append(d_mc)
+            cur.execute('SELECT * FROM FAModules WHERE node_id=?', n.node_id)
+            cur.iterclass = 'default'
+            mcs = [ r for r in cur ]
+            l_mcs = []
+            for m in mcs:
+                d_mc = {}
+                d_mc['coordinate'] = m.coordinate
+                d_mc['memorySize'] = m.memorySize
+                l_mcs.append(d_mc)
 
-           d_node = {}
-           d_node['coordinate'] = n.coordinate
-           d_node['serialNumber'] = n.serialNumber
-           d_node['soc'] = d_soc
-           d_node['mediaControllers'] = l_mcs
-           l_nodes.append(d_node)
+            d_node = {}
+            d_node['coordinate'] = n.coordinate
+            d_node['serialNumber'] = n.serialNumber
+            d_node['soc'] = d_soc
+            d_node['mediaControllers'] = l_mcs
+            l_nodes.append(d_node)
 
-       cur.close()
+        cur.close()
 
     except Exception as e:
         return _response_bad('%s' % (e), 400)
@@ -266,7 +267,7 @@ def show_interleaveGroups():
             else:
                 d_data = {}
                 d_data['groupId'] = m.IG
-                d_data['baseAddress'] = (m.IG << 46)  # lowest LZA in IG 
+                d_data['baseAddress'] = (m.IG << 46)  # lowest LZA in IG
                 d_data['size'] = m.memorySize
                 d_data['mediaControllers'] = [m.coordinate,]
                 d_ig[m.IG] = d_data
@@ -313,9 +314,9 @@ def show_allocated(coordinate):
         # One row for each MC a book is spread across
         c_filter = coordinate + '%'
         cur.execute('''SELECT * FROM books
-                   JOIN FAModules ON books.intlv_group = FAModules.IG
-                   WHERE FAModules.coordinate LIKE ?
-                    ''', c_filter)
+            JOIN FAModules ON books.intlv_group = FAModules.IG
+            WHERE FAModules.coordinate LIKE ?
+            ''', c_filter)
 
         cur.iterclass = 'default'
         books = [ r for r in cur ]
@@ -400,13 +401,13 @@ def show_active(coordinate):
 
     except Exception as e:
         return _response_bad('%s' % (e), 404)
-    
+
 
 ###########################################################################
 # View: /shelf/{pathname} - Directory and Shelf Information
 # Desc: list directory/shelf information (pathname = directory or shelf)
 # Input: pathname - full path of the directory or shelf within the librarian
-#                   file system, not including the /lfs prefix 
+#                   file system, not including the /lfs prefix
 
 @mainapp.route('/lmp/shelf/')
 @mainapp.route('/lmp/shelf/<pathname>')
@@ -419,21 +420,30 @@ def show_shelf(pathname=None):
             d_owner = 42  # FIXME
             d_group = 42  # FIXME
             d_mode = '0777'  # FIXME
-       
+
             cur.execute('SELECT * FROM shelves')
             cur.iterclass = 'default'
             shelves = [ r for r in cur ]
 
             l_entries = []
             for s in shelves:
-               d_attr = {}
-               d_attr['name'] = s.name
-               d_attr['type'] = 'file'
-               d_attr['owner'] = 42  # FIXME
-               d_attr['group'] = 42  # FIXME
-               d_attr['mode'] = s.mode
-               d_attr['size'] = s.size_bytes
-               l_entries.append(d_attr)
+                d_attr = {}
+                d_attr['name'] = s.name
+                d_attr['type'] = 'file'
+                d_attr['owner'] = 42  # FIXME
+                d_attr['group'] = 42  # FIXME
+                d_attr['mode'] = s.mode
+                d_attr['size'] = s.size_bytes
+
+                xattr_policy = 'user.LFS.AllocationPolicy'
+                cur.execute('''
+                SELECT value FROM shelf_xattrs
+                    WHERE shelf_id=? AND xattr=?''', (s.id, xattr_policy))
+                xattr_value = cur.fetchone()
+                s_policy = 'unknown' if xattr_value is None else xattr_value[0]
+                d_attr['policy'] = s_policy
+
+                l_entries.append(d_attr)
 
             cur.close()
 
@@ -468,6 +478,13 @@ def show_shelf(pathname=None):
                 s_mode = s.mode
                 s_size = s.size_bytes
 
+            xattr_policy = 'user.LFS.AllocationPolicy'
+            cur.execute('''
+                SELECT value FROM shelf_xattrs
+                WHERE shelf_id=? AND xattr=?''', (s.id, xattr_policy))
+            xattr_value = cur.fetchone()
+            s_policy = 'unknown' if xattr_value is None else xattr_value[0]
+
             cur.execute('''
                 SELECT * FROM opened_shelves
                 JOIN SOCs
@@ -498,6 +515,7 @@ def show_shelf(pathname=None):
                     mode=s_mode,
                     size=s_size,
                     booksize=s_booksize,
+                    policy=s_policy,
                     active=l_active,
                     books=l_books)
 
@@ -508,6 +526,7 @@ def show_shelf(pathname=None):
                     mode=s_mode,
                     size=s_size,
                     booksize=s_booksize,
+                    policy=s_policy,
                     active=l_active,
                     books=l_books,
                 api_version=mainapp.config['API_VERSION'])
@@ -550,7 +569,7 @@ def show_books(interleaveGroup="all"):
             bos = [ r for r in cur ]
             assert len(bos) <= 1, 'Matched more than one BOS'
             for s in bos:
-                d_b['offset'] = s.seq_num * b_size 
+                d_b['offset'] = s.seq_num * b_size
                 cur.execute('SELECT * FROM shelves WHERE id=?', s.shelf_id)
                 cur.iterclass = 'default'
                 shelf = [ r for r in cur ]
