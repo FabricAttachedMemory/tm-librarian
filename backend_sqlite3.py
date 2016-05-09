@@ -42,9 +42,9 @@ class SQLite3assist(SQLassist):
         # second is more generic
         if self.execfail:
             raise AssertionError('%s failed: %s' % (sql, self.execfail))
-        if self.rowcount != 1:
+        if self.rowcount != 1 and not sql.startswith('DELETE'):
             self.rollback()
-            raise AssertionError('%s failed: %s' % (sql, self.execfail))
+            raise AssertionError('%s failed: rowcount mismatch' % (sql))
         if commit:
             self.commit()
 
@@ -69,6 +69,7 @@ class SQLite3assist(SQLassist):
         assert where, 'missing where for DELETE'
         sql = 'DELETE FROM %s WHERE %s' % (table, where)
         self._execAndCheck(sql, values, commit)
+        pass
 
     #
     # sqlite: if PRIMARY, but not AUTOINC, you get autoinc behavior and
