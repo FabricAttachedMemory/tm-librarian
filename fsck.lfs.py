@@ -105,7 +105,7 @@ def _40_verify_shelves_return_orphaned_books(db):
     # books.  Make set of all allocated books.  Then for each shelf:
     #   Insure all shelf books are in all_books
     #   Remove shelf books from all_books set
-    # Any leftovers are orphons
+    # Any leftovers are orphans
     db.execute('SELECT id FROM books where allocated=?', TMBook.ALLOC_INUSE)
     used_books = [ u[0] for u in db ]
     used_books = frozenset(used_books)
@@ -144,8 +144,8 @@ def _40_verify_shelves_return_orphaned_books(db):
         for book_id in used_books:
             notused = db.get_book_by_id(book_id)
             notused.allocated = TMBook.ALLOC_FREE
-            book.matchfields = 'allocated'
-            db.modify_book(book)
+            notused.matchfields = 'allocated'
+            db.modify_book(notused)
         db.commit()
 
 ###########################################################################
