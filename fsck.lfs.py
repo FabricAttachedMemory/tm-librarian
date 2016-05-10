@@ -50,7 +50,9 @@ def _10_stale_handles(db):
     print('\t %d stale file handles remain' % len(stale))
 
 ###########################################################################
-
+# The "unlink workflow" renames a file to 'tmfs_hidden_NNN (pure FuSE).
+# LFS then renames it to .lfs_pending_zero_NNN, marks all books as
+# ZOMBIE, then zeroes them via dd, truncates to zero, then kills the shelf.
 
 def _20_finish_unlink(db):
     '''Finalize partially-unlinked files'''
@@ -70,11 +72,11 @@ def _20_finish_unlink(db):
         bos = db.get_bos_by_shelf_id(shelf.id)
         for thisbos in bos:
             db.delete_bos(thisbos)
-            # book = db.get_book_by_id(thisbos.book_id)     # pedantic
-            book = TMBook(id=thisbos.book_id)               # good enough
-            book.allocated = TMBook.ALLOC_FREE
-            book.matchfields = 'allocated'
-            db.modify_book(book)
+            book = db.get_book_by_id(thisbos.book_id)
+            if book.allocated == TMBook.ALLOC_INUSE:
+                book.allocated = TMBook.ALLOC_ZOMBIE
+                book.matchfields = 'allocated'
+                db.modify_book(book)
         db.delete_shelf(shelf)
         db.commit()
 
@@ -121,7 +123,7 @@ def _40_verify_shelves_return_orphaned_books(db):
             print('\t duplicate sequence numbers in', shelf.name)
             fatal = True
     if fatal:
-        raise RuntimeError('Problems detected with no repair automation')
+        raise RuntimeError('Problems detected; no repair automation exists')
 
     # Book allocations
     for shelf in shelves:
@@ -130,6 +132,7 @@ def _40_verify_shelves_return_orphaned_books(db):
         if used_books.intersection(bookset) != bookset:
             unallocated = bookset - used_books
             # FIXME: seq_nums are valid and there are no zombies
+            # This may recover truncated but unreleased books
             for u in unallocated:
                 book = db.get_book_by_id(u)
                 book.allocated = TMBook.ALLOC_INUSE
