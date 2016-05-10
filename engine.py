@@ -17,6 +17,8 @@ from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol
 from frdnode import FRDnode
 
+_ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
+
 
 class LibrarianCommandEngine(object):
 
@@ -159,18 +161,22 @@ class LibrarianCommandEngine(object):
         shelf = self.cmd_get_shelf(cmdict)
         return self._list_shelf_books(shelf)
 
-    def _set_book_alloc(self, book_id, newalloc):
-        book = self.db.get_book_by_id(book_id)
-        self.errno = errno.ENOENT
-        assert book, 'Book lookup failed'
+    def _set_book_alloc(self, bookorbos, newalloc):
         self.errno = errno.EUCLEAN
+        try:    # What was passed in?
+            _ = bookorbos.allocated
+            book = bookorbos
+        except AttributeError as e:
+            book = self.db.get_book_by_id(bookorbos.book_id)
+        if newalloc == book.allocated:
+            return book
         msg = 'Book allocation %d -> %d' % (book.allocated, newalloc)
         if newalloc == TMBook.ALLOC_INUSE:
             assert book.allocated == TMBook.ALLOC_FREE, msg
-        # elif newalloc == TMBook.ALLOC_ZOMBIE:
-            # assert book.allocated == TMBook.ALLOC_INUSE, msg
+        elif newalloc == TMBook.ALLOC_ZOMBIE:
+            assert book.allocated == TMBook.ALLOC_INUSE, msg
         elif newalloc == TMBook.ALLOC_FREE:
-            assert book.allocated == TMBook.ALLOC_INUSE, msg    # ZOMBIE
+            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg    # ZOMBIE
         else:
             raise RuntimeError('Bad book allocation %d' % newalloc)
         book.allocated = newalloc
@@ -194,8 +200,18 @@ class LibrarianCommandEngine(object):
         shelf.name = cmdict['newname']
         shelf.matchfields = 'name'
         shelf = self.db.modify_shelf(shelf, commit=True)
+        if shelf.name.startswith(_ZERO_PREFIX):  # zombify
+            bos = self.db.get_bos_by_shelf_id(shelf.id)
+            while bos:
+                thisbos = bos.pop()
+                _ = self._set_book_alloc(thisbos, TMBook.ALLOC_ZOMBIE)
         return shelf
 
+    # This is a protocol operation, not necessarily POSIX flow.  Search
+    # in here for "unlink workflow", which first marks all books ZOMBIE,
+    # zeroes them via dd, the zero truncates the shelf, and FINALLY
+    # calls this with an emtpy shelf.  IOW calling this with a shelf
+    # that still has books is an oddity.
     def cmd_destroy_shelf(self, cmdict):
         """ For a shelf, zombify books (mark for zeroing) and remove xattrs
             In (dict)---
@@ -212,7 +228,7 @@ class LibrarianCommandEngine(object):
         xattrs = self.db.list_xattrs(shelf)
         for thisbos in bos:
             self.db.delete_bos(thisbos)
-            _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
+            _ = self._set_book_alloc(thisbos, TMBook.ALLOC_ZOMBIE)
         for xattr in xattrs:
             self.db.remove_xattr(shelf, xattr)
         return self.db.delete_shelf(shelf, commit=True)
@@ -220,24 +236,15 @@ class LibrarianCommandEngine(object):
     def cmd_kill_zombie_books(self, cmdict):
         '''repl_client command to "zero" zombie books.  Needs work.'''
 
-        # On injured reserve for the moment
+        # On injured reserve for the moment.  FIXME Should be recoded as a
+        # helper to gather orphan ZOMBIE books into a shelf to be
+        # submitted for a node to unlink.
         return None
         node_id = cmdict['context']['node_id']
         zombies = self.db.get_book_by_node(
             node_id, TMBook.ALLOC_ZOMBIE, 9999)
         for book in zombies:
-            _ = self._set_book_alloc(book.id, TMBook.ALLOC_FREE)
-        self.db.commit()
-        return None
-
-    def cmd_log_zero(self, cmdict):
-        '''Positive response from LFS daemon. NRFPT'''
-        self.errno = errno.EINVAL
-        node_id = cmdict['context']['node_id']
-        for id in cmdict['ids']:
-            book = self.db.get_book_by_id(id)
-            assert book.node_id == node_id, 'Attempted off-node zeroing'
-            book = self._set_book_alloc(id, TMBook.ALLOC_FREE)
+            _ = self._set_book_alloc(book, TMBook.ALLOC_FREE)
         self.db.commit()
         return None
 
@@ -291,7 +298,7 @@ class LibrarianCommandEngine(object):
                 'out of space for "%s"' % shelf.name
             seq_num = shelf.book_count
             for book in freebooks:  # Mark book in use and create BOS entry
-                book = self._set_book_alloc(book.id, TMBook.ALLOC_INUSE)
+                book = self._set_book_alloc(book, TMBook.ALLOC_INUSE)
                 seq_num += 1
                 thisbos = TMBos(
                     shelf_id=shelf.id, book_id=book.id, seq_num=seq_num)
@@ -300,10 +307,19 @@ class LibrarianCommandEngine(object):
             books_2bdel = -books_needed  # it all reads so much better
             self.errno = errno.EREMOTEIO
             assert len(bos) >= books_2bdel, 'Book removal problem'
+            # The unlink workflow has one step which zero truncates
+            # a file with a certain name.  IOW not all shelves are USED,
+            # some may be full of ZOMBIES
+            freeing = shelf.name.startswith(_ZERO_PREFIX) and not new_book_count
             while books_2bdel > 0:
                 thisbos = bos.pop()
-                self.db.delete_bos(thisbos)
-                _ = self._set_book_alloc(thisbos.book_id, TMBook.ALLOC_FREE)
+                self.db.delete_bos(thisbos)         # Orphans the book
+                new_state = TMBook.ALLOC_ZOMBIE
+                book = self.db.get_book_by_id(thisbos.book_id)
+                if freeing and book.allocated == TMBook.ALLOC_ZOMBIE:
+                    new_state = TMBook.ALLOC_FREE
+                if new_state != book.allocated:     # staying ZOMBIE
+                    _ = self._set_book_alloc(book, new_state)
                 books_2bdel -= 1
         else:
             self.db.rollback()
