@@ -1,3 +1,12 @@
+tm-librarian (0.11-1+l4tm1) catapult; urgency=low
+
+  * Implement Librarian Monitoring Protocol, support for json configuration
+    file format, change all extended attributes to user.LFS.* domain, improve
+    socket retry logic, refuse to reduce shelf size if opened by other
+    processes.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 10 May 2016 16:25:27 -0600
+
 tm-librarian (0.10-1+l4tm1) catapult; urgency=low
 
   * Combine all librarian and LFS related files into one package.

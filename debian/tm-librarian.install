@@ -23,6 +23,7 @@ lmp.py				usr/lib/python3/dist-packages/tm-librarian
 lmp_config.py			usr/lib/python3/dist-packages/tm-librarian
 fame.json			usr/lib/python3/dist-packages/tm-librarian
 simpleconfig.json		usr/lib/python3/dist-packages/tm-librarian
+tmconfig.py			usr/lib/python3/dist-packages/tm-librarian
 tests/check-book.py		usr/lib/python3/dist-packages/tm-librarian/tests
 tests/maptrap.c			usr/lib/python3/dist-packages/tm-librarian/tests
 tests/README			usr/lib/python3/dist-packages/tm-librarian/tests
