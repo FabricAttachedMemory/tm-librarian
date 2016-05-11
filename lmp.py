@@ -16,7 +16,7 @@ from frdnode import FRDnode, FRDFAModule
 mainapp = Flask('tm_lmp', static_url_path='/static')
 mainapp.config.from_object('lmp_config')
 mainapp.config['API_VERSION'] = 1.0
-mainapp.db = None
+mainapp.cur = None
 
 
 ###########################################################################
@@ -32,8 +32,8 @@ def _response_bad(errmsg, status_code=418):
 
 @mainapp.before_request
 def check_version(*args, **kwargs):
-    if mainapp.db is None:
-        mainapp.db = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+    if mainapp.cur is None:
+        mainapp.cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
     if not requestor_wants_json(request):  # Ignore versioning for HTML
         return None
     hdr_accept = request.headers['Accept']
@@ -104,7 +104,7 @@ def show_views():
 @mainapp.route('/lmp/global/')
 def show_global():
     try:
-        cur = mainapp.db
+        cur = mainapp.cur
         cur.execute('SELECT book_size_bytes FROM globals')
         cur.iterclass = None
         b_size = cur.fetchone()[0]
@@ -206,7 +206,7 @@ def show_global():
 @mainapp.route('/lmp/nodes/')
 def show_nodes():
     try:
-        cur = mainapp.db
+        cur = mainapp.cur
         l_nodes = []
         cur.execute('SELECT * FROM FRDnodes')
         cur.iterclass = 'default'
@@ -256,7 +256,7 @@ def show_nodes():
 @mainapp.route('/lmp/interleaveGroups/')
 def show_interleaveGroups():
     try:
-        cur = mainapp.db
+        cur = mainapp.cur
         cur.execute('SELECT * FROM FAModules')
         cur.iterclass = 'default'
         mcs = [ r for r in cur ]
@@ -297,7 +297,7 @@ def show_interleaveGroups():
 @mainapp.route('/lmp/allocated/<path:coordinate>')
 def show_allocated(coordinate):
     try:
-        cur = mainapp.db
+        cur = mainapp.cur
         cur.execute('SELECT book_size_bytes FROM globals')
         cur.iterclass = None
         b_size = cur.fetchone()[0]
@@ -369,7 +369,7 @@ def show_active(coordinate):
     try:
         c_type = coordinate.split('/')[-2]
 
-        cur = mainapp.db
+        cur = mainapp.cur
 
         if c_type == 'datacenter':
             cur.execute('''
@@ -421,7 +421,7 @@ def show_active(coordinate):
 @mainapp.route('/lmp/shelf/<pathname>')
 def show_shelf(pathname=None):
     try:
-        cur = mainapp.db
+        cur = mainapp.cur
 
         # Root directory (for FRD this is the ONLY directory)
         if not pathname:
@@ -548,7 +548,7 @@ def show_shelf(pathname=None):
 @mainapp.route('/lmp/books/<interleaveGroup>')
 def show_books(interleaveGroup="all"):
     try:
-        cur = mainapp.db
+        cur = mainapp.cur
         cur.execute('SELECT book_size_bytes FROM globals')
         cur.iterclass = None
         b_size = cur.fetchone()[0]
