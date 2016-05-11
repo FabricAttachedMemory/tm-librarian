@@ -32,6 +32,8 @@ def _response_bad(errmsg, status_code=418):
 
 @mainapp.before_request
 def check_version(*args, **kwargs):
+    if mainapp.db is None:
+        mainapp.db = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
     if not requestor_wants_json(request):  # Ignore versioning for HTML
         return None
     hdr_accept = request.headers['Accept']
@@ -102,25 +104,28 @@ def show_views():
 @mainapp.route('/lmp/global/')
 def show_global():
     try:
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
+        cur.execute('SELECT book_size_bytes FROM globals')
+        cur.iterclass = None
+        b_size = cur.fetchone()[0]
         cur.execute('SELECT books_total FROM globals')
-        m_total = cur.fetchone()[0]
+        m_total = cur.fetchone()[0] * b_size
         cur.execute('''
             SELECT COUNT(*) FROM books
             WHERE allocated=?''', TMBook.ALLOC_FREE)
-        m_free = cur.fetchone()[0]
+        m_free = cur.fetchone()[0] * b_size
         cur.execute('''
             SELECT COUNT(*) FROM books
             WHERE allocated=?''', TMBook.ALLOC_INUSE)
-        m_inuse = cur.fetchone()[0]
+        m_inuse = cur.fetchone()[0] * b_size
         cur.execute('''
             SELECT COUNT(*) FROM books
             WHERE allocated=?''', TMBook.ALLOC_ZOMBIE)
-        m_zombie = cur.fetchone()[0]
+        m_zombie = cur.fetchone()[0] * b_size
         cur.execute('''
             SELECT COUNT(*) FROM books
             WHERE allocated=?''', TMBook.ALLOC_OFFLINE)
-        m_offline = cur.fetchone()[0]
+        m_offline = cur.fetchone()[0] * b_size
 
         d_memory = {
             'total': m_total,
@@ -176,8 +181,6 @@ def show_global():
             'shelves': a_shelves,
             'books': a_books }
 
-        cur.close()
-
     except Exception as e:
         return _response_bad('%s' % (e), 400)
 
@@ -203,7 +206,7 @@ def show_global():
 @mainapp.route('/lmp/nodes/')
 def show_nodes():
     try:
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
         l_nodes = []
         cur.execute('SELECT * FROM FRDnodes')
         cur.iterclass = 'default'
@@ -235,8 +238,6 @@ def show_nodes():
             d_node['mediaControllers'] = l_mcs
             l_nodes.append(d_node)
 
-        cur.close()
-
     except Exception as e:
         return _response_bad('%s' % (e), 400)
 
@@ -255,7 +256,7 @@ def show_nodes():
 @mainapp.route('/lmp/interleaveGroups/')
 def show_interleaveGroups():
     try:
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
         cur.execute('SELECT * FROM FAModules')
         cur.iterclass = 'default'
         mcs = [ r for r in cur ]
@@ -275,8 +276,6 @@ def show_interleaveGroups():
         l_ig = []
         for ig in d_ig:
             l_ig.append(d_ig[ig])
-
-        cur.close()
 
     except Exception as e:
         return _response_bad('%s' % (e), 400)
@@ -298,7 +297,10 @@ def show_interleaveGroups():
 @mainapp.route('/lmp/allocated/<path:coordinate>')
 def show_allocated(coordinate):
     try:
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
+        cur.execute('SELECT book_size_bytes FROM globals')
+        cur.iterclass = None
+        b_size = cur.fetchone()[0]
 
         # Obtain the number of MCs in each IG
         cur.execute('''SELECT * FROM FAModules''')
@@ -321,23 +323,29 @@ def show_allocated(coordinate):
         cur.iterclass = 'default'
         books = [ r for r in cur ]
         d_memory = {}
-        d_memory['total'] = float(0)
-        d_memory['allocated'] = float(0)
-        d_memory['available'] = float(0)
-        d_memory['notready'] = float(0)
-        d_memory['offline'] = float(0)
-        for b in books:
-            d_memory['total'] += 1 / d_ig_cnt[b.intlv_group]
-            if b.allocated == TMBook.ALLOC_INUSE:
-                d_memory['allocated'] += 1 / d_ig_cnt[b.intlv_group]
-            if b.allocated == TMBook.ALLOC_FREE:
-                d_memory['available'] += 1 / d_ig_cnt[b.intlv_group]
-            if b.allocated == TMBook.ALLOC_ZOMBIE:
-                d_memory['notready'] += 1 / d_ig_cnt[b.intlv_group]
-            if b.allocated == TMBook.ALLOC_OFFLINE:
-                d_memory['offline'] += 1 / d_ig_cnt[b.intlv_group]
 
-        cur.close()
+        b_total = float(0)
+        b_allocated = float(0)
+        b_available = float(0)
+        b_notready = float(0)
+        b_offline = float(0)
+
+        for b in books:
+            b_total += (b_size / d_ig_cnt[b.intlv_group])
+            if b.allocated == TMBook.ALLOC_INUSE:
+                b_allocated += (b_size / d_ig_cnt[b.intlv_group])
+            if b.allocated == TMBook.ALLOC_FREE:
+                b_available += (b_size / d_ig_cnt[b.intlv_group])
+            if b.allocated == TMBook.ALLOC_ZOMBIE:
+                b_notready += (b_size / d_ig_cnt[b.intlv_group])
+            if b.allocated == TMBook.ALLOC_OFFLINE:
+                b_offline += (b_size / d_ig_cnt[b.intlv_group])
+
+        d_memory['total'] = int(b_total)
+        d_memory['allocated'] = int(b_allocated)
+        d_memory['available'] = int(b_available)
+        d_memory['notready'] = int(b_notready)
+        d_memory['offline'] = int(b_offline)
 
         if requestor_wants_json(request):
             return jsonify(
@@ -361,16 +369,18 @@ def show_active(coordinate):
     try:
         c_type = coordinate.split('/')[-2]
 
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
 
         if c_type == 'datacenter':
             cur.execute('''
-                SELECT * FROM opened_shelves
+                SELECT DISTINCT opened_shelves.shelf_id, shelves.book_count
+                FROM opened_shelves
                 JOIN shelves ON opened_shelves.shelf_id = shelves.id
                 JOIN SOCs ON opened_shelves.node_id = SOCs.node_id''')
         elif c_type == 'soc':
             cur.execute('''
-                SELECT * FROM opened_shelves
+                SELECT DISTINCT opened_shelves.shelf_id, shelves.book_count
+                FROM opened_shelves
                 JOIN shelves ON opened_shelves.shelf_id = shelves.id
                 JOIN SOCs ON opened_shelves.node_id = SOCs.node_id
                 WHERE SOCs.coordinate = ?''', coordinate)
@@ -388,8 +398,6 @@ def show_active(coordinate):
 
         d_active['shelves'] = s_shelves
         d_active['books'] = s_books
-
-        cur.close()
 
         if requestor_wants_json(request):
             return jsonify(
@@ -413,7 +421,7 @@ def show_active(coordinate):
 @mainapp.route('/lmp/shelf/<pathname>')
 def show_shelf(pathname=None):
     try:
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
 
         # Root directory (for FRD this is the ONLY directory)
         if not pathname:
@@ -444,8 +452,6 @@ def show_shelf(pathname=None):
                 d_attr['policy'] = s_policy
 
                 l_entries.append(d_attr)
-
-            cur.close()
 
             if requestor_wants_json(request):
                 return jsonify(
@@ -506,8 +512,6 @@ def show_shelf(pathname=None):
             for b in books:
                 l_books.append(b.book_id)
 
-            cur.close()
-
             if requestor_wants_json(request):
                 return jsonify(
                     owner=s_owner,
@@ -544,7 +548,7 @@ def show_shelf(pathname=None):
 @mainapp.route('/lmp/books/<interleaveGroup>')
 def show_books(interleaveGroup="all"):
     try:
-        cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        cur = mainapp.db
         cur.execute('SELECT book_size_bytes FROM globals')
         cur.iterclass = None
         b_size = cur.fetchone()[0]
@@ -564,6 +568,11 @@ def show_books(interleaveGroup="all"):
             d_b['lza'] = b.id
             d_b['state'] = convert_book_status(b.allocated)
 
+            # Do not report shelf or offset for notready books
+            if d_b['state'] == 'notready':
+                l_books.append(d_b)
+                continue
+
             cur.execute('SELECT * FROM books_on_shelves WHERE book_id=?', b.id)
             cur.iterclass = 'default'
             bos = [ r for r in cur ]
@@ -578,8 +587,6 @@ def show_books(interleaveGroup="all"):
                     d_b['shelf'] = h.name
 
             l_books.append(d_b)
-
-        cur.close()
 
     except Exception as e:
         return _response_bad('%s' % (e), 400)
