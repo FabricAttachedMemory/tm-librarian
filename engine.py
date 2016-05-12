@@ -7,6 +7,7 @@ import errno
 import uuid
 import time
 import math
+import stat
 import sys
 import traceback
 from operator import attrgetter
@@ -200,11 +201,16 @@ class LibrarianCommandEngine(object):
         shelf.name = cmdict['newname']
         shelf.matchfields = 'name'
         shelf = self.db.modify_shelf(shelf, commit=True)
-        if shelf.name.startswith(_ZERO_PREFIX):  # zombify
+        if shelf.name.startswith(_ZERO_PREFIX):  # zombify and unblock
             bos = self.db.get_bos_by_shelf_id(shelf.id)
             while bos:
                 thisbos = bos.pop()
                 _ = self._set_book_alloc(thisbos, TMBook.ALLOC_ZOMBIE)
+            if shelf.mode & stat.S_IFBLK:
+                # Turn into normal file so zeroing tools don't choke
+                shelf.mode = stat.S_IFREG
+                shelf.matchfields = 'mode'
+                shelf = self.db.modify_shelf(shelf)
         return shelf
 
     # This is a protocol operation, not necessarily POSIX flow.  Search

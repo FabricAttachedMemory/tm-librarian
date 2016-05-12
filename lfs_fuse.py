@@ -487,7 +487,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if zeroname != shelf_name:
             self.rename(shelf.name, zeroname)
             shelf.name = zeroname
-        threading.Thread(target=self._zero, args=(shelf, )).start()
+            shelf.mode = stat.S_IFREG   # un-block it as was done on server
+        if self.verbose <= 4:
+            threading.Thread(target=self._zero, args=(shelf, )).start()
+        else:
+            set_trace()
+            self._zero(shelf)   # this will block: lfs_fuse is single-threaded
         return 0
 
     @prentry
