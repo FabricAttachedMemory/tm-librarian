@@ -666,6 +666,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.EINVAL)
         mode &= 0o777
         fh = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
+        self.setxattr(path, 'user.LFS.AllocationPolicy', 'LocalNode'.encode(), 0)
         self.truncate(path, nbooks * self.bsize, fh)
         self.release(path, fh)
         # mknod(1m) immediately does a stat looking for S_IFBLK.
