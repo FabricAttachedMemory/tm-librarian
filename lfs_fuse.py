@@ -18,7 +18,7 @@ from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_contex
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket_handling
-from frdnode import FRDnode
+from frdnode import FRDnode, FRDFAModule
 
 from lfs_shadow import the_shadow_knows
 
@@ -36,6 +36,9 @@ from lfs_shadow import the_shadow_knows
 
 def prentry(func):
     def new_func(*args, **kwargs):
+        s = args[0]
+        s.heartbeat_timer.cancel()
+        s.schedule_heartbeat()
         verbose = getattr(args[0], 'verbose', 0)
         if verbose > 1:
             print('----------------------------------')
@@ -108,6 +111,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
+        self.librarian(self.lcp('update_node_soc_status',
+            status=FRDnode.SOC_STATUS_ACTIVE))
+        self.librarian(self.lcp('update_node_mc_status',
+            status=FRDFAModule.MC_STATUS_ACTIVE))
+        self.send_heartbeat()
+
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
     # be ignored, so if there's potentially fatal stuff, do it in __init__()
@@ -121,6 +130,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
+        self.heartbeat_timer.cancel()
+        self.librarian(self.lcp('update_node_soc_status',
+            status=FRDnode.SOC_STATUS_OFFLINE))
+        self.librarian(self.lcp('update_node_mc_status',
+            status=FRDFAModule.MC_STATUS_OFFLINE))
         assert threading.current_thread() is threading.main_thread()
         self.torms.close()
         del self.torms
@@ -221,6 +235,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise OSError(errno.ERANGE, 'Bad response format')
 
         return value  # None is legal, let the caller deal with it.
+
+    def send_heartbeat(self):
+        self.librarian(self.lcp('update_node_soc_heartbeat'))
+        self.schedule_heartbeat()
+
+    def schedule_heartbeat(self):
+        self.heartbeat_timer = threading.Timer(
+            FRDnode.SOC_HEARTBEAT_FREQ, self.send_heartbeat)
+        self.heartbeat_timer.setDaemon(True)
+        self.heartbeat_timer.start()
 
     # Higher-level FS operations
 
