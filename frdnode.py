@@ -137,7 +137,7 @@ class FRDnode(FRDnodeID):
 
     SOC_STATUS_OFFLINE = 0
     SOC_STATUS_ACTIVE = 1
-    SOC_HEARTBEAT_FREQ = 300.0
+    SOC_HEARTBEAT_SECS = 300.0
 
     def __init__(self, node, enc=None, module_size_books=0,
                  autoMCs=True):

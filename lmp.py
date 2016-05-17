@@ -138,7 +138,7 @@ def show_global():
         cur.execute('SELECT COUNT(*) FROM FRDnodes')
         s_total = cur.fetchone()[0]
 
-        ts = int(time.time()) - FRDnode.SOC_HEARTBEAT_FREQ
+        ts = int(time.time() - FRDnode.SOC_HEARTBEAT_SECS)
 
         cur.execute('''
             SELECT COUNT(*) FROM SOCs

@@ -36,9 +36,9 @@ from lfs_shadow import the_shadow_knows
 
 def prentry(func):
     def new_func(*args, **kwargs):
-        s = args[0]
-        s.heartbeat_timer.cancel()
-        s.schedule_heartbeat()
+        self = args[0]
+        self.heartbeat_timer.cancel()
+        self.schedule_heartbeat()
         verbose = getattr(args[0], 'verbose', 0)
         if verbose > 1:
             print('----------------------------------')
@@ -242,7 +242,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def schedule_heartbeat(self):
         self.heartbeat_timer = threading.Timer(
-            FRDnode.SOC_HEARTBEAT_FREQ, self.send_heartbeat)
+            FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
         self.heartbeat_timer.setDaemon(True)
         self.heartbeat_timer.start()
 
