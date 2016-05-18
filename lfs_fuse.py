@@ -38,7 +38,6 @@ def prentry(func):
     def new_func(*args, **kwargs):
         self = args[0]
         self.heartbeat_timer.cancel()
-        self.schedule_heartbeat()
         verbose = getattr(args[0], 'verbose', 0)
         if verbose > 1:
             print('----------------------------------')
@@ -50,6 +49,7 @@ def prentry(func):
             print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
             if verbose > 4:
                 set_trace()
+        self.schedule_heartbeat()
         return ret
 
     # Be a well-behaved decorator
