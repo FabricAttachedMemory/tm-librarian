@@ -184,17 +184,16 @@ class LibrarianDBackendSQL(object):
         self.modify_shelf(shelf, commit=commit)
 
     def modify_node_soc_status(self, node_id, status):
-        self._cur.UPDATE(
-            'SOCs',
-            'status=? WHERE node_id=?',
-            (status, node_id))
-        self._cur.commit()
-
-    def modify_node_soc_heartbeat(self, node_id):
-        self._cur.UPDATE(
-            'SOCs',
-            'heartbeat=? WHERE node_id=?',
-            (int(time.time()), node_id))
+        if status is None:
+            self._cur.UPDATE(
+                'SOCs',
+                'heartbeat=? WHERE node_id=?',
+                (int(time.time()), node_id))
+        else:
+            self._cur.UPDATE(
+                'SOCs',
+                'status=?, heartbeat=? WHERE node_id=?',
+                (status, int(time.time()), node_id))
         self._cur.commit()
 
     def modify_node_mc_status(self, node_id, status):

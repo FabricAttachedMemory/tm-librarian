@@ -22,6 +22,20 @@ from frdnode import FRDnode, FRDFAModule
 
 from lfs_shadow import the_shadow_knows
 
+class Heartbeat:
+    def __init__(self, t_self):
+        self.t_self = t_self
+
+    def schedule(self):
+        self.heartbeat_timer = threading.Timer(
+            FRDnode.SOC_HEARTBEAT_SECS, self.t_self.send_heartbeat)
+        self.heartbeat_timer.setDaemon(True)
+        self.heartbeat_timer.start()
+
+    def unschedule(self):
+        self.heartbeat_timer.cancel()
+
+
 ###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
 # 0=ERROR, 1=PERF, 2=NOTICE, 3=INFO, 4=DEBUG, 5=OOB)',
@@ -37,7 +51,7 @@ from lfs_shadow import the_shadow_knows
 def prentry(func):
     def new_func(*args, **kwargs):
         self = args[0]
-        self.heartbeat_timer.cancel()
+        self.heartbeat.unschedule()
         verbose = getattr(args[0], 'verbose', 0)
         if verbose > 1:
             print('----------------------------------')
@@ -49,7 +63,7 @@ def prentry(func):
             print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
             if verbose > 4:
                 set_trace()
-        self.schedule_heartbeat()
+        self.heartbeat.schedule()
         return ret
 
     # Be a well-behaved decorator
@@ -111,11 +125,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
+        self.heartbeat = Heartbeat(self)
+        self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
         self.librarian(self.lcp('update_node_soc_status',
             status=FRDnode.SOC_STATUS_ACTIVE))
         self.librarian(self.lcp('update_node_mc_status',
             status=FRDFAModule.MC_STATUS_ACTIVE))
-        self.send_heartbeat()
+        self.heartbeat.schedule()
 
     # started with "mount" operation.  root is usually ('/', ) probably
     # influenced by FuSE builtin option.  All errors here will essentially
@@ -130,7 +146,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
-        self.heartbeat_timer.cancel()
+        self.heartbeat.unschedule()
+        self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
             status=FRDnode.SOC_STATUS_OFFLINE))
         self.librarian(self.lcp('update_node_mc_status',
@@ -237,14 +254,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return value  # None is legal, let the caller deal with it.
 
     def send_heartbeat(self):
-        self.librarian(self.lcp('update_node_soc_heartbeat'))
-        self.schedule_heartbeat()
-
-    def schedule_heartbeat(self):
-        self.heartbeat_timer = threading.Timer(
-            FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
-        self.heartbeat_timer.setDaemon(True)
-        self.heartbeat_timer.start()
+        self.librarian(self.lcp('update_node_soc_status',
+            status=self.lfs_status))
+        self.heartbeat.schedule()
 
     # Higher-level FS operations
 
