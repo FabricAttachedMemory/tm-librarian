@@ -343,10 +343,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         shelf_name = self.path2shelf(path)
 
-        # Piggy back for queries by kernel (globals & fault handling)
+        # Piggy back for queries by kernel (globals & fault handling).
         if xattr.startswith('_obtain_'):
             data = self.shadow.getxattr(shelf_name, xattr)
-            return bytes(data.encode())
+            try:
+                return bytes(data.encode())
+            except AttributeError as e:     # probably the "encode()"
+                return bytes(data)
 
         # "ls" starts with simple getattr but then comes here for
         # security.selinux, system.posix_acl_access, and posix_acl_default.
