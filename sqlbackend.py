@@ -183,6 +183,30 @@ class LibrarianDBackendSQL(object):
         shelf.matchfields = ()    # time only
         self.modify_shelf(shelf, commit=commit)
 
+    def modify_node_soc_status(self, node_id, status):
+        if status is None:
+            self._cur.UPDATE(
+                'SOCs',
+                'heartbeat=? WHERE node_id=?',
+                (int(time.time()), node_id))
+        else:
+            self._cur.UPDATE(
+                'SOCs',
+                'status=?, heartbeat=? WHERE node_id=?',
+                (status, int(time.time()), node_id))
+        self._cur.commit()
+
+    def modify_node_mc_status(self, node_id, status):
+        self._cur.execute('SELECT * FROM FAModules WHERE node_id=?', (node_id,))
+        self._cur.iterclass = 'default'
+        MCs = [ r for r in self._cur ]
+        for m in MCs:
+            self._cur.UPDATE(
+                'FAModules',
+                'status=? WHERE rawCID=?',
+                (status, m.rawCID))
+        self._cur.commit()
+
     #
     # DB books
     #

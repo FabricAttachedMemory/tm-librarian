@@ -6,6 +6,7 @@
 import os
 import sys
 import json
+import time
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from flask import Flask, render_template, jsonify, request, g
 
@@ -136,10 +137,21 @@ def show_global():
 
         cur.execute('SELECT COUNT(*) FROM FRDnodes')
         s_total = cur.fetchone()[0]
+
+        ts = int(time.time() - FRDnode.SOC_HEARTBEAT_SECS)
+
         cur.execute('''
             SELECT COUNT(*) FROM SOCs
-            WHERE status=?''', FRDnode.SOC_STATUS_ACTIVE)
+            WHERE status=? and heartbeat>=?''',
+            (FRDnode.SOC_STATUS_ACTIVE, ts))
         s_active = cur.fetchone()[0]
+
+        cur.execute('''
+            SELECT COUNT(*) FROM SOCs
+            WHERE status=? AND heartbeat<?''',
+            (FRDnode.SOC_STATUS_ACTIVE, ts))
+        s_indeterminate = cur.fetchone()[0]
+
         cur.execute('''
             SELECT COUNT(*) FROM SOCs
             WHERE status=?''', FRDnode.SOC_STATUS_OFFLINE)
@@ -148,7 +160,8 @@ def show_global():
         d_socs = {
             'total': s_total,
             'active': s_active,
-            'offline': s_offline }
+            'offline': s_offline,
+            'indeterminate': s_indeterminate }
 
         cur.execute('SELECT COUNT(*) FROM FAModules')
         p_total = cur.fetchone()[0]

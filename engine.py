@@ -448,6 +448,12 @@ class LibrarianCommandEngine(object):
     def cmd_get_book_info_all(self, cmdict):
         return self.db.get_book_info_all(cmdict['intlv_group'])
 
+    def cmd_update_node_soc_status(self, cmdict):
+        self.db.modify_node_soc_status(cmdict['context']['node_id'], cmdict['status'])
+
+    def cmd_update_node_mc_status(self, cmdict):
+        self.db.modify_node_mc_status(cmdict['context']['node_id'], cmdict['status'])
+
     #######################################################################
 
     _commands = None
@@ -512,6 +518,7 @@ class LibrarianCommandEngine(object):
             self.errno = 0
             context = cmdict['context']
             command = self._commands[cmdict['command']]
+            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
         except KeyError as e:
             # This comment might go better in the module that imports json.
             # From StackOverflow: NULL is not zero. It's not a value, per se:

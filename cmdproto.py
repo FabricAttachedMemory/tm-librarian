@@ -97,6 +97,14 @@ class LibrarianCommandProtocol(object):
             doc='get all books in database sorted by LZA',
             parms=None,
         ),
+        'update_node_soc_status': GO(
+            doc='update the status and heartbeat of an SOC on a given node',
+            parms=('status',),
+        ),
+        'update_node_mc_status': GO(
+            doc='update the status for each media controller on a given node',
+            parms=('status',),
+        ),
 
         # repl_client and demos only
 

@@ -249,8 +249,8 @@ def load_book_data_ini(inifile):
             (node.node_id, node.rack, node.enc, node.node, 'None', 'None'))
 
         cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?)',
-            (node.node_id, 'None', FRDnode.SOC_STATUS_ACTIVE, 'None', 'None'))
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+            (node.node_id, 'None', FRDnode.SOC_STATUS_OFFLINE, 'None', 'None', 0))
 
     cur.commit()
 
@@ -264,7 +264,7 @@ def load_book_data_ini(inifile):
             cur.execute(
                 'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
                 (mc.node_id, ig.num, mc.module_size_books, mc.value,
-                FRDFAModule.MC_STATUS_ACTIVE, 'None', (mc.module_size_books * book_size_bytes)))
+                FRDFAModule.MC_STATUS_OFFLINE, 'None', (mc.module_size_books * book_size_bytes)))
     cur.commit()
 
     # Books are allocated behind IGs, not nodes. An LZA is a set of bit
@@ -352,9 +352,9 @@ def load_book_data_json(jsonfile):
                     (node.node_id, node.rack, node.enc, node.node, node.coordinate, node.serialNumber))
 
                 cur.execute(
-                    'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?)',
-                    (node.node_id, node.soc.macAddress, FRDnode.SOC_STATUS_ACTIVE,
-                    node.soc.coordinate, node.soc.tlsPublicCertificate))
+                    'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+                    (node.node_id, node.soc.macAddress, FRDnode.SOC_STATUS_OFFLINE,
+                    node.soc.coordinate, node.soc.tlsPublicCertificate, 0))
 
     cur.commit()
 
@@ -372,7 +372,7 @@ def load_book_data_json(jsonfile):
                 cur.execute(
                     'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
                     (item.node_id, ig.groupId, module_size_books, item.rawCID,
-                    FRDFAModule.MC_STATUS_ACTIVE, item.coordinate, mem_size))
+                    FRDFAModule.MC_STATUS_OFFLINE, item.coordinate, mem_size))
     cur.commit()
 
     # Books are allocated behind IGs, not nodes. An LZA is a set of bit
@@ -442,7 +442,8 @@ def create_empty_db(cur):
             MAC TEXT,
             status INT,
             coordinate TEXT,
-            tlsPublicCertificate TEXT
+            tlsPublicCertificate TEXT,
+            heartbeat INT
             )
             """
         cur.execute(table_create)
