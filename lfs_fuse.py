@@ -23,12 +23,15 @@ from frdnode import FRDnode, FRDFAModule
 from lfs_shadow import the_shadow_knows
 
 class Heartbeat:
-    def __init__(self, t_self):
-        self.t_self = t_self
+    def __init__(self, timeout_seconds, callback):
+        self._timeout_seconds = timeout_seconds
+        self._callback = callback
 
-    def schedule(self):
+    def schedule(self, seconds_this_time=None):
+        if seconds_this_time is None:
+            seconds_this_time = self._timeout_seconds
         self.heartbeat_timer = threading.Timer(
-            FRDnode.SOC_HEARTBEAT_SECS, self.t_self.send_heartbeat)
+            seconds_this_time, self._callback)
         self.heartbeat_timer.setDaemon(True)
         self.heartbeat_timer.start()
 
@@ -63,7 +66,8 @@ def prentry(func):
             print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
             if verbose > 4:
                 set_trace()
-        self.heartbeat.schedule()
+        if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
+            self.heartbeat.schedule()
         return ret
 
     # Be a well-behaved decorator
@@ -125,7 +129,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
-        self.heartbeat = Heartbeat(self)
+        self.heartbeat = Heartbeat(FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
         self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
         self.librarian(self.lcp('update_node_soc_status',
             status=FRDnode.SOC_STATUS_ACTIVE))
@@ -146,7 +150,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
-        self.heartbeat.unschedule()
         self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
             status=FRDnode.SOC_STATUS_OFFLINE))
