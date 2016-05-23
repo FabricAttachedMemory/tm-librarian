@@ -5,6 +5,8 @@ Maintainer: Greg Pearson <greg.pearson@hpe.com>
 XS-Requester: l4tm@groups.int.hpe.com
 Origin: HPE
 XS-Source-Origin: native
+Vcs-Browser: https://github.hpe.com/hpelinux/tm-librarian
+Vcs-Git: https://github.hpe.com/hpelinux/tm-librarian.git
 Build-Depends: debhelper (>= 9), dh-python, python3 (>= 3.2)
 Standards-Version: 3.9.6
 X-Python3-Version: >= 3.2
