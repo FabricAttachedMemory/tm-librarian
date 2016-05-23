@@ -505,10 +505,11 @@ class LibrarianCommandEngine(object):
                  for (name, func) in self.__class__.__dict__.items() if
                  name.startswith('cmd_')])
             self._cooked = cooked  # return style: raw = dict, cooked = obj
-        except Exception as e:      # don't raise a raise
-            innerE = e
+        except Exception as e:      # raising here is not clean
+            innerE = '%s line %d: %s' % (
+                __file__, sys.exc_info()[2].tb_lineno, str(e))
         if innerE is not None:
-            raise RuntimeError('FATAL INITIALIZATION ERROR: %s' % str(innerE))
+            raise RuntimeError('INITIALIZATION ERROR: %s' % str(innerE))
 
     def __call__(self, cmdict):
         '''Discern the command routine from the command name and call it.'''

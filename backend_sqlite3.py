@@ -1,7 +1,8 @@
 #!/usr/bin/python3 -tt
-###########################################################################
-# Some of this might elevate nicely to SQLassist.  The primmary concern
-# is cursor.rowcount, which doesn't seemt to be valid after SELECT.
+
+# Two convenience modules are exported: lower and higher levels of abstraction.
+# Some of this (INSERT, UPDATE, DELETE) might be better in sqlassist.
+# In SQLite3, cursor.rowcount doesn't seem to be valid after SELECT.
 
 from pdb import set_trace
 
@@ -12,9 +13,14 @@ from sqlbackend import LibrarianDBackendSQL
 
 
 class SQLite3assist(SQLassist):
+    '''Defines a cursor class based on SQLite and helpers from sqlassist.
+       This is a "lower-level" module.'''
 
     _SQLshowtables = 'SELECT name FROM main.sqlite_master WHERE type="table";'
     _SQLshowschema = 'PRAGMA table_info({});'
+
+    # Crossover data so all "base" classes have it.
+    SCHEMA_VERSION = LibrarianDBackendSQL.SCHEMA_VERSION
 
     def DBconnect(self):
         self._conn = sqlite3.connect(self.db_file,

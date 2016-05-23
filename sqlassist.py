@@ -1,4 +1,5 @@
 #!/usr/bin/python3 -tt
+'''The base class for all SQL RDBMS'''
 
 import os
 import sys
@@ -12,6 +13,7 @@ from genericobj import GenericObject
 
 
 class Schema(object):
+    '''Exposes a schema'''
 
     def __init__(self, cursor, table, SQLschema):
         """Return an object with orderedFields and conversion functions.

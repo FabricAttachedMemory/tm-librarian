@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -tt
 
 #---------------------------------------------------------------------------
-# Librarian database interface module for SQL backends.  Originally
+# Librarian database interface definition for SQL backends.  Originally
 # written against SQLite but it's so generic it's probably okay
 # for MariaDB.  I'm not sure about Postgres but it could be close.
 #---------------------------------------------------------------------------
@@ -19,6 +19,8 @@ from frdnode import FRDnode, FRDFAModule, FRDintlv_group
 
 
 class LibrarianDBackendSQL(object):
+
+    SCHEMA_VERSION = 'LIBRARIAN 0.995'
 
     @staticmethod
     def argparse_extend(parser):
@@ -39,14 +41,21 @@ class LibrarianDBackendSQL(object):
         try:
             if only == 'version':
                 self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
-                return self._cur.fetchone()[0]
+                tmp = self._cur.fetchone()[0]
+                assert tmp == self.SCHEMA_VERSION, 'DB schema mismatch'
+                return tmp
             self._cur.execute('SELECT * FROM globals LIMIT 1')
+            # rowcount not valid after select in SQLite3
+            self._cur.iterclass = 'default'
+            r = iter(self._cur).__next__()
+            assert r.schema_version == self.SCHEMA_VERSION, 'DB schema mismatch'
+        except StopIteration:
+            raise RuntimeError(
+                '%s is corrupt (missing "globals")' %
+            self._cur.db_file)
         except Exception as e:
             raise RuntimeError(str(e))
 
-        self._cur.iterclass = 'default'
-        for r in self._cur:
-            pass
         self._cur.execute('SELECT COUNT() FROM books WHERE allocated > 0')
         r.books_used = self._cur.fetchone()[0]
         if r.books_used is None:    # empty DB
