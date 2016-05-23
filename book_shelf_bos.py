@@ -29,7 +29,7 @@ class BookShelfStuff(object):      # could become a mixin
             args = None
         if args:
             assert len(args) == len(
-                self._ordered_schema), _msg('bad arg count')
+                self._ordered_schema), self._msg('bad arg count')
             submitted = dict(zip(self._ordered_schema, args))
             missing = {}
         else:
