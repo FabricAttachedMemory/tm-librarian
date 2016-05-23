@@ -233,7 +233,7 @@ def load_book_data_ini(inifile):
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
     cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
-                'LIBRARIAN 0.985',
+                SQLite3assist.SCHEMA_VERSION,
                 book_size_bytes,
                 nvm_bytes_total,
                 books_total,
@@ -334,7 +334,7 @@ def load_book_data_json(jsonfile):
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
     cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
-                'LIBRARIAN 0.985',
+                SQLite3assist.SCHEMA_VERSION,
                 book_size_bytes,
                 nvm_bytes_total,
                 books_total,
