@@ -23,7 +23,7 @@ class BookShelfStuff(object):      # could become a mixin
     def __init__(self, *args, **kwargs):
         if not self._sorted:
             self.__class__._sorted = tuple(sorted(self._ordered_schema))
-        assert not (args and kwargs), _msg('full tuple or kwargs, not both')
+        assert not (args and kwargs), self._msg('full tuple or kwargs, not both')
         if args and isinstance(args[0], dict):
             kwargs = args[0]
             args = None
