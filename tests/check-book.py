@@ -149,7 +149,7 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
 if __name__ == '__main__':
 
-    BOOK_SIZE=(1024*1024*1024*8)  # 8GB
+    BOOK_SIZE='8G'  # 8GB
     BOOK_MAX=512
     BOOK_START=1
     LENGTH=128
