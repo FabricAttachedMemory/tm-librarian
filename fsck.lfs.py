@@ -192,7 +192,7 @@ if __name__ == '__main__':
         # Using this instead of SQLite3assist gets higher level ops
         db = LibrarianDBackendSQLite3(Namespace(db_file=sys.argv[1]))
     except Exception as e:
-        raise SystemExit('Please supply a valid DB file name')
+        raise SystemExit(str(e))
 
     capacity(db)
 

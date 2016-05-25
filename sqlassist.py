@@ -69,7 +69,7 @@ class SQLassist(object):
         'getSchemas':       False,
         'user':             None,
         'passwd':           None,
-        'raiseOnExecFail':  False,
+        'raiseOnExecFail':  True,
     }
 
     def DBconnect(self, *args):

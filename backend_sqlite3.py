@@ -34,6 +34,7 @@ class SQLite3assist(SQLassist):
         if 'db_file' not in kwargs:
             kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
+        self.DBname = kwargs['db_file']
 
     def schema(self, table):
         self.execute(self._SQLshowschema.format(table))
@@ -148,7 +149,16 @@ class LibrarianDBackendSQLite3(LibrarianDBackendSQL):
             required=True)
 
     def __init__(self, args):
-        self._cur = SQLite3assist(db_file=args.db_file)
+        try:
+            self._cur = SQLite3assist(db_file=args.db_file)
+            self._cur.execute('SELECT schema_version FROM globals')
+            tmp = self._cur.fetchone()
+        except Exception as e:
+            raise RuntimeError('DB "%s": %s' % (self._cur.DBname, str(e)))
+        assert tmp is not None and isinstance(tmp, tuple) and tmp, \
+            '"%s" is not a valid Librarian database' % self._cur.DBname
+        assert tmp[0] == self._cur.SCHEMA_VERSION, \
+            'Schema version mismatch in DB "%s"' % self._cur.DBname
 
 ###########################################################################
 
