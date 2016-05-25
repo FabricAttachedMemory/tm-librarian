@@ -8,18 +8,19 @@ import argparse
 
 def rw_mm(m, cur_offset, length, verbose):
 
+    failures = 0
     obuf_rand = os.urandom(length)
 
     m.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = m.read(length)
-    if (verbose > 0):
+    if (verbose > 1):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     m.seek(cur_offset)
     m.write(obuf_rand)
     m.flush()
-    if (verbose > 0):
+    if (verbose > 1):
         print("write: cur_offset = %d (0x%x), size = %d" %
             (cur_offset, cur_offset, len(obuf_rand)))
         print("write: %s" % (binascii.hexlify(obuf_rand)))
@@ -27,29 +28,34 @@ def rw_mm(m, cur_offset, length, verbose):
     m.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = m.read(length)
-    if (verbose > 0):
+    if (verbose > 1):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
-        if (verbose > 0):
+        if (verbose > 1):
             print("verify passed")
     else:
-        print("verify failed")
+        failures += 1
+        if (verbose > 0):
+            print("verify failed")
+
+    return failures
 
 def rw_fs(f, cur_offset, length, verbose):
 
+    failures = 0
     obuf_rand = os.urandom(length)
 
     f.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = f.read(length)
-    if (verbose > 0):
+    if (verbose > 1):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     f.seek(cur_offset)
     f.write(obuf_rand)
     f.flush()
-    if (verbose > 0):
+    if (verbose > 1):
         print("write: cur_offset = %d (0x%x), size = %d" %
             (cur_offset, cur_offset, len(obuf_rand)))
         print("write: %s" % (binascii.hexlify(obuf_rand)))
@@ -57,19 +63,24 @@ def rw_fs(f, cur_offset, length, verbose):
     f.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = f.read(length)
-    if (verbose > 0):
+    if (verbose > 1):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
-        if (verbose > 0):
+        if (verbose > 1):
             print("verify passed")
     else:
-        print("verify failed")
+        failures += 1
+        if (verbose > 0):
+            print("verify failed")
+
+    return failures
 
 def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
     book_start, chunk_size, chunk_cnt, access_type, max_iter,
     trans_type, mmap_offset, mmap_length):
 
+    total_failures = 0
     offset = ((book_start - 1) * book_size)
     book_num = book_start
     book_end = book_start + book_max
@@ -91,7 +102,8 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
     if trans_type == 'mm':
         m = mmap.mmap(f.fileno(), length=mmap_length, offset=mmap_offset)
-        print("mmap offset = %d, length = %d" % (mmap_offset, mmap_length))
+        if (verbose > 1):
+            print("mmap offset = %d, length = %d" % (mmap_offset, mmap_length))
 
     while cur_iter <= max_iter:
 
@@ -110,13 +122,16 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
                 cur_offset = offset + book_offset
 
-                print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
-                    (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, length))
+                if (verbose > 0):
+                    print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
+                        (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, length))
 
                 if trans_type == 'mm':
-                    rw_mm(m, cur_offset, length, verbose)
+                    failures = rw_mm(m, cur_offset, length, verbose)
                 else: # trans_type == 'fs'
-                    rw_fs(f, cur_offset, length, verbose)
+                    failures = rw_fs(f, cur_offset, length, verbose)
+
+                total_failures += failures
 
             book_num += 1
             offset += book_size
@@ -129,6 +144,8 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
         m.close()
 
     f.close()
+
+    return total_failures
 
 if __name__ == '__main__':
 
@@ -143,6 +160,7 @@ if __name__ == '__main__':
     MAX_ITER=1
     MMAP_OFFSET=0
     MMAP_LENGTH=0
+    VERBOSE=0
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -152,9 +170,11 @@ if __name__ == '__main__':
         help='shelf/file to read/write/read/verify')
     parser.add_argument(
         '-v',
-        action='store_true',
+        action='store',
         dest='verbose',
-        help='verbose output')
+        default=VERBOSE,
+        type=int,
+        help='verbosity control (0 = no output, 1 = basic status, 2 = everything)')
     parser.add_argument(
         '-d',
         action='store_true',
@@ -186,8 +206,7 @@ if __name__ == '__main__':
         action='store',
         dest='book_size',
         default=BOOK_SIZE,
-        type=int,
-        help='number of bytes in a book')
+        help='number of bytes in a book (K, M, G suffixes supported)')
     parser.add_argument(
         '-z',
         action='store',
@@ -242,10 +261,10 @@ if __name__ == '__main__':
 
     if (args.debug):
         print("args.shelf_name  = %s" % args.shelf_name)
-        print("args.verbose     = %s" % args.verbose)
+        print("args.verbose     = %d" % args.verbose)
         print("args.book_max    = %d" % args.book_max)
         print("args.length      = %d" % args.length)
-        print("args.book_size   = %d" % args.book_size)
+        print("args.book_size   = %s" % args.book_size)
         print("args.book_start  = %d" % args.book_start)
         print("args.chunk_size  = %d" % args.chunk_size)
         print("args.chunk_cnt   = %d" % args.chunk_cnt)
@@ -259,35 +278,57 @@ if __name__ == '__main__':
         st = os.stat(args.shelf_name)
     except IOError:
         print("Cannot open: %s" % args.shelf_name)
-        sys.exit(0)
+        sys.exit(1)
 
-    if ((st.st_size // args.book_size) == 0):
+    if (args.book_size.endswith(('k', 'K', 'm', 'M', 'g', 'G'))):
+        suffix = args.book_size[-1].upper()
+        try:
+            rsize = int(args.book_size[:-1])
+        except ValueError:
+            print('Illegal book_size value "%s"' % args.book_size[:-1])
+            sys.exit(1)
+
+        if suffix == 'K':
+            book_size = int(rsize * 1024)
+        elif suffix == 'M':
+            book_size = int(rsize * 1024 * 1024)
+        elif suffix == 'G':
+            book_size = int(rsize * 1024 * 1024 * 1024)
+    else:
+        try:
+            book_size = int(args.book_size)
+        except ValueError:
+            print("Illegal book_size: %s" % args.book_size)
+            sys.exit(1)
+
+    if ((st.st_size // book_size) == 0):
         total_books = 1
     else:
-        total_books = (st.st_size // args.book_size)
+        total_books = (st.st_size // book_size)
 
     if (args.mmap_offset > st.st_size):
         print("offset (%d) is greater than file size (%d)" % (args.mmap_offset, st.st_size))
-        sys.exit(0)
+        sys.exit(1)
 
     if (args.mmap_length > st.st_size):
         print("length (%d) is greater than file size (%d)" % (args.mmap_length, st.st_size))
-        sys.exit(0)
+        sys.exit(1)
 
     if ((args.mmap_offset + args.mmap_length) > st.st_size):
         print("offset+length (%d) is greater than file size (%d)" %
             ((args.mmap_length+args.mmap_offset), st.st_size))
-        sys.exit(0)
+        sys.exit(1)
 
     if (args.mmap_length == 0):
         mmap_length = st.st_size - args.mmap_offset
     else:
         mmap_length = args.mmap_length
 
-    print("shelf = %s, size = %d bytes / %d book(s)" %
-        (args.shelf_name, st.st_size, total_books))
+    if (args.verbose > 1):
+        print("shelf = %s, size = %d bytes / %d book(s)" %
+            (args.shelf_name, st.st_size, total_books))
 
-    if (args.verbose > 0):
+    if (args.verbose > 1):
         print("  st_mode     : 0x%x" % st.st_mode)
         print("  st_ino      : 0x%x" % st.st_ino)
         print("  st_dev      : 0x%x" % st.st_dev)
@@ -302,9 +343,15 @@ if __name__ == '__main__':
         print("  st_mtime_ns : 0x%x" % st.st_mtime_ns)
         print("  st_ctime_ns : 0x%x" % st.st_ctime_ns)
 
-    rw_books( args.shelf_name, args.verbose, args.debug, args.book_max,
-        args.length, args.book_size, args.book_start, args.chunk_size,
+    total_failures = rw_books( args.shelf_name, args.verbose, args.debug,
+        args.book_max, args.length, book_size, args.book_start, args.chunk_size,
         args.chunk_cnt, args.access_type, args.max_iter, args.trans_type,
         args.mmap_offset, mmap_length)
 
-    sys.exit(0)
+    if (args.verbose > 0):
+        print("total_failures = %d" % total_failures)
+
+    if (total_failures == 0):
+        sys.exit(0)
+    else:
+        sys.exit(1)
