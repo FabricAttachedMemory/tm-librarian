@@ -14,13 +14,13 @@ def rw_mm(m, cur_offset, length, verbose):
     m.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = m.read(length)
-    if (verbose > 1):
+    if (verbose > 2):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     m.seek(cur_offset)
     m.write(obuf_rand)
     m.flush()
-    if (verbose > 1):
+    if (verbose > 2):
         print("write: cur_offset = %d (0x%x), size = %d" %
             (cur_offset, cur_offset, len(obuf_rand)))
         print("write: %s" % (binascii.hexlify(obuf_rand)))
@@ -28,15 +28,15 @@ def rw_mm(m, cur_offset, length, verbose):
     m.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = m.read(length)
-    if (verbose > 1):
+    if (verbose > 2):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
-        if (verbose > 1):
+        if (verbose > 2):
             print("verify passed")
     else:
         failures += 1
-        if (verbose > 0):
+        if (verbose > 1):
             print("verify failed")
 
     return failures
@@ -49,13 +49,13 @@ def rw_fs(f, cur_offset, length, verbose):
     f.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = f.read(length)
-    if (verbose > 1):
+    if (verbose > 2):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     f.seek(cur_offset)
     f.write(obuf_rand)
     f.flush()
-    if (verbose > 1):
+    if (verbose > 2):
         print("write: cur_offset = %d (0x%x), size = %d" %
             (cur_offset, cur_offset, len(obuf_rand)))
         print("write: %s" % (binascii.hexlify(obuf_rand)))
@@ -63,15 +63,15 @@ def rw_fs(f, cur_offset, length, verbose):
     f.seek(cur_offset)
     ibuf = b"\x00" * length
     ibuf = f.read(length)
-    if (verbose > 1):
+    if (verbose > 2):
         print("read: %s" % (binascii.hexlify(ibuf)))
 
     if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
-        if (verbose > 1):
+        if (verbose > 2):
             print("verify passed")
     else:
         failures += 1
-        if (verbose > 0):
+        if (verbose > 1):
             print("verify failed")
 
     return failures
@@ -102,7 +102,7 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
     if trans_type == 'mm':
         m = mmap.mmap(f.fileno(), length=mmap_length, offset=mmap_offset)
-        if (verbose > 1):
+        if (verbose > 2):
             print("mmap offset = %d, length = %d" % (mmap_offset, mmap_length))
 
     while cur_iter <= max_iter:
@@ -122,7 +122,7 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
                 cur_offset = offset + book_offset
 
-                if (verbose > 0):
+                if (verbose > 1):
                     print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
                         (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, length))
 
@@ -138,6 +138,13 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
         book_num = book_start
         offset = ((book_start - 1) * book_size)
+
+        if verbose > 0 and max_iter > 1:
+            print("Iteration %d of %d complete," % (cur_iter, max_iter), end="")
+            if failures:
+                print(" %d failures", (failures))
+            else:
+                print(" passed")
         cur_iter += 1
 
     if trans_type == 'mm':
@@ -149,7 +156,7 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
 if __name__ == '__main__':
 
-    BOOK_SIZE=(1024*1024*1024*8)  # 8GB
+    BOOK_SIZE='8G'  # 8GB
     BOOK_MAX=512
     BOOK_START=1
     LENGTH=128
@@ -160,7 +167,7 @@ if __name__ == '__main__':
     MAX_ITER=1
     MMAP_OFFSET=0
     MMAP_LENGTH=0
-    VERBOSE=0
+    VERBOSE=1
 
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -174,7 +181,7 @@ if __name__ == '__main__':
         dest='verbose',
         default=VERBOSE,
         type=int,
-        help='verbosity control (0 = no output, 1 = basic status, 2 = everything)')
+        help='verbosity control (0 = none, 3 = max)')
     parser.add_argument(
         '-d',
         action='store_true',
@@ -324,11 +331,11 @@ if __name__ == '__main__':
     else:
         mmap_length = args.mmap_length
 
-    if (args.verbose > 1):
+    if (args.verbose > 2):
         print("shelf = %s, size = %d bytes / %d book(s)" %
             (args.shelf_name, st.st_size, total_books))
 
-    if (args.verbose > 1):
+    if (args.verbose > 2):
         print("  st_mode     : 0x%x" % st.st_mode)
         print("  st_ino      : 0x%x" % st.st_ino)
         print("  st_dev      : 0x%x" % st.st_dev)
@@ -348,10 +355,14 @@ if __name__ == '__main__':
         args.chunk_cnt, args.access_type, args.max_iter, args.trans_type,
         args.mmap_offset, mmap_length)
 
-    if (args.verbose > 0):
-        print("total_failures = %d" % total_failures)
 
+    if (args.verbose > 0):
+        print("check-book test complete,", end="")
     if (total_failures == 0):
+        if (args.verbose > 0):
+            print(" all tests passed")
         sys.exit(0)
     else:
+        if (args.verbose > 0):
+            print(" total failures = %d" % total_failures)
         sys.exit(1)
