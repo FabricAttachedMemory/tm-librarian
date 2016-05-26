@@ -5,6 +5,7 @@
    of input parameter conventions.'''
 
 import sys
+import threading
 from collections import OrderedDict
 from pdb import set_trace
 from pprint import pprint
@@ -133,6 +134,7 @@ class LibrarianCommandProtocol(object):
     def __init__(self, context):
         self._context = context
         self._context['seq'] = 0
+        self._seq_lock = threading.Lock()
 
     def __call__(self, command, *args, **kwargs):
         '''Accept additional parameters as positional args, keywords,
@@ -140,7 +142,9 @@ class LibrarianCommandProtocol(object):
         go = self._commands[command]    # natural keyerror is fine here
 
         assert not (args and kwargs), 'Pos/keyword args are mutually exclusive'
+        self._seq_lock.acquire()
         self._context['seq'] += 1
+        self._seq_lock.release()
         respdict = OrderedDict((
             ('command', command),
             ('context', self._context),
