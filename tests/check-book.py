@@ -5,80 +5,93 @@ import sys
 import mmap
 import binascii
 import argparse
+import pickle
+import hashlib
+import random
 
-def rw_mm(m, cur_offset, length, verbose):
+# Verification header for verify-only operations.  HEADER_VERSION should be
+# incremented whenever an incompatible change to the header is made.
+HEADER_VERSION = b'1'
+class FileHeader:
+    pickled_args = ''
+    hash = ''
+
+
+def rw_mm(m, cur_offset, length, verbose, ops):
 
     failures = 0
-    obuf_rand = os.urandom(length)
+    rand_index = random.randrange(0, len(global_rand_buf) - length);
 
-    m.seek(cur_offset)
-    ibuf = b"\x00" * length
-    ibuf = m.read(length)
-    if (verbose > 2):
-        print("read: %s" % (binascii.hexlify(ibuf)))
-
-    m.seek(cur_offset)
-    m.write(obuf_rand)
-    m.flush()
-    if (verbose > 2):
-        print("write: cur_offset = %d (0x%x), size = %d" %
-            (cur_offset, cur_offset, len(obuf_rand)))
-        print("write: %s" % (binascii.hexlify(obuf_rand)))
-
-    m.seek(cur_offset)
-    ibuf = b"\x00" * length
-    ibuf = m.read(length)
-    if (verbose > 2):
-        print("read: %s" % (binascii.hexlify(ibuf)))
-
-    if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
+    if 'r' in ops:
+        m.seek(cur_offset)
+        ibuf = m.read(length)
         if (verbose > 2):
-            print("verify passed")
-    else:
-        failures += 1
-        if (verbose > 1):
-            print("verify failed")
+            print("read: %s" % (binascii.hexlify(ibuf)))
+
+    if 'w' in ops:
+        m.seek(cur_offset)
+        m.write(global_rand_buf[rand_index:rand_index + length])
+        m.flush()
+        if (verbose > 2):
+            print("write: cur_offset = %d (0x%x), size = %d" %
+                (cur_offset, cur_offset, length))
+            print("write: %s" % (binascii.hexlify(global_rand_buf[rand_index:rand_index + length])))
+
+    if 'v' in ops:
+        m.seek(cur_offset)
+        ibuf = m.read(length)
+        if (verbose > 2):
+            print("read: %s" % (binascii.hexlify(ibuf)))
+
+        if global_rand_buf[rand_index:rand_index + length] == ibuf and length == len(ibuf):
+            if (verbose > 2):
+                print("verify passed")
+        else:
+            failures += 1
+            if (verbose > 1):
+                print("verify failed")
 
     return failures
 
-def rw_fs(f, cur_offset, length, verbose):
+def rw_fs(f, cur_offset, length, verbose, ops):
 
     failures = 0
-    obuf_rand = os.urandom(length)
+    rand_index = random.randrange(0, len(global_rand_buf) - length);
 
-    f.seek(cur_offset)
-    ibuf = b"\x00" * length
-    ibuf = f.read(length)
-    if (verbose > 2):
-        print("read: %s" % (binascii.hexlify(ibuf)))
-
-    f.seek(cur_offset)
-    f.write(obuf_rand)
-    f.flush()
-    if (verbose > 2):
-        print("write: cur_offset = %d (0x%x), size = %d" %
-            (cur_offset, cur_offset, len(obuf_rand)))
-        print("write: %s" % (binascii.hexlify(obuf_rand)))
-
-    f.seek(cur_offset)
-    ibuf = b"\x00" * length
-    ibuf = f.read(length)
-    if (verbose > 2):
-        print("read: %s" % (binascii.hexlify(ibuf)))
-
-    if obuf_rand == ibuf and len(obuf_rand) == len(ibuf):
+    if 'r' in ops:
+        f.seek(cur_offset)
+        ibuf = f.read(length)
         if (verbose > 2):
-            print("verify passed")
-    else:
-        failures += 1
-        if (verbose > 1):
-            print("verify failed")
+            print("read: %s" % (binascii.hexlify(ibuf)))
+
+    if 'w' in ops:
+        f.seek(cur_offset)
+        f.write(global_rand_buf[rand_index:rand_index + length])
+        f.flush()
+        if (verbose > 2):
+            print("write: cur_offset = %d (0x%x), size = %d" %
+                (cur_offset, cur_offset, length))
+            print("write: %s" % (binascii.hexlify(global_rand_buf[rand_index:rand_index + length])))
+
+    if 'v' in ops:
+        f.seek(cur_offset)
+        ibuf = f.read(length)
+        if (verbose > 2):
+            print("read: %s" % (binascii.hexlify(ibuf)))
+
+        if global_rand_buf[rand_index:rand_index + length] == ibuf and length == len(ibuf):
+            if (verbose > 2):
+                print("verify passed")
+        else:
+            failures += 1
+            if (verbose > 1):
+                print("verify failed")
 
     return failures
 
 def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
     book_start, chunk_size, chunk_cnt, access_type, max_iter,
-    trans_type, mmap_offset, mmap_length):
+    trans_type, mmap_offset, mmap_length, header_len, file_ops):
 
     total_failures = 0
     offset = ((book_start - 1) * book_size)
@@ -122,16 +135,27 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
 
                 cur_offset = offset + book_offset
 
-                if (verbose > 1):
-                    print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
-                        (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, length))
+                # Skip reading/writing range occupied by header
+                if (cur_offset < header_len):
+                    rw_length = length - (header_len - cur_offset)
+                    if rw_length <= 0 and verbose > 1:
+                        print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d (skipped due to verify header)" %
+                            (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, length))
+                    cur_offset = header_len
+                else:
+                    rw_length = length
 
-                if trans_type == 'mm':
-                    failures = rw_mm(m, cur_offset, length, verbose)
-                else: # trans_type == 'fs'
-                    failures = rw_fs(f, cur_offset, length, verbose)
+                if rw_length > 0:
+                    if (verbose > 1):
+                        print("[%2d/%s] book %4d: pos = %d, book_offset = 0x%012x cur_offset = 0x%012x, size = %d" %
+                            (cur_iter, trans_type, book_num, pos, book_offset, cur_offset, rw_length))
 
-                total_failures += failures
+                    if trans_type == 'mm':
+                        failures = rw_mm(m, cur_offset, rw_length, verbose, file_ops)
+                    else: # trans_type == 'fs'
+                        failures = rw_fs(f, cur_offset, rw_length, verbose, file_ops)
+
+                    total_failures += failures
 
             book_num += 1
             offset += book_size
@@ -153,6 +177,79 @@ def rw_books(shelf_name, verbose, debug, book_max, length, book_size,
     f.close()
 
     return total_failures
+
+
+
+# This function processes the verification header that may be at the beginning
+# of the test file, or stored in a separate file.
+# On file creation, this writes the header, and reads it when verifying the file.
+# Return values:
+#   args - when reading header, args are modified to match how file was written
+#   header_len - header length, used for skipping header when embedded in file
+#   random_seed - random seed is used when verifying to seed PRNG to match how
+#                 file was written.
+#   file_ops - what file operations should be done.
+def process_verif_header (args, random_seed):
+    header_len = 0
+    file_ops = ('r', 'w', 'v')
+    if args.verify:
+        # We are verifying, so we need to read header, and override args
+        if args.header_file:
+            f = open(args.header_file, 'r+b', buffering=0)
+        else:
+            f = open(args.shelf_name, 'r+b', buffering=0)
+        try:
+            fh = pickle.load(f)
+        except:
+            print("Error: unable to read verification header, it is either missing (ie not written with --header option) or corrupt.")
+            sys.exit(1)
+
+        if not args.header_file:
+            header_len = f.tell()
+        f.close()
+        hash = hashlib.new('sha256')
+        hash.update(fh.pickled_args)
+        # Include version in hash, so incompatible versions will not be recognized.
+        hash.update(HEADER_VERSION)
+        if hash.hexdigest() == fh.hash:
+            # Copy required args from arguments in header
+            verify_args = pickle.loads(fh.pickled_args)
+            args.book_max    =  verify_args.book_max
+            args.length      =  verify_args.length
+            args.book_size   =  verify_args.book_size
+            args.book_start  =  verify_args.book_start
+            args.chunk_size  =  verify_args.chunk_size
+            args.chunk_cnt   =  verify_args.chunk_cnt
+            args.access_type =  verify_args.access_type
+            args.mmap_offset =  verify_args.mmap_offset
+            args.mmap_length =  verify_args.mmap_length
+            random_seed =  verify_args.random_seed
+        else:
+            print("Error: Cannot load header due to checksum error, verify not supported.")
+            sys.exit(1)
+        if args.verbose > 0:
+            print("Verifying existing file, test parameters take from file header, not command line")
+        file_ops = ('v')
+
+    elif args.header:
+        fh = FileHeader()
+        args.random_seed = random_seed
+        fh.pickled_args = pickle.dumps(args);
+        hash = hashlib.new('sha256')
+        hash.update(fh.pickled_args)
+        # Include version in hash, so incompatible versions will not be recognized.
+        hash.update(HEADER_VERSION)
+        fh.hash = hash.hexdigest()
+        pickled_fh = pickle.dumps(fh)
+        if args.header_file:
+            f = open(args.header_file, 'w+b', buffering=0)
+            f.write(pickled_fh)
+        else:
+            f = open(args.shelf_name, 'r+b', buffering=0)
+            f.write(pickled_fh)
+            header_len = f.tell()
+        f.close()
+    return args, header_len, random_seed, file_ops
 
 if __name__ == '__main__':
 
@@ -263,8 +360,62 @@ if __name__ == '__main__':
         default=MMAP_LENGTH,
         type=int,
         help='mmap length in bytes (default is end of file')
+    parser.add_argument(
+        '--verify',
+        action='store_true',
+        dest='verify',
+        help='verify existing file.  must have verification header written with --header.  This is a read-only operation.')
+    parser.add_argument(
+        '--header',
+        action='store_true',
+        dest='header',
+        help='write test parameters to verification header, allows verification of file later')
+    parser.add_argument(
+        '--header_file',
+        action='store',
+        dest='header_file',
+        default='',
+        help='separate file to write verification header to, allows test file to be test data only')
+    parser.add_argument(
+        '--random_seed',
+        action='store',
+        dest='random_seed',
+        default='',
+        help='seed for pseudorandom pattern, use to generate reproducible patterns')
 
     args = parser.parse_args()
+
+    if args.verify and args.header:
+        print("Error: --verify and --header are mutually exclusive options.")
+        sys.exit(1)
+
+    if args.max_iter > 1 and (args.verify or args.header):
+        print("Error: -i and --verify or --header not compatible options.")
+        sys.exit(1)
+
+    if args.length > args.chunk_size and args.header:
+        print("Error: write length must be no bigger than chunk size to enable verification headers.")
+        sys.exit(1)
+
+    if args.random_seed:
+        random_seed = args.random_seed
+    else:
+        random_seed = os.urandom(8)
+
+    try:
+        st = os.stat(args.shelf_name)
+    except IOError:
+        print("Cannot open: %s" % args.shelf_name)
+        sys.exit(1)
+
+    # Read or write the verification header, based on args.
+    args, header_len, random_seed, file_ops = process_verif_header(args, random_seed);
+
+    # Create a global buffer of pseudorandom data to use for test.  We use data
+    # from random offsets into this buffer to get changing data faster than we
+    # can generate new bytes.
+    random.seed(random_seed)
+    global_rand_buf = bytes(random.getrandbits(8) for _ in range(3 * args.length))
 
     if (args.debug):
         print("args.shelf_name  = %s" % args.shelf_name)
@@ -277,15 +428,9 @@ if __name__ == '__main__':
         print("args.chunk_cnt   = %d" % args.chunk_cnt)
         print("args.access_type = %s" % args.access_type)
         print("args.max_iter    = %d" % args.max_iter)
-        print("args.trans_type  = %s" % args.trans_type)
         print("args.mmap_offset = %s" % args.mmap_offset)
         print("args.mmap_length = %s" % args.mmap_length)
-
-    try:
-        st = os.stat(args.shelf_name)
-    except IOError:
-        print("Cannot open: %s" % args.shelf_name)
-        sys.exit(1)
+        print("args.verify = %s" % args.verify)
 
     if (args.book_size.endswith(('k', 'K', 'm', 'M', 'g', 'G'))):
         suffix = args.book_size[-1].upper()
@@ -353,7 +498,7 @@ if __name__ == '__main__':
     total_failures = rw_books( args.shelf_name, args.verbose, args.debug,
         args.book_max, args.length, book_size, args.book_start, args.chunk_size,
         args.chunk_cnt, args.access_type, args.max_iter, args.trans_type,
-        args.mmap_offset, mmap_length)
+        args.mmap_offset, mmap_length, header_len, file_ops)
 
 
     if (args.verbose > 0):
