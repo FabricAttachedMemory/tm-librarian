@@ -26,17 +26,22 @@ class Heartbeat:
     def __init__(self, timeout_seconds, callback):
         self._timeout_seconds = timeout_seconds
         self._callback = callback
+        self._heartbeat_timer = None            # assist (re)scheduling
 
     def schedule(self, seconds_this_time=None):
+        if self._heartbeat_timer is not None:   # don't just unbind it
+            self._heartbeat_timer.cancel()
         if seconds_this_time is None:
             seconds_this_time = self._timeout_seconds
-        self.heartbeat_timer = threading.Timer(
-            seconds_this_time, self._callback)
-        self.heartbeat_timer.setDaemon(True)
-        self.heartbeat_timer.start()
+        self._heartbeat_timer = threading.Timer(
+            float(seconds_this_time), self._callback)
+        self._heartbeat_timer.daemon = True
+        self._heartbeat_timer.start()
 
     def unschedule(self):
-        self.heartbeat_timer.cancel()
+        if self._heartbeat_timer is not None:
+            self._heartbeat_timer.cancel()
+        self._heartbeat_timer = None
 
 
 ###########################################################################
@@ -61,6 +66,7 @@ def prentry(func):
             tmp = ', '.join([str(a) for a in args[1:]])
             p_data = str(self.lcp._context['pid'])
             if verbose > 2:
+                # Could us psutil if we need more functionality
                 comm = '/proc/' + str(self.lcp._context['pid']) + '/comm'
                 try:
                     with open(comm, 'r') as f:
@@ -68,10 +74,12 @@ def prentry(func):
                 except IOError:
                     pass
             print('%s(%s) [pid=%s]' % (func.__name__, tmp[:60], p_data))
+        self._ret_is_string = True  # ie, has a length
         ret = func(*args, **kwargs)
         if verbose > 2:
-            tmp = str(ret)
-            print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
+            if self._ret_is_string:
+                tmp = str(ret)
+                print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
             if verbose > 4:
                 set_trace()
         if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
@@ -357,6 +365,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             try:
                 return bytes(data.encode())
             except AttributeError as e:     # probably the "encode()"
+                self._ret_is_string = False
                 return bytes(data)
 
         # "ls" starts with simple getattr but then comes here for
