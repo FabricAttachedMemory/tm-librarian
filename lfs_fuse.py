@@ -59,7 +59,15 @@ def prentry(func):
         if verbose > 1:
             print('----------------------------------')
             tmp = ', '.join([str(a) for a in args[1:]])
-            print('%s(%s)' % (func.__name__, tmp[:60]))
+            p_data = str(self.lcp._context['pid'])
+            if verbose > 2:
+                comm = '/proc/' + str(self.lcp._context['pid']) + '/comm'
+                try:
+                    with open(comm, 'r') as f:
+                        p_data += '/' + f.read().replace('\n', '')
+                except IOError:
+                    pass
+            print('%s(%s) [pid=%s]' % (func.__name__, tmp[:60], p_data))
         ret = func(*args, **kwargs)
         if verbose > 2:
             tmp = str(ret)
