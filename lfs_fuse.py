@@ -409,7 +409,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
         for bad in self._badjson:
             if bad in valbytes:
-                raise TmfsOSError(errno.EDOMAIN)
+                raise TmfsOSError(errno.EDOM)
         try:
             value = int(valbytes)
         except ValueError as e:
