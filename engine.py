@@ -260,8 +260,9 @@ class LibrarianCommandEngine(object):
                 name
                 id
                 size_bytes
+                zero_enabled
             Out (dict) ---
-                shelf data
+                z_shelf_name
         """
         shelf = self.cmd_get_shelf(cmdict, match_id=True)
         bos = self._list_shelf_books(shelf)
@@ -269,6 +270,7 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
+        out_buf = {'z_shelf_name': None}
         if bos:
             seqs = [ b.seq_num for b in bos ]
             self.errno = errno.EBADFD
@@ -277,7 +279,7 @@ class LibrarianCommandEngine(object):
 
         # Can I leave real early?
         if new_size_bytes == shelf.size_bytes:
-            return shelf
+            return out_buf
 
         # Can this call be rejected?
         openers = self.db.get_shelf_openers(
@@ -293,7 +295,7 @@ class LibrarianCommandEngine(object):
         if new_book_count == shelf.book_count:
             shelf.matchfields = 'size_bytes'
             shelf = self.db.modify_shelf(shelf, commit=True)
-            return shelf
+            return out_buf
 
         books_needed = new_book_count - shelf.book_count
         if books_needed > 0:
@@ -317,16 +319,50 @@ class LibrarianCommandEngine(object):
             # a file with a certain name.  IOW not all shelves are USED,
             # some may be full of ZOMBIES
             freeing = shelf.name.startswith(_ZERO_PREFIX) and not new_book_count
+            zero_enabled = cmdict['zero_enabled']
+
+            if not freeing and zero_enabled:
+                # Create a zeroing shelf for the books being removed
+                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' +
+                    str(time.time()) + '_' + cmdict['context']['physloc'])
+                z_shelf_data = {}
+                z_shelf_data.update({'context':cmdict['context']})
+                z_shelf_data.update({'name':z_shelf_name})
+                self.errno = errno.EINVAL
+                z_shelf = TMShelf(z_shelf_data)
+                self.db.create_shelf(z_shelf)
+                z_seq_num = 1
+
             while books_2bdel > 0:
-                thisbos = bos.pop()
-                self.db.delete_bos(thisbos)         # Orphans the book
-                new_state = TMBook.ALLOC_ZOMBIE
-                book = self.db.get_book_by_id(thisbos.book_id)
-                if freeing and book.allocated == TMBook.ALLOC_ZOMBIE:
-                    new_state = TMBook.ALLOC_FREE
-                if new_state != book.allocated:     # staying ZOMBIE
-                    _ = self._set_book_alloc(book, new_state)
-                books_2bdel -= 1
+                try:
+                    thisbos = bos.pop()
+                    self.db.delete_bos(thisbos)         # Orphans the book
+                    new_state = TMBook.ALLOC_ZOMBIE
+                    book = self.db.get_book_by_id(thisbos.book_id)
+                    if freeing and book.allocated == TMBook.ALLOC_ZOMBIE:
+                        new_state = TMBook.ALLOC_FREE
+                    if new_state != book.allocated:     # staying ZOMBIE
+                        _ = self._set_book_alloc(book, new_state)
+                    books_2bdel -= 1
+
+                    if not freeing and zero_enabled:
+                        # Add removed book to zeroing shelf
+                        z_thisbos = TMBos(shelf_id=z_shelf.id, book_id=book.id, seq_num=z_seq_num)
+                        z_thisbos = self.db.create_bos(z_thisbos)
+                        z_shelf.size_bytes += self.book_size_bytes
+                        z_shelf.book_count += 1
+                        z_seq_num += 1
+
+                except Exception as e:
+                    self.db.rollback()
+                    self.errno = errno.EREMOTEIO
+                    raise RuntimeError('Resizing shelf smaller failed: %s' % str(e))
+
+            if not freeing and zero_enabled:
+                z_shelf.matchfields = ('size_bytes', 'book_count')
+                z_shelf = self.db.modify_shelf(z_shelf, commit=True)
+                out_buf = {'z_shelf_name': z_shelf_name}
+
         else:
             self.db.rollback()
             self.errno = errno.EREMOTEIO
@@ -335,7 +371,7 @@ class LibrarianCommandEngine(object):
         shelf.book_count = new_book_count
         shelf.matchfields = ('size_bytes', 'book_count')
         shelf = self.db.modify_shelf(shelf, commit=True)
-        return shelf
+        return out_buf
 
     def cmd_get_shelf_zaddr(cmd_data, cmdict):
         """

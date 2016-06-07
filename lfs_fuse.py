@@ -113,6 +113,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.verbose = args.verbose
         self.tormsURI = args.hostname
         self.mountpoint = args.mountpoint
+        self.nozero = args.nozero
         elems = args.hostname.split(':')
         assert len(elems) <= 2
         self.host = elems[0]
@@ -124,9 +125,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Fake it to start.  The umask dance is Pythonic, unfortunately.
         umask = os.umask(0)
         os.umask(umask)
+        physloc = '_'.join((
+            str(args.physloc.rack),
+            str(args.physloc.enc),
+            str(args.physloc.node)))
         context = {
             'umask': umask,
             'node_id': args.physloc.node_id,
+            'physloc': physloc,
         }
         self.lcp = LibrarianCommandProtocol(context)
 
@@ -534,9 +540,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         #    unlink()..  Even if length is non-zero, remove it, assuming the
         #   _zero subprocess failed.
         # 3. The shadow subclass doesn't need it
+        # 4. The --nozero flag was specified
         if ((not shelf.size_bytes) or
              shelf.name.startswith(self._ZERO_PREFIX) or
-             (not self.shadow.zero_on_unlink)):
+             (not self.shadow.zero_on_unlink) or
+             self.nozero):
             self.librarian(self.lcp('destroy_shelf', name=shelf.name))
             return 0
 
@@ -623,14 +631,30 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
+        if self.nozero or not self.shadow.zero_on_unlink:
+            zero_enabled = False
+        else:
+            zero_enabled = True
+
         # ALWAYS get the shelf by name, even if fh is valid.
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
                        name=shelf_name,
                        size_bytes=length,
-                       id=rsp['id'])
+                       id=rsp['id'],
+                       zero_enabled=zero_enabled)
         rsp = self.librarian(req)
+
+        # If books were removed from the shelf and added to a zeroing
+        # shelf, start a process to zero the books on that shelf.
+        if rsp['z_shelf_name'] is not None:
+            z_rsp = self.librarian(self.lcp('get_shelf', name=rsp['z_shelf_name']))
+            z_shelf = TMShelf(z_rsp)
+            threading.Thread(target=self._zero, args=(z_shelf,)).start()
+
+        # Refresh shelf info
+        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
@@ -836,6 +860,11 @@ if __name__ == '__main__':
         help='level of runtime output (0=ERROR, 1=PERF, 2=NOTICE, 3=INFO, 4=DEBUG, 5=OOB)',
         type=int,
         default=0)
+    parser.add_argument(
+        '--nozero',
+        help='do not zero books on unlink or truncate and leave them in the zombie state',
+        action='store_true',
+        default=False)
     args = parser.parse_args(sys.argv[1:])
 
     msg = 0

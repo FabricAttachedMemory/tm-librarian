@@ -52,7 +52,7 @@ class LibrarianCommandProtocol(object):
         ),
         'resize_shelf': GO(
             doc='resize shelf to given size in bytes',
-            parms=('name', 'id', 'size_bytes' ),
+            parms=('name', 'id', 'size_bytes', 'zero_enabled'),
         ),
         'rename_shelf': GO(
             doc='rename shelf',
