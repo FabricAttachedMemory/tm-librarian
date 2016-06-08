@@ -1,9 +1,19 @@
 #!/usr/bin/python3 -tt
 
 #---------------------------------------------------------------------------
-# Librarian database interface definition for SQL backends.  Originally
-# written against SQLite but it's so generic it's probably okay
-# for MariaDB.  I'm not sure about Postgres but it could be close.
+# This is really an interface implementation of generic Librarian methods.
+# We should write an abstract base class to inherit from.   The implmentation
+# is crafted toward SQL backends.  As such the schema, while truly defined
+# in book_register.py, is heavily reflected here, hence the SCHEMA_VERSION.
+#
+# You can't instantiate this class but you'll see most methods depend on
+# self._cur, an extended cursor object.  That object is declared in another
+# "pure SQL" (Librarian-agnostic) class.
+#
+# In a larger application, sublcass this module, along with one of those
+# "pure SQL" objects such as SQLite3Assist.   Then set self._cur to that
+# cursor object.  In essence, an instance of this "superclass" shows a
+# "HAS-A" relationship via self._cur.
 #---------------------------------------------------------------------------
 
 import stat
@@ -24,10 +34,26 @@ class LibrarianDBackendSQL(object):
 
     @staticmethod
     def argparse_extend(parser):
+        ''' From a larger main application, pass in an argparse argument to
+            extend the argument list.
+            Input---
+              parser - initialized return from argarse.xxxxx
+            Output---
+              None
+        '''
         pass
 
     def __init__(self, args):
-        raise NotImplementedError
+        ''' Override this to supply a self._cur (HAS-A relationship) with
+            a target DB backend).   A target database must first be
+            initialized via appropriate tools.
+            Input---
+              args - usually a Namespace argument from argparse with
+                     info to set up the cursor to the database.
+            Output---
+              None, it's __init__
+        '''
+        raise NotImplementedError('Write a child class to override.')
 
     # Broken out in case we switch to a UUID or something else.
     def _getnextid(self, table):
@@ -38,6 +64,13 @@ class LibrarianDBackendSQL(object):
     #
 
     def get_globals(self, only=None):
+        ''' Retrieve global information from the DB.
+            Input---
+              only - a specific field, only "version" is supported
+            Output---
+              an object with schema_version, book_size, total books, total
+              nodes, and total FAM bytes.
+        '''
         try:
             if only == 'version':
                 self._cur.execute('SELECT schema_version FROM globals LIMIT 1')
@@ -63,6 +96,12 @@ class LibrarianDBackendSQL(object):
         return r
 
     def get_nodes(self):
+        ''' Retrieve info about all nodes configured into the DB.
+            Input---
+              None
+            Output---
+              a list of objects describing each node.
+        '''
         self._cur.execute('SELECT * FROM FRDnodes')
         self._cur.iterclass = 'default'
         # Module_size_books was only used during book_register.py
@@ -73,6 +112,12 @@ class LibrarianDBackendSQL(object):
         return nodes
 
     def get_interleave_groups(self):
+        ''' Retrieve info about all interleave groups configured into the DB.
+            Input---
+              None
+            Output---
+              a list of objects describing each interleave group.
+        '''
         self._cur.execute('SELECT * FROM FAModules')
         self._cur.iterclass = 'default'
         tmpIGs = { }
@@ -89,7 +134,8 @@ class LibrarianDBackendSQL(object):
         return IGs
 
     def get_nvm_parameters(self):
-        '''Returns duple(book_size, total_nvm)'''
+        ''' Returns tuple(book_size, total_nvm)
+        '''
         self._cur.execute(
             'SELECT book_size_bytes, nvm_bytes_total FROM globals')
         return self._cur.fetchone()
@@ -135,12 +181,13 @@ class LibrarianDBackendSQL(object):
         return self._modify_table('books', book, (), commit)
 
     def modify_shelf(self, shelf, commit=False):
-        """ Modify shelf data in "shelves" table.  Usually, modify
-            the mtime with any other attributes.
+        """ Modify data for an individual shelf.
             Input---
-              shelf_data - list of new shelf data
+              shelf - object containing fixed sheld ID info plus updated
+                      fields listed in the "match_fields" attribute.
+              commit - persist the transaction now
             Output---
-              shelf_data or error message
+              the shelf (possible with mtime update) or raise error
         """
         now = int(time.time())
         if shelf.matchfields == ('mtime', ):    # called from set_am_time
@@ -152,6 +199,8 @@ class LibrarianDBackendSQL(object):
         return self._modify_table('shelves', shelf, ('mtime', ), commit)
 
     def modify_opened_shelves(self, shelf, action, context):
+        ''' Deprecated?
+        '''
         if action == 'get':
             shelf.open_handle = self._cur.INSERT(
                 'opened_shelves',
@@ -170,17 +219,20 @@ class LibrarianDBackendSQL(object):
         return shelf
 
     def open_count(self, shelf):
+        ''' Return number of opens against the specified shelf
+        '''
         self._cur.execute('''SELECT COUNT(*) FROM opened_shelves
                              WHERE shelf_id=?''', (shelf.id,))
         return self._cur.fetchone()[0]
 
     def modify_xattr(self, shelf, xattr, value, commit=True):
-        """ Modify data in "shelf_xattrs" table.  Known to exist:
-            Input---
+        """Modify data in corresponding to extended attributes for a shelf.
+           Input---
               shelf: mainly for the shelf id
               xattr: existing key
-              value: new value
-            Output---
+              value: (new) value
+              commit: persist the update now
+           Output---
               None or error exception
         """
         self._cur.UPDATE(
@@ -193,6 +245,8 @@ class LibrarianDBackendSQL(object):
         self.modify_shelf(shelf, commit=commit)
 
     def modify_node_soc_status(self, node_id, status):
+        ''' Update the current heartbeat status for the SoC
+        '''
         if status is None:
             self._cur.UPDATE(
                 'SOCs',
@@ -206,6 +260,8 @@ class LibrarianDBackendSQL(object):
         self._cur.commit()
 
     def modify_node_mc_status(self, node_id, status):
+        ''' Update the current status for a media controller
+        '''
         self._cur.execute('SELECT * FROM FAModules WHERE node_id=?', (node_id,))
         self._cur.iterclass = 'default'
         MCs = [ r for r in self._cur ]
@@ -221,11 +277,11 @@ class LibrarianDBackendSQL(object):
     #
 
     def get_book_by_id(self, book_id):
-        """ Retrieve one book from "books" table.
+        """ Retrieve one book by its book_id, aka the LZA.
             Input---
               book_id - id of book to get
             Output---
-              book_data or error message
+              TMBook object, None (no match) or raise error
         """
         self._cur.execute('SELECT * FROM books WHERE id=?', (book_id,))
         self._cur.iterclass = TMBook
@@ -237,7 +293,7 @@ class LibrarianDBackendSQL(object):
                                  allocated=None,
                                  exclude=False,
                                  ascending=True):
-        """ Retrieve book(s) from "books" table using node
+        """ Retrieve available book(s) from given interleave group.
             Input---
               max_books - maximum number of books
               IGs - list of interleave groups to filter: IN (....)
@@ -285,11 +341,11 @@ class LibrarianDBackendSQL(object):
         return books
 
     def get_book_all(self):
-        """ Retrieve all books from "books" table.
+        """ Retrieve book-level info about all books in all interleave groups.
             Input---
               None
             Output---
-              book data or None
+              list of TMBook objects or raise error
         """
         self._cur.execute('SELECT * FROM books ORDER BY id')
         self._cur.iterclass = TMBook
@@ -297,13 +353,15 @@ class LibrarianDBackendSQL(object):
         return books
 
     def get_book_info_all(self, intlv_group):
-        """ Retrieve books from a given interleave group from "books"
-            table joined with "books_on_shelves" and "shelves" tables.
+        """ Retrieve maximum info on all books in an interleave group,
+            including shelf ownership if applicable.
             Input---
               intlv_group
             Output---
-              book data or None
+              list of objects of book data (could be emtpy) or raise error
         """
+        # Retrieve books from a given interleave group from "books"
+        # table joined with "books_on_shelves" and "shelves" tables.
         db_query = """SELECT books.id,
                              books.allocated,
                              books.attributes,
@@ -334,7 +392,7 @@ class LibrarianDBackendSQL(object):
     #
 
     def create_shelf(self, shelf):
-        """ Insert one new shelf into "shelves" table.
+        """ Create one new shelf in the database.
             Input---
               shelf_data - list of shelf data to insert
             Output---
@@ -349,9 +407,10 @@ class LibrarianDBackendSQL(object):
         return shelf
 
     def get_shelf(self, shelf):
-        """ Retrieve one shelf from "shelves" table.
+        """ Retrieve one shelf from the database
             Input---
-              shelf - shelf object with minimum info to key a lookup
+              shelf - TMShelf object with minimum info to key a lookup.
+                      Key fields must be set in "matchfields" attribute.
             Output---
               shelf object with details or RAISED error message
         """
@@ -392,11 +451,11 @@ class LibrarianDBackendSQL(object):
         return tmp
 
     def get_shelf_all(self):
-        """ Retrieve all shelves from "shelves" table.
+        """ Retrieve all shelves from the database.
             Input---
               None
             Output---
-              shelf_data or error message
+              List of TMShelf objects (could be empty) or raise error
         """
         self._cur.execute('SELECT * FROM shelves ORDER BY id')
         self._cur.iterclass = TMShelf
@@ -404,11 +463,11 @@ class LibrarianDBackendSQL(object):
         return shelves
 
     def get_open_shelf_all(self):
-        """ Retrieve all open shelves from "opened_shelves" table.
+        """ Retrieve all open shelves.
             Input---
               None
             Output---
-              shelf_data or error message
+              List of TMShelf objects (could be empty) or raise error
         """
         self._cur.execute('SELECT * FROM opened_shelves ORDER BY id')
         self._cur.iterclass = TMOpenedShelves
@@ -416,11 +475,13 @@ class LibrarianDBackendSQL(object):
         return shelves
 
     def delete_shelf(self, shelf, commit=False):
-        """ Delete one shelf from "shelves" table.
+        """ Delete one shelf from the database.  Any books should be
+            release before this.
             Input---
-              shelf_id - id of shelf to delete
+              shelf - TMShelf object with name, id of target shelf
+              commit - persist the update now
             Output---
-              shelf_data or error message
+              TMShelf object or raise error
         """
         where = self._fields2qmarks(shelf.schema, ' AND ')
         self._cur.DELETE('shelves', where, shelf.tuple())
@@ -433,7 +494,7 @@ class LibrarianDBackendSQL(object):
     #
 
     def create_bos(self, bos, commit=False):
-        """ Insert one new bos into "books_on_shelves" table.
+        """ Insert one new book-on-shelf mapping into the database.
             Input---
               bos_data - list of bos data to insert
             Output---
@@ -461,8 +522,7 @@ class LibrarianDBackendSQL(object):
         return bos
 
     def get_bos_by_book_id(self, book_id):
-        """ Retrieve all bos entries from "books_on_shelves" table
-            given a book_id.
+        """ Retrieve all bos entries given a book_id.
             Input---
               book_id - book identifier
             Output---
@@ -476,7 +536,7 @@ class LibrarianDBackendSQL(object):
         return bos
 
     def get_bos_all(self):
-        """ Retrieve all bos from "books_on_shelves" table.
+        """ Retrieve all bos from database.
             Input---
               None
             Output---
@@ -487,7 +547,8 @@ class LibrarianDBackendSQL(object):
         return [ r for r in self._cur ]
 
     def delete_bos(self, bos, commit=False):
-        """ Delete one bos from "books_on_shelves" table.
+        """ Delete one bos mapping from the database.  This needs to be
+            repeated for every bos before the shelf can be deleted.
             Input---
               bos_data - list of bos data
             Output---
@@ -500,6 +561,9 @@ class LibrarianDBackendSQL(object):
         return(bos)
 
     def get_xattr(self, shelf, xattr, exists_only=False):
+        '''Retrieve the data for a the specified extended attribute for the
+           given shelf.
+        '''
         if exists_only:
             self._cur.execute(
                 'SELECT COUNT() FROM shelf_xattrs '
@@ -514,15 +578,21 @@ class LibrarianDBackendSQL(object):
         return tmp if tmp is None else tmp[0]
 
     def list_xattrs(self, shelf):
+        '''Retrieve the list of all extended attribute names for a shelf.
+        '''
         self._cur.execute(
             'SELECT xattr FROM shelf_xattrs WHERE shelf_id=?', (shelf.id,))
         tmp = [ f[0] for f in self._cur.fetchall() ]
         return tmp
 
     def create_xattr(self, shelf, xattr, value):
+        '''Store a new extended attribute name and value for a shelf.
+        '''
         self._cur.INSERT('shelf_xattrs', (shelf.id, xattr, value))
 
     def remove_xattr(self, shelf, xattr):
+        '''Retrieve an extended attribute name and value for a shelf.
+        '''
         self._cur.DELETE('shelf_xattrs', 'shelf_id=? AND xattr=?',
                                          (shelf.id, xattr),
                                          commit=True)
@@ -530,7 +600,7 @@ class LibrarianDBackendSQL(object):
     # Basic operations (SELECT, custom DELETEs) need the cursor but
     # using it directly feels "clunky".  Hide it behind facades for
     # anything not matching the above methods.  Iteration requires
-    #special handling.   Everything else is delegated to __getattr__.
+    # special handling.   Everything else is delegated to __getattr__.
 
     @property
     def iterclass(self):
@@ -549,4 +619,11 @@ class LibrarianDBackendSQL(object):
 #--------------------------------------------------------------------------
 
 if __name__ == '__main__':
-    raise SystemError('Write a child class and do your testing there.')
+    symbols = sorted([m for m in dir(LibrarianDBackendSQL)
+        if not m.startswith('_')])
+
+    print('Methods needed by a backend class:')
+    for s in symbols:
+        tmp = getattr(LibrarianDBackendSQL, s, None)
+        if callable(tmp):
+            print(tmp.__name__, '\n\t', tmp.__doc__)
