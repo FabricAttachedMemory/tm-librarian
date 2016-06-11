@@ -281,6 +281,22 @@ class shadow_support(object):
         del self[fh]
         return retval
 
+    # Support for getxattr, it comes next
+    def _map_populate(self, shelf_name, start_book, buflen):
+        '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
+        bos = self[shelf_name].bos
+
+        # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
+        # 20-bit combo of 7:13 IG:book as a form of compression.
+        response = bytearray()
+        offset = 0
+        while buflen > offset + 3 and start_book < len(bos):
+            tmp = struct.pack('I', bos[start_book]['lza'] >> 33)
+            response.extend(tmp)
+            offset += 4
+            start_book += 1
+        return response
+
     # Piggybacked for kernel to ask for stuff.  Even in --shadow_[dir|file]
     # it wants globals, handle that here.  During mmap fault handling it
     # wants more.  In shadow modes return 'FALLBACK' to get legacy, generic
@@ -292,6 +308,13 @@ class shadow_support(object):
                 data = '%s,%d,%s' % (
                     self.book_size, self.addr_mode, self.aperture_base)
                 return data
+
+            if xattr.startswith('_obtain_lza_for_map_populate'):
+                _, start_book, buflen = xattr.split(',')
+                start_book = int(start_book)
+                buflen = int(buflen)
+                return self._map_populate(shelf_name, start_book, buflen)
+
             return 'FALLBACK'   # might be circumvented by subclass
         except Exception as e:
             print('!!! ERROR IN GENERIC KERNEL XATTR HANDLER (%d): %s' % (
@@ -568,33 +591,12 @@ class apertures(shadow_support):
 
     # open(), create(), release() only do caching as handled by superclass
 
-    def _map_populate(self, shelf_name, start_book, buflen):
-        '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
-        bos = self[shelf_name].bos
-
-        # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
-        # 20-bit combo of 7:13 IG:book as a form of compression.
-        response = bytearray()
-        offset = 0
-        while buflen > offset + 3 and start_book < len(bos):
-            tmp = struct.pack('I', bos[start_book]['lza'] >> 33)
-            response.extend(tmp)
-            offset += 4
-            start_book += 1
-        return response
-
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
         try:
             data = super(self.__class__, self).getxattr(shelf_name, xattr)
             if data != 'FALLBACK':  # superclass handles some things
                 return data
-
-            if xattr.startswith('_obtain_lza_for_map_populate'):
-                _, start_book, buflen = xattr.split(',')
-                start_book = int(start_book)
-                buflen = int(buflen)
-                return self._map_populate(shelf_name, start_book, buflen)
 
             assert xattr.startswith('_obtain_lza_for_page_fault'), \
                 'BAD KERNEL XATTR %s' % xattr
