@@ -34,7 +34,15 @@ import tm_ioctl_opt as IOCTL
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
 
-    _mode_rw_file = stat.S_IFREG + 0o600  # regular file
+    _S_IFREG_URW = stat.S_IFREG + 0o600  # regular file
+
+    # MUST agree with tmfs::lfs.c ADDRESS_MODES
+    _MODE_NONE = 0          # Something will eventually throw an error
+    _MODE_FAME = 1          # FAME direct flat area only, no zbridge calls
+    _MODE_FAME_DESC = 2     # FAME direct, but talk to zbridge (no real HW)
+    _MODE_1906_DESC = 3     # TMAS: Zbridge directly programs DESBK, no chat
+    _MODE_FULL_DESC = 4     # TM(AS): full operation
+    _MODE_FALLBACK = 5      # Use existing mmap() operations, not lfs stuff
 
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
@@ -46,7 +54,7 @@ class shadow_support(object):
         # See getxattr below; these are default values unless overwritten
         # by subclasses.
 
-        self.addr_mode = apertures._MODE_NONE
+        self.addr_mode = self._MODE_NONE
         self.aperture_base = 0
 
         # Backing store (shadow_file or FAME direct) is contiguous but IG
@@ -350,6 +358,7 @@ class shadow_directory(shadow_support):
             probe.close()
         except OSError as e:
             raise RuntimeError('%s is not writeable' % args.shadow_dir)
+        self.addr_mode = self._MODE_FALLBACK    # FIXME: not tested
 
     def shadowpath(self, shelf_name):
         return '%s/%s' % (self._shadowpath, shelf_name)
@@ -461,13 +470,14 @@ class shadow_file(shadow_support):
 
         # Compare node requirements to file size
         statinfo = os.stat(args.shadow_file)
-        assert self._mode_rw_file == self._mode_rw_file & statinfo.st_mode, \
+        assert self._S_IFREG_URW == self._S_IFREG_URW & statinfo.st_mode, \
             '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
         self.aperture_size = statinfo.st_size
 
         self.aperture_size = lfs_globals['nvm_bytes_total']
         self._shadow_fd = fd
+        self.addr_mode = self._MODE_FALLBACK
 
     # open(), create(), release() only do caching as handled by superclass
 
@@ -561,12 +571,6 @@ class shadow_file(shadow_support):
 # gets the best of both worlds (IVHSMEM and HW FAM) in one class.
 
 class apertures(shadow_support):
-
-    _MODE_NONE = 0          # See tmfs::lfs.c ADDRESS_MODES
-    _MODE_FAME = 1          # FAME direct flat area only, no zbridge calls
-    _MODE_FAME_DESC = 2     # FAME direct, but talk to zbridge (no real HW)
-    _MODE_1906_DESC = 3     # TMAS: Zbridge directly programs DESBK, no chat
-    _MODE_FULL_DESC = 4     # TM(AS): full operation
 
     _NDESCRIPTORS = 1906            # Non-secure starting at the BAR...
     _NVM_BK = 0x01600000000         # Thus speaketh the chipset ERS
@@ -713,11 +717,11 @@ def _detect_memory_space(args, lfs_globals):
         if args.verbose > 1:
             print('IVSHMEM cannot be found, assuming TM(AS)')
         if args.fixed1906:
-            args.addr_mode = apertures._MODE_1906_DESC
+            args.addr_mode = shadow_support._MODE_1906_DESC
             if args.verbose > 2:
                 print('addr_mode = MODE_1906_DESC (requires zbridge desc autoprogramming)')
         else:
-            args.addr_mode = apertures._MODE_FULL_DESC
+            args.addr_mode = shadow_support._MODE_FULL_DESC
             if args.verbose > 2:
                 print('addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
         args.aperture_base = apertures._NVM_BK
@@ -740,7 +744,7 @@ def _detect_memory_space(args, lfs_globals):
 
     # Compare requirements to file size
     statinfo = os.stat(memoryfile)
-    assert shadow_support._mode_rw_file == shadow_support._mode_rw_file & statinfo.st_mode, \
+    assert shadow_support._S_IFREG_URW == shadow_support._S_IFREG_URW & statinfo.st_mode, \
         '%s is not RW' % memoryfile
     assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
         'st_size (%d) < nvm_bytes_total (%d)' % \
@@ -752,11 +756,11 @@ def _detect_memory_space(args, lfs_globals):
         'IVSHMEM at %s is not big enough, possible collision?' % bdf
     args.aperture_size = statinfo.st_size
     if args.enable_Z:
-        args.addr_mode = apertures._MODE_FAME_DESC
+        args.addr_mode = shadow_support._MODE_FAME_DESC
         if args.verbose > 2:
             print('addr_mode = MODE_FAME_DESC (with zbridge/flushtm interaction)')
     else:
-        args.addr_mode = apertures._MODE_FAME
+        args.addr_mode = shadow_support._MODE_FAME
         if args.verbose > 2:
             print('addr_mode = MODE_FAME (without zbridge/flushtm interaction)')
 
