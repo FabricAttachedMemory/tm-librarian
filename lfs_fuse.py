@@ -295,7 +295,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def getattr(self, path, fh=None):
         if fh is not None:
-            raise TmfsOSError(errno.ENOENT)  # never saw this in 5 months
+            raise TmfsOSError(errno.ENOENT)  # never saw this in 8 months
 
         if path == '/':
             now = int(time.time())
@@ -361,7 +361,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         """Called with a specific namespace.name xattr.  Can return either
            a bytes array OR an int."""
         if position:
-            raise TmfsOSError(errno.ENOSYS)    # never saw this in 4 months
+            raise TmfsOSError(errno.ENOSYS)    # never saw this in 8 months
 
         shelf_name = self.path2shelf(path)
 
@@ -378,7 +378,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # security.selinux, system.posix_acl_access, and posix_acl_default.
         # ls -l can also do the same thing on '/'.  Save the round trips.
 
-        if xattr.startswith('security') or not shelf_name:  # path == '/'
+        if xattr.startswith('security.') or not shelf_name:  # path == '/'
             return bytes(0)
 
         try:
@@ -594,7 +594,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def create(self, path, mode, fh=None, supermode=None):
         if fh is not None:
-            # createat(2), methinks, but I never saw this in 6 months
+            # createat(2), methinks, but I never saw this in 8 months
             raise TmfsOSError(errno.ENOSYS)
         shelf_name = self.path2shelf(path)
         if supermode is None:
@@ -637,6 +637,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             zero_enabled = True
 
         # ALWAYS get the shelf by name, even if fh is valid.
+        # FIXME: Compare self.shadow[fh] to returned shelf.
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         req = self.lcp('resize_shelf',
@@ -668,11 +669,22 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def fallocate(self, path, mode, offset, length, fh=None):
-        if mode > 0:
-            return -1
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
-        shelf = TMShelf(rsp)
+        # LFS doesn't support sparse files or hole punching (lazy allocation).
+        # mode == 0 is essentially posix_fallocate and that's all there is.
+        # Case in point: mkfs on a shelf (or a loopback device to a shelf)
+        # wants mode == 3 == FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE
+        # for quick-and-dirty zeroed blocks.  See it in the e2fsprogs source
+        # file lib/ext2fs/unix_io.c::unix_discard()
+        if mode:
+            raise TmfsOSError(errno.EOPNOTSUPP)
+        if fh is None:
+            shelf_name = self.path2shelf(path)
+            rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+            shelf = TMShelf(rsp)
+        else:
+            shelf = self.shadow[fh]
+            if not shelf:
+                raise TmfsOSError(errno.ESTALE)
         if shelf.size_bytes >= offset + length:
             return 0
         return self.truncate(path, offset+length, None)
