@@ -31,6 +31,7 @@ tests/rw_test.py		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/test_book_register.py	usr/lib/python3/dist-packages/tm_librarian/tests
 tests/test_code_format_pep8.py	usr/lib/python3/dist-packages/tm_librarian/tests
 tests/tm-fio-test.fio		usr/lib/python3/dist-packages/tm_librarian/tests
+tests/check-ea.py		usr/lib/python3/dist-packages/tm_librarian/tests
 templates/show_allocated.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_nodes.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_directory.html	usr/lib/python3/dist-packages/tm_librarian/templates
