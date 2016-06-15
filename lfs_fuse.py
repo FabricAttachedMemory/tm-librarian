@@ -386,7 +386,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 self.lcp('get_xattr', name=shelf_name, xattr=xattr))
             value = rsp['value']
             assert value is not None    # 'No such attribute'
-            return value if isinstance(value, int) else bytes(value.encode())
+            if isinstance(value, int):
+                return value
+            elif isinstance(value, str):
+                return bytes(value.encode('cp437'))
+            else:
+                bytes(value.encode())
         except Exception as e:
             raise TmfsOSError(errno.ENODATA)    # syn for ENOATTR
 
@@ -419,7 +424,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         try:
             value = int(valbytes)
         except ValueError as e:
+            pass
+        try:
             value = valbytes.decode()
+        except ValueError as e:
+            value = valbytes.decode('cp437')
 
         rsp = self.librarian(
                 self.lcp('set_xattr', name=shelf_name,
