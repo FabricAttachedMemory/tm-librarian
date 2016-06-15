@@ -389,6 +389,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             if isinstance(value, int):
                 return value
             elif isinstance(value, str):
+                # http://stackoverflow.com/questions/606191/convert-bytes-to-a-python-string
                 return bytes(value.encode('cp437'))
             else:
                 bytes(value.encode())
@@ -428,6 +429,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         try:
             value = valbytes.decode()
         except ValueError as e:
+            # http://stackoverflow.com/questions/606191/convert-bytes-to-a-python-string
             value = valbytes.decode('cp437')
 
         rsp = self.librarian(
