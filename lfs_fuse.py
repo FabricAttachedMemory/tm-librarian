@@ -19,6 +19,7 @@ from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 import socket_handling
 from frdnode import FRDnode, FRDFAModule
+import socket
 
 from lfs_shadow import the_shadow_knows
 
@@ -111,16 +112,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def __init__(self, args):
         '''Validate command-line parameters'''
         self.verbose = args.verbose
-        self.tormsURI = args.hostname
+        self.host = args.hostname
+        self.port = args.port
         self.mountpoint = args.mountpoint
         self.nozero = args.nozero
-        elems = args.hostname.split(':')
-        assert len(elems) <= 2
-        self.host = elems[0]
-        try:
-            self.port = int(elems[1])
-        except Exception as e:
-            self.port = 9093
 
         # Fake it to start.  The umask dance is Pythonic, unfortunately.
         umask = os.umask(0)
@@ -809,7 +804,11 @@ def mount_LFS(args):
     try:
         args.physloc = FRDnode(args.physloc)
     except Exception as e:
-        raise SystemExit('Bad physical location %s' % args.physloc)
+        raise SystemExit('Bad/Missing physical location (--physloc) argument \'%s\'' % args.physloc)
+    try:
+        tmp = socket.gethostbyaddr(args.hostname)
+    except Exception as e:
+        raise SystemExit('Bad/Missing hostname (--hostname) argument \'%s\'' % args.hostname)
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
@@ -841,13 +840,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Librarian File System daemon (lfs_fuse.py)')
     parser.add_argument(
-        'hostname',
+        '--hostname',
         help='ToRMS host running the Librarian',
-        type=str)
+        type=str,
+        default='')
     parser.add_argument(
-        'physloc',
+        '--port',
+        help='Port on which the Librarian is listening',
+        type=int,
+        default='9093')
+    parser.add_argument(
+        '--physloc',
         help='Node physical location "rack:enc:node"',
-        type=str)
+        type=str,
+        default='')
     parser.add_argument(
         '--fixed1906',
         help='Magic mode dependent on zbridge descriptor autoprogramming (TM(AS) only)',
