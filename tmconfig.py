@@ -92,8 +92,8 @@ class _GOnodes(GenericObject):
     @property
     def hostname(self):
         if self._hostname is None:
+            # MFT/FRD: rack is always "1", or words like "A1.above_floor"
             self._hostname = 'node%02d' % (
-                (int(self.rack) - 1) * 80 +
                 (int(self.enc) - 1) * 10 +
                 int(self.node)
             )
