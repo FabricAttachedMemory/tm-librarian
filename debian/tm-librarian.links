@@ -1,0 +1,3 @@
+usr/lib/python3/dist-packages/tm_librarian/lfs_fuse.py usr/local/bin/lfs_fuse.py
+usr/lib/python3/dist-packages/tm_librarian/librarian.py usr/local/bin/librarian.py
+usr/lib/python3/dist-packages/tm_librarian/book_register.py usr/local/bin/book_register.py

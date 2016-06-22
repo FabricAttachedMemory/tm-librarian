@@ -1,0 +1,14 @@
+#!/bin/sh
+
+rm -rf /usr/lib/python3/dist-packages/tm_librarian/__pycache__
+rm -rf /usr/lib/python3/dist-packages/tm_librarian/tests/__pycache__
+
+/bin/systemctl stop tm-lfs
+/bin/systemctl disable tm-lfs
+
+rm -f /etc/default/tm-lfs
+rm -f /etc/systemd/system/tm-lfs.service 
+
+/bin/systemctl daemon-reload
+
+exit 0
