@@ -1,3 +1,11 @@
+tm-librarian (0.14-1+l4tm1) catapult; urgency=low
+
+  * All lfs_fuse.py command line options are now optional, attempt to
+    derive necessary options automatically, deliver systemd serivce
+    files necessary for auto start on boot.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 22 Jun 2016 09:58:20 -0600
+
 tm-librarian (0.13-1+l4tm1) catapult; urgency=low
 
   * Zero books on truncate, change install directory to tm_librarian and

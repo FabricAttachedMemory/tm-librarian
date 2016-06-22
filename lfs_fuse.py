@@ -23,6 +23,9 @@ import socket
 
 from lfs_shadow import the_shadow_knows
 
+ACPI_NODE_UID = '/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/uid'
+FAME_DEFAULT_NET = '/sys/class/net/eth0/address'
+
 class Heartbeat:
     def __init__(self, timeout_seconds, callback):
         self._timeout_seconds = timeout_seconds
@@ -799,16 +802,40 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 def mount_LFS(args):
     '''Expects an argparse::Namespace argument.
        Validate fields and call FUSE'''
+
     assert os.path.isdir(
         args.mountpoint), 'No such directory %s' % args.mountpoint
+
+    if not args.physloc:
+        try:
+            with open(ACPI_NODE_UID, 'r') as uid_file:
+                node_uid = uid_file.read().strip().split('/')
+                node_rack = node_uid[node_uid.index('rack') + 1]
+                node_enc = node_uid[node_uid.index('enclosure') + 1]
+                node_id = node_uid[node_uid.index('node') + 1]
+                args.physloc = node_rack + ":" + node_enc + ":" + node_id
+        except:
+            # Fabric Emulation auto start shortcut (assumes eth0).
+            # If the last three octets of the MAC are equal use that value
+            # as the node id (1-80), derive the enclosure and rack number.
+            try:
+                with open(FAME_DEFAULT_NET) as mac_file:
+                    mac = mac_file.read().strip().split(':')
+                    if mac[3] == mac[4] == mac[5]:
+                        args.physloc = int(mac[5])
+            except Exception as e:
+                raise SystemExit('Missing physical location and could not automatically derive')
+
     try:
         args.physloc = FRDnode(args.physloc)
     except Exception as e:
-        raise SystemExit('Bad/Missing physical location (--physloc) argument \'%s\'' % args.physloc)
+        raise SystemExit('Bad physical location (--physloc) argument \'%s\'' % args.physloc)
+
     try:
         tmp = socket.gethostbyaddr(args.hostname)
     except Exception as e:
         raise SystemExit('Bad/Missing hostname (--hostname) argument \'%s\'' % args.hostname)
+
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
@@ -838,12 +865,13 @@ if __name__ == '__main__':
     import sys
 
     parser = argparse.ArgumentParser(
-        description='Librarian File System daemon (lfs_fuse.py)')
+        description='Librarian File System daemon (lfs_fuse.py)',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '--hostname',
         help='ToRMS host running the Librarian',
         type=str,
-        default='')
+        default='torms')
     parser.add_argument(
         '--port',
         help='Port on which the Librarian is listening',
