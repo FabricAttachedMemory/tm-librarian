@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 EnvironmentFile=-/etc/default/tm-lfs
-ExecStart=/usr/local/bin/lfs_fuse.py $OPT_ARGS
+ExecStart=/usr/bin/lfs_fuse.py $OPT_ARGS
 
 [Install]
 WantedBy=multi-user.target

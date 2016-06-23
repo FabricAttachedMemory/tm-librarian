@@ -27,7 +27,7 @@ fame.json			usr/lib/python3/dist-packages/tm_librarian
 simpleconfig.json		usr/lib/python3/dist-packages/tm_librarian
 tmconfig.py			usr/lib/python3/dist-packages/tm_librarian
 systemd_tm-lfs			=> etc/default/tm-lfs
-systemd_tm-lfs.service		=> etc/systemd/system/tm-lfs.service
+systemd_tm-lfs.service		=> lib/systemd/system/tm-lfs.service
 tests/check-book.py		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/maptrap.c			usr/lib/python3/dist-packages/tm_librarian/tests
 tests/README			usr/lib/python3/dist-packages/tm_librarian/tests
