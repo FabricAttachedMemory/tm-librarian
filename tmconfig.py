@@ -1,10 +1,11 @@
 #!/usr/bin/python3 -tt
 
-# Read a JSON document constructed per the Software ERS that describes
-# the topology of an instance of The Machine.  Turn JSON into an object
-# with attributes that follow the descent of the collections, i.e.,
-# obj.racks.enclosures.nodes.mediaControllers. Provide properties
-# that are entire collections, i.e., obj.mediaControllers.
+# Read JSON constructed per the Software ERS that describes the topology
+# of an instance of The Machine, aka TMCF (The Machine Config File).
+# Create an object with attributes that follow the descent of the
+# collections, i.e., obj.racks.enclosures.nodes.mediaControllers.
+# Provide convenience properties that are entire collections, i.e.,
+# obj.mediaControllers.
 
 import inspect
 import json
@@ -140,20 +141,27 @@ class TMConfig(GenericObject):
         if verbose:
             print('    ' * depth, attr, end=': ')
         if isinstance(item, list):
-            # ALL list elements are dicts per the ERS.  I think.
+            # MOST list elements are dicts.  The only exception as of
+            # 2016-06-22 is the array of strings in the InterleaveGroup
+            # mediaController expansion.
             if verbose:
                 print('(list)')
             buildlist = []
             setattr(obj, attr, buildlist)
             for i, element in enumerate(item):
-                if not isinstance(element, dict):
+                if (isinstance(element, int) or
+                    isinstance(element, float) or
+                    isinstance(element, str)):
+                    buildlist.append(element)
+                elif isinstance(element, dict):
+                    GO = globals().get('_GO' + attr, GenericObject)()
+                    buildlist.append(GO)
+                    for key, value in element.items():
+                        TMConfig.unroll(GO, key, value, depth + 1, verbose)
+                else:
                     print('Unexpected JSON construction', file=sys.stderr)
                     set_trace()
                     continue
-                GO = globals().get('_GO' + attr, GenericObject)()
-                buildlist.append(GO)
-                for key, value in element.items():
-                    TMConfig.unroll(GO, key, value, depth + 1, verbose)
 
             # Make buildlist immutable and Drewable
             setattr(obj, attr, OptionBaseOneTuple(getattr(obj, attr)))
@@ -204,22 +212,36 @@ class TMConfig(GenericObject):
                 TMConfig.unroll(self, key, value, verbose=verbose)
             self._allServices = None
         except Exception as e:
+            tb_lineno = sys.exc_info()[2].tb_lineno
+            src, base_lineno = inspect.getsourcelines(self.__class__)
+            if not src:
+                raise RuntimeError('Line %d: %s' % (tb_lineno, str(e)))
+            badsrc = src[tb_lineno - base_lineno][:-1].strip()
             raise RuntimeError(
-                'Line %d: %s' % (sys.exc_info()[2].tb_lineno, str(e)))
+                'Line %d: "%s": %s' % (tb_lineno, badsrc, str(e)))
 
         # Fixups and consistency checks.  Flesh out all relative coordinates
         # into absolutes and check for dupes, which intrinsically checks
         # a lot of things.  The list gets used again for IG checking.
 
         self.racks = tupledict(self.racks)  # top level needs handling now
+        allencs = [ ]
+        allnodes = [ ]
         allMCs = [ ]
         node_id = 1
         for rack in self.racks:
             rack.coordinate = self.coordinate + '/' + rack.coordinate
             for enc in rack.enclosures:
                 enc.coordinate = rack.coordinate + '/' + enc.coordinate
+                assert enc.coordinate not in allencs, \
+                    'Duplicate enclosure coordinate %s' % enc.coordinate
+                allencs.append(enc.coordinate)
                 for node in enc.nodes:
                     node.coordinate = enc.coordinate + '/' + node.coordinate
+                    assert node.coordinate not in allnodes, \
+                        'Duplicate node coordinate %s' % node.coordinate
+                    allnodes.append(node.coordinate)
+
                     node.soc.coordinate = node.coordinate + '/' + node.soc.coordinate
                     node.rack = rack.coordinate.split('/')[-1]
                     node.enc = enc.coordinate.split('/')[-1]
@@ -230,11 +252,12 @@ class TMConfig(GenericObject):
                         mc.coordinate = node.coordinate + '/' + mc.coordinate
                         assert mc.coordinate not in allMCs, \
                             'Duplicate MC coordinate %s' % mc.coordinate
+                        allMCs.append(mc.coordinate)
                         mc.node_id = node.node_id
                         # CID == enc[11-9]:node[8-4]:subCID[3-0] making an 11-bit CID
                         subCID = int(mc.coordinate.split('/')[-1])
                         mc.rawCID = (int(node.enc) << 8) + (int(node.node_id) << 4) + subCID
-                        allMCs.append(mc.coordinate)
+                    node.totalNVM = sum(mc.memorySize for mc in node.mediaControllers)
 
                     # Find it earlier, report it with more clarity
                     self._FTFY(
@@ -245,22 +268,35 @@ class TMConfig(GenericObject):
                     )
 
         # IGs already have absolute coordinates.  Compare them to the nodes.
+        # allMCs is a "countdown" of things that have been seen.
         groupIds = [ ]
         for IG in self.interleaveGroups:
             assert IG.groupId not in groupIds, \
                 'Duplicate interleave group ID %d' % IG.groupId
             groupIds.append(IG.groupId)
             for mc in IG.mediaControllers:
-                if  mc.coordinate not in allMCs:
-                    msg = 'IG MC %s not found in any node' % mc.coordinate
+                # Original TMCF had coord and memsize keys.  I objected to
+                # the memsize duplication, but Keith removed the coord key,
+                # reducing the one-item dict to a simple string.  Handle
+                # both cases.
+                coordinate = getattr(mc, 'coordinate', mc)
+                if coordinate not in allMCs:
+                    msg = 'IG MC %s not found in any node' % coordinate
                     set_trace()
                     raise ValueError(msg)
-                allMCs.remove(mc.coordinate)    # there can be only one
+                allMCs.remove(coordinate)    # there can be only one
         self.unused_memory_controllers = tuple(allMCs)
+
+        assert self.totalNVM == sum(mc.memorySize for
+            mc in self.mediaControllers)
 
     # Some shortcuts to commonly accessed items.   'racks" is already at
     # the top level.  Realize any generators so the caller can do len()
     # and access via [] as a tupledict.
+
+    @property
+    def totalNVM(self):
+        return sum(node.totalNVM for node in self.nodes)
 
     @property
     def enclosures(self):
@@ -366,7 +402,11 @@ class TMConfig(GenericObject):
 
 
 if __name__ == '__main__':
-    config = TMConfig(sys.argv[1], verbose=True)
+    try:
+        config = TMConfig(sys.argv[1], verbose=True)
+    except Exception as e:
+        raise SystemExit(str(e))
+
     print()
     if config.FTFY:
         print('Added missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
@@ -374,8 +414,13 @@ if __name__ == '__main__':
     encs = config.enclosures
     nodes = config.nodes
     MCs = config.mediaControllers
-    print('%d racks, %d enclosures, %d nodes, %d media controllers' %
-        (len(racks), len(encs), len(nodes), len(MCs)))
+    totalNVM = config.totalNVM >> 40
+    if totalNVM:
+        totalNVM = '%d GB' % (totalNVM)
+    else:
+        totalNVM = '%d MB' % (config.totalNVM >> 30)
+    print('%d racks, %d enclosures, %d nodes, %d media controllers == %s total NVM' %
+        (len(racks), len(encs), len(nodes), len(MCs), totalNVM))
     print('Book size = %d' % config.bookSize)
     if config.unused_memory_controllers:
         print('MCs not assigned to an IG:')
@@ -384,8 +429,8 @@ if __name__ == '__main__':
     # Use a substring of sufficient granularity to satisfy your needs
     nodes_in_enc_1 = nodes['enclosure/1']
 
-    # This is implicitly across all enclosures
+    # This "search function" is implicitly across all enclosures
     MCs_in_all_node_2s = MCs['node/2']
-    print(nodes[0].dotname, nodes[0].hostname)
+    print(nodes[-1].dotname, 'is', nodes[-1].hostname)
     set_trace()
     pass
