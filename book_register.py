@@ -282,9 +282,8 @@ def load_book_data_json(jsonfile):
     nodes = config.nodes
     MCs = config.mediaControllers
     IGs = config.interleaveGroups
-    book_size_bytes = multiplier(config.bookSize, 'global')
 
-    if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
+    if not ((2 << 10) <= config.bookSize <= (8 * (2 << 30))):
         raise SystemExit('book size is out of range [1K, 8G]')
     # Python 3 bin() prints a string in binary: '0b000101...'
     if sum([ int(c) for c in bin(config.bookSize)[2:] ]) != 1:
