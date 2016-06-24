@@ -28,12 +28,20 @@ except Exception as e:
 
 
 def multiplier(instr, section, book_size_bytes=0):
-
-    suffix = instr[-1].upper()
-    if suffix not in 'BKMGT':
-        raise ValueError(
-            'Illegal size multiplier "%s" in [%s]' % (suffix, section))
-    rsize = int(instr[:-1])
+    '''this is used as a probe function for integers.  Return or raise.'''
+    try:
+        rsize = int(instr)
+        return rsize                    # that was easy
+    except ValueError as e:
+        try:
+            base = instr[:-1]
+            rsize = int(base)           # so far so good
+            suffix = instr[-1].upper()  # chomp one
+            if suffix not in 'BKMGT':
+                raise ValueError(
+                    'Illegal multiplier "%s" in [%s]' % (suffix, section))
+        except ValueError as e:
+            raise ValueError('"%s" is not an integer' % base)
     if suffix == 'K':
         return rsize * 1024
     if suffix == 'M':
@@ -55,9 +63,8 @@ def multiplier(instr, section, book_size_bytes=0):
 
 class OptionBaseOneTuple(tuple):
     def __getitem__(self, index):
-        set_trace()
         if not index:
-            raise IndexError
+            raise IndexError('first index is 1')
         if index > 0:
             index -= 1
         return super(self.__class__, self).__getitem__(index)
@@ -69,6 +76,7 @@ class OptionBaseOneTuple(tuple):
 
 class _GObase(GenericObject):
     pass
+
 
 class _GOracks(GenericObject):
     __qualname__ = 'racks'
@@ -178,13 +186,13 @@ class TMConfig(GenericObject):
             if verbose:
                 if isinstance(item, str):
                     print(item[:40], '...')
-                    try:
-                        if len(item):
-                            item = multiplier(item, attr)
-                    except Exception as e:
-                        pass
                 else:
                     print(item)
+            if isinstance(item, str):
+                try:    # probe for integer, maybe with multiplier
+                    item = multiplier(item, attr)
+                except Exception as e:
+                    pass
             setattr(obj, attr, item)
 
       except Exception as e:
@@ -285,10 +293,10 @@ class TMConfig(GenericObject):
                     set_trace()
                     raise ValueError(msg)
                 allMCs.remove(coordinate)    # there can be only one
-        self.unused_memory_controllers = tuple(allMCs)
+        self.unused_mediaControllers = tuple(allMCs)
 
         assert self.totalNVM == sum(mc.memorySize for
-            mc in self.mediaControllers)
+            mc in self.mediaControllers), 'NVM memory mismatch'
 
     # Some shortcuts to commonly accessed items.   'racks" is already at
     # the top level.  Realize any generators so the caller can do len()
@@ -422,9 +430,9 @@ if __name__ == '__main__':
     print('%d racks, %d enclosures, %d nodes, %d media controllers == %s total NVM' %
         (len(racks), len(encs), len(nodes), len(MCs), totalNVM))
     print('Book size = %d' % config.bookSize)
-    if config.unused_memory_controllers:
+    if config.unused_mediaControllers:
         print('MCs not assigned to an IG:')
-        pprint(config.unused_memory_controllers)
+        pprint(config.unused_mediaControllers)
 
     # Use a substring of sufficient granularity to satisfy your needs
     nodes_in_enc_1 = nodes['enclosure/1']

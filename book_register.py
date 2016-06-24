@@ -18,7 +18,7 @@ from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group, FRDFAModule
 from descmgmt import DescriptorManagement as DescMgmt
-from tmconfig import TMConfig
+from tmconfig import TMConfig, multiplier
 
 verbose = 0
 
@@ -106,30 +106,6 @@ def load_config(inifile):
                     s, ', '.join(bad), ', '.join(legal)))
 
     return Gname, G, other_sections
-
-#--------------------------------------------------------------------------
-
-
-def multiplier(instr, section, book_size_bytes=0):
-    suffix = instr[-1].upper()
-    if suffix not in 'BKMGT':
-        raise ValueError(
-            'Illegal size multiplier "%s" in [%s]' % (suffix, section))
-    rsize = int(instr[:-1])
-    if suffix == 'K':
-        return rsize * 1024
-    if suffix == 'M':
-        return rsize * 1024 * 1024
-    elif suffix == 'G':
-        return rsize * 1024 * 1024 * 1024
-    elif suffix == 'T':
-        return rsize * 1024 * 1024 * 1024 * 1024
-
-    # Suffix is 'B' to reach this point
-    if not book_size_bytes:
-        raise ValueError(
-            'multiplier suffix "B" not useable in [%s]' % section)
-    return rsize * book_size_bytes
 
 #--------------------------------------------------------------------------
 
@@ -297,6 +273,9 @@ def load_book_data_json(jsonfile):
 
     if config.FTFY:     # or could raise SystemExit()
         print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
+    if config.unused_mediaControllers:
+        print('MC(s) not assigned to an IG:\n%s' % '\n'.join(config.unused_mediaControllers))
+        raise SystemExit('Inconsistent configuration cannot be used')
 
     racks = config.racks
     encs = config.enclosures
@@ -306,10 +285,10 @@ def load_book_data_json(jsonfile):
     book_size_bytes = multiplier(config.bookSize, 'global')
 
     if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
-        raise SystemExit('book_size_bytes is out of range [1K, 8G]')
+        raise SystemExit('book size is out of range [1K, 8G]')
     # Python 3 bin() prints a string in binary: '0b000101...'
-    if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
-        raise SystemExit('book_size_bytes must be a power of 2')
+    if sum([ int(c) for c in bin(config.bookSize)[2:] ]) != 1:
+        raise SystemExit('book size must be a power of 2')
 
     books_total = 0
     nvm_bytes_total = 0
@@ -318,7 +297,7 @@ def load_book_data_json(jsonfile):
             mco = MCs[mc.coordinate]
             for item in mco:
                 mem_size = multiplier(item.memorySize, 'MCs')
-                ig_total_books = mem_size / book_size_bytes
+                ig_total_books = mem_size / config.bookSize
                 # Real machine hardware only has 13 bits of book number in an LZA
                 assert ig_total_books < 8192, 'Illegal IG book count'
                 books_total += ig_total_books
@@ -327,15 +306,15 @@ def load_book_data_json(jsonfile):
     if verbose > 0:
         print('%d rack(s), %d enclosure(s), %d node(s), %d media controller(s), %d IG(s)' %
             (len(racks), len(encs), len(nodes), len(MCs), len(IGs)))
-        print('book size = %s (%d)' % (config.bookSize, book_size_bytes))
+        print('book size = %s (%d)' % (config.bookSize, config.bookSize))
         print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
-            books_total, book_size_bytes, nvm_bytes_total, nvm_bytes_total))
+            books_total, config.bookSize, nvm_bytes_total, nvm_bytes_total))
 
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
     cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
                 SQLite3assist.SCHEMA_VERSION,
-                book_size_bytes,
+                config.bookSize,
                 nvm_bytes_total,
                 books_total,
                 len(nodes)))
@@ -365,7 +344,7 @@ def load_book_data_json(jsonfile):
             mco = MCs[mc.coordinate]
             for item in mco:
                 mem_size = multiplier(item.memorySize, 'mediaControllers')
-                module_size_books = mem_size / book_size_bytes
+                module_size_books = mem_size / config.bookSize
                 if verbose > 1:
                     print("  node_id = %s, IG = %s, books = %d, rawCID = %d" %
                         (item.node_id, ig.groupId, module_size_books, item.rawCID))
@@ -390,7 +369,7 @@ def load_book_data_json(jsonfile):
             mco = MCs[mc.coordinate]
             for item in mco:
                 mem_size += multiplier(item.memorySize, 'mediaControllers')
-        total_books = int(mem_size / book_size_bytes)
+        total_books = int(mem_size / config.bookSize)
         for igoffset in range(total_books):
             lza = (ig.groupId << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
             if verbose > 2:
@@ -568,7 +547,7 @@ if __name__ == '__main__':
         os.unlink(args.dfile)
 
     if not os.path.isfile(args.cfile):
-        raise SystemError('configuration file does not exists: %s' % args.cfile)
+        raise SystemExit('"%s" not found' % args.cfile)
 
     # Determine format of config file
     with open(args.cfile, 'r') as f:
