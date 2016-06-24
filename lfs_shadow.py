@@ -47,6 +47,7 @@ class shadow_support(object):
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
         self.book_size = lfs_globals['book_size_bytes']
+        self.book_shift = int(math.log(self.book_size, 2))
         self._shelfcache = { }
         self.zero_on_unlink = True
 
@@ -54,22 +55,29 @@ class shadow_support(object):
         # See getxattr below; these are default values unless overwritten
         # by subclasses.
 
-        self.addr_mode = self._MODE_NONE
+        self.addr_mode = getattr(args, 'addr_mode', self._MODE_NONE)
         self.aperture_base = 0
+        self._igstart = {}
+
+        if self.addr_mode not in (
+                self._MODE_FALLBACK, self._MODE_FAME, self._MODE_FAME_DESC):
+            return
 
         # Backing store (shadow_file or FAME direct) is contiguous but IG
-        # ranges are not.  Map IG ranges onto areas of backing store.  Not
-        # used for shadow_dir but it's not worth the effort to suppress.
-        self._igstart = {}
+        # ranges are not.  Map IG ranges onto areas of backing store.
+        # First get numerically sorted keys.
+
+        igkeys = sorted([int(igstr)
+            for igstr in lfs_globals['books_per_IG'].keys()])
+
         offset = 0
-        for igstr in sorted(lfs_globals['books_per_IG'].keys()):
-            ig = int(igstr)
-            if self.verbose > 2:
-                print('IG %2d flatspace offset @ %d (0x%x)' % (ig, offset, offset))
+        for ig in igkeys:
+            igstr = str(ig)
+            if self.verbose > 1:
+                print('IG %2d flatspace offset @ 0x%x (%d)' % (ig, offset, offset))
             self._igstart[ig] = offset
             books = int(lfs_globals['books_per_IG'][igstr])
             offset += books * self.book_size
-        self.book_shift = int(math.log(self.book_size, 2))
 
     def _consistent(self, cached):
         try:
@@ -224,7 +232,7 @@ class shadow_support(object):
             return -1
 
         # Offset into flat space has several contributors.  Oddly enough
-        # this doesn't neet the concatenated LZA field.
+        # this doesn't need the concatenated LZA field.
         intlv_group = book['intlv_group']
         book_num = book['book_num']
         book_start = book_num * self.book_size
@@ -348,6 +356,7 @@ class shadow_directory(shadow_support):
        ie, if you're on a VM, the file storage is in the VM disk image.'''
 
     def __init__(self, args, lfs_globals):
+        args.addr_mode = self._MODE_FALLBACK    # FIXME: not tested
         super(self.__class__, self).__init__(args, lfs_globals)
         self.zero_on_unlink = False   # OS "clears" per-shelf backing file
         assert os.path.isdir(
@@ -358,7 +367,6 @@ class shadow_directory(shadow_support):
             probe.close()
         except OSError as e:
             raise RuntimeError('%s is not writeable' % args.shadow_dir)
-        self.addr_mode = self._MODE_FALLBACK    # FIXME: not tested
 
     def shadowpath(self, shelf_name):
         return '%s/%s' % (self._shadowpath, shelf_name)
@@ -449,6 +457,7 @@ class shadow_file(shadow_support):
        file lives in the file system of the entity running lfs_fuse.'''
 
     def __init__(self, args, lfs_globals):
+        args.addr_mode = self._MODE_FALLBACK
         super(self.__class__, self).__init__(args, lfs_globals)
 
         (head, tail) = os.path.split(args.shadow_file)
@@ -477,7 +486,6 @@ class shadow_file(shadow_support):
 
         self.aperture_size = lfs_globals['nvm_bytes_total']
         self._shadow_fd = fd
-        self.addr_mode = self._MODE_FALLBACK
 
     # open(), create(), release() only do caching as handled by superclass
 
@@ -590,8 +598,6 @@ class apertures(shadow_support):
         # The field is called aperture_base even if direct mapping is used.
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
-
-        self.addr_mode = args.addr_mode
 
     # open(), create(), release() only do caching as handled by superclass
 
