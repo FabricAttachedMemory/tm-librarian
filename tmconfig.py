@@ -263,8 +263,13 @@ class TMConfig(GenericObject):
                         allMCs.append(mc.coordinate)
                         mc.node_id = node.node_id
                         # CID == enc[11-9]:node[8-4]:subCID[3-0] making an 11-bit CID
+                        # External representations of full fields are all
+                        # option base 1, but each subfield of rawCID must be
+                        # option base 0
                         subCID = int(mc.coordinate.split('/')[-1])
-                        mc.rawCID = (int(node.enc) << 8) + (int(node.node_id) << 4) + subCID
+                        mc.rawCID = (((int(node.enc) - 1) << 9) +
+                                     ((int(node.node) - 1) << 4) +
+                                     (subCID - 1))
                     node.totalNVM = sum(mc.memorySize for mc in node.mediaControllers)
 
                     # Find it earlier, report it with more clarity

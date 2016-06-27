@@ -58,7 +58,7 @@ class FRDFAModule(FRDnodeID):
                 node = int(node)
                 ordMC = int(ordMC)
             except Exception as e:
-                enc = (raw >> 8) & 0x7   # 3 bits
+                enc = (raw >> 9) & 0x7   # 3 bits
                 node = (raw >> 4) & 0xF  # 4 bits
                 ordMC = raw & 0x3        # 2 LSB in FRD
         else:
