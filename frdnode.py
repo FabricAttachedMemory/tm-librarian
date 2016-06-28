@@ -58,9 +58,10 @@ class FRDFAModule(FRDnodeID):
                 node = int(node)
                 ordMC = int(ordMC)
             except Exception as e:
-                enc = (raw >> 9) & 0x7   # 3 bits
-                node = (raw >> 4) & 0xF  # 4 bits
-                ordMC = raw & 0x3        # 2 LSB in FRD
+                # Values in rawCID are zero based
+                enc = (((raw >> 9) & 0x7) + 1)   # 3 bits
+                node = (((raw >> 4) & 0xF) + 1)  # 4 bits
+                ordMC = raw & 0x3                # 2 LSB in FRD
         else:
             assert enc is not None and node is not None and ordMC is not None
 
