@@ -71,7 +71,7 @@ class FRDFAModule(FRDnodeID):
         self.enc = enc
         self.node = node
         self.ordMC = ordMC
-        self.value = enc << 8 | node << 4 | (8 + ordMC)
+        self.value = (enc - 1) << 9 | (node - 1) << 4 | (8 + ordMC)
 
     def __str__(self):
         return 'node_id %2d: %d:%d:%d (%d books)' % (

@@ -266,10 +266,11 @@ class TMConfig(GenericObject):
                         # External representations of full fields are all
                         # option base 1, but each subfield of rawCID must be
                         # option base 0
+                        # SubCID is the GenZ responder for MCs, runs from 8 - 11.
                         subCID = int(mc.coordinate.split('/')[-1])
                         mc.rawCID = (((int(node.enc) - 1) << 9) +
                                      ((int(node.node) - 1) << 4) +
-                                     (subCID - 1))
+                                     ((subCID - 1) + 8))
                     node.totalNVM = sum(mc.memorySize for mc in node.mediaControllers)
 
                     # Find it earlier, report it with more clarity
