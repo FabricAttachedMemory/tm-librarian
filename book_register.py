@@ -137,7 +137,7 @@ def get_book_id(bn, node_id, ig):
 
 def extrapolate(Gname, G, node_count, book_size_bytes):
     if 'nvm_size_per_node' not in G:
-        return None, None
+        return None
     bytes_per_node = multiplier(G['nvm_size_per_node'], Gname, book_size_bytes)
     if bytes_per_node % book_size_bytes != 0:
         usage('[%s] bytes_per_node not multiple of book size' % Gname)
@@ -150,7 +150,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
                  for node_id in range(1, node_count + 1) ]
     IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
 
-    return FRDnodes, IGs
+    return FRDnodes
 
 #--------------------------------------------------------------------------
 
@@ -168,7 +168,7 @@ def load_book_data_ini(inifile):
     if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
         raise SystemExit('book_size_bytes must be a power of 2')
 
-    FRDnodes, IGs = extrapolate(Gname, G, node_count, book_size_bytes)
+    FRDnodes = extrapolate(Gname, G, node_count, book_size_bytes)
     if FRDnodes is None:
         # No short cuts, grind it out for the nodes.
         FRDnodes = []
