@@ -72,7 +72,7 @@ class FRDFAModule(FRDnodeID):
         self.enc = enc
         self.node = node
         self.ordMC = ordMC
-        self.value = (enc - 1) << 9 | (node - 1) << 4 | (8 + ordMC)
+        self.rawCID = (enc - 1) << 9 | (node - 1) << 4 | (8 + ordMC)
 
     def __str__(self):
         return 'node_id %2d: %d:%d:%d (%d books)' % (
@@ -110,7 +110,7 @@ class MCCIDlist(object):
                      for c in rawCIDlist ]
 
     def __repr__(self):
-        return str([ '0x%x' % cid.value for cid in self.MCs ])
+        return str([ '0x%x' % cid.rawCID for cid in self.MCs ])
 
     def __str__(self):
         tmp = [ str(cid) for cid in self.MCs ]
@@ -197,6 +197,8 @@ class FRDintlv_group(object):
         assert 0 <= num < 128, 'intlv_group number out of range 0-127'
         self.num = num
         self.MCs = MCs
+        # Real machine hardware only has 13 bits of book number in an LZA
+        assert self.total_books <= 8192, 'book count too large'
 
     def __str__(self):
         return '%-3s %s' % (self.num, self.MCs)

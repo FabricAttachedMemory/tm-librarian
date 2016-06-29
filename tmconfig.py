@@ -231,11 +231,13 @@ class TMConfig(GenericObject):
         # Fixups and consistency checks.  Flesh out all relative coordinates
         # into absolutes and check for dupes, which intrinsically checks
         # a lot of things.  The list gets used again for IG checking.
+        # Real machine hardware only has 13 bits of book number in an LZA
+        max_NVM_per_MC = 8192 * self.bookSize
 
         self.racks = tupledict(self.racks)  # top level needs handling now
         allencs = [ ]
         allnodes = [ ]
-        allMCs = [ ]
+        fullMCs = { }
         node_id = 1
         for rack in self.racks:
             rack.coordinate = self.coordinate + '/' + rack.coordinate
@@ -258,9 +260,11 @@ class TMConfig(GenericObject):
                     node_id += 1
                     for mc in node.mediaControllers:
                         mc.coordinate = node.coordinate + '/' + mc.coordinate
-                        assert mc.coordinate not in allMCs, \
+                        assert mc.coordinate not in fullMCs, \
                             'Duplicate MC coordinate %s' % mc.coordinate
-                        allMCs.append(mc.coordinate)
+                        assert mc.memorySize <= max_NVM_per_MC, \
+                            'MC @ %s has too much NVM' % mc.coordinate
+                        fullMCs[mc.coordinate] = mc      # for future reference
                         mc.node_id = node.node_id
                         # CID == enc[11-9]:node[8-4]:subCID[3-0] making an 11-bit CID
                         # External representations of full fields are all
@@ -281,25 +285,30 @@ class TMConfig(GenericObject):
                         (node.dotname, )
                     )
 
-        # IGs already have absolute coordinates.  Compare them to the nodes.
-        # allMCs is a "countdown" of things that have been seen.
+        # IGs only have absolute coordinates; "update" them with node's full
+        # definition.  fullMCs is now a "countdown" consistency check.
         groupIds = [ ]
         for IG in self.interleaveGroups:
             assert IG.groupId not in groupIds, \
                 'Duplicate interleave group ID %d' % IG.groupId
             groupIds.append(IG.groupId)
+            updateMCs = [ ]
             for mc in IG.mediaControllers:
                 # Original TMCF had coord and memsize keys.  I objected to
                 # the memsize duplication, but Keith removed the coord key,
                 # reducing the one-item dict to a simple string.  Handle
                 # both cases.
                 coordinate = getattr(mc, 'coordinate', mc)
-                if coordinate not in allMCs:
+                if coordinate not in fullMCs:
                     msg = 'IG MC %s not found in any node' % coordinate
-                    set_trace()
                     raise ValueError(msg)
-                allMCs.remove(coordinate)    # there can be only one
-        self.unused_mediaControllers = tuple(allMCs)
+                assert not hasattr(mc, 'memorySize'), \
+                    'IG definition of MC cannot set memorySize'
+                updateMCs.append(fullMCs[coordinate])   # reuse
+                del fullMCs[coordinate]
+            IG.mediaControllers = OptionBaseOneTuple(updateMCs)
+
+        self.unused_mediaControllers = tuple(fullMCs.keys())
 
         assert self.totalNVM == sum(mc.memorySize for
             mc in self.mediaControllers), 'NVM memory mismatch'

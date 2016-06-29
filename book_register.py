@@ -137,7 +137,7 @@ def get_book_id(bn, node_id, ig):
 
 def extrapolate(Gname, G, node_count, book_size_bytes):
     if 'nvm_size_per_node' not in G:
-        return None, None
+        return None
     bytes_per_node = multiplier(G['nvm_size_per_node'], Gname, book_size_bytes)
     if bytes_per_node % book_size_bytes != 0:
         usage('[%s] bytes_per_node not multiple of book size' % Gname)
@@ -150,7 +150,23 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
                  for node_id in range(1, node_count + 1) ]
     IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
 
-    return FRDnodes, IGs
+    return FRDnodes
+
+#--------------------------------------------------------------------------
+
+
+def startDB(book_size_bytes, nvm_bytes_total, numnodes):
+    books_total = nvm_bytes_total // book_size_bytes
+    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
+    create_empty_db(cur)
+    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
+                SQLite3assist.SCHEMA_VERSION,
+                book_size_bytes,
+                nvm_bytes_total,
+                books_total,
+                numnodes))
+    cur.commit()
+    return cur
 
 #--------------------------------------------------------------------------
 
@@ -168,7 +184,7 @@ def load_book_data_ini(inifile):
     if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
         raise SystemExit('book_size_bytes must be a power of 2')
 
-    FRDnodes, IGs = extrapolate(Gname, G, node_count, book_size_bytes)
+    FRDnodes = extrapolate(Gname, G, node_count, book_size_bytes)
     if FRDnodes is None:
         # No short cuts, grind it out for the nodes.
         FRDnodes = []
@@ -194,53 +210,56 @@ def load_book_data_ini(inifile):
 
     IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
 
-    # Real machine hardware only has 13 bits of book number in an LZA
-    for ig in IGs:
-        assert ig.total_books < 8192, 'Illegal IG book count'
-
     books_total = 0
     for node in FRDnodes:
         books_total += sum(mc.module_size_books for mc in node.MCs)
     nvm_bytes_total = books_total * book_size_bytes
     if verbose > 0:
-        print('book size = %s (%d)' % (G['book_size_bytes'], book_size_bytes))
+        print('book size = %d' % (book_size_bytes))
         print('%d books == %d (0x%016x) total NVM bytes' % (
             books_total, nvm_bytes_total, nvm_bytes_total))
-    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
-    create_empty_db(cur)
-    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
-                SQLite3assist.SCHEMA_VERSION,
-                book_size_bytes,
-                nvm_bytes_total,
-                books_total,
-                len(FRDnodes)))
-    cur.commit()
 
-    # Now the other tables, keep it clear..  Some of these will be used
+    cur = startDB(book_size_bytes, nvm_bytes_total, len(FRDnodes))
+
+    # Now the other tables, keep it clear.  Some of these will be used
     # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
 
     for node in FRDnodes:
         cur.execute(
             'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
-            (node.node_id, node.rack, node.enc, node.node, 'None', 'None'))
+            (node.node_id,
+             node.rack,
+             node.enc,
+             node.node,
+             'None',    # coordinate
+             'None'))   # serial number
 
         cur.execute(
             'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
-            (node.node_id, 'None', FRDnode.SOC_STATUS_OFFLINE, 'None', 'None', 0))
-
+            (node.node_id,
+             'None',                        # MAC address
+             FRDnode.SOC_STATUS_OFFLINE,
+             'None',                        # coordinate
+             'None',                        # public cert
+             0))                            # heartbeat
     cur.commit()
 
     # That was easy.  Here's another one.
     for ig in IGs:
         if verbose > 1:
             print("InterleaveGroup: %d" % ig.num)
-            for mc in ig.MCs:
-                print("  %s, rawCID = %d" % (mc, mc.value))
+            for mc in ig.MCs:   # type(mc) = frdnode.FAModule
+                print("  %s, rawCID = %d" % (mc, mc.rawCID))
         for mc in ig.MCs:
             cur.execute(
                 'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
-                (mc.node_id, ig.num, mc.module_size_books, mc.value,
-                FRDFAModule.MC_STATUS_OFFLINE, 'None', (mc.module_size_books * book_size_bytes)))
+                (mc.node_id,
+                 ig.num,
+                 mc.module_size_books,
+                 mc.rawCID,
+                FRDFAModule.MC_STATUS_OFFLINE,
+                'None',
+                (mc.module_size_books * book_size_bytes)))
     cur.commit()
 
     # Books are allocated behind IGs, not nodes. An LZA is a set of bit
@@ -278,8 +297,8 @@ def load_book_data_json(jsonfile):
         raise SystemExit('Inconsistent configuration cannot be used')
 
     racks = config.racks
-    encs = config.enclosures
-    nodes = config.nodes
+    encs = config.enclosures    # monotonically increasing
+    nodes = config.nodes        # ditto
     MCs = config.mediaControllers
     IGs = config.interleaveGroups
 
@@ -289,68 +308,56 @@ def load_book_data_json(jsonfile):
     if sum([ int(c) for c in bin(config.bookSize)[2:] ]) != 1:
         raise SystemExit('book size must be a power of 2')
 
-    books_total = 0
-    nvm_bytes_total = 0
-    for ig in IGs:
-        for mc in ig.mediaControllers:
-            mco = MCs[mc.coordinate]
-            for item in mco:
-                mem_size = multiplier(item.memorySize, 'MCs')
-                ig_total_books = mem_size / config.bookSize
-                # Real machine hardware only has 13 bits of book number in an LZA
-                assert ig_total_books < 8192, 'Illegal IG book count'
-                books_total += ig_total_books
-                nvm_bytes_total += mem_size
-
-    if verbose > 0:
+    if verbose:
         print('%d rack(s), %d enclosure(s), %d node(s), %d media controller(s), %d IG(s)' %
             (len(racks), len(encs), len(nodes), len(MCs), len(IGs)))
         print('book size = %s (%d)' % (config.bookSize, config.bookSize))
+        books_total = config.totalNVM / config.bookSize
         print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
-            books_total, config.bookSize, nvm_bytes_total, nvm_bytes_total))
+            books_total, config.bookSize, config.totalNVM, config.totalNVM))
 
-    cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
-    create_empty_db(cur)
-    cur.execute('INSERT INTO globals VALUES(?, ?, ?, ?, ?)', (
-                SQLite3assist.SCHEMA_VERSION,
-                config.bookSize,
-                nvm_bytes_total,
-                books_total,
-                len(nodes)))
-    cur.commit()
+    cur = startDB(config.bookSize, config.totalNVM, len(nodes))
 
-    for rack in racks:
-        for enc in rack.enclosures:
-            for node in enc.nodes:
-                if verbose > 1:
-                    print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
-                        (node.node_id, node.soc.macAddress, node.rack, node.enc, node.node))
-                cur.execute(
-                    'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
-                    (node.node_id, node.rack, node.enc, node.node, node.coordinate, node.serialNumber))
+    for node in nodes:
+        if verbose > 1:
+            print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
+                (node.node_id, node.soc.macAddress, node.rack, node.enc, node.node))
+        cur.execute(
+            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
+            (node.node_id,
+             node.rack,
+             node.enc,
+             node.node,
+             node.coordinate,
+             node.serialNumber))
 
-                cur.execute(
-                    'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
-                    (node.node_id, node.soc.macAddress, FRDnode.SOC_STATUS_OFFLINE,
-                    node.soc.coordinate, node.soc.tlsPublicCertificate, 0))
-
+        cur.execute(
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+            (node.node_id,
+             node.soc.macAddress,
+             FRDnode.SOC_STATUS_OFFLINE,
+             node.soc.coordinate,
+             node.soc.tlsPublicCertificate,
+             0))  # heartbeat
     cur.commit()
 
     for ig in IGs:
         if verbose > 1:
             print("InterleaveGroup: %d" % ig.groupId)
-        for mc in ig.mediaControllers:
-            mco = MCs[mc.coordinate]
-            for item in mco:
-                mem_size = multiplier(item.memorySize, 'mediaControllers')
-                module_size_books = mem_size / config.bookSize
-                if verbose > 1:
-                    print("  node_id = %s, IG = %s, books = %d, rawCID = %d" %
-                        (item.node_id, ig.groupId, module_size_books, item.rawCID))
-                cur.execute(
-                    'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
-                    (item.node_id, ig.groupId, module_size_books, item.rawCID,
-                    FRDFAModule.MC_STATUS_OFFLINE, item.coordinate, mem_size))
+        for mc in ig.mediaControllers:  # type(mc) == tmconfig.mediaControllers
+            module_size_books = mc.memorySize / config.bookSize
+            if verbose > 1:
+                print("  node_id %2d: %d books, rawCID = %d" %
+                    (mc.node_id, module_size_books, mc.rawCID))
+            cur.execute(
+                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
+                (mc.node_id,
+                 ig.groupId,
+                 module_size_books,
+                 mc.rawCID,
+                 FRDFAModule.MC_STATUS_OFFLINE,
+                 mc.coordinate,
+                 mc.memorySize))
     cur.commit()
 
     # Books are allocated behind IGs, not nodes. An LZA is a set of bit
@@ -365,9 +372,7 @@ def load_book_data_json(jsonfile):
         total_books = 0
         mem_size = 0
         for mc in ig.mediaControllers:
-            mco = MCs[mc.coordinate]
-            for item in mco:
-                mem_size += multiplier(item.memorySize, 'mediaControllers')
+            mem_size += mc.memorySize
         total_books = int(mem_size / config.bookSize)
         for igoffset in range(total_books):
             lza = (ig.groupId << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
