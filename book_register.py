@@ -231,16 +231,16 @@ def load_book_data_ini(inifile):
              node.rack,
              node.enc,
              node.node,
-             'None',    # coordinate
-             'None'))   # serial number
+             node.coordinate,               # spoofed in class FRDnode
+             node.serialNumber))            # spoofed
 
         cur.execute(
             'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
             (node.node_id,
-             'None',                        # MAC address
+             node.soc.macAddress,           # spoofed
              FRDnode.SOC_STATUS_OFFLINE,
-             'None',                        # coordinate
-             'None',                        # public cert
+             node.soc.coordinate,           # spoofed
+             node.soc.tlsPublicCertificate, # spoofed
              0))                            # heartbeat
     cur.commit()
 
