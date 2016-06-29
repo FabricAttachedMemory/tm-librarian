@@ -1,0 +1,4392 @@
+{
+	"coordinate": "machine_rev/1/datacenter/pa1",
+	"managementServer": 
+	{
+		"softwareRecipeUri": "file:softwareReceipe.js",
+		"keyManager": 
+		{
+			"restUri": "https://top.of.rack:12000/rest/v1",
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+		"identity": 
+		{
+			"port": 636,
+			"protocol": "<some-protocol>",
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+		"authorization": 
+		{
+			"restUri": "https://top.of.rack:12000/rest/v1",
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+		"osProvisioning": 
+		{
+			"restUri": "https://top.of.rack:12000/rest/v1",
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+		"librarian": 
+		{
+			"port": 9093,
+			"protocol": "REST",
+			"tlsPublicCertificate": "<Base64 encoded certificate>",
+			"bookSize": "8M"
+		},
+		"assemblyAgent": 
+		{
+			"restUri": "https://top.of.rack:10000/rest/v1",
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>",
+			"pauseBeforePower": false
+		},
+		"monitoring": 
+		{
+			"restUri": "https://top.of.rack:11000/rest/v1",
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		},
+		"powerManager": 
+		{
+			"port": 1234,
+			"version": "1.0",
+			"tlsPublicCertificate": "<Base64 encoded certificate>"
+		}
+	},
+
+	"advancedPowerManager": 
+	{
+		"coordinate": "",
+		"controlIpv4Address": "192.x.x.x"
+	},
+
+	"racks": 
+	[
+		{
+			"coordinate": "frame/A1.above_floor/rack/1",
+			"enclosures": 
+			[
+				{
+					"coordinate": "enclosure/1",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "1",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "01:01:01:01:01:01"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.1",
+								"mfwApiUri": "http://1.1.1.1:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "2",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "02:02:02:02:02:02"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.2",
+								"mfwApiUri": "http://2.2.2.2:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "3",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "03:03:03:03:03:03"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.3",
+								"mfwApiUri": "http://3.3.3.3:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "4",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "04:04:04:04:04:04"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.4",
+								"mfwApiUri": "http://4.4.4.4:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "5",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "05:05:05:05:05:05"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.5",
+								"mfwApiUri": "http://5.5.5.5:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "6",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "06:06:06:06:06:06"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.6",
+								"mfwApiUri": "http://6.6.6.6:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "7",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "07:07:07:07:07:07"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.7",
+								"mfwApiUri": "http://7.7.7.7:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "8",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "08:08:08:08:08:08"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.8",
+								"mfwApiUri": "http://8.8.8.8:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "9",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "09:09:09:09:09:09"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.9",
+								"mfwApiUri": "http://9.9.9.9:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "10",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "0A:0A:0A:0A:0A:0A"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.10",
+								"mfwApiUri": "http://10.10.10.10:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/2",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "11",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "0B:0B:0B:0B:0B:0B"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.11",
+								"mfwApiUri": "http://11.11.11.11:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "12",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "0C:0C:0C:0C:0C:0C"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.12",
+								"mfwApiUri": "http://12.12.12.12:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "13",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "0D:0D:0D:0D:0D:0D"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.13",
+								"mfwApiUri": "http://13.13.13.13:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "14",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "0E:0E:0E:0E:0E:0E"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.14",
+								"mfwApiUri": "http://14.14.14.14:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "15",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "0F:0F:0F:0F:0F:0F"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.15",
+								"mfwApiUri": "http://15.15.15.15:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "16",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "10:10:10:10:10:10"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.16",
+								"mfwApiUri": "http://16.16.16.16:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "17",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "11:11:11:11:11:11"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.17",
+								"mfwApiUri": "http://17.17.17.17:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "18",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "12:12:12:12:12:12"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.18",
+								"mfwApiUri": "http://18.18.18.18:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "19",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "13:13:13:13:13:13"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.19",
+								"mfwApiUri": "http://19.19.19.19:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "20",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "14:14:14:14:14:14"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.20",
+								"mfwApiUri": "http://20.20.20.20:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/3",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "21",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "15:15:15:15:15:15"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.21",
+								"mfwApiUri": "http://21.21.21.21:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "22",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "16:16:16:16:16:16"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.22",
+								"mfwApiUri": "http://22.22.22.22:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "23",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "17:17:17:17:17:17"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.23",
+								"mfwApiUri": "http://23.23.23.23:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "24",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "18:18:18:18:18:18"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.24",
+								"mfwApiUri": "http://24.24.24.24:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "25",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "19:19:19:19:19:19"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.25",
+								"mfwApiUri": "http://25.25.25.25:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "26",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "1A:1A:1A:1A:1A:1A"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.26",
+								"mfwApiUri": "http://26.26.26.26:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "27",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "1B:1B:1B:1B:1B:1B"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.27",
+								"mfwApiUri": "http://27.27.27.27:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "28",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "1C:1C:1C:1C:1C:1C"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.28",
+								"mfwApiUri": "http://28.28.28.28:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "29",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "1D:1D:1D:1D:1D:1D"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.29",
+								"mfwApiUri": "http://29.29.29.29:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "30",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "1E:1E:1E:1E:1E:1E"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.30",
+								"mfwApiUri": "http://30.30.30.30:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/4",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "31",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "1F:1F:1F:1F:1F:1F"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.31",
+								"mfwApiUri": "http://31.31.31.31:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "32",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "20:20:20:20:20:20"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.32",
+								"mfwApiUri": "http://32.32.32.32:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "33",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "21:21:21:21:21:21"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.33",
+								"mfwApiUri": "http://33.33.33.33:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "34",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "22:22:22:22:22:22"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.34",
+								"mfwApiUri": "http://34.34.34.34:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "35",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "23:23:23:23:23:23"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.35",
+								"mfwApiUri": "http://35.35.35.35:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "36",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "24:24:24:24:24:24"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.36",
+								"mfwApiUri": "http://36.36.36.36:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "37",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "25:25:25:25:25:25"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.37",
+								"mfwApiUri": "http://37.37.37.37:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "38",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "26:26:26:26:26:26"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.38",
+								"mfwApiUri": "http://38.38.38.38:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "39",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "27:27:27:27:27:27"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.39",
+								"mfwApiUri": "http://39.39.39.39:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "40",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "28:28:28:28:28:28"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.40",
+								"mfwApiUri": "http://40.40.40.40:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/5",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "41",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "29:29:29:29:29:29"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.41",
+								"mfwApiUri": "http://41.41.41.41:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "42",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "2A:2A:2A:2A:2A:2A"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.42",
+								"mfwApiUri": "http://42.42.42.42:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "43",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "2B:2B:2B:2B:2B:2B"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.43",
+								"mfwApiUri": "http://43.43.43.43:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "44",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "2C:2C:2C:2C:2C:2C"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.44",
+								"mfwApiUri": "http://44.44.44.44:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "45",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "2D:2D:2D:2D:2D:2D"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.45",
+								"mfwApiUri": "http://45.45.45.45:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "46",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "2E:2E:2E:2E:2E:2E"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.46",
+								"mfwApiUri": "http://46.46.46.46:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "47",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "2F:2F:2F:2F:2F:2F"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.47",
+								"mfwApiUri": "http://47.47.47.47:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "48",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "30:30:30:30:30:30"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.48",
+								"mfwApiUri": "http://48.48.48.48:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "49",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "31:31:31:31:31:31"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.49",
+								"mfwApiUri": "http://49.49.49.49:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "50",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "32:32:32:32:32:32"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.50",
+								"mfwApiUri": "http://50.50.50.50:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/6",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "51",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "33:33:33:33:33:33"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.51",
+								"mfwApiUri": "http://51.51.51.51:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "52",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "34:34:34:34:34:34"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.52",
+								"mfwApiUri": "http://52.52.52.52:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "53",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "35:35:35:35:35:35"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.53",
+								"mfwApiUri": "http://53.53.53.53:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "54",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "36:36:36:36:36:36"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.54",
+								"mfwApiUri": "http://54.54.54.54:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "55",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "37:37:37:37:37:37"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.55",
+								"mfwApiUri": "http://55.55.55.55:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "56",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "38:38:38:38:38:38"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.56",
+								"mfwApiUri": "http://56.56.56.56:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "57",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "39:39:39:39:39:39"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.57",
+								"mfwApiUri": "http://57.57.57.57:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "58",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "3A:3A:3A:3A:3A:3A"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.58",
+								"mfwApiUri": "http://58.58.58.58:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "59",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "3B:3B:3B:3B:3B:3B"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.59",
+								"mfwApiUri": "http://59.59.59.59:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "60",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "3C:3C:3C:3C:3C:3C"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.60",
+								"mfwApiUri": "http://60.60.60.60:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/7",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "61",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "3D:3D:3D:3D:3D:3D"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.61",
+								"mfwApiUri": "http://61.61.61.61:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "62",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "3E:3E:3E:3E:3E:3E"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.62",
+								"mfwApiUri": "http://62.62.62.62:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "63",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "3F:3F:3F:3F:3F:3F"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.63",
+								"mfwApiUri": "http://63.63.63.63:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "64",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "40:40:40:40:40:40"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.64",
+								"mfwApiUri": "http://64.64.64.64:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "65",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "41:41:41:41:41:41"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.65",
+								"mfwApiUri": "http://65.65.65.65:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "66",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "42:42:42:42:42:42"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.66",
+								"mfwApiUri": "http://66.66.66.66:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "67",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "43:43:43:43:43:43"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.67",
+								"mfwApiUri": "http://67.67.67.67:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "68",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "44:44:44:44:44:44"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.68",
+								"mfwApiUri": "http://68.68.68.68:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "69",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "45:45:45:45:45:45"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.69",
+								"mfwApiUri": "http://69.69.69.69:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "70",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "46:46:46:46:46:46"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.70",
+								"mfwApiUri": "http://70.70.70.70:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				},
+				{
+					"coordinate": "enclosure/8",
+					"iZoneBoards": 
+					[
+						{
+							"coordinate": "izone/1/izone_board/1",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						},
+
+						{
+							"coordinate": "izone/1/izone_board/2",
+							"izBoardMp": 
+							{
+								"coordinate": "izboard_mp",
+								"ipv4Address": "10.254.x.x",
+								"msCollector": "switchmp"
+							}
+						}
+					],
+
+					"nodes": 
+					[
+						{
+							"coordinate": "node/1",
+							"serialNumber": "71",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "47:47:47:47:47:47"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.71",
+								"mfwApiUri": "http://71.71.71.71:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/2",
+							"serialNumber": "72",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "48:48:48:48:48:48"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.72",
+								"mfwApiUri": "http://72.72.72.72:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/3",
+							"serialNumber": "73",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "49:49:49:49:49:49"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.73",
+								"mfwApiUri": "http://73.73.73.73:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/4",
+							"serialNumber": "74",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "4A:4A:4A:4A:4A:4A"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.74",
+								"mfwApiUri": "http://74.74.74.74:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/5",
+							"serialNumber": "75",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "4B:4B:4B:4B:4B:4B"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.75",
+								"mfwApiUri": "http://75.75.75.75:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/6",
+							"serialNumber": "76",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "4C:4C:4C:4C:4C:4C"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.76",
+								"mfwApiUri": "http://76.76.76.76:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/7",
+							"serialNumber": "77",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "4D:4D:4D:4D:4D:4D"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.77",
+								"mfwApiUri": "http://77.77.77.77:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/8",
+							"serialNumber": "78",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "4E:4E:4E:4E:4E:4E"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.78",
+								"mfwApiUri": "http://78.78.78.78:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/9",
+							"serialNumber": "79",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "4F:4F:4F:4F:4F:4F"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.79",
+								"mfwApiUri": "http://79.79.79.79:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						},
+						{
+							"coordinate": "node/10",
+							"serialNumber": "80",
+							"soc": 
+							{
+								"coordinate": "soc_board/1/soc/1",
+								"tlsPublicCertificate": "None",
+								"macAddress": "50:50:50:50:50:50"
+							},
+
+							"nodeMp": 
+							{
+								"coordinate": "soc_board/1/node_mp/1",
+								"ipv4Address": "10.254.x.80",
+								"mfwApiUri": "http://80.80.80.80:8080/redfish/v1",
+								"msCollector": "nodemp"
+							},
+
+							"mediaControllers": 
+							[
+								{
+									"coordinate": "memory_board/1/media_controller/1",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/2",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/3",
+									"memorySize": "1G"
+								},
+
+								{
+									"coordinate": "memory_board/1/media_controller/4",
+									"memorySize": "1G"
+								}
+							]
+						}
+					]
+				}
+
+			]
+		}
+
+	],
+
+	"interleaveGroups": 
+	[
+		{
+			"groupId": 0,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 1,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 2,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 3,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 4,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 5,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 6,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 7,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 8,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 9,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 10,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 11,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 12,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 13,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 14,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 15,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 16,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 17,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 18,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 19,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 20,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 21,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 22,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 23,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 24,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 25,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 26,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 27,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 28,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 29,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 30,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 31,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 32,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 33,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 34,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 35,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 36,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 37,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 38,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 39,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 40,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 41,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 42,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 43,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 44,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 45,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 46,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 47,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 48,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 49,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 50,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 51,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 52,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 53,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 54,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 55,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 56,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 57,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 58,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 59,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 60,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 61,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 62,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 63,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 64,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 65,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 66,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 67,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 68,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 69,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 70,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 71,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 72,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 73,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 74,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 75,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 76,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 77,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 78,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/4"
+			]
+		},
+		{
+			"groupId": 79,
+			"mediaControllers": 
+			[
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/1",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/2",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/3",
+				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/4"
+			]
+		}
+	]
+}
