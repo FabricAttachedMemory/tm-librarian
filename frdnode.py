@@ -11,7 +11,10 @@
 
 # __repr__ functions are really about easier debugging than intended purpose
 
+import os
 from pdb import set_trace
+
+from genericobj import GenericObject
 
 #--------------------------------------------------------------------------
 
@@ -141,7 +144,7 @@ class FRDnode(FRDnodeID):
     SOC_HEARTBEAT_SECS = 300.0
 
     def __init__(self, node, enc=None, module_size_books=0,
-                 autoMCs=True):
+                 autoMCs=True, coordPrefix=None):
         node_id = None
         if enc is None:
             try:
@@ -169,7 +172,26 @@ class FRDnode(FRDnodeID):
         self.rack = rack
         if node_id is not None:     # property check
             assert self.node_id == node_id
-        if not autoMCs:     # Done later, probably custom module_size_books
+
+        # Duck-type spoof the objects generated from a JSON TMCF.  A better
+        # long-term approach is to meld this file's objects into tmconfig.py.
+
+        if coordPrefix is None:
+            coordPrefix = 'machine_rev/1/datacenter/%s/frame/FAME/rack/1' % os.uname()[1]
+
+        self.coordinate = '%s/enclosure/%d/node/%d' % (
+            coordPrefix, self.enc, self.node)
+        self.serialNumber = self.physloc
+        self.soc = GenericObject(
+            macAddress='52:54:00:%02d:%02d:%02d' % (
+                self.node_id, self.node_id, self.node_id),
+            coordinate='%s/socBoard/1/soc/1' % self.coordinate,
+            tlsPublicCertificate='NotToday'
+        )
+
+        # Media controllers. If not auto-generated (see the chipset ERS)
+        # there's probably a custom module_size_books in the INI file.
+        if not autoMCs:
             self.MCs = []
             return
 
@@ -180,9 +202,17 @@ class FRDnode(FRDnodeID):
             module_size_books
         )
 
+        # Finish the JSON spoof
+        for mc in self.MCs:
+            mc.coordinate = '%s/memoryBoard/1/mediaController/%d' % (
+                self.coordinate, mc.ordMC + 1)
+
+    @property
+    def physloc(self):
+        return '%(rack)d:%(enc)d:%(node)d' % self.__dict__
+
     def __str__(self):
-        physloc = '%(rack)d:%(enc)d:%(node)d' % self.__dict__
-        return 'node_id %2d: %-6s %s' % (self.node_id, physloc, self.MCs)
+        return 'node_id %2d: %-6s %s' % (self.node_id, self.physloc, self.MCs)
 
     def __repr__(self):
         return self.__str__()
