@@ -51,3 +51,4 @@ configfiles/fame.json		usr/lib/python3/dist-packages/tm_librarian/configfiles
 configfiles/simpleconfig.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
 configfiles/tmcf-bristol.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
 configfiles/tmcf-drew.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
+configfiles/fame_80_node.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
