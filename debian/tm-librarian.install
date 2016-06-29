@@ -45,3 +45,9 @@ templates/show_active.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_books.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_shelf.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_interleaveGroups.html	usr/lib/python3/dist-packages/tm_librarian/templates
+configfiles/book_data.ini	usr/lib/python3/dist-packages/tm_librarian/configfiles
+configfiles/book_max.ini	usr/lib/python3/dist-packages/tm_librarian/configfiles
+configfiles/fame.json		usr/lib/python3/dist-packages/tm_librarian/configfiles
+configfiles/simpleconfig.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
+configfiles/tmcf-bristol.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
+configfiles/tmcf-drew.json	usr/lib/python3/dist-packages/tm_librarian/configfiles
