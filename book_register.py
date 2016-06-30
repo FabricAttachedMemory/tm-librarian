@@ -132,7 +132,7 @@ def get_book_id(bn, node_id, ig):
 #--------------------------------------------------------------------------
 # If optional item is there, calculate everything.  Assume it's the
 # June 2016 full-rack demo (FRD) where every node gets its own IG.
-# Then books per node are evenly distributed across 4 MCs.
+# Then books per node are evenly distributed across 4 media controllers.
 
 
 def extrapolate(Gname, G, node_count, book_size_bytes):
@@ -148,14 +148,15 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 
     FRDnodes = [ FRDnode(node_id, module_size_books=module_size_books)
                  for node_id in range(1, node_count + 1) ]
-    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+    IGs = [ FRDintlv_group(i, node.mediaControllers) for
+                i, node in enumerate(FRDnodes) ]
 
     return FRDnodes
 
 #--------------------------------------------------------------------------
 
 
-def startDB(book_size_bytes, nvm_bytes_total, nodes):
+def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
     books_total = nvm_bytes_total // book_size_bytes
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
@@ -199,14 +200,69 @@ def startDB(book_size_bytes, nvm_bytes_total, nodes):
              0))  # heartbeat
     cur.commit()
 
-    return cur
+    # Interleave Groups and MCs.  The FRDnode MC structures are too "isolated"
+    # and can't compute mc.memorySize without passing in book_size, and that
+    # seems too clunky.  Compute it here (composition pattern).
+    # FIXME: do we actually use mc.memorySize anywhere (probably LMP) or
+    # was it just a good idea at the time?
+    # INI:  type(mc) == frdnode.FRDFAModule
+    # JSON: type(mc) == tmconfig.mediaControllers
+    for ig in IGs:
+        if verbose > 1:
+            print("InterleaveGroup: %d" % ig.groupId)
+        for mc in ig.mediaControllers:
+            if isinstance(mc, FRDFAModule):
+                assert not hasattr(mc, 'memorySize'), 'Must have fixed it'
+                mc.memorySize = mc.module_size_books * book_size_bytes
+
+            if verbose > 1:
+                print("  node_id %2d: %d books, rawCID = %d" %
+                    (mc.node_id, mc.module_size_books, mc.rawCID))
+            cur.execute(
+                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
+                (mc.node_id,
+                 ig.groupId,
+                 mc.module_size_books,
+                 mc.rawCID,
+                 FRDFAModule.MC_STATUS_OFFLINE,
+                 mc.coordinate,
+                 mc.memorySize))
+    cur.commit()
+
+    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
+    # fields: IG (7) | book num (13) | book offset (33) for real hardware
+    # (8G books). The "id" field is now more than a simple index, it's
+    # the LZA, layout:
+    #   [0:32]  - book offset
+    #   [33:45] - book number within interleave group (0 - 8191)
+    #   [46:52] - interleave group (0 - 127)
+    #   [53:63] - reserved (zeros)
+    for ig in IGs:
+        for igoffset in range(ig.total_books):
+            lza = ((ig.groupId << DescMgmt._IG_SHIFT) +
+                   (igoffset << DescMgmt._BOOK_SHIFT))
+            if verbose > 2:
+                print("lza 0x%016x, IG = %s, igoffset = %d" % (
+                    lza, ig.groupId, igoffset))
+            cur.execute(
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
+                (lza, ig.groupId, igoffset, 0, 0))
+        cur.commit()    # every IG
+
+    cur.commit()
+    cur.close()
+    return True
 
 #--------------------------------------------------------------------------
 
 
 def load_book_data_ini(inifile):
 
-    Gname, G, other_sections = load_config(inifile)
+    try:
+        Gname, G, other_sections = load_config(inifile)
+    except Exception as e:
+        print('Not an INI file:', str(e), file=sys.stderr)
+        return False
 
     # Get required global config items
     node_count = int(G['node_count'])
@@ -241,63 +297,38 @@ def load_book_data_ini(inifile):
             newNode = FRDnode(node_id, module_size_books=module_size_books)
             FRDnodes.append(newNode)
 
-    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
+    IGs = [ FRDintlv_group(i, node.mediaControllers) for
+                i, node in enumerate(FRDnodes) ]
 
     books_total = 0
     for node in FRDnodes:
-        books_total += sum(mc.module_size_books for mc in node.MCs)
+        books_total += sum(
+            mc.module_size_books for mc in node.mediaControllers)
     nvm_bytes_total = books_total * book_size_bytes
     if verbose > 0:
         print('book size = %d' % (book_size_bytes))
         print('%d books == %d (0x%016x) total NVM bytes' % (
             books_total, nvm_bytes_total, nvm_bytes_total))
 
-    cur = startDB(book_size_bytes, nvm_bytes_total, FRDnodes)
+    return createDB(book_size_bytes, nvm_bytes_total, FRDnodes, IGs)
 
-    for ig in IGs:
-        if verbose > 1:
-            print("InterleaveGroup: %d" % ig.num)
-            for mc in ig.MCs:   # type(mc) = frdnode.FAModule
-                print("  %s, rawCID = %d" % (mc, mc.rawCID))
-        for mc in ig.MCs:
-            cur.execute(
-                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
-                (mc.node_id,
-                 ig.num,
-                 mc.module_size_books,
-                 mc.rawCID,
-                FRDFAModule.MC_STATUS_OFFLINE,
-                'None',
-                (mc.module_size_books * book_size_bytes)))
-    cur.commit()
-
-    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
-    # fields: IG (7) | book num (13) | book offset (33) for real hardware
-    # (8G books). The "id" field is now more than a simple index, it's
-    # the LZA, layout:
-    #   [0:32]  - book offset
-    #   [33:45] - book number within interleave group (0 - 8191)
-    #   [46:52] - interleave group (0 - 127)
-    #   [53:63] - reserved (zeros)
-    for ig in IGs:
-        for igoffset in range(ig.total_books):
-            lza = (ig.num << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
-            if verbose > 2:
-                print("lza 0x%016x, IG = %s, igoffset = %d" % (lza, ig.num, igoffset))
-            cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                (lza, ig.num, igoffset, 0, 0))
-        cur.commit()    # every IG
-
-    cur.commit()
-    cur.close()
 
 #--------------------------------------------------------------------------
 
 
 def load_book_data_json(jsonfile):
 
-    config = TMConfig(jsonfile, verbose=False)
+    with open(args.cfile, 'r') as f:
+        try:
+            tmp_cfile = json.loads(f.read())    # Is it JSON?
+        except ValueError as e:
+            print('Not a JSON file:', str(e), file=sys.stderr)
+            return False
+    try:
+        config = TMConfig(jsonfile, verbose=False)
+    except Exception as e:
+        print('Not a JSON TMCF file:', str(e), file=sys.stderr)
+        return False
 
     if config.FTFY:     # or could raise SystemExit()
         print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
@@ -325,52 +356,7 @@ def load_book_data_json(jsonfile):
         print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
             books_total, config.bookSize, config.totalNVM, config.totalNVM))
 
-    cur = startDB(config.bookSize, config.totalNVM, nodes)
-
-    for ig in IGs:
-        if verbose > 1:
-            print("InterleaveGroup: %d" % ig.groupId)
-        for mc in ig.mediaControllers:  # type(mc) == tmconfig.mediaControllers
-            module_size_books = mc.memorySize / config.bookSize
-            if verbose > 1:
-                print("  node_id %2d: %d books, rawCID = %d" %
-                    (mc.node_id, module_size_books, mc.rawCID))
-            cur.execute(
-                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
-                (mc.node_id,
-                 ig.groupId,
-                 module_size_books,
-                 mc.rawCID,
-                 FRDFAModule.MC_STATUS_OFFLINE,
-                 mc.coordinate,
-                 mc.memorySize))
-    cur.commit()
-
-    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
-    # fields: IG (7) | book num (13) | book offset (33) for real hardware
-    # (8G books). The "id" field is now more than a simple index, it's
-    # the LZA, layout:
-    #   [0:32]  - book offset
-    #   [33:45] - book number within interleave group (0 - 8191)
-    #   [46:52] - interleave group (0 - 127)
-    #   [53:63] - reserved (zeros)
-    for ig in IGs:
-        total_books = 0
-        mem_size = 0
-        for mc in ig.mediaControllers:
-            mem_size += mc.memorySize
-        total_books = int(mem_size / config.bookSize)
-        for igoffset in range(total_books):
-            lza = (ig.groupId << DescMgmt._IG_SHIFT) + (igoffset << DescMgmt._BOOK_SHIFT)
-            if verbose > 2:
-                print("lza 0x%016x, IG = %s, igoffset = %d" % (lza, ig.groupId, igoffset))
-            cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                (lza, ig.groupId, igoffset, 0, 0))
-        cur.commit()    # every IG
-
-    cur.commit()
-    cur.close()
+    return createDB(config.bookSize, config.totalNVM, nodes, IGs)
 
 #---------------------------------------------------------------------------
 # https://www.sqlite.org/lang_createtable.html#rowid (2 days later)
@@ -540,11 +526,8 @@ if __name__ == '__main__':
         raise SystemExit('"%s" not found' % args.cfile)
 
     # Determine format of config file
-    with open(args.cfile, 'r') as f:
-        try:
-            tmp_cfile = json.loads(f.read())
-            load_book_data_json(args.cfile)
-        except ValueError as e:
-            load_book_data_ini(args.cfile)
+    if (not load_book_data_json(args.cfile) and
+        not load_book_data_ini(args.cfile)):
+            raise SystemExit('Bogus source file, dude')
 
     raise SystemExit(0)
