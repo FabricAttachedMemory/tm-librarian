@@ -155,7 +155,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 #--------------------------------------------------------------------------
 
 
-def startDB(book_size_bytes, nvm_bytes_total, numnodes):
+def startDB(book_size_bytes, nvm_bytes_total, nodes):
     books_total = nvm_bytes_total // book_size_bytes
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
@@ -164,8 +164,41 @@ def startDB(book_size_bytes, nvm_bytes_total, numnodes):
                 book_size_bytes,
                 nvm_bytes_total,
                 books_total,
-                numnodes))
+                len(nodes)))
     cur.commit()
+
+    # Now the other tables, keep it clear.  Some of these will be used
+    # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
+    # In loops, print as you go so crashes give you a clue.
+
+    for node in nodes:
+        if verbose > 1:
+            print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
+                (node.node_id,      # 1-80
+                 node.soc.macAddress,
+                 node.rack,
+                 node.enc,
+                 node.node))
+
+        cur.execute(
+            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
+            (node.node_id,
+             node.rack,
+             node.enc,
+             node.node,
+             node.coordinate,
+             node.serialNumber))
+
+        cur.execute(
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+            (node.node_id,
+             node.soc.macAddress,
+             FRDnode.SOC_STATUS_OFFLINE,
+             node.soc.coordinate,
+             node.soc.tlsPublicCertificate,
+             0))  # heartbeat
+    cur.commit()
+
     return cur
 
 #--------------------------------------------------------------------------
@@ -219,32 +252,8 @@ def load_book_data_ini(inifile):
         print('%d books == %d (0x%016x) total NVM bytes' % (
             books_total, nvm_bytes_total, nvm_bytes_total))
 
-    cur = startDB(book_size_bytes, nvm_bytes_total, len(FRDnodes))
+    cur = startDB(book_size_bytes, nvm_bytes_total, FRDnodes)
 
-    # Now the other tables, keep it clear.  Some of these will be used
-    # "verbatim" in the Librarian, and maybe pickling is simpler.  Later :-)
-
-    for node in FRDnodes:
-        cur.execute(
-            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
-            (node.node_id,
-             node.rack,
-             node.enc,
-             node.node,
-             node.coordinate,               # spoofed in class FRDnode
-             node.serialNumber))            # spoofed
-
-        cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
-            (node.node_id,
-             node.soc.macAddress,           # spoofed
-             FRDnode.SOC_STATUS_OFFLINE,
-             node.soc.coordinate,           # spoofed
-             node.soc.tlsPublicCertificate, # spoofed
-             0))                            # heartbeat
-    cur.commit()
-
-    # That was easy.  Here's another one.
     for ig in IGs:
         if verbose > 1:
             print("InterleaveGroup: %d" % ig.num)
@@ -316,30 +325,7 @@ def load_book_data_json(jsonfile):
         print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
             books_total, config.bookSize, config.totalNVM, config.totalNVM))
 
-    cur = startDB(config.bookSize, config.totalNVM, len(nodes))
-
-    for node in nodes:
-        if verbose > 1:
-            print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
-                (node.node_id, node.soc.macAddress, node.rack, node.enc, node.node))
-        cur.execute(
-            'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
-            (node.node_id,
-             node.rack,
-             node.enc,
-             node.node,
-             node.coordinate,
-             node.serialNumber))
-
-        cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
-            (node.node_id,
-             node.soc.macAddress,
-             FRDnode.SOC_STATUS_OFFLINE,
-             node.soc.coordinate,
-             node.soc.tlsPublicCertificate,
-             0))  # heartbeat
-    cur.commit()
+    cur = startDB(config.bookSize, config.totalNVM, nodes)
 
     for ig in IGs:
         if verbose > 1:
