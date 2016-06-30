@@ -1,16 +1,15 @@
-#!/usr/bin/python3
-
+#!/usr/bin/python3 -tt 
 #
 # This Script tests all .ini and .json files in the tm-librarian folder 
 # it will automatically find and create database files for any found config
 # files.  
 #
 # After running book_register against all files this script will then try them
-# with the librarian itself.
+# with the librarian itself. Since this system is firing up multiple instances 
+# of the librarian it may take a few minutes to completely run through its 
+# opperations.
 #
 
-
-from __future__ import print_function
 import unittest
 import subprocess
 import os
@@ -58,42 +57,49 @@ class CheckConfigFiles(ParamaterTestClass):
     
     #Run book register on the file 
     def test_book_register(self):
-        db_file_name = os.path.splitext(self.param)[0] + '.db'
-        ret = subprocess.call(['../book_register.py','-d',db_file_name,self.param])
-        self.assertTrue(os.path.isfile(db_file_name),'The Database File: ' +db_file_name + ' was not created' )
-        self.assertEqual(ret,0,'Book Register returned a non-zero value')
+        if not self.param == None:
+            db_file_name = (os.path.splitext(self.param)[0]) + '.db'
+            ret = subprocess.call([librarian_path+'/book_register.py','-d',db_file_name,self.param])
+            self.assertTrue(os.path.isfile(db_file_name),'The Database File: ' +db_file_name + ' was not created' )
+            self.assertEqual(ret,0,'Book Register returned a non-zero value')
         
     #Run rebuild a new database and try this file with the librarian
     def test_start_librarian(self):
-        db_file_name = os.path.splitext(self.param)[0] + '.db'
-        ret = subprocess.call(['../book_register.py','-d',db_file_name,self.param])
+        if not self.param == None:
+            db_file_name = (os.path.splitext(self.param)[0]) + '.db'
+            ret = subprocess.call([librarian_path+'/book_register.py','-d',db_file_name,self.param])
         
-        output = open('out.txt','w')
-        if(os.path.isfile(db_file_name)):
-            print("Starting Librarian with db_file: " + db_file_name)
-            proc=subprocess.Popen(['../librarian.py','--db_file',db_file_name,'--verbose','3','--port','5799'],universal_newlines=True,stdout=output,creationflags=0)
-            time.sleep(10)#set to give the test 10 seconds before checking on the librarian could be more or less
-            print("Killing Librarian")
-            os.kill(proc.pid,signal.SIGINT)
-            output.close()
-            check = open('out.txt','r')
-            lib_started = False
-            for line in check:
-                if re.search('Waiting for request...',line):
+            output = open('out.txt','w')
+            if(os.path.isfile(db_file_name)):
+                print("Starting Librarian with db_file: " + db_file_name)
+                proc=subprocess.Popen([librarian_path+'/librarian.py','--db_file',db_file_name,'--verbose','3','--port','5799'],universal_newlines=True,stdout=output,creationflags=0)
+                time.sleep(10)#set to give the test 10 seconds before checking on the librarian could be more or less
+                print("Killing Librarian")
+                os.kill(proc.pid,signal.SIGINT)# kills the librarian using a simulated keyboard interupt
+                output.close()
+                sys.stdout.flush()
+                time.sleep(1) # allocate time for the buffer to flush
+                check = open('out.txt','r')
+                lib_started = False
+                if 'Waiting for request...' in open('out.txt').read():
                     lib_started = True
-            self.assertTrue(lib_started,'Failed to confirm proper start of librarian for db_file: ' + db_file_name)
-            check.close()
+                self.assertTrue(lib_started,'Failed to confirm proper start of librarian for db_file: ' + db_file_name)
+                check.close()
+
+
 
 suite = unittest.TestSuite()
 
+#Load tests from files
 for i in range(2,len(sys.argv)-1):
     if(sys.argv[i].startswith('-')):
         pass
     elif os.path.isdir(sys.argv[i]):
         load_tests_from_dir(sys.argv[i])
 
-load_tests_from_dir('../configfiles')
+
+#load tests from tm-librarian/configfiles dir, assumes that script is in tests dir
+real_path = os.path.dirname(os.path.realpath(__file__))
+librarian_path = real_path[:real_path.rfind('/')]
+load_tests_from_dir(librarian_path+'/configfiles')
 unittest.TextTestRunner(verbosity=0).run(suite)
-
-
-
