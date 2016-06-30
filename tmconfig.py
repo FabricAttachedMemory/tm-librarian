@@ -437,14 +437,19 @@ if __name__ == '__main__':
     encs = config.enclosures
     nodes = config.nodes
     MCs = config.mediaControllers
-    totalNVM = config.totalNVM >> 40
-    if totalNVM:
-        totalNVM = '%d GB' % (totalNVM)
-    else:
-        totalNVM = '%d MB' % (config.totalNVM >> 30)
-    print('%d racks, %d enclosures, %d nodes, %d media controllers == %s total NVM' %
-        (len(racks), len(encs), len(nodes), len(MCs), totalNVM))
     print('Book size = %d' % config.bookSize)
+    tmp = config.totalNVM >> 40
+    if tmp:
+        msg = '%d TB' % tmp
+    else:
+        tmp = config.totalNVM >> 30
+        if tmp:
+            msg = '%d GB' % tmp
+        else:
+            msg = '%d MB' % config.totalNVM >> 20
+
+    print('%d racks, %d enclosures, %d nodes, %d media controllers == %s total NVM' %
+        (len(racks), len(encs), len(nodes), len(MCs), msg))
     if config.unused_mediaControllers:
         print('MCs not assigned to an IG:')
         pprint(config.unused_mediaControllers)
