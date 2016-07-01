@@ -67,7 +67,7 @@ class OptionBaseOneTuple(tuple):
             raise IndexError('first index is 1')
         if index > 0:
             index -= 1
-        return super(self.__class__, self).__getitem__(index)
+        return super().__getitem__(index)
 
 ###########################################################################
 # Subclass GenericObject so attribute errors report a more useful class.
