@@ -5,9 +5,9 @@
 # has 4T per node, or 512 books per node, or 128 books per media controller.
 
 # Chipset ERS 2.02 section 2.21.3.1 option 1: CID== enc[3]:node[4]:subCID[4]
-# making an 11-bit CID.  MCs are 1000b - 1111b (0x8 - 0xF) but only first 4
-# used in FRD (0x8 - 0xB).  "module_size" is a phrase from the ERS; there
-# it's in bytes, here it's in books.
+# making an 11-bit CID.  Media controllers are  GenZ responders 1000b - 1111b
+# (0x8 - 0xF) but only first 4 # used in FRD (0x8 - 0xB).  "module_size" is
+# a phrase from the ERS; there it's in bytes, here it's in books.
 
 # __repr__ functions are really about easier debugging than intended purpose
 
@@ -86,7 +86,7 @@ class FRDFAModule(FRDnodeID):
         return self.__str__()
 
     def __sub__(self, other):
-        '''Return the NGMI hop count between two MCs'''
+        '''Return the NGMI hop count between two media controllers'''
         if self.enc != other.enc:
             return 5
 
@@ -106,33 +106,33 @@ class MCCIDlist(object):
 
     def __init__(self, rawCIDlist=None, module_size_books=0):
         if rawCIDlist is None:
-            self.MCs = [ ]
+            self.mediaControllers = [ ]
             return
         assert len(rawCIDlist) <= 8, 'CID list element count > 8'
-        self.MCs = [ FRDFAModule(raw=c, module_size_books=module_size_books)
+        self.mediaControllers = [ FRDFAModule(raw=c, module_size_books=module_size_books)
                      for c in rawCIDlist ]
 
     def __repr__(self):
-        return str([ '0x%x' % cid.rawCID for cid in self.MCs ])
+        return str([ '0x%x' % cid.rawCID for cid in self.mediaControllers ])
 
     def __str__(self):
-        tmp = [ str(cid) for cid in self.MCs ]
+        tmp = [ str(cid) for cid in self.mediaControllers ]
         return str(tmp)
 
     # Duck-type a list
 
     def __getitem__(self, index):
-        return self.MCs[index]
+        return self.mediaControllers[index]
 
     def __iter__(self):
-        return iter(self.MCs)
+        return iter(self.mediaControllers)
 
     def __len__(self):
-        return len(self.MCs)
+        return len(self.mediaControllers)
 
     def append(self, newFAModule):
-        assert len(self.MCs) < 8, 'Max length exceeded'
-        self.MCs.append(newFAModule)
+        assert len(self.mediaControllers) < 8, 'Max length exceeded'
+        self.mediaControllers.append(newFAModule)
 
 #--------------------------------------------------------------------------
 
@@ -192,18 +192,18 @@ class FRDnode(FRDnodeID):
         # Media controllers. If not auto-generated (see the chipset ERS)
         # there's probably a custom module_size_books in the INI file.
         if not autoMCs:
-            self.MCs = []
+            self.mediaControllers = []
             return
 
         # Could also loop on (enc=, node=, ordMC=) constructor but this
         # is how it will appear in INI file for [InterleaveGroups] section.
-        self.MCs = MCCIDlist(
+        self.mediaControllers = MCCIDlist(
             [ '%d:%d:%d' % (enc, node, ordMC) for ordMC in range(4) ],
             module_size_books
         )
 
         # Finish the JSON spoof
-        for mc in self.MCs:
+        for mc in self.mediaControllers:
             mc.coordinate = '%s/memoryBoard/1/mediaController/%d' % (
                 self.coordinate, mc.ordMC + 1)
 
@@ -212,7 +212,8 @@ class FRDnode(FRDnodeID):
         return '%(rack)d:%(enc)d:%(node)d' % self.__dict__
 
     def __str__(self):
-        return 'node_id %2d: %-6s %s' % (self.node_id, self.physloc, self.MCs)
+        return 'node_id %2d: %-6s %s' % (self.node_id, self.physloc,
+        self.mediaControllers)
 
     def __repr__(self):
         return self.__str__()
@@ -223,15 +224,15 @@ class FRDnode(FRDnodeID):
 
 class FRDintlv_group(object):
 
-    def __init__(self, num, MCs):
-        assert 0 <= num < 128, 'intlv_group number out of range 0-127'
-        self.num = num
-        self.MCs = MCs
+    def __init__(self, groupId, mediaControllers):
+        assert 0 <= groupId < 128, 'intlv_group ID out of range 0-127'
+        self.groupId = groupId
+        self.mediaControllers = mediaControllers
         # Real machine hardware only has 13 bits of book number in an LZA
         assert self.total_books <= 8192, 'book count too large'
 
     def __str__(self):
-        return '%-3s %s' % (self.num, self.MCs)
+        return '%-3s %s' % (self.groupId, self.mediaControllers)
 
     def __repr__(self):
         return self.__str__()
@@ -240,7 +241,7 @@ class FRDintlv_group(object):
     def total_books(self):
         '''Supersedes ig_gap calculations for flat-space emulations'''
         total_books = 0
-        for mc in self.MCs:
+        for mc in self.mediaControllers:
             total_books += mc.module_size_books
         return total_books
 
@@ -252,11 +253,11 @@ class FRDintlv_group(object):
 if __name__ == '__main__':
     MSB = 128   # FAM module size in books, ie, behind 1 media controller
     FRDnodes = [ FRDnode(n + 1, module_size_books=MSB) for n in range(80) ]
-    IGs = [ FRDintlv_group(i, node.MCs) for i, node in enumerate(FRDnodes) ]
-    assert IGs[15].MCs[2].module_size_books == MSB
-    assert IGs[15].MCs[2] - IGs[15].MCs[3] == 1
-    assert IGs[15].MCs[2] - IGs[16].MCs[3] == 3
-    assert IGs[15].MCs[2] - IGs[26].MCs[3] == 5
+    IGs = [ FRDintlv_group(i, node.mediaControllers) for i, node in enumerate(FRDnodes) ]
+    assert IGs[15].mediaControllers[2].module_size_books == MSB
+    assert IGs[15].mediaControllers[2] - IGs[15].mediaControllers[3] == 1
+    assert IGs[15].mediaControllers[2] - IGs[16].mediaControllers[3] == 3
+    assert IGs[15].mediaControllers[2] - IGs[26].mediaControllers[3] == 5
     set_trace()
     junk = FRDnode(3)
     print(junk.hostname, junk.REN)

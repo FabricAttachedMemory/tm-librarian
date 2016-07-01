@@ -60,7 +60,7 @@ class BookPolicy(object):
             if setting:
                 reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
                 interleave_groups = LCEobj.db.get_interleave_groups()
-                currentIGs = [ig.num for ig in interleave_groups]
+                currentIGs = [ig.groupId for ig in interleave_groups]
                 assert set(reqIGs).issubset(currentIGs), \
                     'Requested IGs not subset of known IGs'
                 # Reset current position in pattern.
