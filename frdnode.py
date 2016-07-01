@@ -143,8 +143,7 @@ class FRDnode(FRDnodeID):
     SOC_STATUS_ACTIVE = 1
     SOC_HEARTBEAT_SECS = 300.0
 
-    def __init__(self, node, enc=None, module_size_books=0,
-                 autoMCs=True, coordPrefix=None):
+    def __init__(self, node, enc=None, module_size_books=0, autoMCs=True):
         node_id = None
         if enc is None:
             try:
@@ -176,16 +175,12 @@ class FRDnode(FRDnodeID):
         # Duck-type spoof the objects generated from a JSON TMCF.  A better
         # long-term approach is to meld this file's objects into tmconfig.py.
 
-        if coordPrefix is None:
-            coordPrefix = 'machine_rev/1/datacenter/%s/frame/FAME/rack/1' % os.uname()[1]
-
-        self.coordinate = '%s/enclosure/%d/node/%d' % (
-            coordPrefix, self.enc, self.node)
+        self.coordinate = 'node/%d' % (self.node)
         self.serialNumber = self.physloc
         self.soc = GenericObject(
             macAddress='52:54:00:%02d:%02d:%02d' % (
                 self.node_id, self.node_id, self.node_id),
-            coordinate='%s/socBoard/1/soc/1' % self.coordinate,
+            coordinate='soc_board/1/soc/1',
             tlsPublicCertificate='NotToday'
         )
 
@@ -202,10 +197,10 @@ class FRDnode(FRDnodeID):
             module_size_books
         )
 
-        # Finish the JSON spoof
+        # Finish the JSON spoof, do a partial here and complete it in caller
         for mc in self.mediaControllers:
-            mc.coordinate = '%s/memoryBoard/1/mediaController/%d' % (
-                self.coordinate, mc.ordMC + 1)
+            mc.coordinate = 'enclosure/%d/node/%d/memory_board/1/media_controller/%d' % (
+                mc.enc, mc.node, mc.ordMC + 1)
 
     @property
     def physloc(self):
