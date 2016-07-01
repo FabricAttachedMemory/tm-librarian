@@ -232,7 +232,7 @@ class FRDintlv_group(object):
         assert self.total_books <= 8192, 'book count too large'
 
     def __str__(self):
-        return '%-3s %s' % (self.num, self.mediaControllers)
+        return '%-3s %s' % (self.groupId, self.mediaControllers)
 
     def __repr__(self):
         return self.__str__()

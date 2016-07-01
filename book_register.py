@@ -12,6 +12,7 @@ import sys
 import configparser
 import json
 import argparse
+from collections import OrderedDict
 from pdb import set_trace
 
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
@@ -261,7 +262,8 @@ def load_book_data_ini(inifile):
     try:
         Gname, G, other_sections = load_config(inifile)
     except Exception as e:
-        print('Not an INI file:', str(e), file=sys.stderr)
+        if verbose:
+            print('Not an INI file:', str(e), file=sys.stderr)
         return False
 
     # Get required global config items
@@ -310,8 +312,43 @@ def load_book_data_ini(inifile):
         print('%d books == %d (0x%016x) total NVM bytes' % (
             books_total, nvm_bytes_total, nvm_bytes_total))
 
-    return createDB(book_size_bytes, nvm_bytes_total, FRDnodes, IGs)
+    if not createDB(book_size_bytes, nvm_bytes_total, FRDnodes, IGs):
+        return False
 
+    if args.json:
+        bigun = OrderedDict()
+        bigun['racks'] = OrderedDict([
+            ('coordinate', 'rack/A1.above_floor'),
+            ('enclosures', [])
+        ])
+        thisenc = None
+        thisencnum = -1
+        for node in FRDnodes:   # Assuming sorted by increasing node_id
+            if node.enc != thisencnum:
+                if thisenc is not None:
+                    bigun['racks']['enclosures'].append(thisenc)
+                thisenc = OrderedDict([
+                    ('coordinate', 'Enc/U3/EncNum/%d' % node.enc),
+                    ('nodes', [ ])
+                ])
+                thisencnum = node.enc
+            thisenc['nodes'].append(OrderedDict([
+                ('coordinate', 'Node/%d' % node.node),
+                ('serialNumber', ''),
+                ('nodeMp', { }),
+                ('soc', {
+                    'coordinate': 'soc_board/1/soc/1',
+                    'macAddress': '52:54:00:%02d:%02d:%02d' % ((node.node,) * 3)
+                 }),
+                ('mediaControllers', [
+                 ])
+            ])
+        )
+        bigun['racks']['enclosures'].append(thisenc)
+
+        print(json.dumps(bigun, indent=4))
+
+    return True
 
 #--------------------------------------------------------------------------
 
@@ -322,7 +359,8 @@ def load_book_data_json(jsonfile):
         try:
             tmp_cfile = json.loads(f.read())    # Is it JSON?
         except ValueError as e:
-            print('Not a JSON file:', str(e), file=sys.stderr)
+            if verbose:
+                print('Not a JSON file:', str(e), file=sys.stderr)
             return False
     try:
         config = TMConfig(jsonfile, verbose=False)
@@ -511,6 +549,8 @@ if __name__ == '__main__':
                         help='force overwrite of given database file')
     parser.add_argument('-d', dest='dfile', default=':memory:',
                         help='database file to create')
+    parser.add_argument('-j', dest="json", action='store_true',
+                        help='for INI files, emit JSON equivalent to stdout')
     parser.add_argument('-v', dest='verbose', default='0', type=int,
                         help='verbose output (0..n)')
     args = parser.parse_args()
