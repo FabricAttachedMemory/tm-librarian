@@ -121,10 +121,10 @@ class LibrarianDBackendSQL(object):
         self._cur.execute('SELECT * FROM FAModules')
         self._cur.iterclass = 'default'
         tmpIGs = { }
-        # First collect all the MCs by group as they may be scattered in DB.
+        # First collect all the MCs by IG as they may be scattered in DB.
         # Loops could be rolled up for purity but this is clearer.
         for r in self._cur:
-            val = FRDFAModule(raw=r.rawCID,
+            val = FRDFAModule(STRorCID=r.rawCID,
                               module_size_books=r.module_size_books)
             try:
                 tmpIGs[r.IG].append(val)

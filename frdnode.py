@@ -50,21 +50,21 @@ class FRDFAModule(FRDnodeID):
     MC_STATUS_OFFLINE = 0
     MC_STATUS_ACTIVE = 1
 
-    def __init__(self, raw=None, enc=None, node=None, ordMC=None,
+    def __init__(self, STRorCID=None, enc=None, node=None, ordMC=None,
                  module_size_books=0):
         self.module_size_books = module_size_books
-        if raw is not None:
+        if STRorCID is not None:
             '''Break apart an encoded string, or just return integer'''
             try:
-                enc, node, ordMC = raw.split(':')
+                enc, node, ordMC = STRorCID.split(':')
                 enc = int(enc)
                 node = int(node)
                 ordMC = int(ordMC)
             except Exception as e:
-                # Values in rawCID are zero based
-                enc = (((raw >> 9) & 0x7) + 1)   # 3 bits
-                node = (((raw >> 4) & 0xF) + 1)  # 4 bits
-                ordMC = raw & 0x3                # 2 LSB in FRD
+                # Values in a raw CID are zero based
+                enc = (((STRorCID >> 9) & 0x7) + 1)   # 3 bits
+                node = (((STRorCID >> 4) & 0xF) + 1)  # 4 bits
+                ordMC = STRorCID & 0x3                # 2 LSB in FRD
         else:
             assert enc is not None and node is not None and ordMC is not None
 
@@ -109,8 +109,10 @@ class MCCIDlist(object):
             self.mediaControllers = [ ]
             return
         assert len(rawCIDlist) <= 8, 'CID list element count > 8'
-        self.mediaControllers = [ FRDFAModule(raw=c, module_size_books=module_size_books)
-                     for c in rawCIDlist ]
+        self.mediaControllers = [
+            FRDFAModule(STRorCID=c, module_size_books=module_size_books)
+                     for c in rawCIDlist
+        ]
 
     def __repr__(self):
         return str([ '0x%x' % cid.rawCID for cid in self.mediaControllers ])
@@ -255,6 +257,6 @@ if __name__ == '__main__':
     assert IGs[15].mediaControllers[2] - IGs[26].mediaControllers[3] == 5
     set_trace()
     junk = FRDnode(3)
-    print(junk.hostname, junk.REN)
+    print(junk.hostname, junk.rawCID)
     junk = FRDnode(3, enc=4)
-    print(junk.hostname, junk.REN)
+    print(junk.hostname, junk.rawCID)
