@@ -325,6 +325,10 @@ class shadow_support(object):
                     self.book_size, self.addr_mode, self.aperture_base)
                 return data
 
+            if xattr == '_obtain_shadow_igstart':
+                set_trace()
+                return 'ERROR'
+
             if xattr.startswith('_obtain_lza_for_map_populate'):
                 _, start_book, buflen = xattr.split(',')
                 start_book = int(start_book)
@@ -708,7 +712,6 @@ def _detect_memory_space(args, lfs_globals):
     # first block of lines of lspci -vv for Bus-Device-Function and
     # BAR2 information.
 
-
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
         if 'not found' in lspci[0]:
@@ -738,29 +741,39 @@ def _detect_memory_space(args, lfs_globals):
     bdf = lspci[0].split()[0]
     if args.verbose > 1:
         print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
-    memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
-    assert (os.path.isfile(memoryfile)), '%s is not a file' % memoryfile
 
     region2 = [ l for l in lspci if 'Region 2:' in l ][0]
     assert ('(64-bit, prefetchable)' in region2), \
         'IVSHMEM region 2 not found for device %s' % bdf
     args.aperture_base = int(region2.split('Memory at')[1].split()[0], 16)
     assert args.aperture_base, \
-        'Could not retrieve base address of IVSHMEM device at %s' % bdf
+        'Could not retrieve region 2 address of IVSHMEM device at %s' % bdf
 
-    # Compare requirements to file size
-    statinfo = os.stat(memoryfile)
-    assert shadow_support._S_IFREG_URW == shadow_support._S_IFREG_URW & statinfo.st_mode, \
-        '%s is not RW' % memoryfile
-    assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
-        'st_size (%d) < nvm_bytes_total (%d)' % \
-        (statinfo.st_size, lfs_globals['nvm_bytes_total'])
+    # Compare requirements to file size.  sysfs file disappeared on VMs
+    # starting at kernel 4.5 FIXME investigate
+    memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
+    if not os.path.isfile(memoryfile):
+        # " [size=64G]"
+        size = region2.split('size=')[1][:-1]   # kill the right bracket
+        assert size[-1] == 'G', \
+            'Region 2 size not "G" for IVSHMEM device at %s' % bdf
+        args.aperture_size = int(size[:-1]) << 30
+    else:
+        statinfo = os.stat(memoryfile)
+        assert shadow_support._S_IFREG_URW == shadow_support._S_IFREG_URW & statinfo.st_mode, \
+            '%s is not RW' % memoryfile
+        assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
+            'st_size (%d) < nvm_bytes_total (%d)' % \
+            (statinfo.st_size, lfs_globals['nvm_bytes_total'])
 
-    # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
-    # has firewall table of 32M.  Make sure this is bigger.
-    assert statinfo.st_size > 64 * 1 << 20, \
-        'IVSHMEM at %s is not big enough, possible collision?' % bdf
-    args.aperture_size = statinfo.st_size
+        # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
+        # has firewall table of 32M.  Make sure this is bigger.
+        assert statinfo.st_size > 64 * 1 << 20, \
+            'IVSHMEM at %s is not big enough, possible collision?' % bdf
+        args.aperture_size = statinfo.st_size
+    assert args.aperture_size, \
+        'Could not retrieve region 2 size of IVSHMEM device at %s' % bdf
+
     if args.enable_Z:
         args.addr_mode = shadow_support._MODE_FAME_DESC
         if args.verbose > 2:
