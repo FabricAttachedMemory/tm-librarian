@@ -531,8 +531,8 @@ class LibrarianCommandEngine(object):
             # debugging will be easier if these are ordered.  Will need to
             # send full IGs at some point for RAS help.  This is good for now.
 
-            self.IGs = sorted(self.IGs, key=attrgetter('num'))
-            self.__class__.books_per_IG = dict([(ig.num, ig.total_books)
+            self.IGs = sorted(self.IGs, key=attrgetter('groupId'))
+            self.__class__.books_per_IG = dict([(ig.groupId, ig.total_books)
                                           for ig in self.IGs])
 
             # Skip 'cmd_' prefix

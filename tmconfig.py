@@ -67,7 +67,7 @@ class OptionBaseOneTuple(tuple):
             raise IndexError('first index is 1')
         if index > 0:
             index -= 1
-        return super(self.__class__, self).__getitem__(index)
+        return super().__getitem__(index)
 
 ###########################################################################
 # Subclass GenericObject so attribute errors report a more useful class.
@@ -231,8 +231,6 @@ class TMConfig(GenericObject):
         # Fixups and consistency checks.  Flesh out all relative coordinates
         # into absolutes and check for dupes, which intrinsically checks
         # a lot of things.  The list gets used again for IG checking.
-        # Real machine hardware only has 13 bits of book number in an LZA
-        max_NVM_per_MC = 8192 * self.bookSize
 
         self.racks = tupledict(self.racks)  # top level needs handling now
         allencs = [ ]
@@ -262,15 +260,20 @@ class TMConfig(GenericObject):
                         mc.coordinate = node.coordinate + '/' + mc.coordinate
                         assert mc.coordinate not in fullMCs, \
                             'Duplicate MC coordinate %s' % mc.coordinate
-                        assert mc.memorySize <= max_NVM_per_MC, \
+                        fullMCs[mc.coordinate] = mc     # for future reference
+                        mc.node_id = node.node_id       # 1-80
+
+                        # FIXUP for alignment with frdnode.FAModule.  Real
+                        # FRD HW only has 13 bits of book number in an LZA
+                        mc.module_size_books = mc.memorySize // self.bookSize
+                        assert mc.module_size_books <= 8192, \
                             'MC @ %s has too much NVM' % mc.coordinate
-                        fullMCs[mc.coordinate] = mc      # for future reference
-                        mc.node_id = node.node_id
-                        # CID == enc[11-9]:node[8-4]:subCID[3-0] making an 11-bit CID
-                        # External representations of full fields are all
-                        # option base 1, but each subfield of rawCID must be
-                        # option base 0
-                        # SubCID is the GenZ responder for MCs, runs from 8 - 11.
+
+                        # CID == enc[11-9]:node[8-4]:subCID[3-0] making an
+                        # 11-bit CID.  External representations of full fields
+                        # are all option base 1, but each subfield of rawCID
+                        # must be option base 0.  SubCID is the GenZ responder
+                        # for MCs, runs from 8 - 11.
                         subCID = int(mc.coordinate.split('/')[-1])
                         mc.rawCID = (((int(node.enc) - 1) << 9) +
                                      ((int(node.node) - 1) << 4) +
@@ -307,6 +310,10 @@ class TMConfig(GenericObject):
                 updateMCs.append(fullMCs[coordinate])   # reuse
                 del fullMCs[coordinate]
             IG.mediaControllers = OptionBaseOneTuple(updateMCs)
+
+            # Another FIXUP for alignment with frdnode.FAModule
+            IG.total_books = sum(mc.module_size_books
+                for mc in IG.mediaControllers)
 
         self.unused_mediaControllers = tuple(fullMCs.keys())
 
