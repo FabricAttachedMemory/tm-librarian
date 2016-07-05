@@ -313,7 +313,6 @@ class shadow_support(object):
             tmp = struct.pack('Q', physaddr)
             response.extend(tmp)
             nextIndex = groupId + 1
-        set_trace()
         while nextIndex < 128:  # zero pad
             response.extend(struct.pack('Q', 0))
             nextIndex += 1
