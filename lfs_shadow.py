@@ -72,11 +72,14 @@ class shadow_support(object):
 
         offset = 0
         for ig in igkeys:
-            igstr = str(ig)
             if self.verbose > 1:
-                print('IG %2d flatspace offset @ 0x%x (%d)' % (ig, offset, offset))
+                print('0x%016x (%d) IG %d relative offset' % (
+                    offset, offset, ig))
+            # insure running Librarian DB fits in available space
+            assert offset < args.aperture_size, \
+                'Absolute address for IG %d out of range' % ig
             self._igstart[ig] = offset
-            books = int(lfs_globals['books_per_IG'][igstr])
+            books = int(lfs_globals['books_per_IG'][str(ig)])
             offset += books * self.book_size
 
     def _consistent(self, cached):
@@ -297,6 +300,26 @@ class shadow_support(object):
         del self[fh]
         return retval
 
+    # Support for getxattr, it comes soon
+    def _obtain_shadow_igstart(self):
+        '''Return all 128 IG start addresses in the flat shadow space.
+           Zero-pad as required.'''
+        response = bytearray()
+        nextIndex = 0
+        for groupId in sorted(self._igstart.keys()):
+            for i in range (groupId - nextIndex):    # non-contiguous IGs
+                response.extend(struct.pack('Q', 0))
+            physaddr = self._igstart[groupId] + self.aperture_base
+            tmp = struct.pack('Q', physaddr)
+            response.extend(tmp)
+            nextIndex = groupId + 1
+        set_trace()
+        while nextIndex < 128:  # zero pad
+            response.extend(struct.pack('Q', 0))
+            nextIndex += 1
+        assert len(response) == 128 * 8, 'Missed it by that much'
+        return response
+
     # Support for getxattr, it comes next
     def _map_populate(self, shelf_name, start_book, buflen):
         '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
@@ -326,8 +349,7 @@ class shadow_support(object):
                 return data
 
             if xattr == '_obtain_shadow_igstart':
-                set_trace()
-                return 'ERROR'
+                return self._obtain_shadow_igstart()
 
             if xattr.startswith('_obtain_lza_for_map_populate'):
                 _, start_book, buflen = xattr.split(',')
@@ -602,6 +624,10 @@ class apertures(shadow_support):
         # The field is called aperture_base even if direct mapping is used.
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
+        if self.verbose > 1:
+            for ig, offset in self._igstart.items():
+                print('0x%016x is absolute start for IG %d' % (
+                    self.aperture_base + offset, ig))
 
     # open(), create(), release() only do caching as handled by superclass
 
@@ -773,6 +799,11 @@ def _detect_memory_space(args, lfs_globals):
         args.aperture_size = statinfo.st_size
     assert args.aperture_size, \
         'Could not retrieve region 2 size of IVSHMEM device at %s' % bdf
+    if args.verbose:
+        print('0x%016x FAM base address' % args.aperture_base)
+        print('0x%016x FAM max  address (%d bytes)' % (
+            args.aperture_base + args.aperture_size - 1,
+            args.aperture_size))
 
     if args.enable_Z:
         args.addr_mode = shadow_support._MODE_FAME_DESC
