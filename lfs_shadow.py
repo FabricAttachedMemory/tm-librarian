@@ -51,12 +51,13 @@ class shadow_support(object):
         self._shelfcache = { }
         self.zero_on_unlink = True
 
+        # The field is called aperture_base even if direct mapping is used.
         # Along with book size, tmfs kernel module always asks for these.
-        # See getxattr below; these are default values unless overwritten
-        # by subclasses.
+        # See getxattr below.
 
+        self.aperture_base = args.aperture_base
+        self.aperture_size = args.aperture_size
         self.addr_mode = getattr(args, 'addr_mode', self._MODE_NONE)
-        self.aperture_base = 0
         self._igstart = {}
 
         if self.addr_mode not in (
@@ -382,7 +383,7 @@ class shadow_directory(shadow_support):
 
     def __init__(self, args, lfs_globals):
         args.addr_mode = self._MODE_FALLBACK    # FIXME: not tested
-        super(self.__class__, self).__init__(args, lfs_globals)
+        super().__init__(args, lfs_globals)
         self.zero_on_unlink = False   # OS "clears" per-shelf backing file
         assert os.path.isdir(
             args.shadow_dir), 'No such directory %s' % args.shadow_dir
@@ -423,13 +424,13 @@ class shadow_directory(shadow_support):
 
     def open(self, shelf, flags, mode=None):
         self._create_open_common(shelf, flags, mode)
-        super(self.__class__, self).open(shelf, flags, mode)    # caching
+        super().open(shelf, flags, mode)    # caching
         return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def create(self, shelf, mode=None):
         flags = os.O_CREAT | os.O_RDWR | os.O_CLOEXEC
         self._create_open_common(shelf, flags, mode)
-        super(self.__class__, self).create(shelf, mode)  # caching
+        super().create(shelf, mode)  # caching
         return shelf._fd    # so kernel sees a real fd for mmap under FALLBACK
 
     def read(self, shelf_name, length, offset, fd):
@@ -468,7 +469,7 @@ class shadow_directory(shadow_support):
                 break
         else:
             raise RuntimeError('release: fd=%s is not cached' % fd)
-        super(self.__class__, self).release(fh)
+        super().release(fh)
         shelf.open_handle = fh
         shelf._fd = -1
         return shelf
@@ -482,8 +483,6 @@ class shadow_file(shadow_support):
        file lives in the file system of the entity running lfs_fuse.'''
 
     def __init__(self, args, lfs_globals):
-        args.addr_mode = self._MODE_FALLBACK
-        super(self.__class__, self).__init__(args, lfs_globals)
 
         (head, tail) = os.path.split(args.shadow_file)
 
@@ -501,16 +500,17 @@ class shadow_file(shadow_support):
             fd = os.open(args.shadow_file, os.O_RDWR | os.O_CREAT)
             size = lfs_globals['nvm_bytes_total']
             os.ftruncate(fd, size)
+        self._shadow_fd = fd
 
-        # Compare node requirements to file size
+        # Compare node requirements to actual file size
         statinfo = os.stat(args.shadow_file)
         assert self._S_IFREG_URW == self._S_IFREG_URW & statinfo.st_mode, \
             '%s is not RW'
         assert statinfo.st_size >= lfs_globals['nvm_bytes_total']
-        self.aperture_size = statinfo.st_size
-
-        self.aperture_size = lfs_globals['nvm_bytes_total']
-        self._shadow_fd = fd
+        args.aperture_base = 0
+        args.aperture_size = statinfo.st_size
+        args.addr_mode = self._MODE_FALLBACK
+        super().__init__(args, lfs_globals)
 
     # open(), create(), release() only do caching as handled by superclass
 
@@ -618,11 +618,8 @@ class apertures(shadow_support):
     def __init__(self, args, lfs_globals):
         '''args needs to have valid attributes for IVSHMEM and descriptors.'''
 
-        super(self.__class__, self).__init__(args, lfs_globals)
+        super().__init__(args, lfs_globals)
 
-        # The field is called aperture_base even if direct mapping is used.
-        self.aperture_base = args.aperture_base
-        self.aperture_size = args.aperture_size
         if self.verbose > 1:
             for ig, offset in self._igstart.items():
                 print('0x%016x is absolute start for IG %d' % (
@@ -633,7 +630,7 @@ class apertures(shadow_support):
     def getxattr(self, shelf_name, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
         try:
-            data = super(self.__class__, self).getxattr(shelf_name, xattr)
+            data = super().getxattr(shelf_name, xattr)
             if data != 'FALLBACK':  # superclass handles some things
                 return data
 
@@ -739,24 +736,22 @@ def _detect_memory_space(args, lfs_globals):
 
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
-        if 'not found' in lspci[0]:
-            print('lspci(1) is missing, assuming TM(AS)', file=sys.stderr)
     except Exception as e:
-        lspci = ( '', '')
+        lspci = ( 'IVSHMEM cannot be found', '')
         pass
 
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
     if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
         if args.verbose > 1:
-            print('IVSHMEM cannot be found, assuming TM(AS)')
+            print('%s, assuming TM(AS)' % lspci[0])
         if args.fixed1906:
             args.addr_mode = shadow_support._MODE_1906_DESC
-            if args.verbose > 2:
+            if args.verbose > 1:
                 print('addr_mode = MODE_1906_DESC (requires zbridge desc autoprogramming)')
         else:
             args.addr_mode = shadow_support._MODE_FULL_DESC
-            if args.verbose > 2:
+            if args.verbose > 1:
                 print('addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
         args.aperture_base = apertures._NVM_BK
         args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
@@ -787,17 +782,19 @@ def _detect_memory_space(args, lfs_globals):
         statinfo = os.stat(memoryfile)
         assert shadow_support._S_IFREG_URW == shadow_support._S_IFREG_URW & statinfo.st_mode, \
             '%s is not RW' % memoryfile
-        assert statinfo.st_size >= lfs_globals['nvm_bytes_total'], \
-            'st_size (%d) < nvm_bytes_total (%d)' % \
-            (statinfo.st_size, lfs_globals['nvm_bytes_total'])
 
         # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
         # has firewall table of 32M.  Make sure this is bigger.
         assert statinfo.st_size > 64 * 1 << 20, \
             'IVSHMEM at %s is not big enough, possible collision?' % bdf
         args.aperture_size = statinfo.st_size
+
     assert args.aperture_size, \
         'Could not retrieve region 2 size of IVSHMEM device at %s' % bdf
+    assert args.aperture_size >= lfs_globals['nvm_bytes_total'], \
+        'available shadow size (%d) < nvm_bytes_total (%d)' % \
+        (args.aperture_size, lfs_globals['nvm_bytes_total'])
+
     if args.verbose:
         print('0x%016x FAM base address' % args.aperture_base)
         print('0x%016x FAM max  address (%d bytes)' % (
@@ -838,19 +835,6 @@ def the_shadow_knows(args, lfs_globals):
                 'Bad enclosure for --fixed1906'
             assert args.physloc.node in range(1, 5), \
                 'Bad node for --fixed1906'
-
-            # TODO: These break TMAS, we need to be able
-            # to start TMAS with 1,2,3 or 4 nodes with a
-            # corresponding .ini file.
-            #books_per_IG = lfs_globals['books_per_IG']
-            #IGs = frozenset(int(k) for k in books_per_IG.keys())
-            #assert frozenset(range(0, 4)) == IGs, \
-            #    'Bad IG topology for --fixed1906'
-            #for IG in (0, 1, 2):
-            #    assert books_per_IG[str(IG)] == 512, \
-            #        'Bad book count for --fixed1906 IG %d' % IG
-            #assert lfs_globals['books_total'] == apertures._NDESCRIPTORS, \
-            #    'Bad book count for --fixed1906 IG 3'
 
         _detect_memory_space(args, lfs_globals)     # Modifies args
         return apertures(args, lfs_globals)
