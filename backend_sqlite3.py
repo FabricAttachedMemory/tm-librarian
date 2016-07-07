@@ -7,6 +7,7 @@
 from pdb import set_trace
 
 import sqlite3
+import os
 
 from sqlassist import SQLassist
 from sqlbackend import LibrarianDBackendSQL
@@ -31,8 +32,6 @@ class SQLite3assist(SQLassist):
         pass
 
     def __init__(self, **kwargs):
-        if 'db_file' not in kwargs:
-            kwargs['db_file'] = ':memory:'
         super(self.__class__, self).__init__(**kwargs)
         self.DBname = kwargs['db_file']
 
@@ -146,9 +145,12 @@ class LibrarianDBackendSQLite3(LibrarianDBackendSQL):
         parser.add_argument(
             '--db_file',
             help='SQLite3 database backing store file',
-            required=True)
+            type=str,
+            default="/var/hpetm/librarian.db")
 
     def __init__(self, args):
+        if not os.path.isfile(args.db_file):
+            raise RuntimeError('DB file "%s" does not exist' % args.db_file)
         try:
             self._cur = SQLite3assist(db_file=args.db_file)
             self._cur.execute('SELECT schema_version FROM globals')
