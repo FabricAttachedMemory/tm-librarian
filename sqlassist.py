@@ -188,8 +188,3 @@ class SQLassist(object):
                     raise
             return
         return exec_wrapper
-
-#--------------------------------------------------------------------------
-
-if __name__ == '__main__':
-    raise SystemError('Write a child class and do your testing there.')
