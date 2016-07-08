@@ -30,10 +30,12 @@ def silent_remove(filename):
 def load_tests_from_dir(directory):
     if not directory.endswith('/'):
         directory = directory + '/'
+    print("Loading tests from Dir: " + directory)
     for root, dirs, files in os.walk(directory):
         for name in files:
-            if name.endswith('.ini') or name.endswith('.json'):
-                suite.addTest(ParamaterTestClass.paramaterize(CheckConfigFiles,param=(directory+name)))
+            if os.path.isfile(directory + name):
+                if name.endswith('.ini') or name.endswith('.json'):
+                    suite.addTest(ParamaterTestClass.paramaterize(CheckConfigFiles,param=(directory+name)))
 
 class ParamaterTestClass(unittest.TestCase):
     def __init__(self,methodName='runTest',param=None):
@@ -47,9 +49,7 @@ class ParamaterTestClass(unittest.TestCase):
         suite = unittest.TestSuite()
         for name in testnames:
             loading_value = param[param.rfind('/')+1:]
-            test = testcase_class(name,param=param)
-            print("Attributes: " + name)
-            print("Test: " + str(test))
+            test = testcase_class(name,param=param) 
             suite.addTest(test)
         return suite
 
@@ -100,14 +100,11 @@ class CheckConfigFiles(ParamaterTestClass):
             else:
                 self.skipTest('\nSkipped Starting Librarian with '+db_file_name+'  because the .db file was not properly created\n')
 
-
 suite = unittest.TestSuite()
 
 #Load tests from files
-for i in range(2,len(sys.argv)-1):
-    if(sys.argv[i].startswith('-')):
-        pass
-    elif os.path.isdir(sys.argv[i]):
+for i in range(1,len(sys.argv)):
+    if os.path.isdir(sys.argv[i]): 
         load_tests_from_dir(sys.argv[i])
 
 
