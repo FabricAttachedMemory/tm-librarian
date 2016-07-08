@@ -235,8 +235,8 @@ class shadow_support(object):
         except Exception as e:
             return -1
 
-        # Offset into flat space has several contributors.  Oddly enough
-        # this doesn't need the concatenated LZA field.
+        # Offset into flat space has several contributors.  The concatenated
+        # LZA field has already been broken down into constituent parts.
         intlv_group = book['intlv_group']
         book_num = book['book_num']
         book_start = book_num * self.book_size
@@ -680,7 +680,7 @@ class apertures(shadow_support):
             else:
                 raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
 
-            data = '%d,%s,%s,%s' % (self.addr_mode, book_num, baseLZA, map_addr)
+            data = '%d,%s,%s' % (self.addr_mode, baseLZA, map_addr)
             if self.verbose > 3:
                 print('data returned to fault handler = %s' % (data))
             return data
