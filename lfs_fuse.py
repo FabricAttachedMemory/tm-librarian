@@ -834,7 +834,8 @@ def mount_LFS(args):
     try:
         tmp = socket.gethostbyaddr(args.hostname)
     except Exception as e:
-        raise SystemExit('Bad/Missing hostname (--hostname) argument \'%s\'' % args.hostname)
+        if args.verbose > 0:
+            print('warning - could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
