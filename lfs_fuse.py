@@ -182,17 +182,17 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # helpers
 
     def get_bos(self, shelf):
-        bos = self.librarian(self.lcp('list_shelf_books', shelf))
-        shelf.bos = []
-        for b in bos:
-            # Returns a TMBook in dict form
-            book = self.librarian(self.lcp('get_book', b['book_id']))
-            data = {
-                    'intlv_group': book['intlv_group'],
-                    'book_num': book['book_num'],
-                    'lza': book['id'],  # a shifted concatentation of those
-                }
-            shelf.bos.append(data)
+        shelf.bos = self.librarian(self.lcp('list_shelf_books', shelf))
+        for book in shelf.bos:
+            # Replaced a per-book loop of lcp('get_book') which was done
+            # in anticipation of drilling down on more info.  Turns out
+            # we have everything we need.   This could easily be in the
+            # Librarian but then that increases the data size of the
+            # list_shelf_books call.  Remember an MFT LZA is 20 bits of
+            # info shifted 33 bits (an 8G book offset).
+            book['lza'] = book['book_id']
+            book['ig_book_num'] = (book['lza'] >> 33) & 8191    # low 13 bits
+            book['intlv_group'] = book['lza'] >> 46             # top 7 bits
         if self.verbose > 2:
             print('%s BOS: %s' % (shelf.name, shelf.bos))
 
