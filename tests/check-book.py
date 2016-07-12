@@ -31,7 +31,7 @@ def rw_mm(m, cur_offset, length, verbose, ops):
     if 'w' in ops:
         m.seek(cur_offset)
         m.write(global_rand_buf[rand_index:rand_index + length])
-        m.flush()
+        m.flush(cur_offset, length)
         if (verbose > 2):
             print("write: cur_offset = %d (0x%x), size = %d" %
                 (cur_offset, cur_offset, length))
