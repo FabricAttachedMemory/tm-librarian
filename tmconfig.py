@@ -237,17 +237,22 @@ class TMConfig(GenericObject):
         allnodes = [ ]
         fullMCs = { }
         node_id = 1
+        errors = [ ]
         for rack in self.racks:
             rack.coordinate = self.coordinate + '/' + rack.coordinate
             for enc in rack.enclosures:
                 enc.coordinate = rack.coordinate + '/' + enc.coordinate
-                assert enc.coordinate not in allencs, \
-                    'Duplicate enclosure coordinate %s' % enc.coordinate
+                if enc.coordinate in allencs:
+                    errors.append('Duplicate enclosure coordinate %s' %
+                        enc.coordinate)
+                    continue
                 allencs.append(enc.coordinate)
                 for node in enc.nodes:
                     node.coordinate = enc.coordinate + '/' + node.coordinate
-                    assert node.coordinate not in allnodes, \
-                        'Duplicate node coordinate %s' % node.coordinate
+                    if node.coordinate in allnodes:
+                        errors.append('Duplicate node coordinate %s' %
+                            node.coordinate)
+                        continue
                     allnodes.append(node.coordinate)
 
                     node.soc.coordinate = node.coordinate + '/' + node.soc.coordinate
@@ -258,16 +263,20 @@ class TMConfig(GenericObject):
                     node_id += 1
                     for mc in node.mediaControllers:
                         mc.coordinate = node.coordinate + '/' + mc.coordinate
-                        assert mc.coordinate not in fullMCs, \
-                            'Duplicate MC coordinate %s' % mc.coordinate
+                        if mc.coordinate in fullMCs:
+                            errors.append('Duplicate MC coordinate %s' %
+                                mc.coordinate)
+                            continue
                         fullMCs[mc.coordinate] = mc     # for future reference
                         mc.node_id = node.node_id       # 1-80
 
                         # FIXUP for alignment with frdnode.FAModule.  Real
                         # FRD HW only has 13 bits of book number in an LZA
                         mc.module_size_books = mc.memorySize // self.bookSize
-                        assert mc.module_size_books <= 8192, \
-                            'MC @ %s has too much NVM' % mc.coordinate
+                        if mc.module_size_books > 8192:
+                            errors.append('MC @ %s has too much NVM' %
+                                mc.coordinate)
+                            # keep going
 
                         # CID == enc[11-9]:node[8-4]:subCID[3-0] making an
                         # 11-bit CID.  External representations of full fields
@@ -303,10 +312,12 @@ class TMConfig(GenericObject):
                 # both cases.
                 coordinate = getattr(mc, 'coordinate', mc)
                 if coordinate not in fullMCs:
-                    msg = 'IG MC %s not found in any node' % coordinate
-                    raise ValueError(msg)
-                assert not hasattr(mc, 'memorySize'), \
-                    'IG definition of MC cannot set memorySize'
+                    errors.append('IG %d MC %s not in any node' % (
+                        IG.groupId, coordinate))
+                    continue
+                if hasattr(mc, 'memorySize'):
+                    errors.append('IG %d MC %s sets memorySize' % (
+                        IG.groupId, coordinate))
                 updateMCs.append(fullMCs[coordinate])   # reuse
                 del fullMCs[coordinate]
             IG.mediaControllers = OptionBaseOneTuple(updateMCs)
@@ -315,10 +326,12 @@ class TMConfig(GenericObject):
             IG.total_books = sum(mc.module_size_books
                 for mc in IG.mediaControllers)
 
-        self.unused_mediaControllers = tuple(fullMCs.keys())
+        if self.totalNVM != sum(mc.memorySize for
+            mc in self.mediaControllers):
+                errors.append('NVM memory mismatch')
 
-        assert self.totalNVM == sum(mc.memorySize for
-            mc in self.mediaControllers), 'NVM memory mismatch'
+        self.errors = errors
+        self.unused_mediaControllers = tuple(fullMCs.keys())
 
     # Some shortcuts to commonly accessed items.   'racks" is already at
     # the top level.  Realize any generators so the caller can do len()
@@ -434,12 +447,18 @@ class TMConfig(GenericObject):
 if __name__ == '__main__':
     try:
         config = TMConfig(sys.argv[1], verbose=True)
-    except Exception as e:
+    except Exception as e:  # Probably a parser bug
+        set_trace()
         raise SystemExit(str(e))
 
-    print()
+    if config.errors:
+        print('Errors detected during parse:')
+        print('\n'.join(config.errors))
+        raise SystemExit(1)
+
     if config.FTFY:
         print('Added missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
+
     racks = config.racks
     encs = config.enclosures
     nodes = config.nodes
