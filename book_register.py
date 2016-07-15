@@ -432,11 +432,14 @@ def load_book_data_json(jsonfile):
         print('Not a JSON TMCF file:', str(e), file=sys.stderr)
         return False
 
-    if config.FTFY:     # or could raise SystemExit()
-        print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
+    if config.errors:
+        print('Errors:\n%s' % '\n'.join(config.errors))
+        raise SystemExit('Illegal configuration cannot be used')
     if config.unused_mediaControllers:
         print('MC(s) not assigned to an IG:\n%s' % '\n'.join(config.unused_mediaControllers))
         raise SystemExit('Inconsistent configuration cannot be used')
+    if config.FTFY:     # or could raise SystemExit()
+        print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
 
     racks = config.racks
     encs = config.enclosures    # monotonically increasing
