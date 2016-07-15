@@ -20,10 +20,12 @@ from pdb import set_trace
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group, FRDFAModule
-from descmgmt import DescriptorManagement as DescMgmt
 from tmconfig import TMConfig, multiplier
 
 verbose = 0
+
+_BOOK_SHIFT = 33   # Bits of offset for 20 bit book number
+_IG_SHIFT = 46     # Bits of offset for 7 bit IG
 
 #--------------------------------------------------------------------------
 
@@ -129,8 +131,8 @@ def get_book_id(bn, node_id, ig):
           [53:63] - reserved (zeros)
     '''
     if ig is None:
-        return (bn << DescMgmt._BOOK_SHIFT) + (node_id << DescMgmt._IG_SHIFT)
-    return (bn << DescMgmt._BOOK_SHIFT) + (ig << DescMgmt._IG_SHIFT)
+        return (bn << _BOOK_SHIFT) + (node_id << _IG_SHIFT)
+    return (bn << _BOOK_SHIFT) + (ig << _IG_SHIFT)
 
 #--------------------------------------------------------------------------
 # If optional item is there, calculate everything.  Assume it's the
@@ -242,8 +244,8 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
     #   [53:63] - reserved (zeros)
     for ig in IGs:
         for igoffset in range(ig.total_books):
-            lza = ((ig.groupId << DescMgmt._IG_SHIFT) +
-                   (igoffset << DescMgmt._BOOK_SHIFT))
+            lza = ((ig.groupId << _IG_SHIFT) +
+                   (igoffset << _BOOK_SHIFT))
             if verbose > 2:
                 print("lza 0x%016x, IG = %s, igoffset = %d" % (
                     lza, ig.groupId, igoffset))

@@ -241,22 +241,3 @@ class FRDintlv_group(object):
         for mc in self.mediaControllers:
             total_books += mc.module_size_books
         return total_books
-
-#--------------------------------------------------------------------------
-# Match the automatic extrapolation mode of book_register.py, working
-# only from a node count (80).  Nodes go from 1-10, IGs from 0-79.
-
-
-if __name__ == '__main__':
-    MSB = 128   # FAM module size in books, ie, behind 1 media controller
-    FRDnodes = [ FRDnode(n + 1, module_size_books=MSB) for n in range(80) ]
-    IGs = [ FRDintlv_group(i, node.mediaControllers) for i, node in enumerate(FRDnodes) ]
-    assert IGs[15].mediaControllers[2].module_size_books == MSB
-    assert IGs[15].mediaControllers[2] - IGs[15].mediaControllers[3] == 1
-    assert IGs[15].mediaControllers[2] - IGs[16].mediaControllers[3] == 3
-    assert IGs[15].mediaControllers[2] - IGs[26].mediaControllers[3] == 5
-    set_trace()
-    junk = FRDnode(3)
-    print(junk.hostname, junk.rawCID)
-    junk = FRDnode(3, enc=4)
-    print(junk.hostname, junk.rawCID)

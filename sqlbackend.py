@@ -615,15 +615,3 @@ class LibrarianDBackendSQL(object):
 
     def __getattr__(self, name):
         return getattr(self._cur, name)
-
-#--------------------------------------------------------------------------
-
-if __name__ == '__main__':
-    symbols = sorted([m for m in dir(LibrarianDBackendSQL)
-        if not m.startswith('_')])
-
-    print('Methods needed by a backend class:')
-    for s in symbols:
-        tmp = getattr(LibrarianDBackendSQL, s, None)
-        if callable(tmp):
-            print(tmp.__name__, '\n\t', tmp.__doc__)

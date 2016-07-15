@@ -235,11 +235,11 @@ class shadow_support(object):
         except Exception as e:
             return -1
 
-        # Offset into flat space has several contributors.  Oddly enough
-        # this doesn't need the concatenated LZA field.
+        # Offset into flat space has several contributors.  The concatenated
+        # LZA field has already been broken down into constituent parts.
         intlv_group = book['intlv_group']
-        book_num = book['book_num']
-        book_start = book_num * self.book_size
+        ig_book_num = book['ig_book_num']
+        book_start = ig_book_num * self.book_size
         book_offset = shelf_offset % self.book_size
         tmp = self._igstart[intlv_group] + book_start + book_offset
         assert tmp < self.aperture_size, 'BAD SHADOW OFFSET'
@@ -641,17 +641,17 @@ class apertures(shadow_support):
             cmd, comm, pid, PABO = xattr.split(',')
             pid = int(pid)
             PABO = int(PABO)  # page-aligned byte offset into shelf
-            book_num = PABO // self.book_size  # (0..n-1)
-            if book_num >= len(bos):
+            shelf_book_num = PABO // self.book_size  # (0..n-1)
+            if shelf_book_num >= len(bos):
                 return 'ERROR'
-            baseLZA = bos[book_num]['lza']
+            baseLZA = bos[shelf_book_num]['lza']
 
             if self.verbose > 3:  # Since this IS in the kernel :-)
                 reason = cmd.split('_for_')[1]
                 print('Get LZA (%s): process %s[%d] shelf=%s, PABO=%d (0x%x)' %
                     (reason, comm, pid, shelf_name, PABO, PABO))
                 print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
-                    book_num,
+                    shelf_book_num,
                     baseLZA,
                     ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
                     ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
@@ -680,7 +680,7 @@ class apertures(shadow_support):
             else:
                 raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
 
-            data = '%d,%s,%s,%s' % (self.addr_mode, book_num, baseLZA, map_addr)
+            data = '%d,%s,%s' % (self.addr_mode, baseLZA, map_addr)
             if self.verbose > 3:
                 print('data returned to fault handler = %s' % (data))
             return data
