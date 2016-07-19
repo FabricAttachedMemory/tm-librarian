@@ -1,3 +1,10 @@
+tm-librarian (0.15-1+l4tm1) catapult; urgency=low
+
+  * Performance improvements for open and faults, fsync fixes and general
+    bug fixes.
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 19 Jul 2016 13:39:13 -0600
+
 tm-librarian (0.14-1+l4tm1) catapult; urgency=low
 
   * All lfs_fuse.py command line options are now optional, attempt to
