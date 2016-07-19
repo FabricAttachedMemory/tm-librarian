@@ -1,13 +1,10 @@
 #!/usr/bin/dh-exec
 
 backend_sqlite3.py		usr/lib/python3/dist-packages/tm_librarian
-book_data.ini			usr/lib/python3/dist-packages/tm_librarian
-book_max.ini			usr/lib/python3/dist-packages/tm_librarian
 book_policy.py			usr/lib/python3/dist-packages/tm_librarian
 book_register.py		usr/lib/python3/dist-packages/tm_librarian
 book_shelf_bos.py		usr/lib/python3/dist-packages/tm_librarian
 cmdproto.py			usr/lib/python3/dist-packages/tm_librarian
-descmgmt.py			usr/lib/python3/dist-packages/tm_librarian
 engine.py			usr/lib/python3/dist-packages/tm_librarian
 frdnode.py			usr/lib/python3/dist-packages/tm_librarian
 fsck.lfs.py			usr/lib/python3/dist-packages/tm_librarian
@@ -23,8 +20,6 @@ tm_fuse.py			usr/lib/python3/dist-packages/tm_librarian
 tm_ioctl_opt.py			usr/lib/python3/dist-packages/tm_librarian
 lmp.py				usr/lib/python3/dist-packages/tm_librarian
 lmp_config.py			usr/lib/python3/dist-packages/tm_librarian
-fame.json			usr/lib/python3/dist-packages/tm_librarian
-simpleconfig.json		usr/lib/python3/dist-packages/tm_librarian
 tmconfig.py			usr/lib/python3/dist-packages/tm_librarian
 systemd_tm-lfs			=> etc/default/tm-lfs
 systemd_tm-lfs.service		=> lib/systemd/system/tm-lfs.service
