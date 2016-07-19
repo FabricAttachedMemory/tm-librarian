@@ -769,15 +769,21 @@ def _detect_memory_space(args, lfs_globals):
     assert args.aperture_base, \
         'Could not retrieve region 2 address of IVSHMEM device at %s' % bdf
 
-    # Compare requirements to file size.  sysfs file disappeared on VMs
-    # starting at kernel 4.5 FIXME investigate
+    # Compare requirements to file size.
+    # Check older kernel path first, then try 4.5 kernel path
     memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
+    if not os.path.isfile(memoryfile):
+        memoryfile = '/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A03:00/pci0000:00/0000:%s/resource2' % bdf
+
     if not os.path.isfile(memoryfile):
         # " [size=64G]"
         size = region2.split('size=')[1][:-1]   # kill the right bracket
-        assert size[-1] == 'G', \
-            'Region 2 size not "G" for IVSHMEM device at %s' % bdf
-        args.aperture_size = int(size[:-1]) << 30
+        assert size[-1] in 'GT' , \
+            'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
+        if size[-1] == 'G':
+            args.aperture_size = int(size[:-1]) << 30
+        else:
+            args.aperture_size = int(size[:-1]) << 40
     else:
         statinfo = os.stat(memoryfile)
         assert shadow_support._S_IFREG_URW == shadow_support._S_IFREG_URW & statinfo.st_mode, \
