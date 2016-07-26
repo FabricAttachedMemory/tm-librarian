@@ -234,6 +234,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             print(str(e), file=sys.stederr)
             raise TmfsOSError(errno.ENOKEY)
 
+        # Connection failures: simple testing (killing librarian at quiescent
+        # point) usually lets the send_all() succeed, then dies on recv_all().
+        # socket_handling.py is the actor that raises ECONNABORTED.  As a
+        # first approximation, just do a (re) connect on detection.   Better
+        # attempts need to add a reconnect timeout, split send_all from
+        # recv_all error processing, put a "while" around certain things...
         errmsg = { }
         rspdict = None
         try:
@@ -248,6 +254,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         except OSError as e:
             errmsg['errmsg'] = 'Communications error with librarian'
             errmsg['errno'] = e.errno   # was always HOSTDOWN
+            if e.errno in (errno.ECONNABORTED, ):
+                tmp = self.torms.connect(reconnect=True)
+                if tmp:
+                    # If request is idempotent, re-issue (need a while loop)
+                    pass # for now
         except MemoryError as e:  # OOB storm and internal error not pull instr
             errmsg['errmsg'] = 'OOM BOOM'
             errmsg['errno'] = errno.ENOMEM
@@ -277,8 +288,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return value  # None is legal, let the caller deal with it.
 
     def send_heartbeat(self):
-        self.librarian(self.lcp('update_node_soc_status',
-            status=self.lfs_status))
+        try:
+            self.librarian(self.lcp('update_node_soc_status',
+                status=self.lfs_status))
+        except Exception as e:
+            # Connection failure with Librarian ends up here.
+            # FIXME shorten the heartbeat interval to speed up reconnect?
+            pass
         self.heartbeat.schedule()
 
     # Higher-level FS operations
@@ -857,6 +873,7 @@ def mount_LFS(args):
              foreground=not bool(args.daemon),
              nothreads=True)
     except Exception as e:
+        set_trace()    # this should never happen :-)
         raise SystemExit('%s' % str(e))
 
 if __name__ == '__main__':
