@@ -22,7 +22,10 @@ class SocketReadWrite(object):
         peertuple = kwargs.get('peertuple', None)
         selectable = kwargs.get('selectable', True)
         sock = kwargs.get('sock', None)
-        self.jsond = JSONDecoder(strict=False)  # allow chars such as CRLF
+
+        # Allow chars such as CRLF.  A fresh instance seems to be important
+        # in a reconnect.
+        self.jsond = JSONDecoder(strict=False)
 
         if sock is None:
             self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -32,11 +35,11 @@ class SocketReadWrite(object):
         self.safe_setblocking()
 
         if peertuple is None:
-            self._peer = ''
+            self._host = ''
             self._port = 0
             self._str = ''
         else:  # A dead socket can't getpeername so cache it now
-            self._peer, self._port = peertuple
+            self._host, self._port = peertuple
             self._str = '{0}:{1}'.format(*peertuple)
         self.clear()
         self.inOOB = []
@@ -193,8 +196,8 @@ class SocketReadWrite(object):
                     # Not ready; only happens on a fresh read with non-blocking
                     # mode (ie, can't happen in timeout mode).  Get back to
                     # select, or just re-recv?
-                    set_trace()
-                    if not self._sock._created_blocking:
+                    set_trace()     # probably created with selectable=True
+                    if not self._created_blocking:
                         return None
                     continue
                 except socket.timeout as e:
@@ -284,38 +287,50 @@ class Client(SocketReadWrite):
     def __init__(self, **kwargs):
         super(self.__class__, self).__init__(**kwargs)
 
-    def connect(self, host='localhost', port=9093, retry=True):
+    def connect(self, host='localhost', port=9093, retry=True, reconnect=False):
         """ Connect socket to port on host
 
         Args:
             host: the host to connect to
             port: the port to connect to
+            retry: enter an infinite loop (cuz why not)
+            reconnect: assumes an existing connection was broken
 
         Returns:
-            Nothing
+            True if it worked, False otherwise
         """
+
+        if reconnect:
+            host = self._host
+            port = self._port
+            assert host and port, 'Insufficient data for reconnect'
+            self.__init__(selectable=False, peertuple=(host, port))
+            retry = False
 
         while True:
             try:
                 self._sock.connect((host, port))
+                break
             except Exception as e:
-                if retry:
-                    print('Retrying connection...')
-                    time.sleep(2)
-                    continue
-                raise
+                if not retry:
+                    return False
+                print('Retrying connection...')
+                time.sleep(2)
+
+        while True:
             try:
                 peertuple = self._sock.getpeername()
+                break
             except Exception as e:
-                if retry:
-                    print('Retrying getpeername...')
-                    time.sleep(2)
-                    continue
-                raise
+                if not retry:
+                    raise
+                print('Retrying getpeername...')
+                time.sleep(2)
+                continue
 
-            self._peer, self._port = peertuple
-            self._str = '{0}:{1}'.format(*peertuple)
-            return
+        self._host, self._port = peertuple
+        self._str = '{0}:{1}'.format(*peertuple)
+        return True
 
 
 class Server(SocketReadWrite):
