@@ -116,6 +116,11 @@ class _GOnodes(GenericObject):
     def hostname(self, value):
         self._hostname = str(value)
 
+    @property
+    def node_id(self):
+        return ((self.enc - 1) * 10 ) + self.node
+
+
 class _GOmediaControllers(GenericObject):
     __qualname__ = 'mediaControllers'
     __title__ = 'MediaController'
@@ -325,7 +330,6 @@ class TMConfig(GenericObject):
                     node.rack = rack.coordinate.split('/')[-1]  # string
                     node.enc = int(enc.coordinate.split('/')[-1])
                     node.node = int(node.coordinate.split('/')[-1])
-                    node.node_id = ((node.enc - 1) * 10 ) + node.node
                     mclooper = getiter(node, 'mediaControllers')
                     if not mclooper:
                         return
@@ -414,7 +418,7 @@ class TMConfig(GenericObject):
 
     @property
     def totalNVM(self):
-        return sum(node.totalNVM for node in self.nodes)
+        return sum(node.totalNVM for node in self.nodes)    # property ref
 
     @property
     def enclosures(self):
@@ -443,7 +447,7 @@ class TMConfig(GenericObject):
     @property
     def mediaControllers(self):
         MCs = []
-        for node in self.nodes:
+        for node in self.nodes:     # property ref
             MCs.extend(node.mediaControllers)
         return tupledict(MCs)
 
