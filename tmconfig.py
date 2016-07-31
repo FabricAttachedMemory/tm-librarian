@@ -74,20 +74,24 @@ class OptionBaseOneTuple(tuple):
 # Dancing around __metaclasses__ here FIXME RTFM and use them.
 
 
-class _GObase(GenericObject):
-    pass
+class _GOanon(GenericObject):
+    __qualname__ = 'anonymous'
+    __title__ = 'element'
 
 
 class _GOracks(GenericObject):
     __qualname__ = 'racks'
+    __title__ = 'Rack'
 
 
 class _GOenclosures(GenericObject):
     __qualname__ = 'enclosures'
+    __title__ = 'Enclosure'
 
 
 class _GOnodes(GenericObject):
     __qualname__ = 'nodes'
+    __title__ = 'Node'
 
     def __init__(self, **kwargs):
         assert 'hostname' not in kwargs, '"hostname" collides with property'
@@ -114,6 +118,7 @@ class _GOnodes(GenericObject):
 
 class _GOmediaControllers(GenericObject):
     __qualname__ = 'mediaControllers'
+    __title__ = 'MediaController'
 
 ###########################################################################
 
@@ -142,9 +147,11 @@ class tupledict(tuple):
 
 
 class TMConfig(GenericObject):
+    __title__ = 'Primary'
 
     @staticmethod
     def unroll(obj, attr, item, depth=0, verbose=False):
+      '''attr is a JSON key and is camel case (usually lower).'''
       try:
         if verbose:
             print('    ' * depth, attr, end=': ')
@@ -162,7 +169,7 @@ class TMConfig(GenericObject):
                     isinstance(element, str)):
                     buildlist.append(element)
                 elif isinstance(element, dict):
-                    GO = globals().get('_GO' + attr, GenericObject)()
+                    GO = globals().get('_GO' + attr, _GOanon)()
                     buildlist.append(GO)
                     for key, value in element.items():
                         TMConfig.unroll(GO, key, value, depth + 1, verbose)
@@ -177,7 +184,7 @@ class TMConfig(GenericObject):
         elif isinstance(item, dict):
             if verbose:
                 print('(dict)')
-            GO = globals().get('_GO' + attr, GenericObject)()
+            GO = globals().get('_GO' + attr, _GOanon)()
             setattr(obj, attr, GO)
             for key, value in item.items():
                 TMConfig.unroll(GO, key, value, depth + 1, verbose)
@@ -209,7 +216,45 @@ class TMConfig(GenericObject):
             self.FTFY.append(errfmt % (vartuple + (attr, )))
             setattr(obj, attr, 'You forgot an attribute.  BAD GEEK! BAD!')
 
+    # Supporting data for validating proper case of coordinate elements.
+    # Remember, the JSON keys are camel case.
+    _StudlyKeys = (
+        'MachineVersion', 'Datacenter', 'Rack', 'Enclosure', 'EncNum',
+        'Node', 'MemoryBoard', 'SocBoard'
+    )
+    _StudlyCase = dict(zip([e.lower() for e in _StudlyKeys], _StudlyKeys))
+
+    def finish_child(self, child, parent=None):
+        '''Establish fwd/rev links, validate and extend coordinates'''
+        child.parent = parent
+        if parent is None:
+            prefix = ''
+        else:
+            prefix = parent.coordinate + '/'
+            try:
+                parent.children.append(child)
+            except AttributeError as e:
+                parent.children = [child,]
+        # Go ahead and do it, then validate
+        # FIXME: calculate coordinate on the fly, instead of fixed val.
+        coord = child.coordinate
+        child.coordinate = prefix + coord
+        errhdr = '%s coordinate "%s" ' % (child.__class__.__title__, coord)
+        if ' ' in coord:
+            self.errors.append(errhdr + 'has superfluous whitespace')
+        tmp = coord.strip()
+        if tmp.startswith('/'):
+            self.errors.append(errhdr + 'begins with "/"')
+        if tmp.endswith('/'):
+            self.errors.append(errhdr + 'ends with "/"')
+        elems = tmp.split('/')
+        for e in elems:
+            tmp = self._StudlyCase.get(e.lower(), e)
+            if tmp != e:
+                self.errors.append(errhdr + 'case should be "%s"' % tmp)
+
     def __init__(self, path, verbose=False):
+        # Support for managing 'hostname' property in this class
         setattr(_GOnodes, self.__class__.__name__, self)
         self.verbose = verbose
         self.FTFY = [ ]
@@ -218,7 +263,6 @@ class TMConfig(GenericObject):
             self._json = json.loads(original)
             for key, value in self._json.items():
                 TMConfig.unroll(self, key, value, verbose=verbose)
-            self._allServices = None
         except Exception as e:
             tb_lineno = sys.exc_info()[2].tb_lineno
             src, base_lineno = inspect.getsourcelines(self.__class__)
@@ -232,39 +276,63 @@ class TMConfig(GenericObject):
         # into absolutes and check for dupes, which intrinsically checks
         # a lot of things.  The list gets used again for IG checking.
 
-        self.racks = tupledict(self.racks)  # top level needs handling now
+        self._allServices = None
+        self.errors = [ ]
+
+        # Duplicate detection
         allencs = [ ]
         allnodes = [ ]
         fullMCs = { }
-        node_id = 1
-        errors = [ ]
+
+        # Since unroll() blindly takes any keys, guard against typos.  Yes
+        # it could be folded into finish_child but this sufficient for now.
+        def getiter(obj, attr):
+            val = getattr(obj, attr, False)
+            if not val:
+                self.errors.append('%s %s has no %s' %
+                    (obj.__title__, obj.coordinate, attr))
+            return val
+
+        if not hasattr(self, 'racks'):
+            self.errors.append('No racks were found')
+            return
+        self.racks = tupledict(self.racks)  # top level needs handling now
+        self.finish_child(self)
         for rack in self.racks:
-            rack.coordinate = self.coordinate + '/' + rack.coordinate
-            for enc in rack.enclosures:
-                enc.coordinate = rack.coordinate + '/' + enc.coordinate
+            self.finish_child(rack, self)
+            enclooper = getiter(rack, 'enclosures')
+            if not enclooper:
+                return
+            for enc in enclooper:
+                self.finish_child(enc, rack)
                 if enc.coordinate in allencs:
-                    errors.append('Duplicate enclosure coordinate %s' %
+                    self.errors.append('Duplicate enclosure coordinate %s' %
                         enc.coordinate)
                     continue
                 allencs.append(enc.coordinate)
-                for node in enc.nodes:
-                    node.coordinate = enc.coordinate + '/' + node.coordinate
+                nodelooper = getiter(enc, 'nodes')
+                if not nodelooper:
+                    return
+                for node in nodelooper:
+                    self.finish_child(node, enc)
                     if node.coordinate in allnodes:
-                        errors.append('Duplicate node coordinate %s' %
+                        self.errors.append('Duplicate node coordinate %s' %
                             node.coordinate)
                         continue
                     allnodes.append(node.coordinate)
 
-                    node.soc.coordinate = node.coordinate + '/' + node.soc.coordinate
-                    node.rack = rack.coordinate.split('/')[-1]
-                    node.enc = enc.coordinate.split('/')[-1]
-                    node.node = node.coordinate.split('/')[-1]
-                    node.node_id = node_id
-                    node_id += 1
-                    for mc in node.mediaControllers:
-                        mc.coordinate = node.coordinate + '/' + mc.coordinate
+                    self.finish_child(node.soc, node)
+                    node.rack = rack.coordinate.split('/')[-1]  # string
+                    node.enc = int(enc.coordinate.split('/')[-1])
+                    node.node = int(node.coordinate.split('/')[-1])
+                    node.node_id = ((node.enc - 1) * 10 ) + node.node
+                    mclooper = getiter(node, 'mediaControllers')
+                    if not mclooper:
+                        return
+                    for mc in mclooper:
+                        self.finish_child(mc, node)
                         if mc.coordinate in fullMCs:
-                            errors.append('Duplicate MC coordinate %s' %
+                            self.errors.append('Duplicate MC coordinate %s' %
                                 mc.coordinate)
                             continue
                         fullMCs[mc.coordinate] = mc     # for future reference
@@ -274,7 +342,7 @@ class TMConfig(GenericObject):
                         # FRD HW only has 13 bits of book number in an LZA
                         mc.module_size_books = mc.memorySize // self.bookSize
                         if mc.module_size_books > 8192:
-                            errors.append('MC @ %s has too much NVM' %
+                            self.errors.append('MC @ %s has too much NVM' %
                                 mc.coordinate)
                             # keep going
 
@@ -287,7 +355,8 @@ class TMConfig(GenericObject):
                         mc.rawCID = (((int(node.enc) - 1) << 9) +
                                      ((int(node.node) - 1) << 4) +
                                      ((subCID - 1) + 8))
-                    node.totalNVM = sum(mc.memorySize for mc in node.mediaControllers)
+                    node.totalNVM = sum(mc.memorySize
+                                        for mc in node.mediaControllers)
 
                     # Find it earlier, report it with more clarity
                     self._FTFY(
@@ -300,23 +369,30 @@ class TMConfig(GenericObject):
         # IGs only have absolute coordinates; "update" them with node's full
         # definition.  fullMCs is now a "countdown" consistency check.
         groupIds = [ ]
-        for IG in self.interleaveGroups:
+        IGlooper = getiter(self, 'interleaveGroups')
+        if not IGlooper:
+            return
+        for IG in IGlooper:
+            IG.coordinate = ''  # for completeness
             assert IG.groupId not in groupIds, \
                 'Duplicate interleave group ID %d' % IG.groupId
             groupIds.append(IG.groupId)
             updateMCs = [ ]
-            for mc in IG.mediaControllers:
+            mclooper = getiter(IG, 'mediaControllers')
+            if not mclooper:
+                return
+            for mc in mclooper:
                 # Original TMCF had coord and memsize keys.  I objected to
                 # the memsize duplication, but Keith removed the coord key,
                 # reducing the one-item dict to a simple string.  Handle
                 # both cases.
                 coordinate = getattr(mc, 'coordinate', mc)
                 if coordinate not in fullMCs:
-                    errors.append('IG %d MC %s not in any node' % (
+                    self.errors.append('IG %d MC %s not in any node' % (
                         IG.groupId, coordinate))
                     continue
                 if hasattr(mc, 'memorySize'):
-                    errors.append('IG %d MC %s sets memorySize' % (
+                    self.errors.append('IG %d MC %s sets memorySize' % (
                         IG.groupId, coordinate))
                 updateMCs.append(fullMCs[coordinate])   # reuse
                 del fullMCs[coordinate]
@@ -328,9 +404,8 @@ class TMConfig(GenericObject):
 
         if self.totalNVM != sum(mc.memorySize for
             mc in self.mediaControllers):
-                errors.append('NVM memory mismatch')
+                self.errors.append('NVM memory mismatch')
 
-        self.errors = errors
         self.unused_mediaControllers = tuple(fullMCs.keys())
 
     # Some shortcuts to commonly accessed items.   'racks" is already at
@@ -354,7 +429,7 @@ class TMConfig(GenericObject):
     @property
     def IGs(self):
         IGs = []
-        for IG in self.interleaveGroups:
+        for IG in self.interleaveGroups:    # parsed from JSON
             IGs.extend(IG)
         return tupledict(IGs)
 
