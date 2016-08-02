@@ -1,6 +1,6 @@
 {
   "_comment": "This instance has two enclosures: 1 and 3",
-  "coordinate": "MachineVersion/1/Datacenter/BUK1",
+  "coordinate": "/MachineVersion/1/Datacenter/BUK1",
   "servers":
   [
     {
@@ -398,73 +398,73 @@
     {
       "groupId": 1,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/4"
       ]
     },
     {
       "groupId": 2,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/4"
       ]
     },
     {
       "groupId": 3,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/4"
       ]
     },
     {
       "groupId": 4,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/4"
       ]
     },
         {
       "groupId": 5,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/1/MemoryBoard/1/MediaController/4"
       ]
     },
     {
       "groupId": 6,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/2/MemoryBoard/1/MediaController/4"
       ]
     },
     {
       "groupId": 7,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/3/MemoryBoard/1/MediaController/4"
       ]
     },
     {
       "groupId": 8,
       "mediaControllers": [
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/1",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/2",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/3",
-        "MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/4"
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/3/Node/4/MemoryBoard/1/MediaController/4"
       ]
     }
   ]

@@ -231,27 +231,27 @@ class TMConfig(GenericObject):
 
     def finish_child(self, child, parent=None):
         '''Establish fwd/rev links, validate and extend coordinates'''
+        # Initial setup and error checking
         child.parent = parent
+        coord = child.coordinate
+        errhdr = '%s coordinate "%s" ' % (child.__class__.__title__, coord)
+        if ' ' in coord:
+            self.errors.append(errhdr + 'has superfluous whitespace')
+
         if parent is None:
             prefix = ''
         else:
+            if coord.strip('/') != coord:
+                self.errors.append(errhdr + 'has leading or trailing "/"')
             prefix = parent.coordinate + '/'
             try:
                 parent.children.append(child)
             except AttributeError as e:
                 parent.children = [child,]
+
         # Go ahead and do it, then validate
         # FIXME: calculate coordinate on the fly, instead of fixed val.
-        coord = child.coordinate
         child.coordinate = prefix + coord
-        errhdr = '%s coordinate "%s" ' % (child.__class__.__title__, coord)
-        if ' ' in coord:
-            self.errors.append(errhdr + 'has superfluous whitespace')
-        tmp = coord.strip()
-        if tmp.startswith('/'):
-            self.errors.append(errhdr + 'begins with "/"')
-        if tmp.endswith('/'):
-            self.errors.append(errhdr + 'ends with "/"')
         elems = tmp.split('/')
         for e in elems:
             tmp = self._StudlyCase.get(e.lower(), e)
@@ -301,6 +301,9 @@ class TMConfig(GenericObject):
         if not hasattr(self, 'racks'):
             self.errors.append('No racks were found')
             return
+        if not self.coordinate.startswith('/MachineVersion/1/'):
+            self.errors.append('Illegal MachineVersion "%s"' % self.coordinate)
+            # fall through, find other stuff
         self.racks = tupledict(self.racks)  # top level needs handling now
         self.finish_child(self)
         for rack in self.racks:
