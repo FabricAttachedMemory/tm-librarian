@@ -498,6 +498,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return p
 
     # Just say no to the socket.
+    @prentry
     def _zero(self, shelf):
         assert shelf.name.startswith(self._ZERO_PREFIX)
         fullpath = '%s/%s' % (self.mountpoint, shelf.name)
@@ -656,10 +657,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        if self.nozero or not self.shadow.zero_on_unlink:
-            zero_enabled = False
-        else:
-            zero_enabled = True
+        zero_enabled = self.shadow.zero_on_unlink and not self.nozero
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.
@@ -675,7 +673,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # If books were removed from the shelf and added to a zeroing
         # shelf, start a process to zero the books on that shelf.
         if rsp['z_shelf_name'] is not None:
-            z_rsp = self.librarian(self.lcp('get_shelf', name=rsp['z_shelf_name']))
+            z_rsp = self.librarian(self.lcp(
+                'get_shelf', name=rsp['z_shelf_name']))
             z_shelf = TMShelf(z_rsp)
             threading.Thread(target=self._zero, args=(z_shelf,)).start()
 
