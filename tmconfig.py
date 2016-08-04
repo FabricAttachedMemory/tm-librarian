@@ -264,7 +264,8 @@ class TMConfig(GenericObject):
         self.verbose = verbose
         self.FTFY = [ ]
         try:
-            original = open(path, 'r').read()
+            with open(path, 'r') as f:
+                original = f.read()
             self._json = json.loads(original)
             for key, value in self._json.items():
                 TMConfig.unroll(self, key, value, verbose=verbose)
