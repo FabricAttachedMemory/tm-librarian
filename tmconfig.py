@@ -224,8 +224,8 @@ class TMConfig(GenericObject):
     # Supporting data for validating proper case of coordinate elements.
     # Remember, the JSON keys are camel case.
     _StudlyKeys = (
-        'MachineVersion', 'Datacenter', 'Rack', 'Enclosure', 'EncNum',
-        'Node', 'MemoryBoard', 'SocBoard'
+        'MachineVersion', 'Datacenter', 'Frame', 'Rack',
+        'Enclosure', 'EncNum', 'Node', 'MemoryBoard', 'SocBoard'
     )
     _StudlyCase = dict(zip([e.lower() for e in _StudlyKeys], _StudlyKeys))
 
@@ -252,7 +252,7 @@ class TMConfig(GenericObject):
         # Go ahead and do it, then validate
         # FIXME: calculate coordinate on the fly, instead of fixed val.
         child.coordinate = prefix + coord
-        elems = tmp.split('/')
+        elems = coord.split('/')     # Parent gets checked earlier
         for e in elems:
             tmp = self._StudlyCase.get(e.lower(), e)
             if tmp != e:
