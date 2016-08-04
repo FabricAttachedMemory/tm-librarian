@@ -1,0 +1,470 @@
+{
+  "coordinate": "/MachineVersion/1/Datacenter/BUK1",
+  "servers":
+  [
+    {
+      "_comment": "This file would need to be in a known location, readable by MSW.  Could be file:, could be http:",
+      "softwareRecipeUri": "file:softwareReceipe.js",
+      "coordinate": "Rack/A1.AboveFloor/MgmtServer_DL360/U41",
+      "ipv4Address": "localhost",
+      "services":
+      [
+        {
+          "service": "keyManager",
+          "_comment": "Does the KM have a REST API?",
+          "restUri": "https://localhost:12000/rest/v1",
+          "tlsPublicCertificate": "<Base64 encoded certificate>"
+        },
+        {
+          "service": "identity",
+          "port": 636,
+          "tlsPublicCertificate": "<Base64 encoded certificate>"
+        },
+        {
+          "service": "authorization",
+          "port": 5000,
+          "restUri": "https://localhost:5000/",
+          "tlsPublicCertificate": "<Base64 encoded certificate>"
+        },
+        {
+          "service": "librarian",
+          "_comment": "Some data needed to initialise Librarian is detailed within the racks description below",
+          "bookSize": "8G",
+          "restUri": "https://localhost:31179/lmp",
+          "tlsPublicCertificate": "<Base64 encoded certificate>"
+        },
+        {
+          "service": "assemblyAgent",
+          "_comment": "",
+          "restUri": "http://localhost:8080/dma/dma",
+          "tlsPublicCertificate": "<Base64 encoded certificate>"
+        }
+      ]
+    },
+    {
+      "coordinate": "Rack/A1.AboveFloor/MgmtServer_DL360/U42",
+      "ipv4Address": "os_prov_service_host",
+      "services":
+      [
+        {
+          "service": "osManifesting",
+          "restUri": "http://localhost:9000"
+        }
+      ]
+    },
+    {
+      "coordinate": "Rack/A1.AboveFloor/MgmtServer_DL360/U43",
+      "ipv4Address": "mon_service_host",
+      "services":
+      [
+        {
+          "service": "monitoring",
+          "restUri": "http://localhost:5050/rest",
+          "tlsPublicCertificate": "<Base64 encoded certificate>"
+        }
+      ]
+    }
+  ],
+  "advancedPowerManager": {},
+  "racks":
+  [
+    {
+      "coordinate": "Rack/A1.AboveFloor",
+      "enclosures":
+      [
+        {
+          "coordinate": "Enclosure/U3/EncNum/1",
+          "nodes":
+          [
+            {
+              "coordinate": "Node/1",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10001/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:01:01",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            },
+            {
+              "coordinate": "Node/2",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10002/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:01:02",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            },
+            {
+              "coordinate": "Node/3",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10003/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:01:03",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            },
+            {
+              "coordinate": "Node/4",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10004/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:01:04",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            }
+          ],
+          "iZoneBoards":
+          [
+            {
+              "coordinate": "IZone/1/IZoneBoard/1",
+              "izBoardMp": {
+                "msCollector": "switchmp",
+                "coordinate": "IZoneBoardMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10101/redfish/v1"
+              }
+            },
+            {
+              "coordinate": "IZone/1/IZoneBoard/2",
+              "izBoardMp": {
+                "msCollector": "switchmp",
+                "coordinate": "IZoneBoardMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10102/redfish/v1"
+              }
+            }
+          ]
+        },
+        {
+          "coordinate": "Enclosure/U8/EncNum/2",
+          "nodes":
+          [
+            {
+              "coordinate": "Node/1",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10005/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:02:01",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            },
+            {
+              "coordinate": "Node/2",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10006/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:02:02",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            },
+            {
+              "coordinate": "Node/3",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10007/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:02:03",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            },
+            {
+              "coordinate": "Node/4",
+              "serialNumber": "",
+              "nodeMp": {
+                "coordinate": "SocBoard/1/MpDaughterCard/1/NodeMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10008/redfish/v1",
+                "msCollector": "nodemp"
+              },
+              "soc" : {
+                "coordinate": "SocBoard/1/Soc/1",
+                "macAddress": "00:00:00:00:02:04",
+                "tlsPublicCertificate": "<Base64 encoded certificate>"
+              },
+              "mediaControllers":[
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/1",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/2",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/3",
+                  "memorySize": "128G"
+                },
+                {
+                  "coordinate": "MemoryBoard/1/MediaController/4",
+                  "memorySize": "128G"
+                }
+              ]
+            }
+          ],
+          "iZoneBoards":
+          [
+            {
+              "coordinate": "IZone/1/IZoneBoard/1",
+              "izBoardMp": {
+                "msCollector": "switchmp",
+                "coordinate": "IZoneBoardMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10103/redfish/v1"
+              }
+            },
+            {
+              "coordinate": "IZone/1/IZoneBoard/2",
+              "izBoardMp": {
+                "msCollector": "switchmp",
+                "coordinate": "IZoneBoardMp/1",
+                "ipv4Address": "localhost",
+                "mfwApiUri": "http://localhost:10104/redfish/v1"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "interleaveGroups": [
+    {
+      "groupId": 1,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/1/MemoryBoard/1/MediaController/4"
+      ]
+    },
+    {
+      "groupId": 2,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/2/MemoryBoard/1/MediaController/4"
+      ]
+    },
+    {
+      "groupId": 3,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/3/MemoryBoard/1/MediaController/4"
+      ]
+    },
+    {
+      "groupId": 4,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U3/EncNum/1/Node/4/MemoryBoard/1/MediaController/4"
+      ]
+    },
+        {
+      "groupId": 5,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/1/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/1/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/1/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/1/MemoryBoard/1/MediaController/4"
+      ]
+    },
+    {
+      "groupId": 6,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/2/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/2/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/2/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/2/MemoryBoard/1/MediaController/4"
+      ]
+    },
+    {
+      "groupId": 7,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/3/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/3/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/3/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/3/MemoryBoard/1/MediaController/4"
+      ]
+    },
+    {
+      "groupId": 8,
+      "mediaControllers": [
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/4/MemoryBoard/1/MediaController/1",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/4/MemoryBoard/1/MediaController/2",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/4/MemoryBoard/1/MediaController/3",
+        "/MachineVersion/1/Datacenter/BUK1/Rack/A1.AboveFloor/Enclosure/U8/EncNum/2/Node/4/MemoryBoard/1/MediaController/4"
+      ]
+    }
+  ]
+}
