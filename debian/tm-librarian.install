@@ -7,7 +7,7 @@ book_shelf_bos.py		usr/lib/python3/dist-packages/tm_librarian
 cmdproto.py			usr/lib/python3/dist-packages/tm_librarian
 engine.py			usr/lib/python3/dist-packages/tm_librarian
 frdnode.py			usr/lib/python3/dist-packages/tm_librarian
-fsck.lfs.py			usr/lib/python3/dist-packages/tm_librarian
+fsck_lfs.py			usr/lib/python3/dist-packages/tm_librarian
 genericobj.py			usr/lib/python3/dist-packages/tm_librarian
 lfs_fuse.py			usr/lib/python3/dist-packages/tm_librarian
 lfs_shadow.py			usr/lib/python3/dist-packages/tm_librarian
