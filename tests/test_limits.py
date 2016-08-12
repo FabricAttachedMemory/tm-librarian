@@ -50,14 +50,14 @@ class TestCMD_mv(unittest.TestCase):
         zero_silent_remove('/lfs/s2')
 
     # This currently has an issue and causes two s1 files to appear
-    @unittest.skip('Creates two versions of s1 and causes subsequent tests to fail needlessly')
+    @unittest.expectedFailure
     def test_mv_overwrite(self):
-        f = open('/lfs/s2','w+')
+        f = open('/lfs/test_mv_overwrite','w+')
         f.close()
-        ret = subprocess.call(['mv','/lfs/s2','/lfs/s1'])
+        ret = subprocess.call(['mv','/lfs/s1','/lfs/test_mv_overwrite'])
         self.assertEqual(ret, 0,'Return from mv was: ' + str(ret) + ' not 0')
-        self.assertTrue(os.path.isfile('/lfs/s1'),'File /lfs/s1 was not present')
-        self.assertFalse(os.path.isfile('/lfs/s2'),'File /lfs/s2 still exists and shouldn\'t')
+        self.assertTrue(os.path.isfile('/lfs/test_mv_overwrite'),'File /lfs/test_mv_overwrite was not present')
+        self.assertFalse(os.path.isfile('/lfs/s1'),'File /lfs/s1 still exists and shouldn\'t')
     
     # These tests move small files just to see if the command works
     def test_mv_move_from_lfs(self):
@@ -141,34 +141,30 @@ class TestCMD_mv(unittest.TestCase):
 
     @unittest.skipIf(skip_high_mem_use_tests, 'Skipping high memory usage test')
     def test_mv_move_massive_to_node(self):
-        ret = subprocess.call(['truncate','-s5000G','/lfs/s1'])
-        ret1 = subprocess.call(['mv','/lfs/s1','/tmp/s1'])
-        validate_existence = os.path.isfile('/tmp/s1') 
-        validate_size = os.path.getsize('/tmp/s1') == 5368709120000
-        validate_destruction = not os.path.isfile('/lfs/s1')
-        self.assertTrue(ret and ret1 and validate_existence and validate_size and validate_destruction,'Expected Failure') 
-    
-    @unittest.skip('Creates two versions of s1 and causes subsequent tests to fail needlessly')
+        self.assertEqual(subprocess.call(['truncate','-s5000G','/lfs/s1']),0)
+        self.assertEqual(subprocess.call(['mv','/lfs/s1','/tmp/s1']),0)
+        self.assertTrue(os.path.isfile('/tmp/s1')) 
+        self.assertEqual(os.path.getsize('/tmp/s1'), 5368709120000)
+        self.assertFalse(os.path.isfile('/lfs/s1'))
+        
     @unittest.skipIf(skip_high_mem_use_tests, 'Skipping high memory usage test')
     def test_mv_rename_max_size():
-        ret = subprocess.call(['truncate','-s','12000G','/lfs/s1'])
-        ret1 = subprocess.call(['mv','/lfs/s1','/lfs/s2'])
-        validate_existence = os.path.isfile('/lfs/s2') 
-        validate_size = os.path.getsize('/lfs/s2') == 12884901888000
-        validate_destruction = not os.path.isfile('/lfs/s1')
+        self.assertEqual(subprocess.call(['truncate','-s','12000G','/lfs/s1']),0)
+        self.assertEqual(subprocess.call(['mv','/lfs/s1','/lfs/s2']),0)
+        self.assertTrue(os.path.isfile('/lfs/s2'))
+        self.assertEqual(os.path.getsize('/lfs/s2'), 12884901888000)
+        self.assertFalse(os.path.isfile('/lfs/s1'))
         zero_silent_remove('/lfs/s2')
-        self.assertTrue(ret and ret1 and validate_existence and validate_size and validate_destruction,'Expected Failure')
 
-    @unittest.skip('Creates two versions of s1 and causes subsequent tests to fail needlessly')
     @unittest.skipIf(skip_high_mem_use_tests, 'Skipping high memory usage test')   
     def test_mv_rename_max_books():
-        ret = subprocess.call(['truncate','-s16384G' ,'/lfs/s1'])
-        ret1 = subprocess.call(['mv','/lfs/s1','/lfs/s2'])
-        validate_existence = os.path.isfile('/lfs/s2') 
-        validate_size = os.path.getsize('/lfs/s2') == 12884901888000
-        validate_destruction = not os.path.isfile('/lfs/s1')
+        self.assertEqual(subprocess.call(['truncate','-s16384G' ,'/lfs/s1']),0)
+        self.assertEqual(subprocess.call(['mv','/lfs/s1','/lfs/s2']),0)
+        self.assertTrue(os.path.isfile('/lfs/s2'))
+        self.assertEqual(os.path.getsize('/lfs/s2'), 12884901888000)
+        self.assertFalse(os.path.isfile('/lfs/s1'))
         zero_silent_remove('/lfs/s2')
-        self.assertTrue(ret and ret1 and validate_existence and validate_size and validate_destruction,'Expected Failure')
+        
 
 class TestCMD_cp(unittest.TestCase):
     def setUp(self):
@@ -583,7 +579,7 @@ class TestCMD_tar(unittest.TestCase):
             silent_remove('/tmp/s' + str(i))
         silent_remove('/tmp/archive.tar')
     
-   @unittest.skipIf(skip_high_mem_use_tests, 'Skipping high memory usage test') 
+    @unittest.skipIf(skip_high_mem_use_tests, 'Skipping high memory usage test') 
     def test_large_data_integrity(self):
         for i in range(1,5):
             f = open('/tmp/s' + str(i),'w+')
