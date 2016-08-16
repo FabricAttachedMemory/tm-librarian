@@ -109,7 +109,7 @@ class OptionBaseOneTuple(GenericObject):
         return (v for v in self._value if v is not None)
 
     @property
-    def full(self):
+    def populated(self):
         return [v for v in self._value]
 
     def __getitem__(self, index):
@@ -588,6 +588,7 @@ class TMConfig(GenericObject):
 
 
 if __name__ == '__main__':
+    from pprint import pprint
     try:
         config = TMConfig(sys.argv[1], verbose=True)
     except Exception as e:  # Probably a parser bug
@@ -602,10 +603,10 @@ if __name__ == '__main__':
     if config.FTFY:
         print('Added missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
 
-    racks = config.allRacks
-    encs = config.allEnclosures
-    nodes = config.allNodes
-    MCs = config.allMediaControllers
+    allRacks = config.allRacks
+    allEnclosures = config.allEnclosures
+    allNodes = config.allNodes
+    allMCs = config.allMediaControllers
     print('Book size = %d' % config.bookSize)
     tmp = config.totalNVM >> 40
     if tmp:
@@ -618,17 +619,25 @@ if __name__ == '__main__':
             msg = '%d MB' % config.totalNVM >> 20
 
     print('%d racks, %d enclosures, %d nodes, %d MCs -> %s total NVM' %
-        (len(racks), len(encs), len(nodes), len(MCs), msg))
+        (len(allRacks), len(allEnclosures), len(allNodes), len(allMCs), msg))
     if config.unused_mediaControllers:
         print('MCs not assigned to an IG:')
         pprint(config.unused_mediaControllers)
-    print(nodes[-1].dotname, 'is', nodes[-1].hostname)
+    print(allNodes[-1].dotname, 'is', allNodes[-1].hostname)
 
     # Use a substring of sufficient granularity to satisfy your needs
-    nodes_in_enc_1 = nodes['EncNum/1']
+    nodes_in_enc_1 = allNodes['EncNum/1']
 
     # This "search function" is implicitly across all enclosures
-    MCs_in_all_node_2s = MCs['Node/2']
+    MCs_in_all_node_2s = allMCs['Node/2']
+
+    # Get populated enclosures, None means no item in that slot.
+    print('\nPopulated enclosures:')
+    pprint(config.racks[1].enclosures.populated)
+
+    if 'sparseNode.json' in sys.argv[1]:
+        print('\nPopulated nodes in enclosure 3:')
+        pprint(config.racks[1].enclosures[3].nodes.populated)
 
     set_trace()
     pass
