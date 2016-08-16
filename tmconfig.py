@@ -62,17 +62,55 @@ def multiplier(instr, section, book_size_bytes=0):
 
 
 class OptionBaseOneTuple(GenericObject):
-
+    '''If it's an item with a physically enumerated coordinate,
+       force 1-based indexing.  Account for sparse populations.'''
     def __init__(self, *args, **kwargs):
-        self._value = tuple(args[0])
-        self._ob1 =  hasattr(self._value[0], 'coordinate')
-        pass
+        sequence = args[0]  # but what are they?
+        coord = getattr(sequence[0], 'coordinate', None)
+        if coord is None:
+            self._ob1 = False   # zero-based: servers, services, IGs
+            self._value = tuple(sequence)   # "freeze" it
+            return
+        elems = coord.split('/')
+        try:
+            index = int(elems[-1])
+            self._ob1 = True    # fall through to padding
+        except ValueError:
+            # Is it a rack coord?  Those aren't explicitly enumerated.
+            # Either way I just need a simple tuple, no packing.
+            self._ob1 = len(elems) == 2 and elems[0] == 'Rack'
+            self._value = tuple(sequence)
+            return
+
+        # Assume sequence is homogoneous, ie, they all have a coordinate
+        # like [0] did above.  Also, coords are relative.
+        padded = []
+        for s in sequence:
+            elems = s.coordinate.split('/')
+            index = int(elems[-1])
+            while index - 1 > len(padded):
+                padded.append(None)
+            padded.append(s)
+        if elems[0] == 'Enclosure':
+            extend = 8
+        elif elems[0] == 'Node':
+            extend = 10
+        else:
+            extend = 0
+        if extend:
+            padded.extend((None,) * (extend - len(padded)))
+        self._value = tuple(padded)
 
     def __len__(self):
         return len(self._value)
 
     def __iter__(self):
-        return iter(self._value)
+        # return iter(self._value)  # includes sparsity
+        return (v for v in self._value if v is not None)
+
+    @property
+    def full(self):
+        return [v for v in self._value]
 
     def __getitem__(self, index):
         if self._ob1:
