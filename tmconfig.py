@@ -61,13 +61,26 @@ def multiplier(instr, section, book_size_bytes=0):
 # Because Drew.
 
 
-class OptionBaseOneTuple(tuple):
+class OptionBaseOneTuple(GenericObject):
+
+    def __init__(self, *args, **kwargs):
+        self._value = tuple(args[0])
+        self._ob1 =  hasattr(self._value[0], 'coordinate')
+        pass
+
+    def __len__(self):
+        return len(self._value)
+
+    def __iter__(self):
+        return iter(self._value)
+
     def __getitem__(self, index):
-        if not index:
-            raise IndexError('first index is 1')
-        if index > 0:
-            index -= 1
-        return super().__getitem__(index)
+        if self._ob1:
+            if not index:
+                raise IndexError('first index is 1')
+            if index > 0:
+                index -= 1
+        return self._value[index]
 
 ###########################################################################
 # Subclass GenericObject so attribute errors report a more useful class.
@@ -80,17 +93,17 @@ class _GOanon(GenericObject):
 
 
 class _GOracks(GenericObject):
-    __qualname__ = 'racks'
+    __qualname__ = 'rack'
     __title__ = 'Rack'
 
 
 class _GOenclosures(GenericObject):
-    __qualname__ = 'enclosures'
+    __qualname__ = 'enclosure'
     __title__ = 'Enclosure'
 
 
 class _GOnodes(GenericObject):
-    __qualname__ = 'nodes'
+    __qualname__ = 'node'
     __title__ = 'Node'
 
     def __init__(self, **kwargs):
@@ -103,7 +116,7 @@ class _GOnodes(GenericObject):
         return 'rack.%s.enc.%s.node.%s' % (self.rack, self.enc, self.node)
 
     @property
-    def hostname(self):
+    def hostname(self):     # see the first line of TMConfig.__init__()
         if self._hostname is None:
             # MFT/FRD: rack is always "1", or words like "A1.above_floor"
             self._hostname = 'node%02d' % (
@@ -122,7 +135,7 @@ class _GOnodes(GenericObject):
 
 
 class _GOmediaControllers(GenericObject):
-    __qualname__ = 'mediaControllers'
+    __qualname__ = 'mediaController'
     __title__ = 'MediaController'
 
 ###########################################################################
@@ -132,18 +145,18 @@ class tupledict(tuple):
     '''Allow indexing of TMConfig properties by int or str.  If str, treat
        it as a snippet to match against coordinate values.'''
 
+    def __init__(self, inseq):
+        self._value = inseq
+
     def __getitem__(self, index_or_key):
         try:
             i = int(index_or_key)
-            try:
-                return super().__getitem__(i)
-            except Exception:
-                return None
+            return self._value[i]   # IndexError will raise out
         except ValueError:
             pass
         try:
             key = str(index_or_key)
-            tmp = tuple(i for i in iter(self) if key in i.coordinate)
+            tmp = tuple(i for i in self._value if key in i.coordinate)
             return tmp
         except Exception:
             return None
@@ -184,7 +197,10 @@ class TMConfig(GenericObject):
                     continue
 
             # Make buildlist immutable and Drewable
-            setattr(obj, attr, OptionBaseOneTuple(getattr(obj, attr)))
+            tmp = getattr(obj, attr)
+            assert tmp is buildlist, 'This is sooooo not good'
+            tmp = OptionBaseOneTuple(buildlist, attr=attr)
+            setattr(obj, attr, tmp)
 
         elif isinstance(item, dict):
             if verbose:
@@ -207,7 +223,9 @@ class TMConfig(GenericObject):
                     pass
             setattr(obj, attr, item)
 
-      except Exception as e:
+      except Exception as e:    # Syntax, logic, whatever; I'm done
+          print('Line %d: %s' % (sys.exc_info()[2].tb_lineno, str(e)),
+            file=sys.stderr)
           set_trace()
           raise
 
@@ -292,7 +310,7 @@ class TMConfig(GenericObject):
 
         # Since unroll() blindly takes any keys, guard against typos.  Yes
         # it could be folded into finish_child but this sufficient for now.
-        def getiter(obj, attr):
+        def getchilditer(obj, attr):
             val = getattr(obj, attr, False)
             if not val:
                 self.errors.append('%s %s has no %s' %
@@ -305,11 +323,10 @@ class TMConfig(GenericObject):
         if not self.coordinate.startswith('/MachineVersion/1/'):
             self.errors.append('Illegal MachineVersion "%s"' % self.coordinate)
             # fall through, find other stuff
-        self.racks = tupledict(self.racks)  # top level needs handling now
         self.finish_child(self)
         for rack in self.racks:
             self.finish_child(rack, self)
-            enclooper = getiter(rack, 'enclosures')
+            enclooper = getchilditer(rack, 'enclosures')
             if not enclooper:
                 return
             for enc in enclooper:
@@ -319,7 +336,7 @@ class TMConfig(GenericObject):
                         enc.coordinate)
                     continue
                 allencs.append(enc.coordinate)
-                nodelooper = getiter(enc, 'nodes')
+                nodelooper = getchilditer(enc, 'nodes')
                 if not nodelooper:
                     return
                 for node in nodelooper:
@@ -334,7 +351,7 @@ class TMConfig(GenericObject):
                     node.rack = rack.coordinate.split('/')[-1]  # string
                     node.enc = int(enc.coordinate.split('/')[-1])
                     node.node = int(node.coordinate.split('/')[-1])
-                    mclooper = getiter(node, 'mediaControllers')
+                    mclooper = getchilditer(node, 'mediaControllers')
                     if not mclooper:
                         return
                     for mc in mclooper:
@@ -377,7 +394,7 @@ class TMConfig(GenericObject):
         # IGs only have absolute coordinates; "update" them with node's full
         # definition.  fullMCs is now a "countdown" consistency check.
         groupIds = [ ]
-        IGlooper = getiter(self, 'interleaveGroups')
+        IGlooper = getchilditer(self, 'interleaveGroups')
         if not IGlooper:
             return
         for IG in IGlooper:
@@ -386,7 +403,7 @@ class TMConfig(GenericObject):
                 'Duplicate interleave group ID %d' % IG.groupId
             groupIds.append(IG.groupId)
             updateMCs = [ ]
-            mclooper = getiter(IG, 'mediaControllers')
+            mclooper = getchilditer(IG, 'mediaControllers')
             if not mclooper:
                 return
             for mc in mclooper:
@@ -411,7 +428,7 @@ class TMConfig(GenericObject):
                 for mc in IG.mediaControllers)
 
         if self.totalNVM != sum(mc.memorySize for
-            mc in self.mediaControllers):
+            mc in self.allMediaControllers):
                 self.errors.append('NVM memory mismatch')
 
         self.unused_mediaControllers = tuple(fullMCs.keys())
@@ -421,39 +438,44 @@ class TMConfig(GenericObject):
     # and access via [] as a tupledict.
 
     @property
-    def totalNVM(self):
-        return sum(node.totalNVM for node in self.nodes)    # property ref
+    def allRacks(self):    # for completness
+        racks = [ self.racks[1] ]
+        return tupledict(racks)
 
     @property
-    def enclosures(self):
+    def allEnclosures(self):
         # I think I'm missing something about nested comprehensions
         # when a closure is involved, so I fell back to explicit.
-        # FIXME: None-padding on missing enclosures?
         enclosures = []
         for rack in self.racks:
             enclosures.extend(rack.enclosures)
         return tupledict(enclosures)
 
     @property
-    def IGs(self):
+    def allNodes(self):
+        nodes = []
+        for rack in self.racks:
+            for enclosure in rack.enclosures:
+                nodes.extend(enclosure.nodes)
+        return tupledict(nodes)
+
+    @property
+    def totalNVM(self):
+        return sum(node.totalNVM for node in self.allNodes)
+
+    @property
+    def allMediaControllers(self):
+        MCs = []
+        for node in self.allNodes:     # property ref
+            MCs.extend(node.mediaControllers)
+        return tupledict(MCs)
+
+    @property
+    def allIGs(self):
         IGs = []
         for IG in self.interleaveGroups:    # parsed from JSON
             IGs.extend(IG)
         return tupledict(IGs)
-
-    @property
-    def nodes(self):
-        nodes = []
-        for enc in self.enclosures:
-            nodes.extend(enc.nodes)
-        return tupledict(nodes)
-
-    @property
-    def mediaControllers(self):
-        MCs = []
-        for node in self.nodes:     # property ref
-            MCs.extend(node.mediaControllers)
-        return tupledict(MCs)
 
     @property
     def services(self):
@@ -542,10 +564,10 @@ if __name__ == '__main__':
     if config.FTFY:
         print('Added missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
 
-    racks = config.racks
-    encs = config.enclosures
-    nodes = config.nodes
-    MCs = config.mediaControllers
+    racks = config.allRacks
+    encs = config.allEnclosures
+    nodes = config.allNodes
+    MCs = config.allMediaControllers
     print('Book size = %d' % config.bookSize)
     tmp = config.totalNVM >> 40
     if tmp:
@@ -557,17 +579,18 @@ if __name__ == '__main__':
         else:
             msg = '%d MB' % config.totalNVM >> 20
 
-    print('%d racks, %d enclosures, %d nodes, %d media controllers == %s total NVM' %
+    print('%d racks, %d enclosures, %d nodes, %d MCs -> %s total NVM' %
         (len(racks), len(encs), len(nodes), len(MCs), msg))
     if config.unused_mediaControllers:
         print('MCs not assigned to an IG:')
         pprint(config.unused_mediaControllers)
+    print(nodes[-1].dotname, 'is', nodes[-1].hostname)
 
     # Use a substring of sufficient granularity to satisfy your needs
-    nodes_in_enc_1 = nodes['enclosure/1']
+    nodes_in_enc_1 = nodes['EncNum/1']
 
     # This "search function" is implicitly across all enclosures
-    MCs_in_all_node_2s = MCs['node/2']
-    print(nodes[-1].dotname, 'is', nodes[-1].hostname)
+    MCs_in_all_node_2s = MCs['Node/2']
+
     set_trace()
     pass
