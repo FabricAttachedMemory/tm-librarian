@@ -1,6 +1,6 @@
 {
 	"_comment": "Coordinates are expressed in a way that requires concatenation with their parent to create a full coordinate - e.g. makes it easier to cut and paste sections",
-	"coordinate": "machine_rev/1/datacenter/pa1",
+	"coordinate": "/machine_rev/1/datacenter/pa1",
 	"managementServer": 
 	{
 		"_comment": "This file would need to be in a known location, readable by MSW.  Could be file:, could be http:",
@@ -189,16 +189,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
 			    }
 			]
 		},
@@ -207,16 +207,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
+				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
 			    }
 			]
 		}

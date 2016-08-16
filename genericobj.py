@@ -17,12 +17,16 @@ class objstr(object):
                 s.append("%s[len=%d]" % (k, len(v)))
             elif isinstance(v, tuple):
                 s.append("%s(len=%d)" % (k, len(v)))
+            elif isinstance(v, int):
+                s.append("%s=%d" % (k, v))
             elif isinstance(v, float):
                 s.append("%s=%.3f" % (k, v))
             elif isinstance(v, str):
                 s.append("%s='%s'" % (k, v))
+            elif isinstance(v, objstr):     # Avoid infinite loop to here
+                s.append("%s=%s" % (k, type(v)))
             else:
-                s.append("%s=%s" % (k, v))
+                s.append("%s='%s'" % (k, v))
         return "; ".join(s)
 
     def __repr__(self):

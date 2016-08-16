@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -tt
 """ Unit tests for book_register.py """
 
 import unittest
@@ -6,18 +6,22 @@ import configparser
 import subprocess
 import os
 
-from book_register import load_config
-from book_register import multiplier
-from book_register import load_book_data
-from book_register import create_empty_db
+try:
+    from book_register import load_config
+    from book_register import multiplier
+    from book_register import load_book_data
+    from book_register import create_empty_db
+    from backend_sqlite3 import SQLite3assist
+except Exception as e:
+    raise SystemExit('Import(s) failed: %s' % str(e))
 
-from backend_sqlite3 import SQLite3assist
 
 def silent_remove(filename):
     try:
         os.remove(filename)
     except OSError:
         pass
+
 
 class TestLoadConfig(unittest.TestCase):
 

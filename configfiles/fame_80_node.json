@@ -1,5 +1,5 @@
 {
-	"coordinate": "machine_rev/1/datacenter/pa1",
+	"coordinate": "/machine_rev/1/datacenter/pa1",
 	"managementServer": 
 	{
 		"softwareRecipeUri": "file:softwareReceipe.js",
@@ -3592,800 +3592,800 @@
 			"groupId": 0,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 1,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 2,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 3,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 4,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 5,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 6,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 7,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 8,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 9,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 10,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 11,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 12,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 13,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 14,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 15,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 16,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 17,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 18,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 19,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 20,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 21,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 22,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 23,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 24,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 25,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 26,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 27,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 28,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 29,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 30,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 31,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 32,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 33,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 34,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 35,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 36,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 37,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 38,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 39,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 40,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 41,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 42,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 43,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 44,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 45,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 46,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 47,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 48,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 49,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 50,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 51,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 52,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 53,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 54,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 55,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 56,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 57,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 58,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 59,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 60,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 61,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 62,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 63,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 64,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 65,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 66,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 67,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 68,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 69,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 70,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 71,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 72,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 73,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 74,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 75,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 76,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 77,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 78,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 79,
 			"mediaControllers": 
 			[
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/1",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/2",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/3",
-				"machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/4"
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/1",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/2",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/3",
+				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/4"
 			]
 		}
 	]

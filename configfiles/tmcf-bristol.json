@@ -1,6 +1,6 @@
 {
   "_comment": "From Rycharde Hawke, about 2016-06-02",
-  "coordinate": "machine_version/1/datacenter/br2",
+  "coordinate": "/machine_version/1/datacenter/br2",
   "servers": [
     {
       "_comment": "This file would need to be in a known location, readable by MSW.  Could be file:, could be http:",
