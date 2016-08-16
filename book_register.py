@@ -441,10 +441,14 @@ def load_book_data_json(jsonfile):
     if config.FTFY:     # or could raise SystemExit()
         print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
 
-    racks = config.racks
-    encs = config.enclosures    # monotonically increasing
-    nodes = config.nodes        # ditto
-    MCs = config.mediaControllers
+    # config.allXXXX are shortcut summaries that do not account for
+    # physical or logical slot placement.   Walk the structure
+    # config.racks[X].enclosures.populated or
+    # config.racks[X].enclosures[Y].nodes.populated for that.
+    allRacks = config.allRacks
+    allEnclosures = config.allEnclosures
+    allNodes = config.allNodes
+    MCs = config.allMediaControllers
     IGs = config.interleaveGroups
 
     if not ((2 << 10) <= config.bookSize <= (8 * (2 << 30))):
@@ -455,13 +459,14 @@ def load_book_data_json(jsonfile):
 
     if verbose:
         print('%d rack(s), %d enclosure(s), %d node(s), %d media controller(s), %d IG(s)' %
-            (len(racks), len(encs), len(nodes), len(MCs), len(IGs)))
+            (len(allRacks), len(allEnclosures), len(allNodes),
+             len(allMCs), len(IGs)))
         print('book size = %s (%d)' % (config.bookSize, config.bookSize))
         books_total = config.totalNVM / config.bookSize
         print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
             books_total, config.bookSize, config.totalNVM, config.totalNVM))
 
-    return createDB(config.bookSize, config.totalNVM, nodes, IGs)
+    return createDB(config.bookSize, config.totalNVM, allNodes, IGs)
 
 #---------------------------------------------------------------------------
 # https://www.sqlite.org/lang_createtable.html#rowid (2 days later)
