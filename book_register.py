@@ -154,7 +154,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
     FRDnodes = [ FRDnode(node_id, module_size_books=module_size_books)
                  for node_id in range(1, node_count + 1) ]
     IGs = [ FRDintlv_group(i, node.mediaControllers) for
-                i, node in enumerate(FRDnodes) ]
+            i, node in enumerate(FRDnodes) ]
 
     return FRDnodes
 
@@ -179,12 +179,12 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
     for node in nodes:
         if verbose > 1:
-            print("node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s" %
-                (node.node_id,      # 1-80
-                 node.soc.macAddress,
-                 node.rack,
-                 node.enc,
-                 node.node))
+            print('node_id: %s (mac: %s) - rack = %s / enc = %s / node = %s' %
+                  (node.node_id,      # 1-80
+                   node.soc.macAddress,
+                   node.rack,
+                   node.enc,
+                   node.node))
 
         cur.execute(
             'INSERT INTO FRDnodes VALUES(?, ?, ?, ?, ?, ?)',
@@ -221,8 +221,8 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
                 mc.memorySize = mc.module_size_books * book_size_bytes
 
             if verbose > 1:
-                print("  node_id %2d: %d books, rawCID = %d" %
-                    (mc.node_id, mc.module_size_books, mc.rawCID))
+                print('  node_id %2d: %d books, rawCID = %d' %
+                      (mc.node_id, mc.module_size_books, mc.rawCID))
             cur.execute(
                 'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
                 (mc.node_id,
@@ -326,28 +326,25 @@ def INI_to_JSON(book_size_bytes, FRDnodes, IGs):
                 'coordinate': 'SocBoard/1/Soc/1',
                 'macAddress': '52:54:48:50:45:%02d' % node.node_id,
                 'tlsPublicCertificate': 'nada',
-             }),
+            }),
             ('mediaControllers', [  # start of a list comprehension
                 OrderedDict([
                     ('coordinate',
-                        'MemoryBoard/1/MediaController/%d' % (n + 1)
-                    ),
+                     'MemoryBoard/1/MediaController/%d' % (n + 1)),
                     ('memorySize', mc.memorySize)
                 ])
                 for n, mc in enumerate(node.mediaControllers)
-             ])
-        ])
-    )
+            ])
+        ]))
     theRack['enclosures'].append(thisenc)    # No enclosure left behind
 
     prefix = '%s/%s' % (datacenter, rackcoord)
     bigun['interleaveGroups'] = [   # start of a list comprehension
         OrderedDict([
             ('groupId', ig.groupId),
-            ('mediaControllers', ['%s/%s' % (prefix, mc.coordinate) for
-                                    mc in ig.mediaControllers
-                                 ]
-             )
+            ('mediaControllers', [
+                '%s/%s' % (prefix, mc.coordinate) for mc in ig.mediaControllers
+            ])
         ])
         for ig in IGs
     ]
@@ -399,8 +396,8 @@ def load_book_data_ini(inifile):
             newNode = FRDnode(node_id, module_size_books=module_size_books)
             FRDnodes.append(newNode)
 
-    IGs = [ FRDintlv_group(i, node.mediaControllers) for
-                i, node in enumerate(FRDnodes) ]
+    IGs = [FRDintlv_group(i, node.mediaControllers) for
+           i, node in enumerate(FRDnodes)]
 
     books_total = 0
     for node in FRDnodes:
@@ -442,7 +439,8 @@ def load_book_data_json(jsonfile):
         print('Errors:\n%s' % '\n'.join(config.errors))
         raise SystemExit('Illegal configuration cannot be used')
     if config.unused_mediaControllers:
-        print('MC(s) not assigned to an IG:\n%s' % '\n'.join(config.unused_mediaControllers))
+        print('MC(s) not assigned to an IG:\n%s' %
+              '\n'.join(config.unused_mediaControllers))
         raise SystemExit('Inconsistent configuration cannot be used')
     if config.FTFY:     # or could raise SystemExit()
         print('\nAdded missing attribute(s):\n%s\n' % '\n'.join(config.FTFY))
@@ -464,12 +462,12 @@ def load_book_data_json(jsonfile):
         raise SystemExit('book size must be a power of 2')
 
     if verbose:
-        print('%d rack(s), %d enclosure(s), %d node(s), %d media controller(s), %d IG(s)' %
-            (len(allRacks), len(allEnclosures), len(allNodes),
-             len(allMCs), len(IGs)))
+        print('%d rack(s), %d enclosure(s), %d node(s), %d MC(s), %d IG(s)' %
+              (len(allRacks), len(allEnclosures), len(allNodes),
+               len(allMCs), len(IGs)))
         print('book size = %s (%d)' % (config.bookSize, config.bookSize))
         books_total = config.totalNVM / config.bookSize
-        print('%d books * %d bytes per book == %d (0x%016x) total NVM bytes' % (
+        print('%d books * %d bytes/book == %d (0x%016x) total NVM bytes' % (
             books_total, config.bookSize, config.totalNVM, config.totalNVM))
 
     return createDB(config.bookSize, config.totalNVM, allNodes, IGs)
@@ -622,7 +620,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description='Create database and populate books from .ini file')
-    parser.add_argument(dest='cfile', help='book configuration file (.ini or .json format')
+    parser.add_argument(dest='cfile',
+                        help='book configuration file (.ini or .json format')
     parser.add_argument('-f', dest="force", action='store_true',
                         help='force overwrite of given database file')
     parser.add_argument('-d', dest='dfile', default=':memory:',
@@ -644,9 +643,8 @@ if __name__ == '__main__':
         raise SystemExit('"%s" not found' % args.cfile)
 
     # Determine format of config file
-    if (not load_book_data_json(args.cfile) and
-        not load_book_data_ini(args.cfile)):
-            usage('unrecognized file format')
-            raise SystemExit('Bogus source file, dude')
+    if not (load_book_data_json(args.cfile) or load_book_data_ini(args.cfile)):
+        usage('unrecognized file format')
+        raise SystemExit('Bogus source file, dude')
 
     raise SystemExit(0)

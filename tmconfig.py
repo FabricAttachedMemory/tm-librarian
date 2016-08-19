@@ -207,65 +207,65 @@ class TMConfig(GenericObject):
 
     @staticmethod
     def unroll(obj, attr, item, depth=0, verbose=False):
-      '''attr is a JSON key and is camel case (usually lower).'''
-      try:
-        if verbose:
-            print('    ' * depth, attr, end=': ')
-        if isinstance(item, list):
-            # MOST list elements are dicts.  The only exception as of
-            # 2016-06-22 is the array of strings in the InterleaveGroup
-            # mediaController expansion.
+        '''attr is a JSON key and is camel case (usually lower).'''
+        try:
             if verbose:
-                print('(list)')
-            buildlist = []
-            setattr(obj, attr, buildlist)
-            for i, element in enumerate(item):
-                if (isinstance(element, int) or
-                    isinstance(element, float) or
-                    isinstance(element, str)):
-                    buildlist.append(element)
-                elif isinstance(element, dict):
-                    GO = globals().get('_GO' + attr, _GOanon)()
-                    buildlist.append(GO)
-                    for key, value in element.items():
-                        TMConfig.unroll(GO, key, value, depth + 1, verbose)
-                else:
-                    print('Unexpected JSON construction', file=sys.stderr)
-                    set_trace()
-                    continue
+                print('    ' * depth, attr, end=': ')
+            if isinstance(item, list):
+                # MOST list elements are dicts.  The only exception as of
+                # 2016-06-22 is the array of strings in the InterleaveGroup
+                # mediaController expansion.
+                if verbose:
+                    print('(list)')
+                buildlist = []
+                setattr(obj, attr, buildlist)
+                for i, element in enumerate(item):
+                    if (isinstance(element, int) or
+                        isinstance(element, float) or
+                        isinstance(element, str)):
+                            buildlist.append(element)
+                    elif isinstance(element, dict):
+                        GO = globals().get('_GO' + attr, _GOanon)()
+                        buildlist.append(GO)
+                        for key, value in element.items():
+                            TMConfig.unroll(GO, key, value, depth + 1, verbose)
+                    else:
+                        print('Unexpected JSON construction', file=sys.stderr)
+                        set_trace()
+                        continue
 
-            # Make buildlist immutable and Drewable
-            tmp = getattr(obj, attr)
-            assert tmp is buildlist, 'This is sooooo not good'
-            tmp = OptionBaseOneTuple(buildlist, attr=attr)
-            setattr(obj, attr, tmp)
+                # Make buildlist immutable and Drewable
+                tmp = getattr(obj, attr)
+                assert tmp is buildlist, 'This is sooooo not good'
+                tmp = OptionBaseOneTuple(buildlist, attr=attr)
+                setattr(obj, attr, tmp)
 
-        elif isinstance(item, dict):
-            if verbose:
-                print('(dict)')
-            GO = globals().get('_GO' + attr, _GOanon)()
-            setattr(obj, attr, GO)
-            for key, value in item.items():
-                TMConfig.unroll(GO, key, value, depth + 1, verbose)
+            elif isinstance(item, dict):
+                if verbose:
+                    print('(dict)')
+                GO = globals().get('_GO' + attr, _GOanon)()
+                setattr(obj, attr, GO)
+                for key, value in item.items():
+                    TMConfig.unroll(GO, key, value, depth + 1, verbose)
 
-        else:   # assume scalar, end of recursion
-            if verbose:
+            else:   # assume scalar, end of recursion
+                if verbose:
+                    if isinstance(item, str):
+                        print(item[:40], '...')
+                    else:
+                        print(item)
                 if isinstance(item, str):
-                    print(item[:40], '...')
-                else:
-                    print(item)
-            if isinstance(item, str):
-                try:    # probe for integer, maybe with multiplier
-                    item = multiplier(item, attr)
-                except Exception as e:
-                    pass
-            setattr(obj, attr, item)
+                    try:    # probe for integer, maybe with multiplier
+                        item = multiplier(item, attr)
+                    except Exception as e:
+                        pass
+                setattr(obj, attr, item)
 
-      except Exception as e:    # Syntax, logic, whatever; I'm done
-          print('Line %d: %s' % (sys.exc_info()[2].tb_lineno, str(e)),
-            file=sys.stderr)
-          set_trace()
-          raise
+        except Exception as e:    # Syntax, logic, whatever; I'm done
+            print('Line %d: %s' % (
+                  sys.exc_info()[2].tb_lineno, str(e)), file=sys.stderr)
+            set_trace()
+            raise
 
     # Fix That For You so book_register can run to completion
     def _FTFY(self, attrs, obj, errfmt, vartuple):
@@ -303,7 +303,7 @@ class TMConfig(GenericObject):
             try:
                 parent.children.append(child)
             except AttributeError as e:
-                parent.children = [child,]
+                parent.children = [child, ]
 
         # Go ahead and do it, then validate
         # FIXME: calculate coordinate on the fly, instead of fixed val.
@@ -351,8 +351,8 @@ class TMConfig(GenericObject):
         def getchilditer(obj, attr):
             val = getattr(obj, attr, False)
             if not val:
-                self.errors.append('%s %s has no %s' %
-                    (obj.__title__, obj.coordinate, attr))
+                self.errors.append(
+                    '%s %s has no %s' % (obj.__title__, obj.coordinate, attr))
             return val
 
         if not hasattr(self, 'racks'):
@@ -370,8 +370,8 @@ class TMConfig(GenericObject):
             for enc in enclooper:
                 self.finish_child(enc, rack)
                 if enc.coordinate in allencs:
-                    self.errors.append('Duplicate enclosure coordinate %s' %
-                        enc.coordinate)
+                    self.errors.append(
+                        'Duplicate enclosure coordinate %s' % enc.coordinate)
                     continue
                 allencs.append(enc.coordinate)
                 nodelooper = getchilditer(enc, 'nodes')
@@ -380,8 +380,8 @@ class TMConfig(GenericObject):
                 for node in nodelooper:
                     self.finish_child(node, enc)
                     if node.coordinate in allnodes:
-                        self.errors.append('Duplicate node coordinate %s' %
-                            node.coordinate)
+                        self.errors.append(
+                            'Duplicate node coordinate %s' % node.coordinate)
                         continue
                     allnodes.append(node.coordinate)
 
@@ -395,8 +395,8 @@ class TMConfig(GenericObject):
                     for mc in mclooper:
                         self.finish_child(mc, node)
                         if mc.coordinate in fullMCs:
-                            self.errors.append('Duplicate MC coordinate %s' %
-                                mc.coordinate)
+                            self.errors.append(
+                                'Duplicate MC coordinate %s' % mc.coordinate)
                             continue
                         fullMCs[mc.coordinate] = mc     # for future reference
                         mc.node_id = node.node_id       # 1-80
@@ -405,8 +405,8 @@ class TMConfig(GenericObject):
                         # FRD HW only has 13 bits of book number in an LZA
                         mc.module_size_books = mc.memorySize // self.bookSize
                         if mc.module_size_books > 8192:
-                            self.errors.append('MC @ %s has too much NVM' %
-                                mc.coordinate)
+                            self.errors.append(
+                                'MC @ %s has too much NVM' % mc.coordinate)
                             # keep going
 
                         # CID == enc[11-9]:node[8-4]:subCID[3-0] making an
@@ -463,11 +463,11 @@ class TMConfig(GenericObject):
 
             # Another FIXUP for alignment with frdnode.FAModule
             IG.total_books = sum(mc.module_size_books
-                for mc in IG.mediaControllers)
+                                 for mc in IG.mediaControllers)
 
         if self.totalNVM != sum(mc.memorySize for
-            mc in self.allMediaControllers):
-                self.errors.append('NVM memory mismatch')
+                                mc in self.allMediaControllers):
+            self.errors.append('NVM memory mismatch')
 
         self.unused_mediaControllers = tuple(fullMCs.keys())
 
@@ -541,7 +541,7 @@ class TMConfig(GenericObject):
                             continue
                         if ipv4Address:
                             assert ipv4Address == tmp, \
-                                'managementServer:%s URI hostname mismatch' % name
+                                'managementServer:%s hostname mismatch' % name
                         else:
                             ipv4Address = tmp
                 else:
@@ -619,7 +619,7 @@ if __name__ == '__main__':
             msg = '%d MB' % config.totalNVM >> 20
 
     print('%d racks, %d enclosures, %d nodes, %d MCs -> %s total NVM' %
-        (len(allRacks), len(allEnclosures), len(allNodes), len(allMCs), msg))
+          (len(allRacks), len(allEnclosures), len(allNodes), len(allMCs), msg))
     if config.unused_mediaControllers:
         print('MCs not assigned to an IG:')
         pprint(config.unused_mediaControllers)
