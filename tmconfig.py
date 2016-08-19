@@ -92,7 +92,7 @@ class OptionBaseOneTuple(GenericObject):
                 padded.append(None)
             padded.append(s)
         if elems[0] == 'Enclosure':
-            extend = 8
+            extend = 4  # FRD 2016
         elif elems[0] == 'Node':
             extend = 10
         else:

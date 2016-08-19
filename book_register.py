@@ -267,28 +267,33 @@ def INI_to_JSON(book_size_bytes, FRDnodes, IGs):
     if not IGs:
         print('No IGs, no master coordinate, no JSON for you')
         return
-    datacenter = 'machine_rev/1/datacenter/%s' % os.uname()[1]
-    rackcoord = 'frame/FAME/rack/1'
+    datacenter = '/MachineVersion/1/Datacenter/%s' % os.uname()[1]
+    rackcoord = 'Rack/FAME'
 
     # The book size is specified in the Librarian service.
     bigun = OrderedDict([
         ('_comment', 'transmogrified from file "%s" on %s' % (
-                        args.cfile, time.ctime())),
+            args.cfile, time.ctime())),
         ('coordinate', datacenter),
-        ('servers', [ OrderedDict([
-                        ('coordinate', rackcoord),  # why not
-                        ('ipv4Address', '1.2.3.4'),
-                        ('services', [
-                                        {
-                                            'service': 'librarian',
-                                            'bookSize': book_size_bytes,
-                                            'port': 9093
-                                        },
-                                    ]
-                        )
-                      ]),
-                    ]
-        )
+        ('servers', [
+            OrderedDict([
+                ('coordinate', rackcoord),  # why not
+                ('ipv4Address', '1.2.3.4'),
+                ('services', [
+                    {
+                        'service': 'librarian',
+                        'bookSize': book_size_bytes,
+                        'port': 9093,
+                        'tlsPublicCertificate': 'nada',
+                    },
+                    {
+                        'service': 'manifesting',
+                        'port': 31178,
+                        'tlsPublicCertificate': 'nada',
+                    },
+                ]),
+            ]),
+        ]),
     ])
 
     # Racks are simple, it's a list of 1 item in FRD
@@ -309,22 +314,23 @@ def INI_to_JSON(book_size_bytes, FRDnodes, IGs):
             if thisenc is not None:
                 theRack['enclosures'].append(thisenc)
             thisenc = OrderedDict([
-                ('coordinate', 'enclosure/%d' % node.enc),
+                ('coordinate', 'Enclosure/UV/EncNum/%d' % node.enc),
                 ('nodes', [ ])
             ])
             thisencnum = node.enc
         thisenc['nodes'].append(OrderedDict([
-            ('coordinate', 'node/%d' % node.node),
+            ('coordinate', 'Node/%d' % node.node),
             ('serialNumber', 'nada'),
             ('nodeMp', { }),
             ('soc', {
-                'coordinate': 'soc_board/1/soc/1',
-                'macAddress': '52:54:00:%02d:%02d:%02d' % ((node.node_id,) * 3)
+                'coordinate': 'SocBoard/1/Soc/1',
+                'macAddress': '52:54:48:50:45:%02d' % node.node_id,
+                'tlsPublicCertificate': 'nada',
              }),
             ('mediaControllers', [  # start of a list comprehension
                 OrderedDict([
                     ('coordinate',
-                        'memory_board/1/media_controller/%d' % (n + 1)
+                        'MemoryBoard/1/MediaController/%d' % (n + 1)
                     ),
                     ('memorySize', mc.memorySize)
                 ])
@@ -640,6 +646,7 @@ if __name__ == '__main__':
     # Determine format of config file
     if (not load_book_data_json(args.cfile) and
         not load_book_data_ini(args.cfile)):
+            usage('unrecognized file format')
             raise SystemExit('Bogus source file, dude')
 
     raise SystemExit(0)

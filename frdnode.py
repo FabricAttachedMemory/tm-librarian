@@ -182,7 +182,7 @@ class FRDnode(FRDnodeID):
         self.soc = GenericObject(
             macAddress='52:54:00:%02d:%02d:%02d' % (
                 self.node_id, self.node_id, self.node_id),
-            coordinate='soc_board/1/soc/1',
+            coordinate='SocBoard/1/Soc/1',
             tlsPublicCertificate='NotToday'
         )
 
@@ -201,7 +201,7 @@ class FRDnode(FRDnodeID):
 
         # Finish the JSON spoof, do a partial here and complete it in caller
         for mc in self.mediaControllers:
-            mc.coordinate = 'enclosure/%d/node/%d/memory_board/1/media_controller/%d' % (
+            mc.coordinate = 'Enclosure/UV/EncNum/%d/Node/%d/MemoryBoard/1/MediaController/%d' % (
                 mc.enc, mc.node, mc.ordMC + 1)
 
     @property
