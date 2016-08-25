@@ -742,7 +742,9 @@ def _detect_memory_space(args, lfs_globals):
 
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
-    if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
+    # QEMU through 2.4: if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
+    # QEMU 2.6
+    if not (lspci[0].endswith('Red Hat, Inc Inter-VM shared memory (Rev 01)') or lspci[0].endswith('Red Hat, Inc Inter-VM shared memory')):
         if args.verbose > 1:
             print('%s, assuming TM(AS)' % lspci[0])
         if args.fixed1906:
