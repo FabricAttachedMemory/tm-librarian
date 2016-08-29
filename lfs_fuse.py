@@ -825,9 +825,9 @@ def mount_LFS(args):
         try:
             with open(ACPI_NODE_UID, 'r') as uid_file:
                 node_uid = uid_file.read().strip().split('/')
-                node_rack = node_uid[node_uid.index('rack') + 1]
-                node_enc = node_uid[node_uid.index('enclosure') + 1]
-                node_id = node_uid[node_uid.index('node') + 1]
+                node_rack = node_uid[node_uid.index('Rack') + 1]
+                node_enc = node_uid[node_uid.index('EncNum') + 1]
+                node_id = node_uid[node_uid.index('Node') + 1]
                 args.physloc = node_rack + ":" + node_enc + ":" + node_id
         except:
             # Fabric Emulation auto start shortcut (assumes eth0).
