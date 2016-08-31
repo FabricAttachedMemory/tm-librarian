@@ -7,6 +7,8 @@ rm -rf /usr/lib/python3/dist-packages/tm_librarian/tests/__pycache__
 /bin/systemctl disable tm-lfs
 /bin/systemctl stop tm-librarian
 /bin/systemctl disable tm-librarian
+/bin/systemctl stop tm-lmp
+/bin/systemctl disable tm-lmp
 /bin/systemctl daemon-reload
 
 exit 0
