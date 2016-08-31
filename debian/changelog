@@ -1,3 +1,9 @@
+tm-librarian (1.1+l4tm1) catapult; urgency=low
+
+  * Add systemd integration for LMP
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 31 Aug 2016 11:38:10 -0600
+
 tm-librarian (1.0+l4tm1) catapult; urgency=low
 
   * Initial automated build packaging

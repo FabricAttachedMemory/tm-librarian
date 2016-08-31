@@ -1,0 +1,11 @@
+[Unit]
+Description=TheMachine Librarian Monitoring Protocol (LMP)
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=-/etc/default/tm-lmp
+ExecStart=/usr/bin/lmp.py $OPT_ARGS
+
+[Install]
+WantedBy=multi-user.target
