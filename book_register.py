@@ -324,7 +324,7 @@ def INI_to_JSON(book_size_bytes, FRDnodes, IGs):
             ('nodeMp', { }),
             ('soc', {
                 'coordinate': 'SocBoard/1/Soc/1',
-                'macAddress': '52:54:48:50:45:%02d' % node.node_id,
+                'hostname': node.hostname,
                 'tlsPublicCertificate': 'nada',
             }),
             ('mediaControllers', [  # start of a list comprehension
