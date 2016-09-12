@@ -66,7 +66,7 @@ class OptionBaseOneTuple(GenericObject):
        force 1-based indexing.  Account for sparse populations.'''
     def __init__(self, *args, **kwargs):
         sequence = args[0]  # but what are they?
-        coord = getattr(sequence[0], 'coordinate', None)
+        coord = getattr(sequence[0], 'coordinate', None) if sequence else None
         if coord is None:
             self._ob1 = False   # zero-based: servers, services, IGs
             self._value = tuple(sequence)   # "freeze" it
