@@ -742,11 +742,14 @@ def _detect_memory_space(args, lfs_globals):
 
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
-    # QEMU through 2.4: if not lspci[0].endswith('Red Hat, Inc Inter-VM shared memory'):
-    # QEMU 2.6
-    if not (lspci[0].endswith('Red Hat, Inc Inter-VM shared memory (Rev 01)') or lspci[0].endswith('Red Hat, Inc Inter-VM shared memory')):
+    # QEMU <= 2.4: lspci[0] ends with('Red Hat, Inc Inter-VM shared memory')
+    # QEMU 2.5: it tacked on " (Rev 01)"
+    # QEMU 2.6: it tacked on " (rev 01)" yes lower case
+    line1 = lspci[0]
+    stanza = 'Red Hat, Inc Inter-VM shared memory'
+    if stanza not in line1 or not line1.lower().endswith('(rev 01)'):
         if args.verbose > 1:
-            print('%s, assuming TM(AS)' % lspci[0])
+            print('%s, assuming TM(AS)' % line1)
         if args.fixed1906:
             args.addr_mode = shadow_support._MODE_1906_DESC
             if args.verbose > 1:
@@ -759,8 +762,11 @@ def _detect_memory_space(args, lfs_globals):
         args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
 
-    # Might be FAME, start parsing lspci output
-    bdf = lspci[0].split()[0]
+    # Might be FAME, start parsing lspci output.  Only take QEMU 2.5 or later.
+    # line1.lower().endswith('(rev 01)'), is it 2.5 or 2.6?
+    qemu = 2.5 if 'Rev 01' in line1 else 2.6
+    elems = line1.split()
+    bdf = elems[0]
     if args.verbose > 1:
         print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
 
@@ -771,31 +777,15 @@ def _detect_memory_space(args, lfs_globals):
     assert args.aperture_base, \
         'Could not retrieve region 2 address of IVSHMEM device at %s' % bdf
 
-    # Compare requirements to file size.
-    # Check older kernel path first, then try 4.5 kernel path
-    memoryfile = '/sys/devices/pci0000:00/0000:%s/resource2' % bdf
-    if not os.path.isfile(memoryfile):
-        memoryfile = '/sys/devices/LNXSYSTM:00/LNXSYBUS:00/PNP0A03:00/pci0000:00/0000:%s/resource2' % bdf
-
-    if not os.path.isfile(memoryfile):
-        # " [size=64G]"
-        size = region2.split('size=')[1][:-1]   # kill the right bracket
-        assert size[-1] in 'GT' , \
-            'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
-        if size[-1] == 'G':
-            args.aperture_size = int(size[:-1]) << 30
-        else:
-            args.aperture_size = int(size[:-1]) << 40
+    # At 2.6 there is no resource2 file, just bag it for 2.5 and use the line
+    # " [size=64G]"
+    size = region2.split('size=')[1][:-1]   # kill the right bracket
+    assert size[-1] in 'GT' , \
+        'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
+    if size[-1] == 'G':
+        args.aperture_size = int(size[:-1]) << 30
     else:
-        statinfo = os.stat(memoryfile)
-        assert shadow_support._S_IFREG_URW == shadow_support._S_IFREG_URW & statinfo.st_mode, \
-            '%s is not RW' % memoryfile
-
-        # Paranoia check in face of multiple IVSHMEMS: zbridge emulation
-        # has firewall table of 32M.  Make sure this is bigger.
-        assert statinfo.st_size > 64 * 1 << 20, \
-            'IVSHMEM at %s is not big enough, possible collision?' % bdf
-        args.aperture_size = statinfo.st_size
+        args.aperture_size = int(size[:-1]) << 40
 
     assert args.aperture_size, \
         'Could not retrieve region 2 size of IVSHMEM device at %s' % bdf
