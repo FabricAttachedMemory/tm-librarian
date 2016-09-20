@@ -818,8 +818,7 @@ def mount_LFS(args):
     '''Expects an argparse::Namespace argument.
        Validate fields and call FUSE'''
 
-    assert os.path.isdir(
-        args.mountpoint), 'No such directory %s' % args.mountpoint
+    os.makedirs(args.mountpoint, mode=0o777, exist_ok=True)
 
     if not args.physloc:
         try:
