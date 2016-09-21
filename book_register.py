@@ -452,7 +452,7 @@ def load_book_data_json(jsonfile):
     allRacks = config.allRacks
     allEnclosures = config.allEnclosures
     allNodes = config.allNodes
-    MCs = config.allMediaControllers
+    allMCs = config.allMediaControllers
     IGs = config.interleaveGroups
 
     if not ((2 << 10) <= config.bookSize <= (8 * (2 << 30))):
