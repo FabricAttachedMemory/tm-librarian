@@ -1,3 +1,9 @@
+tm-librarian (1.5+l4tm1) catapult; urgency=low
+
+  * Tweaks for manifesting
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 21 Sep 2016 11:06:58 -0600
+
 tm-librarian (1.4+l4tm1) catapult; urgency=low
 
   * More fixes for QEMU version 2.6
