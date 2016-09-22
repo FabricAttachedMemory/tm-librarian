@@ -259,6 +259,8 @@ class TMConfig(GenericObject):
                         item = multiplier(item, attr)
                     except Exception as e:
                         pass
+                if attr == 'hostname':
+                    pass
                 setattr(obj, attr, item)
 
         except Exception as e:    # Syntax, logic, whatever; I'm done
@@ -389,6 +391,17 @@ class TMConfig(GenericObject):
                     node.rack = rack.coordinate.split('/')[-1]  # string
                     node.enc = int(enc.coordinate.split('/')[-1])
                     node.node = int(node.coordinate.split('/')[-1])
+                    if hasattr(node.soc, 'hostname'):
+                        node.hostname = node.soc.hostname   # property set
+                    else:
+                        # This won't go over well in France.
+                        self._FTFY(
+                            ('hostname', ),
+                            node.soc,
+                            'SOC coord "%s"',
+                            (node.dotname, )
+                        )
+
                     mclooper = getchilditer(node, 'mediaControllers')
                     if not mclooper:
                         return
