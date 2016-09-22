@@ -1,3 +1,9 @@
+tm-librarian (1.6+l4tm1) catapult; urgency=low
+
+  * Add hostname to config data
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Thu, 22 Sep 2016 10:23:52 -0600
+
 tm-librarian (1.5+l4tm1) catapult; urgency=low
 
   * Tweaks for manifesting
