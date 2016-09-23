@@ -1,3 +1,9 @@
+tm-librarian (1.7+l4tm1) catapult; urgency=low
+
+  * Supply default MAC
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Fri, 23 Sep 2016 09:13:44 -0600
+
 tm-librarian (1.6+l4tm1) catapult; urgency=low
 
   * Add hostname to config data
