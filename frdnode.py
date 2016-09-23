@@ -176,11 +176,13 @@ class FRDnode(FRDnodeID):
 
         # Duck-type spoof the objects generated from a JSON TMCF.  A better
         # long-term approach is to meld this file's objects into tmconfig.py.
+        # The value is for QEMU (52:54), FAME (42), to trigger node ID
+        # (matching three octects).
 
         self.coordinate = 'node/%d' % (self.node)
         self.serialNumber = self.physloc
         self.soc = GenericObject(
-            macAddress='52:54:00:%02d:%02d:%02d' % (
+            macAddress='52:54:42:%02d:%02d:%02d' % (
                 self.node_id, self.node_id, self.node_id),
             coordinate='SocBoard/1/Soc/1',
             tlsPublicCertificate='NotToday'

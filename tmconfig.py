@@ -401,6 +401,9 @@ class TMConfig(GenericObject):
                             'SOC coord "%s"',
                             (node.dotname, )
                         )
+                    # Transition period: LMP is (still) pushing it so fake it
+                    if not hasattr(node.soc, 'macAddress'):  # older file
+                        node.soc.macAddress = 'n/a'
 
                     mclooper = getchilditer(node, 'mediaControllers')
                     if not mclooper:
