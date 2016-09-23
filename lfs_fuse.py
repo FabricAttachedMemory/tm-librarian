@@ -839,7 +839,7 @@ def mount_LFS(args):
             try:
                 with open(FAME_DEFAULT_NET) as mac_file:
                     mac = mac_file.read().strip().split(':')
-                    if mac[3] == mac[4] == mac[5]:
+                    if mac[2] == '42' and (mac[3] == mac[4] == mac[5]):
                         args.physloc = int(mac[5])
             except Exception as e:
                 raise SystemExit('Missing physical location and could not automatically derive')
