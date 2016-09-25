@@ -766,7 +766,6 @@ def _detect_memory_space(args, lfs_globals):
     # Should be FAME, start parsing lspci output.
     elems = line1.split()
     bdf = elems[0]
-    args.logger.warning('IVSHMEM device at %s used as FAM' % bdf)
 
     region2 = [ l for l in lspci[1:] if 'Region 2:' in l ][0]
     assert ('(64-bit, prefetchable)' in region2), \
@@ -775,8 +774,7 @@ def _detect_memory_space(args, lfs_globals):
     assert args.aperture_base, \
         'Could not retrieve region 2 address of IVSHMEM device at %s' % bdf
 
-    # At 2.6 there is no resource2 file, just bag it for 2.5 and use the line
-    # " [size=64G]"
+    # At 2.6 resource2 file went away, just detect size from line " [size=64G]"
     size = region2.split('size=')[1][:-1]   # kill the right bracket
     assert size[-1] in 'GT' , \
         'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
@@ -791,6 +789,7 @@ def _detect_memory_space(args, lfs_globals):
         'available shadow size (%d) < nvm_bytes_total (%d)' % \
         (args.aperture_size, lfs_globals['nvm_bytes_total'])
 
+    args.logger.warning('IVSHMEM device at %s used as FAM' % bdf)
     args.logger.info('0x%016x FAM base address' % args.aperture_base)
     args.logger.info('0x%016x FAM max  address (%d bytes)' % (
         args.aperture_base + args.aperture_size - 1,

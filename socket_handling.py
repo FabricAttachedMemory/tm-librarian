@@ -2,7 +2,8 @@
 """ Module to handle socket communication for Librarian and Clients """
 
 import errno
-import logging  # depend on higher level mods to initialize a root logger
+import logging
+import logging.handlers
 import socket
 import select
 import sys
@@ -11,11 +12,85 @@ import time
 from pdb import set_trace
 from json import dumps, loads, JSONDecoder
 
+###########################################################################
+# Located here because we have no utils module, this is low-level to client
+# and server, and tying it directly to sockets might make sense.
+
+# Increasing value of "verbose" should get increasing levels of output.
+# EXCEPTION: verbose == 1 -> magic overloaded value for perf stats; it's
+# just the way this evolved.   Normal trace logging starts at verbose == 2.
+# There weren't really any warnings, so it got co-opted as a secondary INFO.
+
+# Value Logger  Client (lfs_fuse et al)     Server
+# 1     PERF    n/a                         transactions/second
+# 2     WARNING prentry arguments
+# 3     INFO    prentry return values
+#               book lists
+#               address space values
+# 4     DEBUG   Socket byte streams         Socket byte streams
+# 5     NOTSET  no threads, no children
+
+_verbose2level = {
+    0:  logging.ERROR,          # called as error(), just the icky parts
+    1:  logging.CRITICAL,       # called as critical(): performance stats
+    2:  logging.WARNING,        # called as warning(), printed as "INFO": basic
+    3:  logging.INFO,           # called as info(), printed as "INFO++"
+    4:  logging.DEBUG,          # called as debug(), most data of all
+}
+
+class perfFilter(logging.Filter):
+    '''If verbose == 1 only pass CRITICAL logs.'''
+
+    def __init__(self, verbose):
+        # Homework for suppressing CRITICAL
+        self.normal = verbose != 1
+
+    def filter(self, record):
+        if self.normal:
+            return record.levelno != logging.CRITICAL   # suppressed
+        return True     # levelno is already CRITICAL
+
+
+def lfsLogger(loggername, verbose=0, logfilebase=''):
+    '''Bigger verbose, more output.  File will go in /var/log else stderr.'''
+    format = '%(asctime)s %(levelname)-5s %(name)s: %(message)s'
+    if logfilebase:
+        h = logging.handlers.RotatingFileHandler(
+            '/var/log/' + logfilebase,
+            maxBytes=1024*1024,
+            backupCount=3)
+        datefmt = '%Y-%m-%d %H:%M:%S'
+    else:
+        h = logging.StreamHandler(stream=sys.stderr)
+        datefmt = '%H:%M:%S'
+    h.setFormatter(logging.Formatter(format,datefmt=datefmt))
+
+    # socket_handling calls generic logging.xxxx() which, without an
+    # explicit root handler, ends up with basicConfig.  This works
+    # regardless of whether it's pre- or post- socket_handling.
+    logger = logging.root
+    logger.name = loggername
+    logger.addHandler(h)
+    level = _verbose2level.get(verbose, logging.NOTSET)
+    logger.setLevel(level)
+
+    # Juggle names.  "Adding" an existing level overwrites its name.
+    logging.addLevelName(logging.INFO, 'INFO++')
+    logging.addLevelName(logging.WARNING, 'INFO')
+    logging.addLevelName(logging.CRITICAL, 'PERF')
+    logger.addFilter(perfFilter(verbose))
+    # Only output when verbose == 1.   Backwards compatibility sucks.
+    logger.critical('PERFORMANCE TRACING ONLY')
+    return logger
+
+###########################################################################
+
 
 class SocketReadWrite(object):
-    """ Object that will read and write from a socket
-    used primarily as a base class for the Client and Server
-    objects """
+    """ Object that will read and write from a socket.  Used primarily as a
+        base class for the Client and Server, or an instance for nodes.
+        Logging is done against root logger.
+    """
     blocking_retry_max = 5
 
     def __init__(self, **kwargs):

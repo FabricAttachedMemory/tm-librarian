@@ -4,7 +4,6 @@
 
 import argparse
 import errno
-import logging
 import os
 import shlex
 import socket
@@ -21,7 +20,7 @@ from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_contex
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
 from frdnode import FRDnode, FRDFAModule
-from socket_handling import Client
+from socket_handling import Client, lfsLogger
 
 from lfs_shadow import the_shadow_knows
 
@@ -48,40 +47,6 @@ class Heartbeat:
         if self._heartbeat_timer is not None:
             self._heartbeat_timer.cancel()
         self._heartbeat_timer = None
-
-# Increasing value of "verbose" should get increasing levels of output.
-# EXCEPTION: verbose == 1 -> magic overloaded value for perf stats; it's
-# just the way this evolved.   Normal trace logging starts at verbose == 2.
-# There weren't really any warnings, so it got co-opted as a secondary INFO.
-
-# Value Logger  Client (lfs_fuse et al)     Server
-# 1     PERF    n/a                         transactions/second
-# 2     WARNING prentry arguments
-# 3     INFO    prentry return values
-#               book lists
-#               address space values
-# 4     DEBUG   Socket byte streams         Socket byte streams
-# 5     NOTSET  no threads, no children
-
-_verbose2level = {
-    0:  logging.ERROR,          # called as error(), just the icky parts
-    1:  logging.CRITICAL,       # called as critical()
-    2:  logging.WARNING,        # called as info(),  printed as "INFO": basic
-    3:  logging.INFO,           # called as extra(), printed as "INFO++"
-    4:  logging.DEBUG,          # more more more data
-}
-
-class perfFilter(logging.Filter):
-    '''If verbose == 1 only pass CRITICAL logs.'''
-
-    def __init__(self, verbose):
-        # Homework for suppressing CRITICAL
-        self.normal = verbose != 1
-
-    def filter(self, record):
-        if self.normal:
-            return record.levelno != logging.CRITICAL   # suppressed
-        return True     # levelno is already CRITICAL
 
 ###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
@@ -141,29 +106,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     def __init__(self, args):
         '''Validate command-line parameters'''
-        self.verbose = args.verbose
-        format = '%(asctime)s %(levelname)-5s %(name)s: %(message)s'
+        basename = ''
         if args.daemon:
-            h = logging.RotatingFileHander(
-                '/var/log/lfs.log', maxBytes=1024*1024, backupCount=3)
-            datefmt = '%Y-%m-%d %H:%M:%S'
-        else:
-            h = logging.StreamHandler(stream=sys.stdout)
-            datefmt = '%H:%M:%S'
-        h.setFormatter(logging.Formatter(format,datefmt=datefmt))
-        self.logger = logging.getLogger('LFS')  # should be root logger
-        self.logger.addHandler(h)
-        level = _verbose2level.get(args.verbose, logging.NOTSET)
-        self.logger.setLevel(level)
-
-        # Juggle names.  Adding an existing level overwrites the current name.
-        logging.addLevelName(logging.INFO, 'INFO++')
-        logging.addLevelName(logging.WARNING, 'INFO')
-        logging.addLevelName(logging.CRITICAL, 'PERF')
-        self.logger.addFilter(perfFilter(args.verbose))
-        # Only output when verbose == 1.   Backwards compatibility can hurt.
-        self.logger.critical('PERFORMANCE TRACING ONLY')
-
+            basename = 'lfs.%s.%s:%d.log' % (
+                os.uname().nodename, args.hostname, args.port)
+        self.logger = lfsLogger(args.mountpoint, args.verbose, basename)
+        self.verbose = args.verbose
         self.host = args.hostname
         self.port = args.port
         self.mountpoint = args.mountpoint
@@ -541,7 +489,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         args = shlex.split(cmd)
         p = subprocess.Popen(args)
         time.sleep(2)   # Because poll() seems to have some lag time
-        self.logger.info('%s: PID %d' % (args[0], p.pid), file=sys.stderr)
         return p
 
     # Just say no to the socket.
@@ -553,6 +500,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
             fullpath, shelf.size_bytes))
 
+        self.logger.info('%s: PID %d' % ('dd', dd.pid))
         with self.zerosema:
             try:
                 polled = dd.poll()
