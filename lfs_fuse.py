@@ -2,9 +2,12 @@
 
 # https://www.kernel.org/doc/Documentation/filesystems/vfs.txt
 
+import argparse
 import errno
+import logging
 import os
 import shlex
+import socket
 import subprocess
 import stat
 import sys
@@ -17,9 +20,8 @@ from tm_fuse import TMFS, TmfsOSError, Operations, LoggingMixIn, tmfs_get_contex
 
 from book_shelf_bos import TMShelf
 from cmdproto import LibrarianCommandProtocol
-import socket_handling
 from frdnode import FRDnode, FRDFAModule
-import socket
+from socket_handling import Client
 
 from lfs_shadow import the_shadow_knows
 
@@ -47,45 +49,70 @@ class Heartbeat:
             self._heartbeat_timer.cancel()
         self._heartbeat_timer = None
 
+# Increasing value of "verbose" should get increasing levels of output.
+# EXCEPTION: verbose == 1 -> magic overloaded value for perf stats; it's
+# just the way this evolved.   Normal trace logging starts at verbose == 2.
+# There weren't really any warnings, so it got co-opted as a secondary INFO.
+
+# Value Logger  Client (lfs_fuse et al)     Server
+# 1     PERF    n/a                         transactions/second
+# 2     WARNING prentry arguments
+# 3     INFO    prentry return values
+#               book lists
+#               address space values
+# 4     DEBUG   Socket byte streams         Socket byte streams
+# 5     NOTSET  no threads, no children
+
+_verbose2level = {
+    0:  logging.ERROR,          # called as error(), just the icky parts
+    1:  logging.CRITICAL,       # called as critical()
+    2:  logging.WARNING,        # called as info(),  printed as "INFO": basic
+    3:  logging.INFO,           # called as extra(), printed as "INFO++"
+    4:  logging.DEBUG,          # more more more data
+}
+
+class perfFilter(logging.Filter):
+    '''If verbose == 1 only pass CRITICAL logs.'''
+
+    def __init__(self, verbose):
+        # Homework for suppressing CRITICAL
+        self.normal = verbose != 1
+
+    def filter(self, record):
+        if self.normal:
+            return record.levelno != logging.CRITICAL   # suppressed
+        return True     # levelno is already CRITICAL
 
 ###########################################################################
 # Decorator only for instance methods as it assumes args[0] == "self".
-# 0=ERROR, 1=PERF, 2=NOTICE, 3=INFO, 4=DEBUG, 5=OOB)',
-# Value     Client (lfs_fuse et al)         Server (Librarian et al)
-# == 1      nada                            transactions/second
-# >= 2      entry point entry values
-# >= 3      entry point return values
-#           book lists
-#           address space values
-# >= 4      Socket byte streams             Socket byte streams
-# >= 5      set_trace() (prentry)
+
 
 def prentry(func):
     def new_func(*args, **kwargs):
         self = args[0]
         self.heartbeat.unschedule()
-        verbose = getattr(args[0], 'verbose', 0)
-        if verbose > 1:
-            print('----------------------------------')
+        self.logger.info('----------------------------------')
+        if self.verbose:
             tmp = ', '.join([str(a) for a in args[1:]])
             p_data = str(self.lcp._context['pid'])
-            if verbose > 2:
-                # Could us psutil if we need more functionality
+            if self.verbose > 1:
+                # Could use psutil if we need more functionality
                 comm = '/proc/' + str(self.lcp._context['pid']) + '/comm'
                 try:
                     with open(comm, 'r') as f:
                         p_data += '/' + f.read().replace('\n', '')
                 except IOError:
                     pass
-            print('%s(%s) [pid=%s]' % (func.__name__, tmp[:60], p_data))
+            self.logger.warning(
+                '%s(%s) [pid=%s]' % (func.__name__, tmp[:60], p_data))
         self._ret_is_string = True  # ie, has a length
         ret = func(*args, **kwargs)
-        if verbose > 2:
+        if self.verbose > 1:
             if self._ret_is_string:
                 tmp = str(ret)
-                print('Return', tmp[:128], '...' if len(tmp) > 128 else '')
-            if verbose > 4:
-                set_trace()
+                if len(tmp) > 128:
+                    tmp = tmp[:128] + '...'
+                self.logger.info(tmp)
         if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
             self.heartbeat.schedule()
         return ret
@@ -115,6 +142,28 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def __init__(self, args):
         '''Validate command-line parameters'''
         self.verbose = args.verbose
+        format = '%(asctime)s %(levelname)-5s %(name)s: %(message)s'
+        if args.daemon:
+            h = logging.RotatingFileHander(
+                '/var/log/lfs.log', maxBytes=1024*1024, backupCount=3)
+            datefmt = '%Y-%m-%d %H:%M:%S'
+        else:
+            h = logging.StreamHandler(stream=sys.stdout)
+            datefmt = '%H:%M:%S'
+        h.setFormatter(logging.Formatter(format,datefmt=datefmt))
+        self.logger = logging.getLogger('LFS')  # should be root logger
+        self.logger.addHandler(h)
+        level = _verbose2level.get(args.verbose, logging.NOTSET)
+        self.logger.setLevel(level)
+
+        # Juggle names.  Adding an existing level overwrites the current name.
+        logging.addLevelName(logging.INFO, 'INFO++')
+        logging.addLevelName(logging.WARNING, 'INFO')
+        logging.addLevelName(logging.CRITICAL, 'PERF')
+        self.logger.addFilter(perfFilter(args.verbose))
+        # Only output when verbose == 1.   Backwards compatibility can hurt.
+        self.logger.critical('PERFORMANCE TRACING ONLY')
+
         self.host = args.hostname
         self.port = args.port
         self.mountpoint = args.mountpoint
@@ -138,14 +187,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # socket, so do it now.
 
         # connect() has an infinite retry
-        self.torms = socket_handling.Client(selectable=False, verbose=self.verbose)
+        self.torms = Client(selectable=False, verbose=self.verbose)
         self.torms.connect(host=self.host, port=self.port)
-        if self.verbose > 1:
-            print('%s: connected' % self.torms)
+        self.logger.info('%s: connected' % self.torms)
 
         lfs_globals = self.librarian(self.lcp('get_fs_stats'))
         self.bsize = lfs_globals['book_size_bytes']
 
+        args.logger = self.logger
         self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
@@ -193,8 +242,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             book['lza'] = book['book_id']
             book['ig_book_num'] = (book['lza'] >> 33) & 8191    # low 13 bits
             book['intlv_group'] = book['lza'] >> 46             # top 7 bits
-        if self.verbose > 2:
-            print('%s BOS: %s' % (shelf.name, shelf.bos))
+        self.logger.info('%s BOS: %s' % (shelf.name, shelf.bos))
 
     # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
@@ -213,7 +261,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # ALTERNATIVE: Put the message on a Queue for the main thread.
         assert threading.current_thread() is threading.main_thread()
         for oob in self.torms.inOOB:
-            print('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
+            self.logger.warning('\t\t!!!!!!!!!!!!!!!!!!!!!!!! %s' % oob)
         self.torms.clearOOB()
 
     def librarian(self, cmdict, errorOK=False):
@@ -231,7 +279,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             command = cmdict['command']
             seq = cmdict['context']['seq']
         except KeyError as e:
-            print(str(e), file=sys.stederr)
+            self.logger.error(str(e))
             raise TmfsOSError(errno.ENOKEY)
 
         # Connection failures: simple testing (killing librarian at quiescent
@@ -270,8 +318,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Otherwise an error occurred in evaluating the request (ie, shelf
         # not found).  In general quitting here is sufficent.
         if errmsg:
-            print('%s failed: %s' %
-                  (command, errmsg['errmsg']), file=sys.stderr)
+            self.logger.error('%s failed: %s' % (command, errmsg['errmsg']))
             if rspdict is not None and errorOK:
                 return rspdict
             raise TmfsOSError(errmsg['errno'])
@@ -494,7 +541,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         args = shlex.split(cmd)
         p = subprocess.Popen(args)
         time.sleep(2)   # Because poll() seems to have some lag time
-        print('%s: PID %d' % (args[0], p.pid), file=sys.stderr)
+        self.logger.info('%s: PID %d' % (args[0], p.pid), file=sys.stderr)
         return p
 
     # Just say no to the socket.
@@ -514,7 +561,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                         dd.send_signal(os.SIGUSR1)
                         stdout, stderr = dd.communicate(timeout=5)
                     except TimeoutExpired as e:
-                        print('\n\t%s\n' % stderr, file=sys.stderr)
+                        self.logger.error(str(stderr))
                     polled = dd.poll()
             except Exception as e:
                 pass
@@ -581,7 +628,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             self.rename(shelf.name, zeroname)
             shelf.name = zeroname
             shelf.mode = stat.S_IFREG   # un-block it as was done on server
-        if self.verbose <= 4:
+        if self.verbose <= 3:
             threading.Thread(target=self._zero, args=(shelf, )).start()
         else:
             set_trace()
@@ -852,15 +899,14 @@ def mount_LFS(args):
     try:
         tmp = socket.gethostbyaddr(args.hostname)
     except Exception as e:
-        if args.verbose > 0:
-            print('warning - could not verify (--hostname) argument \'%s\'' % args.hostname)
+        self.logger.warning('could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
     if tmp == 1:
         if args.fixed1906:
-            print('shadow_xxxx overrides fixed1906')
+            self.logger.info('shadow_xxxx overrides fixed1906')
             args.fixed1906 = False
     elif tmp > 1:
         raise RuntimeError('Only one of shadow_[dir|file] is allowed')
@@ -879,10 +925,6 @@ def mount_LFS(args):
         raise SystemExit('%s' % str(e))
 
 if __name__ == '__main__':
-
-    import argparse
-    import os
-    import sys
 
     parser = argparse.ArgumentParser(
         description='Librarian File System daemon (lfs_fuse.py)',

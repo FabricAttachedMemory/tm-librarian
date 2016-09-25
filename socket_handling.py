@@ -2,6 +2,7 @@
 """ Module to handle socket communication for Librarian and Clients """
 
 import errno
+import logging  # depend on higher level mods to initialize a root logger
 import socket
 import select
 import sys
@@ -98,9 +99,8 @@ class SocketReadWrite(object):
             outbytes = dumps(obj).encode()
         else:
             outbytes = obj.encode()
-        if self.verbose > 2:
-            print('%s: sending %s' % (self, 'NULL' if obj
-                  is None else '%d bytes' % len(outbytes)))
+        logging.info('%s: sending %s' % (self,
+            'NULL' if obj is None else '%d bytes' % len(outbytes)))
 
         # socket.sendall will do so and return None on success.  If not,
         # an error is raised with no clue on byte count.  Do it myself.
@@ -131,8 +131,7 @@ class SocketReadWrite(object):
             # During retry of a closed socket.  FIXME: delay the close?
             raise OSError(errno.ECONNABORTED, 'Socket closed on prior error')
         except Exception as e:
-            print('%s: send_all failed: %s' % (self, str(e)),
-                  file=sys.stderr)
+            logging.error('%s: send_all failed: %s' % (self, str(e)))
             set_trace()
             pass
             raise
@@ -144,7 +143,7 @@ class SocketReadWrite(object):
             return self.send_all(result, JSON)  # True or raise
         except Exception as e:  # could be blocking IO
             self.last_errmsg = '%s: %s' % (self, str(e))
-            print(self.last_errmsg, file=sys.stderr)
+            logging.error(self.last_errmsg)
         return False
 
     #----------------------------------------------------------------------
@@ -166,11 +165,11 @@ class SocketReadWrite(object):
             if self.inOOB:  # make caller deal with OOB first
                 return None
             last = len(self.instr)
-            if last and self.verbose > 3:
+            if last:
                 if last > 60:
-                    print('INSTR: %d bytes' % last)
+                    logging.debug('INSTR: %d bytes' % last)
                 else:
-                    print('INSTR: %s' % self.instr)
+                    logging.debug('INSTR: %s' % self.instr)
             appended = 0
 
             # First time through OR go-around with partial buffer?
@@ -182,8 +181,7 @@ class SocketReadWrite(object):
 
                     appended = len(self.instr) - last
 
-                    if self.verbose > 2:
-                        print('%s: received %d bytes' % (self._str, appended))
+                    logging.info('%s: recvd %d bytes' % (self._str, appended))
 
                     if not appended:  # Far side is gone without timeout
                         msg = '%s: closed by remote' % str(self)
@@ -314,7 +312,7 @@ class Client(SocketReadWrite):
             except Exception as e:
                 if not retry:
                     return False
-                print('Retrying connection...')
+                logging.info('Retrying connection...')
                 time.sleep(2)
 
         while True:
@@ -324,9 +322,8 @@ class Client(SocketReadWrite):
             except Exception as e:
                 if not retry:
                     raise
-                print('Retrying getpeername...')
+                logging.info('Retrying getpeername...')
                 time.sleep(2)
-                continue
 
         self._host, self._port = peertuple
         self._str = '{0}:{1}'.format(*peertuple)
@@ -401,8 +398,7 @@ class Server(SocketReadWrite):
 
         while True:
 
-            if self.verbose > 2:
-                print('Waiting for request...')
+            logging.info('Waiting for request...')
             try:
                 readable, writeable, _ = select.select(
                     [ self ] + clients, to_write, [], 5.0)
@@ -429,10 +425,10 @@ class Server(SocketReadWrite):
             for s in readable:
                 transactions += 1
 
-                if self.verbose == 1 and transactions > xlimit:
+                if transactions > xlimit:
                     deltat = time.time() - t0
                     tps = int(float(transactions) / deltat)
-                    print('%d transactions/second' % tps)
+                    logging.critical('%d transactions/second' % tps)
                     if xlimit < tps < XHI:
                         xlimit *= 2
                     elif XLO < tps < xlimit:
@@ -448,8 +444,7 @@ class Server(SocketReadWrite):
                             peertuple=peertuple,
                             verbose=self.verbose)
                         clients.append(newsock)
-                        if self.verbose > 2:
-                            print('%s: new connection' % newsock)
+                        logging.info('%s: new connection' % newsock)
                     except Exception as e:
                         pass
                     continue
@@ -460,20 +455,19 @@ class Server(SocketReadWrite):
                     if cmdict is None:  # need more, not available now
                         continue
 
-                    if self.verbose:
-                        if self.verbose == 1:
-                            print('%s: %s' % (s, cmdict['command']))
-                        else:
-                            print('%s: %s' % (s, str(cmdict)))
+                    if self.verbose == 1:
+                        logging.critical('%s: %s' % (s, cmdict['command']))
+                    else:
+                        logging.warning('%s: %s' % (s, str(cmdict)))
                 except ConnectionError as e:  # Base class in Python3
-                    print(str(e))
+                    logging.error(str(e))
                     clients.remove(s)
                     if s in to_write:
                         to_write.remove(s)
                     continue
                 except Exception as e:  # Shouldn't happen
                     msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
-                    print('%s: %s' % (s, msg), file=sys.stderr)
+                    logging.error('%s: %s' % (s, msg))
                     set_trace()
                     raise
 
@@ -482,7 +476,7 @@ class Server(SocketReadWrite):
                 except Exception as e:  # Shouldn't happen
                     set_trace()
                     msg = 'UNEXPECTED HANDLER ERROR: %s' % str(e)
-                    print('%s: %s' % (s, msg), file=sys.stderr)
+                    logging.error('%s: %s' % (s, msg))
                     raise
 
                 # NO "finally": it circumvents "continue" in error clause(s)
@@ -499,19 +493,15 @@ class Server(SocketReadWrite):
                     continue  # no need to check OOB for now
 
                 if OOBmsg:
-                    if self.verbose > 4:
-                        print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
+                    logging.debug('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
                     for c in clients:
                         if str(c) != str(s):
-                            if self.verbose > 4:
-                                print(str(c))
+                            logging.debug(str(c))
                             c.send_result(OOBmsg)
 
 
 def main():
     """ Run simple echo server to exercise the module """
-
-    import json
 
     def echo_handler(string):
         """ Echo handler for use with testing server.
@@ -525,7 +515,7 @@ def main():
         # Does not handle ctrl characters well.  Needs to be modified
         # for dictionary IO
         print(string)
-        return json.dumps({'status': 'Processed @ %s' % time.ctime()})
+        return dumps({'status': 'Processed @ %s' % time.ctime()})
 
     from function_chain import IdentityChain
     chain = IdentityChain()
