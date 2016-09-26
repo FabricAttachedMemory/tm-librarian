@@ -1,3 +1,9 @@
+tm-librarian (1.8+l4tm1) catapult; urgency=low
+
+  * Add proper logging
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 26 Sep 2016 14:59:14 -0600
+
 tm-librarian (1.7+l4tm1) catapult; urgency=low
 
   * Supply default MAC
