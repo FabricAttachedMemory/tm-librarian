@@ -46,6 +46,7 @@ class shadow_support(object):
 
     def __init__(self, args, lfs_globals):
         self.verbose = args.verbose
+        self.logger = args.logger
         self.book_size = lfs_globals['book_size_bytes']
         self.book_shift = int(math.log(self.book_size, 2))
         self._shelfcache = { }
@@ -73,8 +74,7 @@ class shadow_support(object):
 
         offset = 0
         for ig in igkeys:
-            if self.verbose > 1:
-                print('0x%016x (%d) IG %d relative offset' % (
+            self.logger.info('0x%016x (%d) IG %d relative offset' % (
                     offset, offset, ig))
             # insure running Librarian DB fits in available space
             assert offset < args.aperture_size, \
@@ -91,7 +91,7 @@ class shadow_support(object):
             for v_fh in all_fh:
                 assert v_fh in self._shelfcache, 'Inconsistent list members'
         except Exception as e:
-            print('Shadow cache is corrupt:', str(e), file=sys.stderr)
+            self.logger.error('Shadow cache is corrupt: %s' % str(e))
             if self.verbose > 3:
                 set_trace()
             raise TmfsOSError(errno.EBADFD)
@@ -359,9 +359,8 @@ class shadow_support(object):
 
             return 'FALLBACK'   # might be circumvented by subclass
         except Exception as e:
-            print('!!! ERROR IN GENERIC KERNEL XATTR HANDLER (%d): %s' % (
-                sys.exc_info()[2].tb_lineno, str(e)),
-                file=sys.stderr)
+            self.logger.error('!!! ERROR IN GENERIC KERNEL XATTR HANDLER (%d): %s' % (
+                sys.exc_info()[2].tb_lineno, str(e)))
             return 'ERROR'
 
     def read(self, shelf_name, length, offset, fd):
@@ -483,9 +482,8 @@ class shadow_file(shadow_support):
        file lives in the file system of the entity running lfs_fuse.'''
 
     def __init__(self, args, lfs_globals):
-
+        super().__init__(args, lfs_globals)
         (head, tail) = os.path.split(args.shadow_file)
-
         assert os.path.isdir(head), 'No such directory %s' % head
 
         try:
@@ -538,10 +536,10 @@ class shadow_file(shadow_support):
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             buf += os.read(self._shadow_fd, cur_length)
 
-            if self.verbose > 2:
-                print("READ: co = %d, tl = %d, cl = %d, so = %d, bl = %d" % (
-                      cur_offset, tot_length, cur_length,
-                      shadow_offset, len(buf)))
+            self.logger.debug(
+                "READ: co = %d, tl = %d, cl = %d, so = %d, bl = %d" % (
+                  cur_offset, tot_length, cur_length,
+                  shadow_offset, len(buf)))
 
             offset += cur_length
             cur_offset += cur_length
@@ -578,11 +576,11 @@ class shadow_file(shadow_support):
             os.lseek(self._shadow_fd, shadow_offset, os.SEEK_SET)
             wsize += os.write(self._shadow_fd, tbuf)
 
-            if self.verbose > 2:
-                print("WRITE: co = %d, tl = %d, cl = %d, so = %d,"
-                      " bl = %d, bo = %d, wsize = %d, be = %d" % (
-                          cur_offset, tot_length, cur_length, shadow_offset,
-                          len(tbuf), buf_offset, wsize, buf_end))
+            self.logger.debug(
+                "WRITE: co = %d, tl = %d, cl = %d, so = %d,"
+                " bl = %d, bo = %d, wsize = %d, be = %d" % (
+                  cur_offset, tot_length, cur_length, shadow_offset,
+                  len(tbuf), buf_offset, wsize, buf_end))
 
             offset += cur_length
             cur_offset += cur_length
@@ -620,10 +618,9 @@ class apertures(shadow_support):
 
         super().__init__(args, lfs_globals)
 
-        if self.verbose > 1:
-            for ig, offset in self._igstart.items():
-                print('0x%016x is absolute start for IG %d' % (
-                    self.aperture_base + offset, ig))
+        for ig, offset in self._igstart.items():
+            self.logger.info('0x%016x is absolute start for IG %d' % (
+                self.aperture_base + offset, ig))
 
     # open(), create(), release() only do caching as handled by superclass
 
@@ -646,15 +643,17 @@ class apertures(shadow_support):
                 return 'ERROR'
             baseLZA = bos[shelf_book_num]['lza']
 
-            if self.verbose > 3:  # Since this IS in the kernel :-)
-                reason = cmd.split('_for_')[1]
-                print('Get LZA (%s): process %s[%d] shelf=%s, PABO=%d (0x%x)' %
-                    (reason, comm, pid, shelf_name, PABO, PABO))
-                print('shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
-                    shelf_book_num,
-                    baseLZA,
-                    ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
-                    ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
+            # Remember, this IS in the kernel :-)
+            reason = cmd.split('_for_')[1]
+            self.logger.debug(
+                'Get LZA (%s): process %s[%d] shelf=%s, PABO=%d (0x%x)' %
+                (reason, comm, pid, shelf_name, PABO, PABO))
+            self.logger.debug(
+                'shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
+                shelf_book_num,
+                baseLZA,
+                ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
+                ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
 
             # FAME modes need the "flattened IG" address into the memory area.
             # shadow_offset() returns a full byte-accurate address (for use
@@ -681,14 +680,12 @@ class apertures(shadow_support):
                 raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
 
             data = '%d,%s,%s' % (self.addr_mode, baseLZA, map_addr)
-            if self.verbose > 3:
-                print('data returned to fault handler = %s' % (data))
+            self.logger.debug('data returned to fault handler = %s' % (data))
             return data
 
         except Exception as e:
-            print('!!! ERROR IN LZA LOOKUP HANDLER (%d): %s' % (
-                sys.exc_info()[2].tb_lineno, str(e)),
-                file=sys.stderr)
+            self.logger.error('!!! ERROR IN LZA LOOKUP HANDLER (%d): %s' % (
+                sys.exc_info()[2].tb_lineno, str(e)))
             return 'ERROR'
 
     def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
@@ -715,10 +712,10 @@ class apertures(shadow_support):
             outbuf = physaddr.to_bytes(8, byteorder='little')
             ctypes.memmove(data, outbuf, 8)
 
-            if self.verbose > 1:
-                print("LFS_GET_PHYS_FROM_OFFSET: shelf_name = %s" % shelf_name)
-                print("offset = %d (0x%x), physaddr = %d (0x%x)" %
-                    (offset, offset, physaddr, physaddr))
+            self.logger.info(
+                "LFS_GET_PHYS_FROM_OFFSET: shelf_name = %s" % shelf_name)
+            self.logger.info("offset = %d (0x%x), physaddr = %d (0x%x)" %
+                (offset, offset, physaddr, physaddr))
 
             return 0
         else:
@@ -736,49 +733,48 @@ def _detect_memory_space(args, lfs_globals):
 
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
+        line1 = lspci[0]
     except Exception as e:
-        lspci = ( 'IVSHMEM cannot be found', '')
-        pass
+        line1 = ('IVSHMEM cannot be found', '')
+
+    RHstanza = 'Red Hat, Inc Inter-VM shared memory'
+    # QEMU      Tested  line1
+    # <= 2.4:   x86_64  endswith(RHstanza)
+    # == 2.5:   aarch64 contains RHstanza, endswith(" (Rev 01)")
+    # == 2.6:   aarch64 contains RHstanza, endswith(" (rev 01)") YES lower case
+    machine = os.uname().machine
+    qemuOK = machine == 'x86_64' or (
+             machine == 'aarch64' and line1.lower.endswith(' (rev 01)'))
 
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
-    # QEMU <= 2.4: lspci[0] ends with('Red Hat, Inc Inter-VM shared memory')
-    # QEMU 2.5: it tacked on " (Rev 01)"
-    # QEMU 2.6: it tacked on " (rev 01)" yes lower case
-    line1 = lspci[0]
-    stanza = 'Red Hat, Inc Inter-VM shared memory'
-    if stanza not in line1 or not line1.lower().endswith('(rev 01)'):
-        if args.verbose > 1:
-            print('%s, assuming TM(AS)' % line1)
+
+    if not (RHstanza in line1 and qemuOK):
+        args.logger.warning('No match with IVSHEM PCI devices, assuming TM(AS)')
         if args.fixed1906:
             args.addr_mode = shadow_support._MODE_1906_DESC
-            if args.verbose > 1:
-                print('addr_mode = MODE_1906_DESC (requires zbridge desc autoprogramming)')
+            args.logger.warning(
+                'addr_mode = MODE_1906_DESC (requires DESC autoprogramming)')
         else:
             args.addr_mode = shadow_support._MODE_FULL_DESC
-            if args.verbose > 1:
-                print('addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
+            args.logger.warning(
+                'addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
         args.aperture_base = apertures._NVM_BK
         args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
         return
 
-    # Might be FAME, start parsing lspci output.  Only take QEMU 2.5 or later.
-    # line1.lower().endswith('(rev 01)'), is it 2.5 or 2.6?
-    qemu = 2.5 if 'Rev 01' in line1 else 2.6
+    # Should be FAME, start parsing lspci output.
     elems = line1.split()
     bdf = elems[0]
-    if args.verbose > 1:
-        print('IVSHMEM device at %s used as fabric-attached memory' % bdf)
 
-    region2 = [ l for l in lspci if 'Region 2:' in l ][0]
+    region2 = [ l for l in lspci[1:] if 'Region 2:' in l ][0]
     assert ('(64-bit, prefetchable)' in region2), \
         'IVSHMEM region 2 not found for device %s' % bdf
     args.aperture_base = int(region2.split('Memory at')[1].split()[0], 16)
     assert args.aperture_base, \
         'Could not retrieve region 2 address of IVSHMEM device at %s' % bdf
 
-    # At 2.6 there is no resource2 file, just bag it for 2.5 and use the line
-    # " [size=64G]"
+    # At 2.6 resource2 file went away, just detect size from line " [size=64G]"
     size = region2.split('size=')[1][:-1]   # kill the right bracket
     assert size[-1] in 'GT' , \
         'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
@@ -793,25 +789,25 @@ def _detect_memory_space(args, lfs_globals):
         'available shadow size (%d) < nvm_bytes_total (%d)' % \
         (args.aperture_size, lfs_globals['nvm_bytes_total'])
 
-    if args.verbose:
-        print('0x%016x FAM base address' % args.aperture_base)
-        print('0x%016x FAM max  address (%d bytes)' % (
-            args.aperture_base + args.aperture_size - 1,
-            args.aperture_size))
+    args.logger.warning('IVSHMEM device at %s used as FAM' % bdf)
+    args.logger.info('0x%016x FAM base address' % args.aperture_base)
+    args.logger.info('0x%016x FAM max  address (%d bytes)' % (
+        args.aperture_base + args.aperture_size - 1,
+        args.aperture_size))
 
     if args.enable_Z:
         args.addr_mode = shadow_support._MODE_FAME_DESC
-        if args.verbose > 2:
-            print('addr_mode = MODE_FAME_DESC (with zbridge/flushtm interaction)')
+        args.logger.debug(
+            'addr_mode = MODE_FAME_DESC (with zbridge/flushtm interaction)')
     else:
         args.addr_mode = shadow_support._MODE_FAME
-        if args.verbose > 2:
-            print('addr_mode = MODE_FAME (without zbridge/flushtm interaction)')
+        args.logger.debug(
+            'addr_mode = MODE_FAME (without zbridge/flushtm interaction)')
 
-    if args.verbose > 2:
-        print('IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
-              args.aperture_size - 1,
-              args.aperture_base, args.aperture_base + args.aperture_size - 1))
+    args.logger.debug(
+        'IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
+        args.aperture_size - 1,
+        args.aperture_base, args.aperture_base + args.aperture_size - 1))
 
 #--------------------------------------------------------------------------
 
@@ -838,9 +834,8 @@ def the_shadow_knows(args, lfs_globals):
         return apertures(args, lfs_globals)
     except Exception as e:
         msg = str(e)
-        print('!!! ERROR IN PLATFORM DETERMINATION (%d): %s' % (
-            sys.exc_info()[2].tb_lineno, msg),
-            file=sys.stderr)
+        args.logger.error('!!! ERROR IN PLATFORM DETERMINATION (%d): %s' % (
+            sys.exc_info()[2].tb_lineno, msg))
 
     # seems to be ignored, as is SystemExit
     raise OSError(errno.EINVAL, 'lfs_shadow: %s' % msg)

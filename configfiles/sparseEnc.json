@@ -1,6 +1,12 @@
 {
   "_comment": "FAME: two enclosures: 1 and 3, each with 4 nodes",
   "coordinate": "/MachineVersion/1/Datacenter/BUK1",
+  "domains": {
+  	"_comment": "See TMMS README for full details and FAME usage.",
+	"localData": "N/A for FAME",
+	"publicData": "have.it.your.way,10.11.10.0/24",
+	"management": "N/A for FAME"
+  },
   "servers":
   [
     {

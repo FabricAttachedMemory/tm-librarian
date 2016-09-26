@@ -2,6 +2,8 @@
 """ Module to handle socket communication for Librarian and Clients """
 
 import errno
+import logging
+import logging.handlers
 import socket
 import select
 import sys
@@ -10,11 +12,85 @@ import time
 from pdb import set_trace
 from json import dumps, loads, JSONDecoder
 
+###########################################################################
+# Located here because we have no utils module, this is low-level to client
+# and server, and tying it directly to sockets might make sense.
+
+# Increasing value of "verbose" should get increasing levels of output.
+# EXCEPTION: verbose == 1 -> magic overloaded value for perf stats; it's
+# just the way this evolved.   Normal trace logging starts at verbose == 2.
+# There weren't really any warnings, so it got co-opted as a secondary INFO.
+
+# Value Logger  Client (lfs_fuse et al)     Server
+# 1     PERF    n/a                         transactions/second
+# 2     WARNING prentry arguments
+# 3     INFO    prentry return values
+#               book lists
+#               address space values
+# 4     DEBUG   Socket byte streams         Socket byte streams
+# 5     NOTSET  no threads, no children
+
+_verbose2level = {
+    0:  logging.ERROR,          # called as error(), just the icky parts
+    1:  logging.CRITICAL,       # called as critical(): performance stats
+    2:  logging.WARNING,        # called as warning(), printed as "INFO": basic
+    3:  logging.INFO,           # called as info(), printed as "INFO++"
+    4:  logging.DEBUG,          # called as debug(), most data of all
+}
+
+class perfFilter(logging.Filter):
+    '''If verbose == 1 only pass CRITICAL logs.'''
+
+    def __init__(self, verbose):
+        # Homework for suppressing CRITICAL
+        self.normal = verbose != 1
+
+    def filter(self, record):
+        if self.normal:
+            return record.levelno != logging.CRITICAL   # suppressed
+        return True     # levelno is already CRITICAL
+
+
+def lfsLogger(loggername, verbose=0, logfilebase=''):
+    '''Bigger verbose, more output.  File will go in /var/log else stderr.'''
+    format = '%(asctime)s %(levelname)-5s %(name)s: %(message)s'
+    if logfilebase:
+        h = logging.handlers.RotatingFileHandler(
+            '/var/log/' + logfilebase,
+            maxBytes=1024*1024,
+            backupCount=3)
+        datefmt = '%Y-%m-%d %H:%M:%S'
+    else:
+        h = logging.StreamHandler(stream=sys.stderr)
+        datefmt = '%H:%M:%S'
+    h.setFormatter(logging.Formatter(format,datefmt=datefmt))
+
+    # socket_handling calls generic logging.xxxx() which, without an
+    # explicit root handler, ends up with basicConfig.  This works
+    # regardless of whether it's pre- or post- socket_handling.
+    logger = logging.root
+    logger.name = loggername
+    logger.addHandler(h)
+    level = _verbose2level.get(verbose, logging.NOTSET)
+    logger.setLevel(level)
+
+    # Juggle names.  "Adding" an existing level overwrites its name.
+    logging.addLevelName(logging.INFO, 'INFO++')
+    logging.addLevelName(logging.WARNING, 'INFO')
+    logging.addLevelName(logging.CRITICAL, 'PERF')
+    logger.addFilter(perfFilter(verbose))
+    # Only output when verbose == 1.   Backwards compatibility sucks.
+    logger.critical('PERFORMANCE TRACING ONLY')
+    return logger
+
+###########################################################################
+
 
 class SocketReadWrite(object):
-    """ Object that will read and write from a socket
-    used primarily as a base class for the Client and Server
-    objects """
+    """ Object that will read and write from a socket.  Used primarily as a
+        base class for the Client and Server, or an instance for nodes.
+        Logging is done against root logger.
+    """
     blocking_retry_max = 5
 
     def __init__(self, **kwargs):
@@ -98,9 +174,8 @@ class SocketReadWrite(object):
             outbytes = dumps(obj).encode()
         else:
             outbytes = obj.encode()
-        if self.verbose > 2:
-            print('%s: sending %s' % (self, 'NULL' if obj
-                  is None else '%d bytes' % len(outbytes)))
+        logging.info('%s: sending %s' % (self,
+            'NULL' if obj is None else '%d bytes' % len(outbytes)))
 
         # socket.sendall will do so and return None on success.  If not,
         # an error is raised with no clue on byte count.  Do it myself.
@@ -131,8 +206,7 @@ class SocketReadWrite(object):
             # During retry of a closed socket.  FIXME: delay the close?
             raise OSError(errno.ECONNABORTED, 'Socket closed on prior error')
         except Exception as e:
-            print('%s: send_all failed: %s' % (self, str(e)),
-                  file=sys.stderr)
+            logging.error('%s: send_all failed: %s' % (self, str(e)))
             set_trace()
             pass
             raise
@@ -144,7 +218,7 @@ class SocketReadWrite(object):
             return self.send_all(result, JSON)  # True or raise
         except Exception as e:  # could be blocking IO
             self.last_errmsg = '%s: %s' % (self, str(e))
-            print(self.last_errmsg, file=sys.stderr)
+            logging.error(self.last_errmsg)
         return False
 
     #----------------------------------------------------------------------
@@ -166,11 +240,11 @@ class SocketReadWrite(object):
             if self.inOOB:  # make caller deal with OOB first
                 return None
             last = len(self.instr)
-            if last and self.verbose > 3:
+            if last:
                 if last > 60:
-                    print('INSTR: %d bytes' % last)
+                    logging.debug('INSTR: %d bytes' % last)
                 else:
-                    print('INSTR: %s' % self.instr)
+                    logging.debug('INSTR: %s' % self.instr)
             appended = 0
 
             # First time through OR go-around with partial buffer?
@@ -182,8 +256,7 @@ class SocketReadWrite(object):
 
                     appended = len(self.instr) - last
 
-                    if self.verbose > 2:
-                        print('%s: received %d bytes' % (self._str, appended))
+                    logging.info('%s: recvd %d bytes' % (self._str, appended))
 
                     if not appended:  # Far side is gone without timeout
                         msg = '%s: closed by remote' % str(self)
@@ -314,7 +387,7 @@ class Client(SocketReadWrite):
             except Exception as e:
                 if not retry:
                     return False
-                print('Retrying connection...')
+                logging.info('Retrying connection...')
                 time.sleep(2)
 
         while True:
@@ -324,9 +397,8 @@ class Client(SocketReadWrite):
             except Exception as e:
                 if not retry:
                     raise
-                print('Retrying getpeername...')
+                logging.info('Retrying getpeername...')
                 time.sleep(2)
-                continue
 
         self._host, self._port = peertuple
         self._str = '{0}:{1}'.format(*peertuple)
@@ -401,8 +473,7 @@ class Server(SocketReadWrite):
 
         while True:
 
-            if self.verbose > 2:
-                print('Waiting for request...')
+            logging.info('Waiting for request...')
             try:
                 readable, writeable, _ = select.select(
                     [ self ] + clients, to_write, [], 5.0)
@@ -429,10 +500,10 @@ class Server(SocketReadWrite):
             for s in readable:
                 transactions += 1
 
-                if self.verbose == 1 and transactions > xlimit:
+                if transactions > xlimit:
                     deltat = time.time() - t0
                     tps = int(float(transactions) / deltat)
-                    print('%d transactions/second' % tps)
+                    logging.critical('%d transactions/second' % tps)
                     if xlimit < tps < XHI:
                         xlimit *= 2
                     elif XLO < tps < xlimit:
@@ -448,8 +519,7 @@ class Server(SocketReadWrite):
                             peertuple=peertuple,
                             verbose=self.verbose)
                         clients.append(newsock)
-                        if self.verbose > 2:
-                            print('%s: new connection' % newsock)
+                        logging.info('%s: new connection' % newsock)
                     except Exception as e:
                         pass
                     continue
@@ -460,20 +530,19 @@ class Server(SocketReadWrite):
                     if cmdict is None:  # need more, not available now
                         continue
 
-                    if self.verbose:
-                        if self.verbose == 1:
-                            print('%s: %s' % (s, cmdict['command']))
-                        else:
-                            print('%s: %s' % (s, str(cmdict)))
+                    if self.verbose == 1:
+                        logging.critical('%s: %s' % (s, cmdict['command']))
+                    else:
+                        logging.warning('%s: %s' % (s, str(cmdict)))
                 except ConnectionError as e:  # Base class in Python3
-                    print(str(e))
+                    logging.error(str(e))
                     clients.remove(s)
                     if s in to_write:
                         to_write.remove(s)
                     continue
                 except Exception as e:  # Shouldn't happen
                     msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
-                    print('%s: %s' % (s, msg), file=sys.stderr)
+                    logging.error('%s: %s' % (s, msg))
                     set_trace()
                     raise
 
@@ -482,7 +551,7 @@ class Server(SocketReadWrite):
                 except Exception as e:  # Shouldn't happen
                     set_trace()
                     msg = 'UNEXPECTED HANDLER ERROR: %s' % str(e)
-                    print('%s: %s' % (s, msg), file=sys.stderr)
+                    logging.error('%s: %s' % (s, msg))
                     raise
 
                 # NO "finally": it circumvents "continue" in error clause(s)
@@ -499,19 +568,15 @@ class Server(SocketReadWrite):
                     continue  # no need to check OOB for now
 
                 if OOBmsg:
-                    if self.verbose > 4:
-                        print('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
+                    logging.debug('-' * 20, 'OOB:', OOBmsg['OOBmsg'])
                     for c in clients:
                         if str(c) != str(s):
-                            if self.verbose > 4:
-                                print(str(c))
+                            logging.debug(str(c))
                             c.send_result(OOBmsg)
 
 
 def main():
     """ Run simple echo server to exercise the module """
-
-    import json
 
     def echo_handler(string):
         """ Echo handler for use with testing server.
@@ -525,7 +590,7 @@ def main():
         # Does not handle ctrl characters well.  Needs to be modified
         # for dictionary IO
         print(string)
-        return json.dumps({'status': 'Processed @ %s' % time.ctime()})
+        return dumps({'status': 'Processed @ %s' % time.ctime()})
 
     from function_chain import IdentityChain
     chain = IdentityChain()
