@@ -275,6 +275,14 @@ def INI_to_JSON(book_size_bytes, FRDnodes, IGs):
         ('_comment', 'transmogrified from file "%s" on %s' % (
             args.cfile, time.ctime())),
         ('coordinate', datacenter),
+        ('domains',
+            OrderedDict([
+                ('_comment', 'See Manifesting README for FAME extensions'),
+                ('localData', 'N/A for FAME'),
+                ('publicData', 'have.it.your.way'),
+                ('management', 'N/A for FAME')
+            ])
+        ),
         ('servers', [
             OrderedDict([
                 ('coordinate', rackcoord),  # why not
