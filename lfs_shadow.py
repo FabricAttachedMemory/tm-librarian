@@ -744,7 +744,7 @@ def _detect_memory_space(args, lfs_globals):
     # == 2.6:   aarch64 contains RHstanza, endswith(" (rev 01)") YES lower case
     machine = os.uname().machine
     qemuOK = machine == 'x86_64' or (
-             machine == 'aarch64' and line1.lower.endswith(' (rev 01)'))
+             machine == 'aarch64' and line1.lower().endswith(' (rev 01)'))
 
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
