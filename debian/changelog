@@ -1,3 +1,9 @@
+tm-librarian (1.10+l4tm1) catapult; urgency=low
+
+  * Add sparse json configuration file creation from ini file
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Fri, 28 Oct 2016 15:18:12 -0600
+
 tm-librarian (1.9+l4tm1) catapult; urgency=low
 
   * Fix bug in configuration type checking
