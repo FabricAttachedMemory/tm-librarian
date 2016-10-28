@@ -27,10 +27,6 @@ class FRDnodeID(object):
         return (self.rack - 1) * 80 + (self.enc - 1) * 10 + self.node
 
     @property
-    def hostname(self):
-        return 'node%02d' % self.node_id
-
-    @property
     def REN(self):
         '''Rack # Enc # Node # as a string'''
         return 'r%de%dn%d' % (self.rack, self.enc, self.node)
@@ -146,6 +142,7 @@ class FRDnode(FRDnodeID):
     SOC_HEARTBEAT_SECS = 300.0
 
     def __init__(self, node, enc=None, module_size_books=0, autoMCs=True):
+        self._hostname = None
         node_id = None
         if enc is None:
             try:
@@ -205,6 +202,18 @@ class FRDnode(FRDnodeID):
         for mc in self.mediaControllers:
             mc.coordinate = 'Enclosure/UV/EncNum/%d/Node/%d/MemoryBoard/1/MediaController/%d' % (
                 mc.enc, mc.node, mc.ordMC + 1)
+
+    # FIXME: TMConfig should use this class
+    @property
+    def hostname(self):
+        if self._hostname is None:
+            # MFT/FRD: rack is always "1", or words like "A1.above_floor"
+            self._hostname = 'node%02d' % self.node_id
+        return self._hostname
+
+    @hostname.setter
+    def hostname(self, value):
+        self._hostname = str(value)
 
     @property
     def physloc(self):
