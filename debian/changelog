@@ -1,3 +1,9 @@
+tm-librarian (1.11+l4tm1) catapult; urgency=low
+
+  * Add node_id field for demo
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 31 Oct 2016 15:10:36 -0600
+
 tm-librarian (1.10+l4tm1) catapult; urgency=low
 
   * Add sparse json configuration file creation from ini file
