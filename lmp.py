@@ -28,13 +28,15 @@ def _response_bad(errmsg, status_code=418):
     response.status_code = status_code
     return response
 
+
 ###########################################################################
 # Execute before each request to check version
 
 @mainapp.before_request
 def check_version(*args, **kwargs):
     if mainapp.cur is None:
-        mainapp.cur = SQLite3assist(db_file=mainapp.db_file, raiseOnExecFail=True)
+        mainapp.cur = SQLite3assist(
+            db_file=mainapp.db_file, raiseOnExecFail=True)
     if not requestor_wants_json(request):  # Ignore versioning for HTML
         return None
     hdr_accept = request.headers['Accept']
@@ -52,21 +54,24 @@ def check_version(*args, **kwargs):
     if version != want:
         return _response_bad('Bad version: %s != %s' % (version, want))
 
+
 ###########################################################################
 # Execute after every request to fix up headers
 
 @mainapp.after_request
 def version(response):
     response.headers['Content-Type'] += ';charset=utf-8'
-    response.headers['Content-Type'] += ';version=%s' % mainapp.config['API_VERSION']
+    response.headers['Content-Type'] += ';version=%s' % \
+        mainapp.config['API_VERSION']
     return response
+
 
 ###########################################################################
 # Check if requestor wants json formatted reply
 
 def requestor_wants_json(request):
-    hdr_accept = request.headers['Accept']
-    return 'application/json' in hdr_accept
+    return 'application/json' in request.headers['Accept']
+
 
 ###########################################################################
 # Convert Librarian books status to LMP equivalent
@@ -143,18 +148,19 @@ def show_global():
         cur.execute('''
             SELECT COUNT(*) FROM SOCs
             WHERE status=? and heartbeat>=?''',
-            (FRDnode.SOC_STATUS_ACTIVE, ts))
+                    (FRDnode.SOC_STATUS_ACTIVE, ts))
         s_active = cur.fetchone()[0]
 
         cur.execute('''
             SELECT COUNT(*) FROM SOCs
             WHERE status=? AND heartbeat<?''',
-            (FRDnode.SOC_STATUS_ACTIVE, ts))
+                    (FRDnode.SOC_STATUS_ACTIVE, ts))
         s_indeterminate = cur.fetchone()[0]
 
         cur.execute('''
             SELECT COUNT(*) FROM SOCs
-            WHERE status=?''', FRDnode.SOC_STATUS_OFFLINE)
+            WHERE status=?''',
+                    FRDnode.SOC_STATUS_OFFLINE)
         s_offline = cur.fetchone()[0]
 
         d_socs = {
@@ -167,11 +173,13 @@ def show_global():
         p_total = cur.fetchone()[0]
         cur.execute('''
             SELECT COUNT(*) FROM FAModules
-            WHERE status=?''', FRDFAModule.MC_STATUS_ACTIVE)
+            WHERE status=?''',
+                    FRDFAModule.MC_STATUS_ACTIVE)
         p_active = cur.fetchone()[0]
         cur.execute('''
             SELECT COUNT(*) FROM FAModules
-            WHERE status=?''', FRDFAModule.MC_STATUS_OFFLINE)
+            WHERE status=?''',
+                    FRDFAModule.MC_STATUS_OFFLINE)
         p_offline = cur.fetchone()[0]
 
         d_pools = {
@@ -212,6 +220,7 @@ def show_global():
         active=d_active,
         api_version=mainapp.config['API_VERSION'])
 
+
 ###########################################################################
 # View: /nodes - List of Nodes
 # Desc: list nodes in The Machine instance managed by the Librarian
@@ -247,6 +256,7 @@ def show_nodes():
             d_node = {}
             d_node['coordinate'] = n.coordinate
             d_node['serialNumber'] = n.serialNumber
+            d_node['node_id'] = n.node_id   # Extra for books_allocated demo
             d_node['soc'] = d_soc
             d_node['mediaControllers'] = l_mcs
             l_nodes.append(d_node)
@@ -261,6 +271,7 @@ def show_nodes():
         'show_nodes.html',
         nodes=l_nodes,
         api_version=mainapp.config['API_VERSION'])
+
 
 ###########################################################################
 # View: /interleaveGroups - Memory Configuration
@@ -283,7 +294,7 @@ def show_interleaveGroups():
                 d_data['groupId'] = m.IG
                 d_data['baseAddress'] = (m.IG << 46)  # lowest LZA in IG
                 d_data['size'] = m.memorySize
-                d_data['mediaControllers'] = [m.coordinate,]
+                d_data['mediaControllers'] = [m.coordinate, ]
                 d_ig[m.IG] = d_data
 
         l_ig = []
@@ -300,6 +311,7 @@ def show_interleaveGroups():
         'show_interleaveGroups.html',
         interleaveGroups=l_ig,
         api_version=mainapp.config['API_VERSION'])
+
 
 ###########################################################################
 # View: /allocated/{coordinate} - Memory Allocation
@@ -455,6 +467,7 @@ def show_shelf(pathname=None):
                 d_attr['group'] = 42  # FIXME
                 d_attr['mode'] = s.mode
                 d_attr['size'] = s.size_bytes
+                d_attr['id'] = s.id     # Extra for flatgrids demo
 
                 xattr_policy = 'user.LFS.AllocationPolicy'
                 cur.execute('''
@@ -569,7 +582,8 @@ def show_books(interleaveGroup="all"):
         if interleaveGroup == "all":
             cur.execute('SELECT * FROM books')
         else:
-            cur.execute('SELECT * FROM books WHERE intlv_group=?', interleaveGroup)
+            cur.execute('SELECT * FROM books WHERE intlv_group=?',
+                        interleaveGroup)
 
         cur.iterclass = 'default'
         books = [ r for r in cur ]
@@ -619,7 +633,7 @@ def show_books(interleaveGroup="all"):
 
 if __name__ == '__main__':
 
-    DB_FILE="/var/hpetm/librarian.db"
+    DB_FILE = '/var/hpetm/librarian.db'
 
     parser = ArgumentParser(
         formatter_class=ArgumentDefaultsHelpFormatter)
@@ -640,7 +654,7 @@ if __name__ == '__main__':
 
     mainapp.run(
         debug=mainapp.config['DEBUG'],
-        use_reloader=True,
+        use_reloader=bool(mainapp.config['DEBUG']),
         host=mainapp.config['HOST'],
         port=mainapp.config['PORT'],
         threaded=False)
