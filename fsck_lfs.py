@@ -143,7 +143,8 @@ def _40_verify_shelves_return_orphaned_books(db):
         used_books = used_books - bookset
 
     if used_books:
-        print('\tClearing %d book(s) marked as allocated but shelfless')
+        print('\tClearing %d book(s) marked as allocated but shelfless' %
+            len(used_books))
         for book_id in used_books:
             notused = db.get_book_by_id(book_id)
             notused.allocated = TMBook.ALLOC_FREE
