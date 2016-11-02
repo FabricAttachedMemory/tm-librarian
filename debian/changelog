@@ -1,3 +1,9 @@
+tm-librarian (1.12+l4tm1) catapult; urgency=low
+
+  * Add nozombie option
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 02 Nov 2016 09:15:55 -0600
+
 tm-librarian (1.11+l4tm1) catapult; urgency=low
 
   * Add node_id field for demo
