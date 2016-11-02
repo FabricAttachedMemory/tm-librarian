@@ -25,7 +25,9 @@ class LibrarianCommandEngine(object):
 
     @staticmethod
     def argparse_extend(parser):
-        pass
+        parser.add_argument('--nozombies',
+                            help='Do not use ZOMBIE state in book lifecycle',
+                            action='store_true')
 
     _book_size_bytes = 0
     _nvm_bytes_total = 0  # read from DB
@@ -176,8 +178,10 @@ class LibrarianCommandEngine(object):
             assert book.allocated == TMBook.ALLOC_FREE, msg
         elif newalloc == TMBook.ALLOC_ZOMBIE:
             assert book.allocated == TMBook.ALLOC_INUSE, msg
+            if self.nozombies:
+                newalloc = TMBook.ALLOC_FREE
         elif newalloc == TMBook.ALLOC_FREE:
-            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg    # ZOMBIE
+            assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
         else:
             raise RuntimeError('Bad book allocation %d' % newalloc)
         book.allocated = newalloc
@@ -497,6 +501,7 @@ class LibrarianCommandEngine(object):
     def __init__(self, backend, optargs=None, cooked=False):
         innerE = None
         self.verbose = getattr(optargs, 'verbose', 0)
+        self.nozombies = getattr(optargs, 'nozombies', False)
         try:
             self.db = backend
             globals = self.db.get_globals()
