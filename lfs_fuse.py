@@ -387,7 +387,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # security.selinux, system.posix_acl_access, and posix_acl_default.
         # ls -l can also do the same thing on '/'.  Save the round trips.
 
-        if xattr.startswith('security.') or not shelf_name:  # path == '/'
+        # if xattr.startswith('security.') or not shelf_name:  # path == '/'
+        if xattr.startswith('security.'):  # path == '/' is legal now
             return bytes(0)
 
         try:
