@@ -81,7 +81,8 @@ class LibrarianCommandEngine(object):
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
         self.db.create_xattr(shelf,
-            BookPolicy.XATTR_ALLOCATION_POLICY, BookPolicy.POLICY_DEFAULT)
+            BookPolicy.XATTR_ALLOCATION_POLICY,
+            BookPolicy.DEFAULT_ALLOCATION_POLICY)
 
         # Will be ignored until AllocationPolicy set to RequestIG.  I just
         # want it to show up in a full xattr dump (getfattr -d /lfs/xxxx)
@@ -407,7 +408,18 @@ class LibrarianCommandEngine(object):
         # While you can set and retrieve things by name that don't start with
         # user/system/security/etc, and they show up in value[], something
         # in Linux strips them out before getting back to the user.  POSIX?
-        shelf = self.cmd_get_shelf(cmdict)
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+        except AssertionError as e:
+            if cmdict['name']:
+                raise
+            # It's the root of the file system.  Return the default policy
+            xattrs = [
+                'user.LFS.AllocationPolicyDefault',
+                'user.LFS.AllocationPolicyList'     # Vanna can I buy a clue?
+            ]
+            return { 'value': xattrs }
+
         value = self.db.list_xattrs(shelf)
         # AllocationPolicy is auto-added at shelf creation and can't be
         # removed.  Artificially add these "intrinsic" xattrs.
@@ -425,7 +437,7 @@ class LibrarianCommandEngine(object):
                 value
         """
         xattr, value = BookPolicy.xattr_assist(self, cmdict)
-        if value is None:
+        if value is None:   # it was a "non-magic" xattr
             shelf = self.cmd_get_shelf(cmdict)
             value = self.db.get_xattr(shelf, xattr)
         return { 'value': value }
@@ -442,7 +454,12 @@ class LibrarianCommandEngine(object):
         """
         # XATTR_CREATE/REPLACE option is not being set on the other side.
         xattr, value = BookPolicy.xattr_assist(self, cmdict, setting=True)
-        shelf = self.cmd_get_shelf(cmdict)
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+        except AssertionError as e:
+            if cmdict['name']:
+                raise
+            return None
 
         if self.db.get_xattr(shelf, xattr, exists_only=True):
             return self.db.modify_xattr(shelf, xattr, value)

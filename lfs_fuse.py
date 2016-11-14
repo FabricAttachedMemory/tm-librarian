@@ -115,7 +115,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.host = args.hostname
         self.port = args.port
         self.mountpoint = args.mountpoint
-        self.nozero = args.nozero
+        self.fakezero = args.fakezero
 
         # Fake it to start.  The umask dance is Pythonic, unfortunately.
         umask = os.umask(0)
@@ -387,7 +387,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # security.selinux, system.posix_acl_access, and posix_acl_default.
         # ls -l can also do the same thing on '/'.  Save the round trips.
 
-        if xattr.startswith('security.') or not shelf_name:  # path == '/'
+        # if xattr.startswith('security.') or not shelf_name:  # path == '/'
+        if xattr.startswith('security.'):  # path == '/' is legal now
             return bytes(0)
 
         try:
@@ -496,10 +497,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def _zero(self, shelf):
         assert shelf.name.startswith(self._ZERO_PREFIX)
         fullpath = '%s/%s' % (self.mountpoint, shelf.name)
-        dd = self._cmd2sub(
-            '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
-            fullpath, shelf.size_bytes))
+        if self.fakezero:
+            cmd = '/bin/sleep 10'
+        else:
+            cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
+            fullpath, shelf.size_bytes)
 
+        dd = self._cmd2sub(cmd)
         self.logger.info('%s: PID %d' % ('dd', dd.pid))
         with self.zerosema:
             try:
@@ -561,11 +565,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         #    unlink()..  Even if length is non-zero, remove it, assuming the
         #   _zero subprocess failed.
         # 3. The shadow subclass doesn't need it
-        # 4. The --nozero flag was specified
         if ((not shelf.size_bytes) or
              shelf.name.startswith(self._ZERO_PREFIX) or
-             (not self.shadow.zero_on_unlink) or
-             self.nozero):
+             (not self.shadow.zero_on_unlink)):
             self.librarian(self.lcp('destroy_shelf', name=shelf.name))
             return 0
 
@@ -652,7 +654,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        zero_enabled = self.shadow.zero_on_unlink and not self.nozero
+        zero_enabled = self.shadow.zero_on_unlink and not self.fakezero
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.
@@ -928,8 +930,8 @@ if __name__ == '__main__':
         type=int,
         default=0)
     parser.add_argument(
-        '--nozero',
-        help='do not zero books on unlink or truncate and leave them in the zombie state',
+        '--fakezero',
+        help='do not zero deallocated books; use short sleep in zombie state',
         action='store_true',
         default=False)
     args = parser.parse_args(sys.argv[1:])

@@ -9,6 +9,7 @@ import json
 import time
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from flask import Flask, render_template, jsonify, request, g
+from pdb import set_trace
 
 from backend_sqlite3 import SQLite3assist
 from book_shelf_bos import TMBook, TMShelf, TMBos
@@ -67,11 +68,14 @@ def version(response):
 
 
 ###########################################################################
-# Check if requestor wants json formatted reply
+# Check if requestor wants json formatted reply.  Now that grids updater
+# calls without context, return True if it's not a "real" request.
 
 def requestor_wants_json(request):
-    return 'application/json' in request.headers['Accept']
-
+    try:
+        return 'application/json' in request.headers['Accept']
+    except Exception as e:
+        return True
 
 ###########################################################################
 # Convert Librarian books status to LMP equivalent
@@ -629,9 +633,14 @@ def show_books(interleaveGroup="all"):
 
 
 ###########################################################################
-# Main
+# Main.  Now that routes are done, load flatgrids which memoizes them.
 
 if __name__ == '__main__':
+
+    if False:
+        from importlib import import_module
+        grids = import_module('flatgrids')
+        grids.register(mainapp)
 
     DB_FILE = '/var/hpetm/librarian.db'
 

@@ -12,7 +12,6 @@ from pdb import set_trace
 from collections import defaultdict
 
 from book_shelf_bos import TMBook
-from frdnode import FRDnode, FRDintlv_group
 
 #--------------------------------------------------------------------------
 # lfs_fuse.py does a little syntax/error checking before calling *_xattr
@@ -20,19 +19,22 @@ from frdnode import FRDnode, FRDintlv_group
 # user.LFS.xxxxx intrinsics.  Start with general logic checks.
 
 
-def _node2ig(node):
+def _node_id2ig(node_id):
     '''Right now nodes go from 1-80 but IGs are 0-79'''
-    assert 0 < node <= 80, 'Bad node value'
-    return node - 1
+    assert 0 < node_id <= 80, 'Bad node value'
+    return node_id - 1
 
 
 class BookPolicy(object):
 
-    POLICY_DEFAULT = 'RandomBooks'
-    _policies = (POLICY_DEFAULT, 'LocalNode', 'Nearest',
+    _policies = ('RandomBooks', 'LocalNode', 'Nearest', 'NearestRemote',
                  'LZAascending', 'LZAdescending', 'RequestIG')
 
-    XATTR_ALLOCATION_POLICY = 'user.LFS.AllocationPolicy'
+    DEFAULT_ALLOCATION_POLICY = 'RandomBooks'    # mutable
+
+    XATTR_ALLOCATION_POLICY =         'user.LFS.AllocationPolicy'
+    XATTR_ALLOCATION_POLICY_DEFAULT = 'user.LFS.AllocationPolicyDefault'
+    XATTR_ALLOCATION_POLICY_LIST =    'user.LFS.AllocationPolicyList'
     XATTR_IG_REQ = 'user.LFS.InterleaveRequest'
     XATTR_IG_REQ_POS = 'user.LFS.InterleaveRequestPos'
 
@@ -52,10 +54,15 @@ class BookPolicy(object):
 
         assert len(elems) == 3, 'LFS xattrs are of form "user.LFS.xxx"'
         assert not removing, 'Removal of LFS xattrs is prohibited'
-        shelf = LCEobj.cmd_get_shelf(cmdict)
+        try:
+            shelf = LCEobj.cmd_get_shelf(cmdict)
+        except AssertionError as e:
+            if cmdict['name']:
+                raise
+            # It's the root of the file system.  Keep going.
 
         no_set = 'Setting %s is prohibited' % xattr
-        if elems[2] == 'InterleaveRequest':
+        if xattr == cls.XATTR_IG_REQ:
             # Value can just fall through but there might be extra work
             if setting:
                 reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
@@ -65,19 +72,26 @@ class BookPolicy(object):
                     'Requested IGs not subset of known IGs'
                 # Reset current position in pattern.
                 LCEobj.db.modify_xattr(shelf, cls.XATTR_IG_REQ_POS, 0)
-        elif elems[2] == 'InterleaveRequestPos':
+        elif xattr == cls.XATTR_IG_REQ_POS:
             assert not setting, no_set
-        elif elems[2] == 'AllocationPolicy':
+        elif xattr == cls.XATTR_ALLOCATION_POLICY:
             if setting:
                 assert value in cls._policies, \
                     'Bad AllocationPolicy "%s"' % value
-        elif elems[2] == 'AllocationPolicyList':
+        elif xattr == cls.XATTR_ALLOCATION_POLICY_LIST:
             assert not setting, no_set
             value = ','.join(cls._policies)
         elif elems[2] == 'Interleave':
             assert not setting, no_set
             bos = LCEobj.db.get_books_on_shelf(shelf)
             value = bytes([ b.intlv_group for b in bos ]).decode()
+        elif xattr == cls.XATTR_ALLOCATION_POLICY_DEFAULT:
+            if setting:
+                legal = frozenset(cls._policies) - frozenset(('RequestIG',))
+                assert value in legal, 'Bad %s value: %s' % (xattr, value)
+                cls.DEFAULT_ALLOCATION_POLICY = value
+            else:
+                value = cls.DEFAULT_ALLOCATION_POLICY
         else:
             raise AssertionError('Bad LFS attribute "%s"' % xattr)
         return (xattr, value)
@@ -111,22 +125,37 @@ class BookPolicy(object):
         return books[:books_needed]
 
     def _policy_LocalNode(self, books_needed):
-        return self._policy_Nearest(books_needed, LocalNode=True)
+        return self._policy_Nearest(books_needed, fromRemote=False)
 
-    def _policy_Nearest(self, books_needed, LocalNode=False):
-        '''Get books starting with "this" node, perhaps stopping there.'''
+    def _policy_NearestRemote(self, books_needed):
+        return self._policy_Nearest(books_needed, fromLocal=False)
 
-        def _nodes2books(books_needed, nodes, shuffle=True):
-            # Get books from a set of nodes.   Grab candidate books, maybe
-            # randomize, and return what's requested.  "self" is upscope.
-            if isinstance(nodes, int):
-                nodes = (nodes, )
-            IGs = [ _node2ig(n) for n in nodes ]
-            return self._IGs2books(books_needed, IGs, shuffle=shuffle)
+    def _node_ids2books(self, books_needed, node_ids, shuffle=True):
+        '''This should ONLY be called from _policy_Nearest()'''
+        # Get books from a set of nodes.   Grab candidate books, maybe
+        # randomize, and return what's requested.
+        if isinstance(node_ids, int):
+            node_ids = (node_ids, )
+        if not node_ids:
+            return []
+        IGs = [ _node_id2ig(n) for n in node_ids ]
+        return self._IGs2books(books_needed, IGs, shuffle=shuffle)
 
-        node = int(self.context['node_id'])
-        localbooks = _nodes2books(books_needed, node, shuffle=False)
-        if LocalNode:
+    def _policy_Nearest(self, books_needed, fromLocal=True, fromRemote=True):
+        '''Get books closest to calling SoC.  Stop when enough books are
+           found OR no more can be found (ie, return a short list).'''
+
+        assert fromLocal or fromRemote, '_policy_Nearest(): nothing selected'
+        caller_id = int(self.context['node_id'])
+        caller = [n for n in self.LCEobj.nodes if n.node_id == caller_id][0]
+        extant_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
+
+        if fromLocal:
+            localbooks = _node_ids2books(books_needed, caller_id, shuffle=False)
+        else:
+            localbooks = []
+
+        if not fromRemote:
             return localbooks   # stop now regardless of len(localbooks)
 
         # Are there enough local books?
@@ -135,11 +164,12 @@ class BookPolicy(object):
         if not books_needed:
             return localbooks
 
-        # Get the next batch from elsewhere in this enclosure.
-        enc = FRDnode(node).enc
-        lo = ((enc - 1) * 10) + 1
-        encnodes = frozenset(range(lo, lo + 10))
-        encbooks = _nodes2books(books_needed, encnodes - frozenset((node,)))
+        # Get the next batch from elsewhere in this enclosure.  Calculate
+        # all the nodes, sparsity is handled elsewhere.
+        enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
+            if n.enc == caller.enc))
+        other_node_ids = enc_node_ids - frozenset((caller_id, ))
+        encbooks = self._node_ids2books(books_needed, other_node_ids)
 
         # Are there enough additional books in this enclosure?
         books_needed -= len(encbooks)
@@ -148,8 +178,8 @@ class BookPolicy(object):
             return localbooks + encbooks
 
         # Get the next batch from OUTSIDE this enclosure.
-        allnodes = frozenset(range(1, len(self.LCEobj.nodes) + 1))
-        nonencbooks = _nodes2books(books_needed, allnodes - encnodes)
+        other_node_ids = extant_node_ids - enc_node_ids
+        nonencbooks = self._node_ids2books(books_needed, other_node_ids)
 
         # It doesn't really matter if there are enough, this is it
         books_needed -= len(nonencbooks)
@@ -209,7 +239,8 @@ class BookPolicy(object):
         # Allocate specified number of books from each selected IG
         booksIG = {}
         for ig in igCnt.keys():
-            booksIG[ig] = db.get_books_by_intlv_group(igCnt[ig], (ig, ), exclude=False)
+            booksIG[ig] = db.get_books_by_intlv_group(
+                igCnt[ig], (ig, ), exclude=False)
 
         # Build list of books using request_interleave pattern
         self.LCEobj.errno = errno.ENOSPC
@@ -217,7 +248,7 @@ class BookPolicy(object):
         cur = ig_pos
         for cnt in range(0, books_needed):
             ig = reqIGs[cur % len(reqIGs)]
-            assert len(booksIG[ig]) != 0, 'Not enough books in IG to satisfy request'
+            assert len(booksIG[ig]) != 0, 'Not enough books remaining in IG'
             bookList.append(booksIG[ig].pop(0))
             cur += 1
 
