@@ -24,12 +24,19 @@ class SQLite3assist(SQLassist):
     SCHEMA_VERSION = LibrarianDBackendSQL.SCHEMA_VERSION
 
     def DBconnect(self):
-        self._conn = sqlite3.connect(self.db_file,
-                                     isolation_level='EXCLUSIVE')
-        self._cursor = self._conn.cursor()
+        try:
+            self._conn = sqlite3.connect(self.db_file,
+                                         isolation_level='EXCLUSIVE')
+            self._cursor = self._conn.cursor()
+        except Exception as e:
+            raise RuntimeError('Cannot open %s: %s' % (self.db_file, str(e)))
+
         # WAL: https://www.sqlite.org/wal.html
-        self.execute('PRAGMA journal_mode=WAL')
-        pass
+        try:
+            self.execute('PRAGMA journal_mode=WAL')
+        except Exception as e:
+            dir = os.path.dirname(os.path.realpath(self.db_file))
+            raise RuntimeError('Cannot open WAL journal in %s' % dir)
 
     def __init__(self, **kwargs):
         super(self.__class__, self).__init__(**kwargs)
@@ -156,7 +163,7 @@ class LibrarianDBackendSQLite3(LibrarianDBackendSQL):
             self._cur.execute('SELECT schema_version FROM globals')
             tmp = self._cur.fetchone()
         except Exception as e:
-            raise RuntimeError('DB "%s": %s' % (self._cur.DBname, str(e)))
+            raise RuntimeError('DB "%s": %s' % (args.db_file, str(e)))
         assert tmp is not None and isinstance(tmp, tuple) and tmp, \
             '"%s" is not a valid Librarian database' % self._cur.DBname
         assert tmp[0] == self._cur.SCHEMA_VERSION, \
