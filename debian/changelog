@@ -1,4 +1,4 @@
-tm-librarian (1.12+l4tm1) catapult; urgency=low
+tm-librarian (1.13+l4tm1) catapult; urgency=low
 
   * More demo hooks, enable global allocation policy
 
