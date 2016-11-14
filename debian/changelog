@@ -1,5 +1,11 @@
 tm-librarian (1.12+l4tm1) catapult; urgency=low
 
+  * More demo hooks, enable global allocation policy
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 14 Nov 2016 12:57:02 -0700
+
+tm-librarian (1.12+l4tm1) catapult; urgency=low
+
   * Add nozombie option
 
  -- Greg Pearson <greg.pearson@hpe.com>  Wed, 02 Nov 2016 09:15:55 -0600
