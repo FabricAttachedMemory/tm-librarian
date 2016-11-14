@@ -128,7 +128,7 @@ def _40_verify_shelves_return_orphaned_books(db):
     # Book allocations
     for shelf in shelves:
         shelf.bos = db.get_books_on_shelf(shelf)
-        bookset = frozenset(b.id for b in shelf.bos)
+        bookset = set(b.id for b in shelf.bos)
         if used_books.intersection(bookset) != bookset:
             unallocated = bookset - used_books
             # FIXME: seq_nums are valid and there are no zombies
@@ -138,10 +138,18 @@ def _40_verify_shelves_return_orphaned_books(db):
                 book.allocated = TMBook.ALLOC_INUSE
                 book.matchfields = 'allocated'
                 db.modify_book(book)
-                book_set = book_set + frozenset(book.id)
+                bookset = bookset.union(set((book.id,)))
             db.commit()
         used_books = used_books - bookset
 
+        if len(bookset) != shelf.book_count:
+            print('Adjusting %s book count %d -> %d' % (
+                shelf.name, shelf.book_count, len(bookset)))
+            shelf.book_count = len(bookset)
+            shelf.matchfields = 'book_count'
+            db.modify_shelf(shelf)
+
+    # All shelves have been scanned.  Anything left?
     if used_books:
         print('\tClearing %d book(s) marked as allocated but shelfless' %
             len(used_books))
@@ -209,9 +217,9 @@ if __name__ == '__main__':
             print('')
         except Exception as e:
             db.rollback()
-            print('Send %s to rocky.craig@hpe.com' % sys.argv[1],
-                file=sys.stderr)
-            raise SystemExit(str(e))
+            print(str(e), file=sys.stderr)
+            raise SystemExit(
+                'Send %s to rocky.craig@hpe.com' % sys.argv[1])
 
     print('Finalizing database')    # FIXME: compaction, ????
 
