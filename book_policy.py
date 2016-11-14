@@ -12,7 +12,6 @@ from pdb import set_trace
 from collections import defaultdict
 
 from book_shelf_bos import TMBook
-from frdnode import FRDnode, FRDintlv_group
 
 #--------------------------------------------------------------------------
 # lfs_fuse.py does a little syntax/error checking before calling *_xattr
@@ -20,10 +19,10 @@ from frdnode import FRDnode, FRDintlv_group
 # user.LFS.xxxxx intrinsics.  Start with general logic checks.
 
 
-def _node2ig(node):
+def _node_id2ig(node_id):
     '''Right now nodes go from 1-80 but IGs are 0-79'''
-    assert 0 < node <= 80, 'Bad node value'
-    return node - 1
+    assert 0 < node_id <= 80, 'Bad node value'
+    return node_id - 1
 
 
 class BookPolicy(object):
@@ -126,31 +125,37 @@ class BookPolicy(object):
         return books[:books_needed]
 
     def _policy_LocalNode(self, books_needed):
-        return self._policy_Nearest(books_needed, RemoteNodes=False)
+        return self._policy_Nearest(books_needed, fromRemote=False)
 
     def _policy_NearestRemote(self, books_needed):
-        return self._policy_Nearest(books_needed, LocalNode=False)
+        return self._policy_Nearest(books_needed, fromLocal=False)
 
-    def _policy_Nearest(self, books_needed, LocalNode=True, RemoteNodes=True):
-        '''Get books starting with "this" node, perhaps stopping there.'''
+    def _node_ids2books(self, books_needed, node_ids, shuffle=True):
+        '''This should ONLY be called from _policy_Nearest()'''
+        # Get books from a set of nodes.   Grab candidate books, maybe
+        # randomize, and return what's requested.
+        if isinstance(node_ids, int):
+            node_ids = (node_ids, )
+        if not node_ids:
+            return []
+        IGs = [ _node_id2ig(n) for n in node_ids ]
+        return self._IGs2books(books_needed, IGs, shuffle=shuffle)
 
-        assert LocalNode or RemoteNodes, '_policy_Nearest(): nothing selected'
-        node = int(self.context['node_id'])
+    def _policy_Nearest(self, books_needed, fromLocal=True, fromRemote=True):
+        '''Get books closest to calling SoC.  Stop when enough books are
+           found OR no more can be found (ie, return a short list).'''
 
-        def _nodes2books(books_needed, nodes, shuffle=True):
-            # Get books from a set of nodes.   Grab candidate books, maybe
-            # randomize, and return what's requested.  "self" is upscope.
-            if isinstance(nodes, int):
-                nodes = (nodes, )
-            IGs = [ _node2ig(n) for n in nodes ]
-            return self._IGs2books(books_needed, IGs, shuffle=shuffle)
+        assert fromLocal or fromRemote, '_policy_Nearest(): nothing selected'
+        caller_id = int(self.context['node_id'])
+        caller = [n for n in self.LCEobj.nodes if n.node_id == caller_id][0]
+        extant_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
 
-        if LocalNode:
-            localbooks = _nodes2books(books_needed, node, shuffle=False)
+        if fromLocal:
+            localbooks = _node_ids2books(books_needed, caller_id, shuffle=False)
         else:
             localbooks = []
 
-        if not RemoteNodes:
+        if not fromRemote:
             return localbooks   # stop now regardless of len(localbooks)
 
         # Are there enough local books?
@@ -159,11 +164,12 @@ class BookPolicy(object):
         if not books_needed:
             return localbooks
 
-        # Get the next batch from elsewhere in this enclosure.
-        enc = FRDnode(node).enc
-        lo = ((enc - 1) * 10) + 1
-        encnodes = frozenset(range(lo, lo + 10))
-        encbooks = _nodes2books(books_needed, encnodes - frozenset((node,)))
+        # Get the next batch from elsewhere in this enclosure.  Calculate
+        # all the nodes, sparsity is handled elsewhere.
+        enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
+            if n.enc == caller.enc))
+        other_node_ids = enc_node_ids - frozenset((caller_id, ))
+        encbooks = self._node_ids2books(books_needed, other_node_ids)
 
         # Are there enough additional books in this enclosure?
         books_needed -= len(encbooks)
@@ -172,8 +178,8 @@ class BookPolicy(object):
             return localbooks + encbooks
 
         # Get the next batch from OUTSIDE this enclosure.
-        allnodes = frozenset(range(1, len(self.LCEobj.nodes) + 1))
-        nonencbooks = _nodes2books(books_needed, allnodes - encnodes)
+        other_node_ids = extant_node_ids - enc_node_ids
+        nonencbooks = self._node_ids2books(books_needed, other_node_ids)
 
         # It doesn't really matter if there are enough, this is it
         books_needed -= len(nonencbooks)
