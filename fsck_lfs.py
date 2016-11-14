@@ -108,6 +108,8 @@ def _40_verify_shelves_return_orphaned_books(db):
     #   Insure all shelf books are in all_books
     #   Remove shelf books from all_books set
     # Any leftovers are orphans
+    db.execute('SELECT book_size_bytes FROM globals')
+    book_size_bytes = db.fetchone()[0]
     db.execute('SELECT id FROM books where allocated=?', TMBook.ALLOC_INUSE)
     used_books = [ u[0] for u in db ]
     used_books = frozenset(used_books)
@@ -143,11 +145,20 @@ def _40_verify_shelves_return_orphaned_books(db):
         used_books = used_books - bookset
 
         if len(bookset) != shelf.book_count:
-            print('Adjusting %s book count %d -> %d' % (
+            print('\tAdjusting %s book count %d -> %d' % (
                 shelf.name, shelf.book_count, len(bookset)))
             shelf.book_count = len(bookset)
             shelf.matchfields = 'book_count'
             db.modify_shelf(shelf)
+
+        tmp = shelf.book_count * book_size_bytes
+        if shelf.size_bytes > tmp:
+            print('\tAdjusting %s book size %d -> %d' % (
+                shelf.name, shelf.size_bytes, tmp))
+            shelf.size_bytes = tmp
+            shelf.matchfields = 'size_bytes'
+            db.modify_shelf(shelf)
+            pass
 
     # All shelves have been scanned.  Anything left?
     if used_books:
