@@ -1,2 +1,0 @@
-version=3
-https://github.hpe.com/hpelinux/tm-librarian/tags .*/v(\d.+)
