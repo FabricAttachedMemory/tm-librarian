@@ -9,6 +9,6 @@ deb-systemd-invoke stop tm-librarian
 deb-systemd-invoke disable tm-librarian
 deb-systemd-invoke stop tm-lmp
 deb-systemd-invoke disable tm-lmp
-deb-systemd-invoke daemon-reload
+systemctl daemon-reload
 
 #DEBHELPER#
