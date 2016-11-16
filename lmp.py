@@ -15,6 +15,8 @@ from backend_sqlite3 import SQLite3assist
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from frdnode import FRDnode, FRDFAModule
 
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
+
 mainapp = Flask('tm_lmp', static_url_path='/static')
 mainapp.config.from_object('lmp_config')
 mainapp.config['API_VERSION'] = 1.0

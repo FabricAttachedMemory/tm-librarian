@@ -498,7 +498,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         assert shelf.name.startswith(self._ZERO_PREFIX)
         fullpath = '%s/%s' % (self.mountpoint, shelf.name)
         if self.fakezero:
-            cmd = '/bin/sleep 10'
+            cmd = '/bin/sleep 5'
         else:
             cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
             fullpath, shelf.size_bytes)
@@ -507,13 +507,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.logger.info('%s: PID %d' % ('dd', dd.pid))
         with self.zerosema:
             try:
-                polled = dd.poll()
-                while polled is not None and polled.returncode is None:
+                polled = dd.poll()   # None == not yet terminated, else retval
+                while polled is None:
                     try:
-                        dd.send_signal(os.SIGUSR1)
+                        dd.send_signal(os.SIGUSR1)	# gets status readout
                         stdout, stderr = dd.communicate(timeout=5)
                     except TimeoutExpired as e:
                         self.logger.error(str(stderr))
+                    time.sleep(3)
                     polled = dd.poll()
             except Exception as e:
                 pass
@@ -654,7 +655,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        zero_enabled = self.shadow.zero_on_unlink and not self.fakezero
+        zero_enabled = self.shadow.zero_on_unlink
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.
