@@ -655,7 +655,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        zero_enabled = self.shadow.zero_on_unlink and not self.fakezero
+        zero_enabled = self.shadow.zero_on_unlink
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.

@@ -359,7 +359,6 @@ class LibrarianCommandEngine(object):
                     self.errno = errno.EREMOTEIO
                     raise RuntimeError('Resizing shelf smaller failed: %s' % str(e))
 
-            set_trace()
             if not freeing and zero_enabled:
                 z_shelf.matchfields = ('size_bytes', 'book_count')
                 z_shelf = self.db.modify_shelf(z_shelf, commit=True)
