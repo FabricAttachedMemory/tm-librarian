@@ -498,7 +498,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         assert shelf.name.startswith(self._ZERO_PREFIX)
         fullpath = '%s/%s' % (self.mountpoint, shelf.name)
         if self.fakezero:
-            cmd = '/bin/sleep 4'
+            cmd = '/bin/sleep 5'
         else:
             cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
             fullpath, shelf.size_bytes)

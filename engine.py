@@ -212,6 +212,7 @@ class LibrarianCommandEngine(object):
                 shelf.mode = stat.S_IFREG
                 shelf.matchfields = 'mode'
                 shelf = self.db.modify_shelf(shelf)
+            self.db.commit()
         return shelf
 
     # This is a protocol operation, not necessarily POSIX flow.  Search
