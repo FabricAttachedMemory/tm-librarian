@@ -269,6 +269,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs):
     datacenter = G.get('datacenter', os.uname()[1])
     rack = G.get('rack', 'FAME')
     domain = G.get('domain', 'have.it.your.way')
+    torms = 'torms.%s' % domain
 
     datacenter = '/MachineVersion/1/Datacenter/%s' % datacenter
     rackcoord = 'Rack/%s' % rack
@@ -289,18 +290,30 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs):
         ('servers', [
             OrderedDict([
                 ('coordinate', rackcoord),  # why not
-                ('ipv4Address', '1.2.3.4'),
+                ('ipv4Address', torms),
                 ('services', [
                     {
                         'service': 'librarian',
                         'bookSize': book_size_bytes,
                         'port': 9093,
                         'tlsPublicCertificate': 'nada',
+                        'restUri': 'http://%s:31179/lmp' % torms,
                     },
                     {
-                        'service': 'manifesting',
+                        'service': 'osManifesting',
                         'port': 31178,
                         'tlsPublicCertificate': 'nada',
+                        'restUri': 'http://%s:31178/manifesting/api' % torms,
+                    },
+                    {
+                        'service': 'assemblyAgent',
+                        'tlsPublicCertificate': 'nada',
+                        'restUri': 'http://%s:9097/dma' % torms,
+                    },
+                    {
+                        'service': 'monitoring',
+                        'tlsPublicCertificate': 'nada',
+                        'restUri': 'http://%s:5050/rest' % torms,
                     },
                 ]),
             ]),
@@ -322,17 +335,37 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs):
     thisencnum = -1
     for node in FRDnodes:   # Assuming sorted by increasing node_id
         if node.enc != thisencnum:
+            thisencnum = node.enc
             if thisenc is not None:
                 theRack['enclosures'].append(thisenc)
             thisenc = OrderedDict([
-                ('coordinate', 'Enclosure/UV/EncNum/%d' % node.enc),
-                ('nodes', [ ])
+                ('coordinate', 'Enclosure/UV/EncNum/%d' % thisencnum),
+                ('iZoneBoards',[    # start of a list comprehension
+                    OrderedDict([
+                        ('coordinate', 'IZone/1/IZoneBoard/%d' % izzy),
+                        ('izBoardMp', dict((
+                            ('coordinate', 'IZoneBoardMp/1'),
+                            ('msCollector', 'switchmp'),
+                            ('ipv4Address', '10.254.%d.%d' %
+                                (thisencnum, 100 + izzy)),
+                            ('mfwApiUri', 'http://10.254.%d.%d:8081/redfish/v1' %
+                                (thisencnum, 100 + izzy)),
+                        ))),
+                    ])
+                    for izzy in (1, 2)
+                ]),
+                ('nodes', [])
             ])
-            thisencnum = node.enc
         thisenc['nodes'].append(OrderedDict([
             ('coordinate', 'Node/%d' % node.node),
             ('serialNumber', 'nada'),
-            ('nodeMp', { }),
+            ('nodeMp', {
+                'coordinate': 'SocBoard/1/MpDaughterCard/1/NodeMp/1',
+                'msCollector': 'nodemp',
+                'ipv4Address': '10.254.%d.%d' % (thisencnum, 200 + node.node),
+                'mfwApiUri': 'http://10.254.%d.%d:8081/redfish/v1' % (
+                    thisencnum, 200 + node.node),
+            }),
             ('soc', {
                 'coordinate': 'SocBoard/1/Soc/1',
                 'hostname': node.hostname,
