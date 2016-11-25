@@ -336,7 +336,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
             if thisenc is not None:
                 theRack['enclosures'].append(thisenc)
             thisenc = OrderedDict([
-                ('coordinate', 'Enclosure/U%s/EncNum/%d' % (
+                ('coordinate', 'Enclosure/%s/EncNum/%d' % (
                     enc2U[thisencnum], thisencnum)),
                 ('iZoneBoards',[    # start of a list comprehension
                     OrderedDict([
@@ -381,17 +381,24 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
 
     theRack['enclosures'].append(thisenc)    # No enclosure left behind
 
-    # Fix the JSON spoof here
-    prefix = '%s/%s' % (datacenter, rackcoord)
-    bigun['interleaveGroups'] = [   # start of a list comprehension
-        OrderedDict([
-            ('groupId', ig.groupId),
-            ('mediaControllers', [
-                '%s/%s' % (prefix, mc.coordinate) for mc in ig.mediaControllers
+    # Finish the JSON spoof here.  IGs is an array of frdnode.py::FRDFAModules.
+    # Expand constituent coordinates into an absolute coordinate cuz that's
+    # how it's defined.  Unroll previous attempts at list comprehension to
+    # get more inner values.
+    rackprefix = '%s/%s' % (datacenter, rackcoord)
+    bigun['interleaveGroups'] = []
+    for ig in IGs:
+        mclist = []
+        for mc in ig.mediaControllers:
+            abscoord = '%s/Enclosure/%s/%s' % (
+                rackprefix, enc2U[mc.enc], mc.coordinate)
+            mclist.append(abscoord)
+        bigun['interleaveGroups'].append(
+            OrderedDict([
+                ('groupId', ig.groupId),
+                ('mediaControllers', mclist)
             ])
-        ])
-        for ig in IGs
-    ]
+        )
     print(IGs[0].mediaControllers[0].coordinate)
 
     print(json.dumps(bigun, indent=4))
@@ -417,23 +424,30 @@ def load_book_data_ini(inifile):
     if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
         raise SystemExit('book_size_bytes must be a power of 2')
 
+    # The enclosure "U" mounting location in the rack.  Defaults will be
+    # supplied later if there are no "[enclosureX]" sections.  The use
+    # is split across blocks because not all code paths maintain an
+    # explicit enclosure object.
+
+    enc2U = {}
+
     FRDnodes = extrapolate(Gname, G, node_count, book_size_bytes)
-    if FRDnodes is None:
-        # No short cuts, grind it out for the nodes.
+    if FRDnodes is None:    # Grind it out section by section.
         FRDnodes = []
-        enc2U = {}
         for section in other_sections:
             if section.name.startswith('enclosure'):
+                assert not FRDnodes, \
+                    '[%s] must appear before any [node] section' % section.name
                 try:
                     encnum = int(section.name[-1])
                     assert encnum not in enc2U, \
                         'Duplicate section [%s]' % section.name
                 except ValueError as e:
                     raise RuntimeError('Bad section [%s]' % section.name)
-                tmp = dict(section.items())['u']
-                assert ' ' not in tmp and '/' not in tmp, \
+                Uvalue = dict(section.items())['u']
+                assert ' ' not in Uvalue and '/' not in Uvalue, \
                     'Illegal character [%s] U-value' % section.name
-                enc2U[encnum] = tmp
+                enc2U[encnum] = Uvalue
                 continue
 
             hostname = section.name
@@ -461,10 +475,11 @@ def load_book_data_ini(inifile):
                 newNode.hostname = hostname
             FRDnodes.append(newNode)
 
-    for node in FRDnodes:       # Insure all enclosures have a U-value
+    # Add default enclosure U-values if needed, regardless of INI form.
+    for node in FRDnodes:
         if node.enc in enc2U:
             continue
-        enc2U[node.enc] = 'V'   # Virtual, like FAME
+        enc2U[node.enc] = 'UV'  # Virtual, like FAME
 
     IGs = [ FRDintlv_group(node.node_id - 1, node.mediaControllers) for
             node in FRDnodes ]
@@ -474,7 +489,7 @@ def load_book_data_ini(inifile):
         books_total += sum(
             mc.module_size_books for mc in node.mediaControllers)
     nvm_bytes_total = books_total * book_size_bytes
-    if verbose > 0:
+    if verbose:
         print('book size = %d' % (book_size_bytes))
         print('%d books == %d (0x%016x) total NVM bytes' % (
             books_total, nvm_bytes_total, nvm_bytes_total))

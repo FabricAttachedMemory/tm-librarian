@@ -72,6 +72,7 @@ class FRDFAModule(FRDnodeID):
         self.node = node
         self.ordMC = ordMC
         self.rawCID = (enc - 1) << 9 | (node - 1) << 4 | (8 + ordMC)
+        self.coordinate = 'MemoryBoard/1/MediaController/%d' % (ordMC + 1)
 
     def __str__(self):
         return 'node_id %2d: %d:%d:%d (%d books)' % (
@@ -176,7 +177,7 @@ class FRDnode(FRDnodeID):
         # The value is for QEMU (52:54), FAME (42), to trigger node ID
         # (matching three octects).
 
-        self.coordinate = 'node/%d' % (self.node)
+        self.coordinate = 'Node/%d' % (self.node)
         self.serialNumber = self.physloc
         self.soc = GenericObject(
             macAddress='52:54:42:%02d:%02d:%02d' % (
@@ -197,11 +198,6 @@ class FRDnode(FRDnodeID):
             [ '%d:%d:%d' % (enc, node, ordMC) for ordMC in range(4) ],
             module_size_books
         )
-
-        # Finish the JSON spoof, do a partial here and complete it in caller
-        for mc in self.mediaControllers:
-            mc.coordinate = 'Enclosure/UV/EncNum/%d/Node/%d/MemoryBoard/1/MediaController/%d' % (
-                mc.enc, mc.node, mc.ordMC + 1)
 
     # FIXME: TMConfig should use this class
     @property
