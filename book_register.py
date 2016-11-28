@@ -381,7 +381,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
 
     theRack['enclosures'].append(thisenc)    # No enclosure left behind
 
-    # Finish the JSON spoof here.  IGs is an array of frdnode.py::FRDFAModules.
+    # Finish the JSON.  IGs is an array of frdnode.py::FRDFAModules.
     # Expand constituent coordinates into an absolute coordinate cuz that's
     # how it's defined.  Unroll previous attempts at list comprehension to
     # get more inner values.
@@ -390,8 +390,8 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
     for ig in IGs:
         mclist = []
         for mc in ig.mediaControllers:
-            abscoord = '%s/Enclosure/%s/%s' % (
-                rackprefix, enc2U[mc.enc], mc.coordinate)
+            abscoord = '%s/Enclosure/%s/EncNum/%d/Node/%d/%s' % (
+                rackprefix, enc2U[mc.enc], mc.enc, mc.node, mc.coordinate)
             mclist.append(abscoord)
         bigun['interleaveGroups'].append(
             OrderedDict([
@@ -399,8 +399,6 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
                 ('mediaControllers', mclist)
             ])
         )
-    print(IGs[0].mediaControllers[0].coordinate)
-
     print(json.dumps(bigun, indent=4))
 
 #--------------------------------------------------------------------------
