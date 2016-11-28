@@ -1,3 +1,9 @@
+tm-librarian (1.15+l4tm1) catapult; urgency=low
+
+  * Create /usr/bin/check-book.py softlink, add services to tmconfig, bug fixes
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 28 Nov 2016 14:51:20 -0700
+
 tm-librarian (1.14+l4tm1) catapult; urgency=low
 
   * Last demo fixes
