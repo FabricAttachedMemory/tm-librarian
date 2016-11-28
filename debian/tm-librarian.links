@@ -3,3 +3,4 @@ usr/lib/python3/dist-packages/tm_librarian/librarian.py usr/bin/librarian.py
 usr/lib/python3/dist-packages/tm_librarian/book_register.py usr/bin/book_register.py
 usr/lib/python3/dist-packages/tm_librarian/fsck_lfs.py usr/bin/fsck_lfs.py
 usr/lib/python3/dist-packages/tm_librarian/lmp.py usr/bin/lmp.py
+usr/lib/python3/dist-packages/tm_librarian/tests/check-book.py usr/bin/check-book.py
