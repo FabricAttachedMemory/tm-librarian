@@ -1,3 +1,9 @@
+tm-librarian (1.13-2) unstable; urgency=low
+
+  * Split into per-daemon packages
+
+ -- Keith Packard <keithp@keithp.com>  Sun, 27 Nov 2016 16:14:46 -0800
+
 tm-librarian (1.13-1) unstable; urgency=low
 
   * Package for unstable
