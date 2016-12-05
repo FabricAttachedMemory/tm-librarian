@@ -1,3 +1,9 @@
+tm-librarian (1.16+l4tm1) catapult; urgency=low
+
+  * Change /lfs permissions to 777 on creation
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 05 Dec 2016 09:03:58 -0700
+
 tm-librarian (1.15+l4tm1) catapult; urgency=low
 
   * Create /usr/bin/check-book.py softlink, add services to tmconfig, bug fixes
