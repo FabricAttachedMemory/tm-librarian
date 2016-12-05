@@ -847,7 +847,7 @@ def mount_LFS(args):
         raise SystemExit('Bad physical location (--physloc) argument \'%s\'' % args.physloc)
 
     try:
-        tmp = socket.gethostbyaddr(args.hostname)
+        tmp = socket.gethostbyname(args.hostname)
     except Exception as e:
        print('could not verify (--hostname) argument \'%s\'' % args.hostname)
 
