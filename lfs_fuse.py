@@ -817,6 +817,7 @@ def mount_LFS(args):
        Validate fields and call FUSE'''
 
     os.makedirs(args.mountpoint, mode=0o777, exist_ok=True)
+    os.chmod(args.mountpoint, mode=0o777)
 
     if not args.physloc:
         try:
