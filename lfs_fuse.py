@@ -849,16 +849,16 @@ def mount_LFS(args):
         raise SystemExit('Bad physical location (--physloc) argument \'%s\'' % args.physloc)
 
     try:
-        tmp = socket.gethostbyaddr(args.hostname)
+        tmp = socket.gethostbyname(args.hostname)
     except Exception as e:
-        self.logger.warning('could not verify (--hostname) argument \'%s\'' % args.hostname)
+        print('could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
     if tmp == 1:
         if args.fixed1906:
-            self.logger.info('shadow_xxxx overrides fixed1906')
+            print('shadow_xxxx overrides fixed1906')
             args.fixed1906 = False
     elif tmp > 1:
         raise RuntimeError('Only one of shadow_[dir|file] is allowed')
