@@ -12,6 +12,7 @@ import stat
 import sys
 import threading
 import time
+import logging
 
 from pdb import set_trace
 
@@ -851,14 +852,14 @@ def mount_LFS(args):
     try:
         tmp = socket.gethostbyname(args.hostname)
     except Exception as e:
-        print('could not verify (--hostname) argument \'%s\'' % args.hostname)
+        logging.warning('could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
     if tmp == 1:
         if args.fixed1906:
-            print('shadow_xxxx overrides fixed1906')
+            logging.info('shadow_xxxx overrides fixed1906')
             args.fixed1906 = False
     elif tmp > 1:
         raise RuntimeError('Only one of shadow_[dir|file] is allowed')
