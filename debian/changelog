@@ -1,3 +1,9 @@
+tm-librarian (1.17+l4tm1) catapult; urgency=low
+
+  * Create /var/hpetm directory, bug fixes
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 13 Dec 2016 09:35:09 -0700
+
 tm-librarian (1.16+l4tm1) catapult; urgency=low
 
   * Change /lfs permissions to 777 on creation
