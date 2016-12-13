@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -37,10 +38,11 @@ static int do_prompt = 0;
 
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
-	int fd, overcommit, RW, nthreads, unmap, no_sleep;
+	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
+	    jumparound;
 	long loop;
 	unsigned int *mapped, *last_byte;
-	unsigned long flags, access_offset, stride;
+	unsigned long flags, access_offset;
 	size_t fsize;
 	char syncit[10];
 	pthread_t *tids;
@@ -84,6 +86,7 @@ void usage() {
     fprintf(stderr, "\t-C    close(2) and reopen file after creation\n");
     fprintf(stderr, "\t-f    fsync() after update\n");
     fprintf(stderr, "\t-F    fdatasync() after update\n");
+    fprintf(stderr, "\t-j    jump around (random access)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-m    msync() after update\n");
     fprintf(stderr, "\t-p    pause/prompt for each step\n");
@@ -165,17 +168,27 @@ int create_write(char *fname) {
 void *payload(void *threadarg)
 {
     struct tvals_t *tvals = (struct tvals_t *)threadarg;
-    unsigned long foffset;
+    unsigned long foffset, stride;
     char *s;
-    unsigned int *access;
+    unsigned int *access, naccesses = 0;
     unsigned int curr_val;
 
-    // bytes
-    access = (void *)((unsigned long)tvals->mapped + tvals->access_offset);
-    if (tvals->overcommit)
-	access += tvals->fsize;
-
     curr_val = 0x42424241;	// For WRONLY, gotta start somewhere
+
+    // bytes
+    if (tvals->jumparound) {
+	// random(3): 0 - RAND_MAX == 2G.   Period == 2^32.  
+	unsigned long delta = random() % (tvals->fsize - 4);
+	access = (void *)((unsigned long)tvals->mapped + (delta & (~15L)));
+    } else if (tvals->stride > 0) {
+	stride = tvals->stride;
+	access = (void *)((unsigned long)tvals->mapped + tvals->access_offset);
+	if (tvals->overcommit)
+		access += tvals->fsize;
+    } else {
+	stride = -tvals->stride;
+	access = (void *)(((unsigned long)tvals->last_byte) + 1 - stride);
+    }
 
     do {
     	if (!do_prompt) printf("\n");
@@ -187,6 +200,7 @@ void *payload(void *threadarg)
 	if (tvals->RW & READIT) {
 		prompt("integer get @ offset %llu (0x%p)", foffset, access);
 		curr_val = *access;
+		naccesses++;
 		if (do_prompt >= 0)
 			printf("               = 0x%08x\n", curr_val);
 	}
@@ -194,6 +208,7 @@ void *payload(void *threadarg)
 		prompt("integer put @ offset %llu (0x%p)", foffset, access);
 		curr_val += 1;
 		*access = curr_val;
+		naccesses++;
 		if (do_prompt >= 0)
 			printf("              -> 0x%08x\n", curr_val);
 	}
@@ -217,22 +232,46 @@ void *payload(void *threadarg)
 	}
 	if (!do_prompt && !tvals->no_sleep)
 		sleep(1);
-	access = (unsigned int *)((unsigned long)access + tvals->stride);
 
-	if (tvals->loop < 0) {
-		if ((unsigned long)access > (unsigned long)tvals->last_byte)
-			access = tvals->mapped;	// wraparound
-	} else tvals->loop--;
+	// Handle wraparound, do everything inline.
+	if (tvals->jumparound) {
+		// random(3): 0 - RAND_MAX == 2G.   Period == 2^32.  
+		unsigned long delta = random() % (tvals->fsize - 4);
+		access = (void *)((unsigned long)tvals->mapped + (delta & (~15L)));
+	} else if (tvals->stride > 0) {
+		access = (void *)(unsigned long)access + stride;
+		if ((unsigned long)access > (unsigned long)tvals->last_byte - stride) {
+			access = tvals->mapped;
+			if (tvals->walking)
+				tvals->loop--;
+		}
+	} else {
+		access = (unsigned int *)((unsigned long)access - stride);
+		if ((unsigned long)access < (unsigned long)tvals->mapped) {
+			access = (void *)((unsigned long)(tvals->last_byte) + 1 - stride);
+			if (tvals->walking)
+				tvals->loop--;
+		}
+	}
+	// Loop count for walks is handled in the wraparound fixups
+	if (!tvals->walking)
+		tvals->loop--;
+
     } while (tvals->loop != 0);
-    printf("\n");
+    printf("\nTotal accesses: %u\n", naccesses);
     return NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 
-unsigned long bignum(char const *instr) {
+long bignum(char const *instr, int Tsigned_Funsigned) {
     char *mult;
     unsigned long tmp = strtoul(instr, &mult, 10);
+
+    if (tmp < 0 && !Tsigned_Funsigned) {
+    	fprintf(stderr, "%s cannot be negative here\n", instr);
+	usage();
+    }
 
     switch (*mult) {
 
@@ -265,10 +304,11 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     tvals->fd = -1;
     tvals->fsize = 16 * 1024 * 1024;	// typical MongoDB
     tvals->nthreads = 1;		// main() is a thread
+    tvals->stride = sizeof(int);	// that which gets accessed
     tvals->unmap = 1;			// usually call munmap()
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfFl:mo:OpPqrRSs:t:T:uw:WZ")) != EOF)
+    while ((opt = getopt(argc, argv, "c:CdfjFl:mo:OpPqrRSs:t:T:uw:WZ")) != EOF)
       switch (opt) {
 
 	// Required
@@ -291,23 +331,23 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 		*s++ = opt;
 		break;
 
-    	case 'l':
-		if ((tvals->loop = atoi(optarg)) <= 0)
-			die("Loop value must be positive integer");
-		break;
+	case 'j':	tvals->jumparound = 1; break;
+    	case 'l':	tvals->loop = bignum(optarg, 1); break;
     	case 'o':	tvals->access_offset = strtoul(optarg, NULL, 0); break;
 	case 'O':	tvals->overcommit = 1; break;
     	case 'p':	do_prompt = 1; break;
 	case 'q':	do_prompt = -1; break;
     	case 'r':	read1st = 1; break;
-    	case 's':	tvals->stride = bignum(optarg); break;
-    	case 't': 	tvals->fsize = bignum(optarg); break;
+    	case 't': 	tvals->fsize = bignum(optarg, 0); break;
     	case 'T':	tvals->nthreads = atol(optarg); break;
 	case 'u':	tvals->unmap = 0; break;
-    	case 'w': 	if ((tvals->stride = bignum(optarg)) < 4096)
-				die("Walk like a man\n");
-			tvals->loop = -1; // forever with wraparound
+
+    	case 'w':	tvals->walking = 1;	// fall through
+    	case 's':	tvals->stride = bignum(optarg, 1); break;
+			if (abs(tvals->stride) < 4)
+				die("|stride| must be at least 4");
 			break;
+
     	case 'Z':	tvals->no_sleep = 1; break;
 
 	default:	usage();
@@ -318,17 +358,14 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     if (!tvals->flags) {
     	fprintf(stderr, "Thou shalt use one and only one of -P | -S\n");
 	usage();
-	exit(1);
     }
     if (!tvals->RW) {
     	fprintf(stderr, "Thou shalt use at least one of -R | -W\n");
 	usage();
-	exit(1);
     }
     if (tvals->nthreads < 1 || tvals->nthreads > MAXTHREADS ) {
     	fprintf(stderr, "Dude, %d threads?  Nice try.\n", tvals->nthreads);
 	usage();
-	exit(1);
     }
     if (tvals->nthreads > 1) do_prompt = -1;
     tvals->nthreads--;	// how many times do I have to call pthread_create?

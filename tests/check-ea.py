@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 # Simple test to write different types of data to extended attribute
+
+import errno
 import os
 import sys
 import mmap
@@ -10,13 +12,14 @@ import hashlib
 import random
 import base64
 
+from pdb import set_trace
+
 # Verification data for verify-only operations.  VERIF_DATA_VERSION should be
 # incremented whenever an incompatible change to the data format is made.
 VERIF_DATA_VERSION = b'2'
 class VerifData:
     pickled_args = ''
     hash = ''
-
 
 
 if __name__ == '__main__':
@@ -41,20 +44,41 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    try:
+        assert args.shelf_name.startswith('/lfs/'), 'Not an LFS file'
+        assert not os.path.isfile(args.shelf_name), '%s exists' % args.shelf_name
+        APs = os.getxattr('/lfs', 'user.LFS.AllocationPolicyList').decode().split(',')
+    except Exception as e:
+        raise SystemExit('Bad initial conditions: %s' % str(e))
+    for ap in APs:
+        try:
+            os.setxattr('/lfs', 'user.LFS.AllocationPolicyDefault', ap.encode())
+            with open(args.shelf_name, 'w') as f:
+            	os.ftruncate(f.fileno(), 1)
+            thisap = os.getxattr(args.shelf_name, 'user.LFS.AllocationPolicy')
+            assert ap == thisap.decode(), 'Policy mismatch: %s' % ap
+            os.unlink(args.shelf_name)
+        except Exception as e:
+            if isinstance(e, OSError) and e.errno == errno.EINVAL:
+                if ap in ('RequestIG', ):
+                    continue
+            raise SystemExit('Error during policy walkthrough: %s' % str(e))
 
     try:
+        with open(args.shelf_name, 'w') as f:	# need a test file
+            os.ftruncate(f.fileno(), 1)
         os.setxattr(args.shelf_name, VERIF_EA_NAME, b'asdfasdfasdfkajsd;flijasd;fiads;fui')
-    except:
+    except Exception as e:
         total_failures += 1
         if (args.verbose > 0):
-            print("Error setting EA with string value")
-
+            print("Error setting EA with string value: %s" % str(e))
 
     fh = VerifData()
     args.random_seed = os.urandom(8)
     fh.pickled_args = pickle.dumps(args)
     hash = hashlib.new('sha256')
     hash.update(fh.pickled_args)
+
     # Include version in hash, so incompatible versions will not be recognized.
     hash.update(VERIF_DATA_VERSION)
     fh.hash = hash.hexdigest()
@@ -64,7 +88,7 @@ if __name__ == '__main__':
         os.setxattr(args.shelf_name, VERIF_EA_NAME, pickled_fh)
     except:
         total_failures += 1
-        if (args.verbose > 0):
+        if args.verbose:
             print("Error setting EA with default pickle protocol")
 
 
@@ -74,7 +98,7 @@ if __name__ == '__main__':
         os.setxattr(args.shelf_name, VERIF_EA_NAME, pickled_fh)
     except:
         total_failures += 1
-        if (args.verbose > 0):
+        if args.verbose:
             print("Error setting EA with pickle protocol 0 ")
 
 
@@ -82,24 +106,17 @@ if __name__ == '__main__':
         os.setxattr(args.shelf_name, VERIF_EA_NAME, os.urandom(300))
     except:
         total_failures += 1
-        if (args.verbose > 0):
+        if args.verbose:
             print("Error setting EA random data")
 
 
     try:
         os.setxattr(args.shelf_name, VERIF_EA_NAME, base64.b64encode(os.urandom(300)))
-    except:
+    except Exception as e:
         total_failures += 1
-        if (args.verbose > 0):
+        if args.verbose:
             print("Error setting EA base64 encoded random data")
 
-    if (args.verbose > 0):
-        print("check-ea.py test complete,", end="")
-    if (total_failures == 0):
-        if (args.verbose > 0):
-            print(" all tests passed")
-        sys.exit(0)
-    else:
-        if (args.verbose > 0):
-            print(" total failures = %d" % total_failures)
-        sys.exit(1)
+    if args.verbose:
+        print("%s complete, total failures = %d" % (sys.argv[0], total_failures))
+    raise SystemExit(total_failures)
