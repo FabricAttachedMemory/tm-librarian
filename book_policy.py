@@ -151,7 +151,7 @@ class BookPolicy(object):
         extant_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
 
         if fromLocal:
-            localbooks = _node_ids2books(books_needed, caller_id, shuffle=False)
+            localbooks = self._node_ids2books(books_needed, caller_id, shuffle=False)
         else:
             localbooks = []
 
