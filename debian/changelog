@@ -1,3 +1,9 @@
+tm-librarian (1.18+l4tm1) catapult; urgency=low
+
+  * Added GPL2 headers
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Thu, 19 Jan 2017 08:40:13 -0700
+
 tm-librarian (1.17+l4tm1) catapult; urgency=low
 
   * Create /var/hpetm directory, bug fixes
