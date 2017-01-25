@@ -1,3 +1,9 @@
+tm-librarian (1.19+l4tm1) catapult; urgency=low
+
+  * Fixes to LMP for coordinate syntax changes
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 25 Jan 2017 15:52:43 -0700
+
 tm-librarian (1.18+l4tm1) catapult; urgency=low
 
   * Added GPL2 headers

@@ -415,16 +415,17 @@ def show_allocated(coordinate):
 def show_active(coordinate):
     try:
         c_type = coordinate.split('/')[-2]
+        coordinate = '/' + coordinate
 
         cur = mainapp.cur
 
-        if c_type == 'datacenter':
+        if c_type == 'Datacenter':
             cur.execute('''
                 SELECT DISTINCT opened_shelves.shelf_id, shelves.book_count
                 FROM opened_shelves
                 JOIN shelves ON opened_shelves.shelf_id = shelves.id
                 JOIN SOCs ON opened_shelves.node_id = SOCs.node_id''')
-        elif c_type == 'soc':
+        elif c_type == 'Soc':
             cur.execute('''
                 SELECT DISTINCT opened_shelves.shelf_id, shelves.book_count
                 FROM opened_shelves
