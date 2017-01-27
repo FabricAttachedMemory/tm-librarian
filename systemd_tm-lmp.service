@@ -5,6 +5,7 @@ After=network-online.target
 
 [Service]
 EnvironmentFile=-/etc/default/tm-lmp
+WorkingDirectory=/usr/lib/python3/dist-packages/tm_librarian
 ExecStart=/usr/bin/lmp.py $OPT_ARGS
 
 [Install]
