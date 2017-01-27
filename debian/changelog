@@ -1,3 +1,9 @@
+tm-librarian (1.14-1) unstable; urgency=medium
+
+  * Set LMP daemon working directory to python tm_librarian dir
+
+ -- Keith Packard <keithp@keithp.com>  Fri, 27 Jan 2017 14:39:02 -0800
+
 tm-librarian (1.13-2) unstable; urgency=low
 
   * Split into per-daemon packages
