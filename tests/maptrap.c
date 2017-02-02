@@ -39,6 +39,7 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <signal.h>
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
@@ -47,22 +48,21 @@
 #define READIT	0x01	// cuz O_RDONLY == 0x0 and I need bit OR'ing
 #define WRITEIT	0x02
 
-#define MAXTHREADS 10
-
 #define die(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 
-static int do_prompt = 0;
+static int do_prompt = 0, nprocs = 0;
 
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
 	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
 	    jumparound;
 	long loop;
-	unsigned int *mapped, *last_byte;
+	unsigned int *mapped, *last_byte, hiperf, seconds, proceed;
 	unsigned long flags, access_offset;
 	size_t fsize;
 	char syncit[10];
 	pthread_t *tids;
+	unsigned long *naccesses;
 	char *fname;
 };
 
@@ -93,31 +93,35 @@ void prompt(char *fmt, ...)
 ///////////////////////////////////////////////////////////////////////////
 
 void usage() {
-    fprintf(stderr, "usage: maptrap <-P|-S> [-c n -CfFlmoOprRstW ] filename\n");
+    fprintf(stderr,
+    	"usage: maptrap <-P|-S> [-c:CfFH:l:L:moOprRs:t:T:uw:W ] filename\n");
     fprintf(stderr, "\t-P    MAP_PRIVATE\n");
     fprintf(stderr, "\t-S    MAP_SHARED\n\n");
     fprintf(stderr, "\t-c 1  create/populate the file via write(2)\n");
     fprintf(stderr, "\t-c 2     \"       \"     \"   \"    \"  ftruncate(2)\n");
     fprintf(stderr, "\t-c 3     \"       \"     \"   \"    \"  truncate(2)\n");
-    fprintf(stderr, "\t-d    delete file before creating it\n");
     fprintf(stderr, "\t-C    close(2) and reopen file after creation\n");
+    fprintf(stderr, "\t-d    delete file before creating it\n");
     fprintf(stderr, "\t-f    fsync() after update\n");
     fprintf(stderr, "\t-F    fdatasync() after update\n");
+    fprintf(stderr, "\t-H n  high-performance test n: max threads, each...\n");
+    fprintf(stderr, "\t   1  reads fixed location from private cache line\n");
     fprintf(stderr, "\t-j    jump around (random access)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
+    fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
     fprintf(stderr, "\t-m    msync() after update\n");
     fprintf(stderr, "\t-p    pause/prompt for each step\n");
     fprintf(stderr, "\t-q    no output, suppress 1-second loop delay\n");
     fprintf(stderr, "\t-o    initial offset (bytes)\n");
     fprintf(stderr, "\t-O    overcommit memory (accesses start beyond EOF)\n");
     fprintf(stderr, "\t-r    read(2) the file first\n");
-    fprintf(stderr, "\t-R    read-only memory accesses\n");
+    fprintf(stderr, "\t-R    read memory accesses\n");
     fprintf(stderr, "\t-s n  stride (in bytes) for each loop iteration\n");
     fprintf(stderr, "\t-t n  size of file for (f)truncate (default 16M)\n");
-    fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", MAXTHREADS);
+    fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", nprocs);
     fprintf(stderr, "\t-u    suppress final munmap()\n");
     fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l\n");
-    fprintf(stderr, "\t-W    write-only memory accesses\n");
+    fprintf(stderr, "\t-W    write memory accesses\n");
     fprintf(stderr, "\t-Z    suppress inter-step sleep\n");
     exit(1);
 }
@@ -180,15 +184,51 @@ int create_write(char *fname) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// hiperf helpers and payloads
+
+void *hiperf1(struct tvals_t *tvals, unsigned int myindex)
+{
+    unsigned int *access = NULL;
+    volatile unsigned int currval;
+    unsigned long naccesses;
+	
+    access = (void *)((unsigned long)tvals->mapped + (64 * myindex));
+
+    // FIXME: barrier start?
+
+    while (tvals->proceed) {
+    	currval = *access;
+	naccesses++;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
+///////////////////////////////////////////////////////////////////////////
 // Threaded routine
 
 void *payload(void *threadarg)
 {
     struct tvals_t *tvals = (struct tvals_t *)threadarg;
-    unsigned long foffset, stride;
+    pthread_t mytid = pthread_self();
+    unsigned long foffset, stride, naccesses = 0;
     char *s;
-    unsigned int *access, naccesses = 0;
-    unsigned int curr_val;
+    unsigned int *access;
+    unsigned int curr_val, myindex;
+    long loop;
+    
+    for (myindex = 0; myindex < nprocs; myindex++) {
+	if (mytid == tvals->tids[myindex])
+	    break;
+    }
+    if (myindex >= nprocs) die("Cannot find my TID\n");
+
+    if (tvals->hiperf) {
+	switch (tvals->hiperf) {
+	case 1: return hiperf1(tvals, myindex);
+	}
+    }
 
     curr_val = 0x42424241;	// For WRONLY, gotta start somewhere
 
@@ -207,6 +247,7 @@ void *payload(void *threadarg)
 	access = (void *)(((unsigned long)tvals->last_byte) + 1 - stride);
     }
 
+    loop = tvals->loop;
     do {
     	if (!do_prompt) printf("\n");
 
@@ -260,22 +301,22 @@ void *payload(void *threadarg)
 		if ((unsigned long)access > (unsigned long)tvals->last_byte - stride) {
 			access = tvals->mapped;
 			if (tvals->walking)
-				tvals->loop--;
+				loop--;
 		}
 	} else {
 		access = (unsigned int *)((unsigned long)access - stride);
 		if ((unsigned long)access < (unsigned long)tvals->mapped) {
 			access = (void *)((unsigned long)(tvals->last_byte) + 1 - stride);
 			if (tvals->walking)
-				tvals->loop--;
+				loop--;
 		}
 	}
 	// Loop count for walks is handled in the wraparound fixups
 	if (!tvals->walking)
-		tvals->loop--;
+		loop--;
 
-    } while (tvals->loop != 0);
-    printf("\nTotal accesses: %u\n", naccesses);
+    } while (loop != 0 && tvals->proceed);
+    tvals->naccesses[myindex] = naccesses;
     return NULL;
 }
 
@@ -316,8 +357,12 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     struct stat buf;
     char *s;
 
+    if ((nprocs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
+    	die("Cannot determine active logical CPU count\n");
+
     // Initialize default thread payload values
     memset(tvals, 0, sizeof(struct tvals_t));
+    tvals->proceed = 1;
     tvals->fd = -1;
     tvals->fsize = 16 * 1024 * 1024;	// typical MongoDB
     tvals->nthreads = 1;		// main() is a thread
@@ -325,7 +370,8 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     tvals->unmap = 1;			// usually call munmap()
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfjFl:mo:OpPqrRSs:t:T:uw:WZ")) != EOF)
+    while ((opt = getopt(argc, argv, "c:CdfjFH:l:L:mo:OpPqrRSs:t:T:uw:WZ"))
+		!= EOF)
       switch (opt) {
 
 	// Required
@@ -348,8 +394,10 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 		*s++ = opt;
 		break;
 
+	case 'H':	tvals->hiperf = bignum(optarg, 0); break;
 	case 'j':	tvals->jumparound = 1; break;
     	case 'l':	tvals->loop = bignum(optarg, 1); break;
+    	case 'L':	tvals->seconds = bignum(optarg, 0); break;
     	case 'o':	tvals->access_offset = strtoul(optarg, NULL, 0); break;
 	case 'O':	tvals->overcommit = 1; break;
     	case 'p':	do_prompt = 1; break;
@@ -371,21 +419,21 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     }
 
     // Idiot checks
+    if (tvals->loop && tvals->seconds)
+	die("Only one of -l | -L");
+    if (tvals->hiperf) {
+	tvals->nthreads = nprocs;
+    	if (!tvals->seconds) tvals->seconds = 10;
+    }
     if (!tvals->loop) tvals->loop = 1;
-    if (!tvals->flags) {
-    	fprintf(stderr, "Thou shalt use one and only one of -P | -S\n");
-	usage();
-    }
-    if (!tvals->RW) {
-    	fprintf(stderr, "Thou shalt use at least one of -R | -W\n");
-	usage();
-    }
-    if (tvals->nthreads < 1 || tvals->nthreads > MAXTHREADS ) {
-    	fprintf(stderr, "Dude, %d threads?  Nice try.\n", tvals->nthreads);
-	usage();
-    }
+
+    if (!tvals->flags) die("Thou shalt use one and only one of -P | -S\n");
+    if (!tvals->RW) die("Thou shalt use at least one of -R | -W\n");
+    if (tvals->nthreads && nprocs == 1)
+    	die("Can't effectively multithread on a nosmp system\n")
+    if (tvals->nthreads < 1 || tvals->nthreads > nprocs )
+    	die("Dude, %d threads?  Nice try.\n", tvals->nthreads);
     if (tvals->nthreads > 1) do_prompt = -1;
-    tvals->nthreads--;	// how many times do I have to call pthread_create?
 
     // do_delete and do_close only make sense when trying to create a file
 
@@ -438,6 +486,18 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 	else
     	    printf("read() got 0x%x\n", junk);
     }
+
+    // Thread tracking
+    if (!(tvals->tids = calloc(tvals->nthreads, sizeof(pthread_t)))) {
+    	fprintf(stderr, "calloc(%d threads) failed: %s\n",
+		tvals->nthreads, strerror(errno));
+	exit(1);
+    }
+    if (!(tvals->naccesses = calloc(tvals->nthreads, sizeof(unsigned long)))) {
+    	fprintf(stderr, "calloc(%d naccesses) failed: %s\n",
+		tvals->nthreads, strerror(errno));
+	exit(1);
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -478,43 +538,34 @@ void mmapper(struct tvals_t *tvals)
 int main(int argc, char *argv[])
 {
     struct tvals_t tvals;
-    pthread_t *tids;
-    int i;
+    int i, ret;
 
     cmdline_prepfile(&tvals, argc, argv);
     mmapper(&tvals);
 
-    if (tvals.nthreads && 
-        !(tids = calloc(tvals.nthreads, sizeof(pthread_t)))) {
-    	fprintf(stderr, "calloc(%d threads) failed: %s\n",
-		tvals.nthreads, strerror(errno));
-	exit(1);
-    }
-
     //---------------------------------------------------------------------
-    // load and go
+    // load and go.
 
     for (i = 0; i < tvals.nthreads; i++) {
-	int ret;
-
-	if ((ret = pthread_create(&tids[i], NULL, payload, &tvals))) {
+	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
 		perror("pthread_create() failed");
 		exit(1);
 	}
-    }	
-    payload(&tvals);	// I'm a thread, too
+    }
+
+    if (tvals.seconds) {
+	sleep(tvals.seconds);
+	tvals.proceed = 0;
+    }
 
     for (i = 0; i < tvals.nthreads; i++) {
-	int ret;
     	void *payload_ret;
 
-	if ((ret = pthread_join(tids[i], &payload_ret))) {
+	if ((ret = pthread_join(tvals.tids[i], &payload_ret))) {
 		perror("pthread_join() failed");
 		exit(1);
 	}
     }
-    free(tids);
-    tids = NULL;
 
     //---------------------------------------------------------------------
     if (tvals.unmap) {
