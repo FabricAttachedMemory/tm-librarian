@@ -40,6 +40,7 @@
 #include <stdarg.h>
 #include <pthread.h>
 #include <signal.h>
+#include <locale.h>
 
 #include <sys/time.h>
 
@@ -52,7 +53,7 @@
 
 #define die(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 
-static int do_prompt = 0, nprocs = 0;
+static int do_prompt = 0, nprocs = 0, verbose = 0;
 
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
@@ -122,6 +123,7 @@ void usage() {
     fprintf(stderr, "\t-t n  size of file for (f)truncate (default 16M)\n");
     fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", nprocs);
     fprintf(stderr, "\t-u    suppress final munmap()\n");
+    fprintf(stderr, "\t-v    increase verbosity (might hurt performance)\n");
     fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l\n");
     fprintf(stderr, "\t-W    write memory accesses\n");
     fprintf(stderr, "\t-Z    suppress inter-step sleep\n");
@@ -192,8 +194,8 @@ void *hiperf1(struct tvals_t *tvals, unsigned int myindex)
 {
     unsigned int *access = NULL;
     volatile unsigned int currval;
-    unsigned long naccesses;
-	
+    unsigned long naccesses = 0;
+
     access = (void *)((unsigned long)tvals->mapped + (64 * myindex));
 
     // FIXME: barrier start?
@@ -203,6 +205,9 @@ void *hiperf1(struct tvals_t *tvals, unsigned int myindex)
 	naccesses++;
     }
     tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1)
+	printf("hiperf1 index %3u had %'lu accesses\n", myindex, naccesses);
+    
     myindex = currval;	// forestall "unused variable" compiler whining
     return NULL;
 }
@@ -361,6 +366,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 
     if ((nprocs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
     	die("Cannot determine active logical CPU count\n");
+    printf("%d logical CPUs available\n", nprocs);
 
     // Initialize default thread payload values
     memset(tvals, 0, sizeof(struct tvals_t));
@@ -372,7 +378,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     tvals->unmap = 1;			// usually call munmap()
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfjFH:l:L:mo:OpPqrRSs:t:T:uw:WZ"))
+    while ((opt = getopt(argc, argv, "c:CdfjFH:l:L:mo:OpPqrRSs:t:T:uvw:WZ"))
 		!= EOF)
       switch (opt) {
 
@@ -408,6 +414,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     	case 't': 	tvals->fsize = bignum(optarg, 0); break;
     	case 'T':	tvals->nthreads = atol(optarg); break;
 	case 'u':	tvals->unmap = 0; break;
+	case 'v':	verbose++; break;
 
     	case 'w':	tvals->walking = 1;	// fall through
     	case 's':	tvals->stride = bignum(optarg, 1); break;
@@ -525,33 +532,60 @@ void mmapper(struct tvals_t *tvals)
     }
     tvals->last_byte = (void *)((unsigned long)tvals->mapped + tvals->fsize - 1);
 
-    printf("PID = %d, map range = 0x%p - 0x%p\n",
-    	getpid(),
-	tvals->mapped, tvals->last_byte);
+    if (verbose) {
+    	printf("PID = %d, map range = 0x%p - 0x%p\n",
+    		getpid(),
+		tvals->mapped,
+		tvals->last_byte);
 #if 1
-    sprintf(cmd, "/bin/grep '^%lx' /proc/%d/maps",
-    	(unsigned long)tvals->mapped, getpid());
-    printf("%s\n", cmd);
-    system(cmd);
+    	sprintf(cmd, "/bin/grep '^%lx' /proc/%d/maps",
+    		(unsigned long)tvals->mapped, getpid());
+    	printf("%s\n", cmd);
+    	system(cmd);
 #endif
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////
+
+void printtime(
+	struct tvals_t *tvals, struct timespec *start, struct timespec *stop)
+{
+    unsigned long naccesses;
+    int i;
+    float delta =
+        ((float)(stop->tv_nsec) / 1000000000.0) + (float)(stop->tv_sec)
+        -
+        ((float)(start->tv_nsec) / 1000000000.0 + (float)(start->tv_sec));
+
+    naccesses = 0;
+    for (i = 0; i < tvals->nthreads; i++) {
+    	naccesses += tvals->naccesses[i];
+	if (verbose)
+	    printf("Thread %4d: %'22lu accesses\n", i, tvals->naccesses[i]);
+    }
+
+    printf("%'20lu accesses across %d threads in %.2f seconds\n",
+	 naccesses, tvals->nthreads, delta);
+    if (delta > 0.01)
+        printf("%'20lu accesses/thread/second\n",
+	    (unsigned long)((float)naccesses/ (float)tvals->nthreads / delta));
+}
 
 int main(int argc, char *argv[])
 {
     struct tvals_t tvals;
     int i, ret;
-    struct timeval starter, stopper;
-    unsigned long elapsed, naccesses;
+    struct timespec start, stop;
 
+    setlocale(LC_NUMERIC, "");          // backtick for radix comma
     cmdline_prepfile(&tvals, argc, argv);
     mmapper(&tvals);
 
     //---------------------------------------------------------------------
     // load and go.
 
-    gettimeofday(&starter, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
     for (i = 0; i < tvals.nthreads; i++) {
 	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
@@ -573,14 +607,9 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
     }
-    gettimeofday(&stopper, NULL);
+    clock_gettime(CLOCK_MONOTONIC, &stop);
 
-    elapsed = stopper.tv_sec - starter.tv_sec;
-    naccesses = 0;
-    for (i = 0; i < tvals.nthreads; i++)
-    	naccesses += tvals.naccesses[i];
-
-    printf("%lu accesses in %lu seconds\n", naccesses, elapsed);
+    printtime(&tvals, &start, &stop);
 
     //---------------------------------------------------------------------
     if (tvals.unmap) {
