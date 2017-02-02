@@ -41,6 +41,8 @@
 #include <pthread.h>
 #include <signal.h>
 
+#include <sys/time.h>
+
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
@@ -61,9 +63,9 @@ struct tvals_t {
 	unsigned long flags, access_offset;
 	size_t fsize;
 	char syncit[10];
-	pthread_t *tids;
-	unsigned long *naccesses;
 	char *fname;
+	pthread_t *tids;		// base of dynamic array
+	unsigned long *naccesses;	// ditto
 };
 
 ///////////////////////////////////////////////////////////////////////////
@@ -428,7 +430,8 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     if (!tvals->loop) tvals->loop = 1;
 
     if (!tvals->flags) die("Thou shalt use one and only one of -P | -S\n");
-    if (!tvals->RW) die("Thou shalt use at least one of -R | -W\n");
+    if (!tvals->RW && !tvals->hiperf)
+    	die("Thou shalt use at least one of -R|-W, or -H which ignores them\n");
     if (tvals->nthreads && nprocs == 1)
     	die("Can't effectively multithread on a nosmp system\n")
     if (tvals->nthreads < 1 || tvals->nthreads > nprocs )
@@ -539,12 +542,16 @@ int main(int argc, char *argv[])
 {
     struct tvals_t tvals;
     int i, ret;
+    struct timeval starter, stopper;
+    unsigned long elapsed, naccesses;
 
     cmdline_prepfile(&tvals, argc, argv);
     mmapper(&tvals);
 
     //---------------------------------------------------------------------
     // load and go.
+
+    gettimeofday(&starter, NULL);
 
     for (i = 0; i < tvals.nthreads; i++) {
 	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
@@ -566,6 +573,14 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
     }
+    gettimeofday(&stopper, NULL);
+
+    elapsed = stopper.tv_sec - starter.tv_sec;
+    naccesses = 0;
+    for (i = 0; i < tvals.nthreads; i++)
+    	naccesses += tvals.naccesses[i];
+
+    printf("%lu accesses in %lu seconds\n", naccesses, elapsed);
 
     //---------------------------------------------------------------------
     if (tvals.unmap) {
