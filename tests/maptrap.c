@@ -53,8 +53,6 @@
 
 #define die(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 
-static int do_prompt = 0, nprocs = 0, verbose = 0;
-
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
 	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
@@ -68,6 +66,13 @@ struct tvals_t {
 	pthread_t *tids;		// base of dynamic array
 	unsigned long *naccesses;	// ditto
 };
+
+///////////////////////////////////////////////////////////////////////////
+// globals
+
+static int do_prompt = 0, nprocs = 0, verbose = 0;
+static pthread_barrier_t barrier;
+struct timespec start, stop;
 
 ///////////////////////////////////////////////////////////////////////////
 // tracing and/or single-stepping
@@ -224,12 +229,20 @@ void *payload(void *threadarg)
     unsigned int *access;
     unsigned int curr_val, myindex;
     long loop;
+    int b;
     
     for (myindex = 0; myindex < nprocs; myindex++) {
 	if (mytid == tvals->tids[myindex])
 	    break;
     }
     if (myindex >= nprocs) die("Cannot find my TID\n");
+
+    if ((b = pthread_barrier_wait(&barrier)) == -1) {
+    	perror("pthread_barrier_wait() failed");
+	die("Thread %d", myindex);
+    }
+    if (b == PTHREAD_BARRIER_SERIAL_THREAD)	// Exactly one
+    	clock_gettime(CLOCK_MONOTONIC, &start);
 
     if (tvals->hiperf) {
 	switch (tvals->hiperf) {
@@ -431,7 +444,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     if (tvals->loop && tvals->seconds)
 	die("Only one of -l | -L");
     if (tvals->hiperf) {
-	tvals->nthreads = nprocs;
+	if (tvals->nthreads == 1) tvals->nthreads = nprocs;
     	if (!tvals->seconds) tvals->seconds = 10;
     }
     if (!tvals->loop) tvals->loop = 1;
@@ -576,17 +589,18 @@ int main(int argc, char *argv[])
 {
     struct tvals_t tvals;
     int i, ret;
-    struct timespec start, stop;
 
     setlocale(LC_NUMERIC, "");          // backtick for radix comma
     cmdline_prepfile(&tvals, argc, argv);
     mmapper(&tvals);
 
     //---------------------------------------------------------------------
-    // load and go.
+    // load and go.  Threads pause at the barrier, then one starts the clock.
 
-    clock_gettime(CLOCK_MONOTONIC, &start);
-
+    if (pthread_barrier_init(&barrier, NULL, tvals.nthreads) == -1) {
+    	perror("pthread_barrier_init() failed");
+	exit(1);
+    }
     for (i = 0; i < tvals.nthreads; i++) {
 	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
 		perror("pthread_create() failed");
