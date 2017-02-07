@@ -18,6 +18,9 @@
 // mmap() exerciser with looping, increments, single-stepping and more.
 
 // gcc -o maptrap -Wall -Werror -pthread maptrap.c
+// to compile and see intermixed assembly:
+// http://www.systutorials.com/240/generate-a-mixed-source-and-assembly-listing-using-gcc/
+// gcc -o maptrap -Wall -Werror -pthread -g -Wa,-adhln maptrap.c > maptrap.s
 
 // Origin: exerciser for MMS PoC development in 2013
 // Rocky Craig rocky.craig@hpe.com
@@ -199,14 +202,13 @@ void *hiperf_fixed_read_personal_cacheline(
 	struct tvals_t *tvals, unsigned int myindex)
 {
     unsigned int *access = NULL;
-    volatile unsigned int currval;
+    volatile unsigned int currval, *proceed;
     unsigned long naccesses = 0;
 
     access = (void *)((unsigned long)tvals->mapped + (64 * myindex));
+    proceed = &(tvals->proceed);	// unroll this reference
 
-    // FIXME: barrier start?
-
-    while (tvals->proceed) {
+    while (*proceed) {
     	currval = *access;
 	naccesses++;
     }
@@ -238,8 +240,10 @@ void *payload(void *threadarg)
     }
     if (myindex >= nprocs) die("Cannot find my TID\n");
 
+    // Let the thread startup settle and start the clock.
+
     b = pthread_barrier_wait(&barrier);
-    if (b == PTHREAD_BARRIER_SERIAL_THREAD)	// It's -1; Exactly one
+    if (b == PTHREAD_BARRIER_SERIAL_THREAD)	// Exactly one gets this (-1)
     	clock_gettime(CLOCK_MONOTONIC, &start);
     else if (b)
 	die("pthread_barrier_wait() failed: %s", strerror(b));
