@@ -113,7 +113,7 @@ void usage() {
     fprintf(stderr, "\t-f    fsync() after update\n");
     fprintf(stderr, "\t-F    fdatasync() after update\n");
     fprintf(stderr, "\t-H n  high-performance test n: max threads, each...\n");
-    fprintf(stderr, "\t   1  reads fixed location from private cache line\n");
+    fprintf(stderr, "\t   1  fixed read from per-thread cache line\n");
     fprintf(stderr, "\t-j    jump around (random access)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
@@ -195,7 +195,8 @@ int create_write(char *fname) {
 ///////////////////////////////////////////////////////////////////////////
 // hiperf helpers and payloads
 
-void *hiperf1(struct tvals_t *tvals, unsigned int myindex)
+void *hiperf_fixed_read_personal_cacheline(
+	struct tvals_t *tvals, unsigned int myindex)
 {
     unsigned int *access = NULL;
     volatile unsigned int currval;
@@ -210,8 +211,8 @@ void *hiperf1(struct tvals_t *tvals, unsigned int myindex)
 	naccesses++;
     }
     tvals->naccesses[myindex] = naccesses;
-    if (verbose > 1)
-	printf("hiperf1 index %3u had %'lu accesses\n", myindex, naccesses);
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
     
     myindex = currval;	// forestall "unused variable" compiler whining
     return NULL;
@@ -237,17 +238,14 @@ void *payload(void *threadarg)
     }
     if (myindex >= nprocs) die("Cannot find my TID\n");
 
-    if ((b = pthread_barrier_wait(&barrier)) == -1) {
-    	perror("pthread_barrier_wait() failed");
-	die("Thread %d", myindex);
-    }
-    if (b == PTHREAD_BARRIER_SERIAL_THREAD)	// Exactly one
+    b = pthread_barrier_wait(&barrier);
+    if (b == PTHREAD_BARRIER_SERIAL_THREAD)	// It's -1; Exactly one
     	clock_gettime(CLOCK_MONOTONIC, &start);
+    else if (b)
+	die("pthread_barrier_wait() failed: %s", strerror(b));
 
-    if (tvals->hiperf) {
-	switch (tvals->hiperf) {
-	case 1: return hiperf1(tvals, myindex);
-	}
+    switch (tvals->hiperf) {
+    case 1: return hiperf_fixed_read_personal_cacheline(tvals, myindex);
     }
 
     curr_val = 0x42424241;	// For WRONLY, gotta start somewhere
