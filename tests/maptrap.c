@@ -122,6 +122,7 @@ void usage() {
     fprintf(stderr, "\t-H n  high-performance test n: max threads, each...\n");
     fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
     fprintf(stderr, "\t   2  random reads from first 2G\n");
+    fprintf(stderr, "\t   3  random read-incr-write from first 2G\n");
     fprintf(stderr, "\t-j    jump around (random access)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
@@ -137,7 +138,7 @@ void usage() {
     fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", nprocs);
     fprintf(stderr, "\t-u    suppress final munmap()\n");
     fprintf(stderr, "\t-v    increase verbosity (might hurt performance)\n");
-    fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l\n");
+    fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l|-L\n");
     fprintf(stderr, "\t-W    write memory accesses\n");
     fprintf(stderr, "\t-Z    suppress inter-step sleep\n");
     exit(1);
@@ -250,6 +251,32 @@ void *hiperf_random_read_2G(struct tvals_t *tvals, unsigned int myindex)
     return NULL;
 }
 
+void *hiperf_random_incr_2G(struct tvals_t *tvals, unsigned int myindex)
+{
+    unsigned int *access = NULL, *seedp;
+    volatile unsigned int currval, *proceed;
+    unsigned long naccesses = 0, base;
+
+    // Unroll some references
+    base = (unsigned long)tvals->mapped;
+    proceed = &(tvals->proceed);	// unroll this reference
+
+    // I need per-thread space for the RNG rolling seed.  man 3 rand_r
+    seedp = (void *)&tvals->naccesses[myindex];
+    *seedp = myindex * 1000 + time(NULL);
+
+    while (*proceed) {
+	access = (void *)(base + (rand_r(seedp) % sizeof(*access)));
+    	*access += 1;
+	naccesses += 2;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Threaded routine
 
@@ -284,6 +311,8 @@ void *payload(void *threadarg)
     	return hiperf_fixed_read_personal_cacheline(tvals, myindex);
     case 2:
     	return hiperf_random_read_2G(tvals, myindex);
+    case 3:
+    	return hiperf_random_incr_2G(tvals, myindex);
     }
 
     curr_val = 0x42424241;	// For WRONLY, gotta start somewhere
@@ -564,6 +593,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     // Final idiot checks
     switch (tvals->hiperf) {
     case 2:
+    case 3:
 	if (tvals->fsize < (1L<<31) - 1L)
 	    die("%s size must be at least 2G", tvals->fname);
 	break;
