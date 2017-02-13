@@ -119,11 +119,11 @@ void usage() {
     fprintf(stderr, "\t-d    delete file before creating it\n");
     fprintf(stderr, "\t-f    fsync() after update\n");
     fprintf(stderr, "\t-F    fdatasync() after update\n");
-    fprintf(stderr, "\t-H n  high-performance test n: max threads, each...\n");
+    fprintf(stderr, "\t-H n  high-performance test n: each thread does...\n");
     fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
-    fprintf(stderr, "\t   2  random reads from first 2G\n");
-    fprintf(stderr, "\t   3  random read-incr-write from first 2G\n");
-    fprintf(stderr, "\t-j    jump around (random access)\n");
+    fprintf(stderr, "\t   2  random reads from first 2G of a file\n");
+    fprintf(stderr, "\t   3  random read-incr-write from first 2G of a file\n");
+    fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
     fprintf(stderr, "\t-m    msync() after update\n");
@@ -456,7 +456,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     tvals->unmap = 1;			// usually call munmap()
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfjFH:l:L:mo:OpPqrRSs:t:T:uvw:WZ"))
+    while ((opt = getopt(argc, argv, "c:CdfFH:jl:L:mo:OpPqrRSs:t:T:uvw:WZ"))
 		!= EOF)
       switch (opt) {
 
