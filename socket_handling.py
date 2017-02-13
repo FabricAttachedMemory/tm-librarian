@@ -549,7 +549,17 @@ class Server(SocketReadWrite):
                         logging.critical('%s: %s' % (s, cmdict['command']))
                     else:
                         logging.warning('%s: %s' % (s, str(cmdict)))
-                except ConnectionError as e:  # Base class in Python3
+                except (ConnectionError, OSError) as e:
+                    # ConnectionError is a base class in Python3.  OSError
+                    # 113 (EHOSTUNREACH, no route to host) occurs when node
+                    # dies in middle of transaction and can't receive the
+                    # response.  It usually shows up on a (forced) reboot
+                    # of the node.
+                    if isinstance(e, OSError):
+                        if e.errno not in (errno.EHOSTUNREACH, ):
+                            if sys.stdin.isatty():
+                                print('Unhandled OSError during response')
+                                set_trace()
                     logging.error(str(e))
                     clients.remove(s)
                     if s in to_write:
@@ -558,7 +568,9 @@ class Server(SocketReadWrite):
                 except Exception as e:  # Shouldn't happen
                     msg = 'UNEXPECTED SOCKET ERROR: %s' % str(e)
                     logging.error('%s: %s' % (s, msg))
-                    set_trace()
+                    if sys.stdin.isatty():
+                        print(msg)
+                        set_trace()
                     raise
 
                 try:    # process the next command

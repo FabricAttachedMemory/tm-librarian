@@ -18,6 +18,9 @@
 // mmap() exerciser with looping, increments, single-stepping and more.
 
 // gcc -o maptrap -Wall -Werror -pthread maptrap.c
+// to compile and see intermixed assembly:
+// http://www.systutorials.com/240/generate-a-mixed-source-and-assembly-listing-using-gcc/
+// gcc -o maptrap -Wall -Werror -pthread -g -Wa,-adhln maptrap.c > maptrap.s
 
 // Origin: exerciser for MMS PoC development in 2013
 // Rocky Craig rocky.craig@hpe.com
@@ -39,6 +42,10 @@
 #include <fcntl.h>
 #include <stdarg.h>
 #include <pthread.h>
+#include <signal.h>
+#include <locale.h>
+
+#include <sys/time.h>
 
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
@@ -47,24 +54,29 @@
 #define READIT	0x01	// cuz O_RDONLY == 0x0 and I need bit OR'ing
 #define WRITEIT	0x02
 
-#define MAXTHREADS 10
-
 #define die(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
-
-static int do_prompt = 0;
 
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
 	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
 	    jumparound;
 	long loop;
-	unsigned int *mapped, *last_byte;
+	unsigned int *mapped, *last_byte, hiperf, seconds, proceed;
 	unsigned long flags, access_offset;
 	size_t fsize;
 	char syncit[10];
-	pthread_t *tids;
 	char *fname;
+	pthread_t *tids;		// base of dynamic array
+	unsigned long *naccesses;	// ditto
 };
+
+///////////////////////////////////////////////////////////////////////////
+// globals
+
+static int prompt_arg = 0, nprocs = 0, verbose = 0;
+static pthread_barrier_t barrier;
+static pthread_t golden1 = 0;
+struct timespec start, stop;
 
 ///////////////////////////////////////////////////////////////////////////
 // tracing and/or single-stepping
@@ -74,10 +86,13 @@ void prompt(char *fmt, ...)
     volatile int resp;
     va_list ap;
 
-    if (do_prompt < 0) return;
+    if (prompt_arg < 0)	// -q
+    	return;	
+    if (golden1 && golden1 != pthread_self())
+    	return;
 
     va_start(ap, fmt);
-    if (!do_prompt) {
+    if (!prompt_arg) {
 	vprintf(fmt, ap);
 	printf("\n");
     } else {
@@ -93,31 +108,38 @@ void prompt(char *fmt, ...)
 ///////////////////////////////////////////////////////////////////////////
 
 void usage() {
-    fprintf(stderr, "usage: maptrap <-P|-S> [-c n -CfFlmoOprRstW ] filename\n");
+    fprintf(stderr,
+    	"usage: maptrap <-P|-S> [-c:CfFH:l:L:moOprRs:t:T:uw:W ] filename\n");
     fprintf(stderr, "\t-P    MAP_PRIVATE\n");
     fprintf(stderr, "\t-S    MAP_SHARED\n\n");
     fprintf(stderr, "\t-c 1  create/populate the file via write(2)\n");
     fprintf(stderr, "\t-c 2     \"       \"     \"   \"    \"  ftruncate(2)\n");
     fprintf(stderr, "\t-c 3     \"       \"     \"   \"    \"  truncate(2)\n");
-    fprintf(stderr, "\t-d    delete file before creating it\n");
     fprintf(stderr, "\t-C    close(2) and reopen file after creation\n");
+    fprintf(stderr, "\t-d    delete file before creating it\n");
     fprintf(stderr, "\t-f    fsync() after update\n");
     fprintf(stderr, "\t-F    fdatasync() after update\n");
-    fprintf(stderr, "\t-j    jump around (random access)\n");
+    fprintf(stderr, "\t-H n  high-performance test n: each thread does...\n");
+    fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
+    fprintf(stderr, "\t   2  random reads from first 2G of a file\n");
+    fprintf(stderr, "\t   3  random read-incr-write from first 2G of a file\n");
+    fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
+    fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
     fprintf(stderr, "\t-m    msync() after update\n");
     fprintf(stderr, "\t-p    pause/prompt for each step\n");
     fprintf(stderr, "\t-q    no output, suppress 1-second loop delay\n");
     fprintf(stderr, "\t-o    initial offset (bytes)\n");
     fprintf(stderr, "\t-O    overcommit memory (accesses start beyond EOF)\n");
     fprintf(stderr, "\t-r    read(2) the file first\n");
-    fprintf(stderr, "\t-R    read-only memory accesses\n");
+    fprintf(stderr, "\t-R    read memory accesses\n");
     fprintf(stderr, "\t-s n  stride (in bytes) for each loop iteration\n");
     fprintf(stderr, "\t-t n  size of file for (f)truncate (default 16M)\n");
-    fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", MAXTHREADS);
+    fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", nprocs);
     fprintf(stderr, "\t-u    suppress final munmap()\n");
-    fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l\n");
-    fprintf(stderr, "\t-W    write-only memory accesses\n");
+    fprintf(stderr, "\t-v    increase verbosity (might hurt performance)\n");
+    fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l|-L\n");
+    fprintf(stderr, "\t-W    write memory accesses\n");
     fprintf(stderr, "\t-Z    suppress inter-step sleep\n");
     exit(1);
 }
@@ -180,22 +202,126 @@ int create_write(char *fname) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// hiperf helpers and payloads
+
+void *hiperf_fixed_read_personal_cacheline(
+	struct tvals_t *tvals, unsigned int myindex)
+{
+    unsigned int *access = NULL;
+    volatile unsigned int currval, *proceed;
+    unsigned long naccesses = 0;
+
+    access = (void *)((unsigned long)tvals->mapped + (64 * myindex));
+    proceed = &(tvals->proceed);	// unroll this reference
+
+    while (*proceed) {
+    	currval = *access;
+	naccesses++;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
+void *hiperf_random_read_2G(struct tvals_t *tvals, unsigned int myindex)
+{
+    unsigned int *access = NULL, *seedp;
+    volatile unsigned int currval, *proceed;
+    unsigned long naccesses = 0, base;
+
+    // Unroll some references
+    base = (unsigned long)tvals->mapped;
+    proceed = &(tvals->proceed);	// unroll this reference
+
+    // I need per-thread space for the RNG rolling seed.  man 3 rand_r
+    seedp = (void *)&tvals->naccesses[myindex];
+    *seedp = myindex * 1000 + time(NULL);
+
+    while (*proceed) {
+	access = (void *)(base + (rand_r(seedp) % sizeof(*access)));
+    	currval = *access;
+	naccesses++;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
+void *hiperf_random_incr_2G(struct tvals_t *tvals, unsigned int myindex)
+{
+    unsigned int *access = NULL, *seedp;
+    volatile unsigned int currval, *proceed;
+    unsigned long naccesses = 0, base;
+
+    // Unroll some references
+    base = (unsigned long)tvals->mapped;
+    proceed = &(tvals->proceed);	// unroll this reference
+
+    // I need per-thread space for the RNG rolling seed.  man 3 rand_r
+    seedp = (void *)&tvals->naccesses[myindex];
+    *seedp = myindex * 1000 + time(NULL);
+
+    while (*proceed) {
+	access = (void *)(base + (rand_r(seedp) % sizeof(*access)));
+    	*access += 1;
+	naccesses += 2;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
+///////////////////////////////////////////////////////////////////////////
 // Threaded routine
 
 void *payload(void *threadarg)
 {
     struct tvals_t *tvals = (struct tvals_t *)threadarg;
-    unsigned long foffset, stride;
+    pthread_t mytid = pthread_self();
+    unsigned long foffset, stride, naccesses = 0;
     char *s;
-    unsigned int *access, naccesses = 0;
-    unsigned int curr_val;
+    unsigned int *access;
+    unsigned int curr_val, myindex;
+    long loop;
+    int b;
+    
+    for (myindex = 0; myindex < nprocs; myindex++) {
+	if (mytid == tvals->tids[myindex])
+	    break;
+    }
+    if (myindex >= nprocs) die("Cannot find my TID\n");
+
+    // Let the thread startup settle and start the clock.
+
+    b = pthread_barrier_wait(&barrier);
+    if (b == PTHREAD_BARRIER_SERIAL_THREAD) {	// Exactly one gets this (-1)
+    	golden1 = pthread_self();
+    	clock_gettime(CLOCK_MONOTONIC, &start);
+    } else if (b)
+	die("pthread_barrier_wait() failed: %s", strerror(b));
+
+    switch (tvals->hiperf) {
+    case 1:
+    	return hiperf_fixed_read_personal_cacheline(tvals, myindex);
+    case 2:
+    	return hiperf_random_read_2G(tvals, myindex);
+    case 3:
+    	return hiperf_random_incr_2G(tvals, myindex);
+    }
 
     curr_val = 0x42424241;	// For WRONLY, gotta start somewhere
 
     // bytes
     if (tvals->jumparound) {
-	// random(3): 0 - RAND_MAX == 2G.   Period == 2^32.  
-	unsigned long delta = random() % (tvals->fsize - 4);
+	// random(3): 0 - RAND_MAX == 2G.   Period approx 16 * 2^32.  
+	// FIXME: see hiperf case 2 for thread-local seeds
+	unsigned long delta = random() % (tvals->fsize - sizeof(*access));
 	access = (void *)((unsigned long)tvals->mapped + (delta & (~15L)));
     } else if (tvals->stride > 0) {
 	stride = tvals->stride;
@@ -207,8 +333,9 @@ void *payload(void *threadarg)
 	access = (void *)(((unsigned long)tvals->last_byte) + 1 - stride);
     }
 
+    loop = tvals->loop;	// poor man's TLS
     do {
-    	if (!do_prompt) printf("\n");
+    	if (!prompt_arg) printf("\n");
 
     	if (!tvals->overcommit && tvals->access_offset >= tvals->fsize)
 		die("access offset beyond EOF\n");
@@ -218,7 +345,7 @@ void *payload(void *threadarg)
 		prompt("integer get @ offset %llu (0x%p)", foffset, access);
 		curr_val = *access;
 		naccesses++;
-		if (do_prompt >= 0)
+		if (prompt_arg >= 0)
 			printf("               = 0x%08x\n", curr_val);
 	}
 	if (tvals->RW & WRITEIT) {
@@ -226,7 +353,7 @@ void *payload(void *threadarg)
 		curr_val += 1;
 		*access = curr_val;
 		naccesses++;
-		if (do_prompt >= 0)
+		if (prompt_arg >= 0)
 			printf("              -> 0x%08x\n", curr_val);
 	}
 
@@ -247,7 +374,7 @@ void *payload(void *threadarg)
 			perror("msync failed");
 		break;
 	}
-	if (!do_prompt && !tvals->no_sleep)
+	if (!prompt_arg && !tvals->no_sleep)
 		sleep(1);
 
 	// Handle wraparound, do everything inline.
@@ -260,22 +387,22 @@ void *payload(void *threadarg)
 		if ((unsigned long)access > (unsigned long)tvals->last_byte - stride) {
 			access = tvals->mapped;
 			if (tvals->walking)
-				tvals->loop--;
+				loop--;
 		}
 	} else {
 		access = (unsigned int *)((unsigned long)access - stride);
 		if ((unsigned long)access < (unsigned long)tvals->mapped) {
 			access = (void *)((unsigned long)(tvals->last_byte) + 1 - stride);
 			if (tvals->walking)
-				tvals->loop--;
+				loop--;
 		}
 	}
 	// Loop count for walks is handled in the wraparound fixups
 	if (!tvals->walking)
-		tvals->loop--;
+		loop--;
 
-    } while (tvals->loop != 0);
-    printf("\nTotal accesses: %u\n", naccesses);
+    } while (loop > 0 || tvals->proceed);
+    tvals->naccesses[myindex] = naccesses;
     return NULL;
 }
 
@@ -316,6 +443,10 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     struct stat buf;
     char *s;
 
+    if ((nprocs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
+    	die("Cannot determine active logical CPU count\n");
+    printf("%d logical CPUs available\n", nprocs);
+
     // Initialize default thread payload values
     memset(tvals, 0, sizeof(struct tvals_t));
     tvals->fd = -1;
@@ -325,7 +456,8 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     tvals->unmap = 1;			// usually call munmap()
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfjFl:mo:OpPqrRSs:t:T:uw:WZ")) != EOF)
+    while ((opt = getopt(argc, argv, "c:CdfFH:jl:L:mo:OpPqrRSs:t:T:uvw:WZ"))
+		!= EOF)
       switch (opt) {
 
 	// Required
@@ -348,16 +480,19 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 		*s++ = opt;
 		break;
 
+	case 'H':	tvals->hiperf = bignum(optarg, 0); break;
 	case 'j':	tvals->jumparound = 1; break;
-    	case 'l':	tvals->loop = bignum(optarg, 1); break;
+    	case 'l':	tvals->loop = bignum(optarg, 0); break;
+    	case 'L':	tvals->seconds = bignum(optarg, 0); break;
     	case 'o':	tvals->access_offset = strtoul(optarg, NULL, 0); break;
 	case 'O':	tvals->overcommit = 1; break;
-    	case 'p':	do_prompt = 1; break;
-	case 'q':	do_prompt = -1; break;
+    	case 'p':	prompt_arg = 1; break;
+	case 'q':	prompt_arg = -1; break;
     	case 'r':	read1st = 1; break;
     	case 't': 	tvals->fsize = bignum(optarg, 0); break;
     	case 'T':	tvals->nthreads = atol(optarg); break;
 	case 'u':	tvals->unmap = 0; break;
+	case 'v':	verbose++; break;
 
     	case 'w':	tvals->walking = 1;	// fall through
     	case 's':	tvals->stride = bignum(optarg, 1); break;
@@ -371,21 +506,25 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     }
 
     // Idiot checks
+    if (tvals->loop && tvals->seconds)
+	die("Only one of -l | -L");
     if (!tvals->loop) tvals->loop = 1;
-    if (!tvals->flags) {
-    	fprintf(stderr, "Thou shalt use one and only one of -P | -S\n");
-	usage();
+    if (tvals->hiperf) {		// canned runs
+    	prompt_arg = -1;		// Some expertise is assumed
+	tvals->flags = MAP_SHARED;
+	tvals->RW = READIT | WRITEIT;	// probably ignored
+    	if (!tvals->seconds)
+	    tvals->seconds = 10;
+    } else {			
+    	if (!tvals->flags)
+	    die("-P and -S are mutually exclusive\n");
+	if (!tvals->RW)
+    	    die("Use at least one of -R|-W, or -H which ignores them\n");
     }
-    if (!tvals->RW) {
-    	fprintf(stderr, "Thou shalt use at least one of -R | -W\n");
-	usage();
-    }
-    if (tvals->nthreads < 1 || tvals->nthreads > MAXTHREADS ) {
-    	fprintf(stderr, "Dude, %d threads?  Nice try.\n", tvals->nthreads);
-	usage();
-    }
-    if (tvals->nthreads > 1) do_prompt = -1;
-    tvals->nthreads--;	// how many times do I have to call pthread_create?
+    if (tvals->nthreads && nprocs == 1)
+    	die("Can't effectively multithread on a nosmp system\n")
+    if (tvals->nthreads < 1 || tvals->nthreads > nprocs )
+    	die("Dude, %d threads?  Nice try.\n", tvals->nthreads);
 
     // do_delete and do_close only make sense when trying to create a file
 
@@ -438,6 +577,27 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 	else
     	    printf("read() got 0x%x\n", junk);
     }
+
+    // Thread tracking
+    if (!(tvals->tids = calloc(tvals->nthreads, sizeof(pthread_t)))) {
+    	fprintf(stderr, "calloc(%d threads) failed: %s\n",
+		tvals->nthreads, strerror(errno));
+	exit(1);
+    }
+    if (!(tvals->naccesses = calloc(tvals->nthreads, sizeof(unsigned long)))) {
+    	fprintf(stderr, "calloc(%d naccesses) failed: %s\n",
+		tvals->nthreads, strerror(errno));
+	exit(1);
+    }
+
+    // Final idiot checks
+    switch (tvals->hiperf) {
+    case 2:
+    case 3:
+	if (tvals->fsize < (1L<<31) - 1L)
+	    die("%s size must be at least 2G", tvals->fname);
+	break;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -462,59 +622,88 @@ void mmapper(struct tvals_t *tvals)
     }
     tvals->last_byte = (void *)((unsigned long)tvals->mapped + tvals->fsize - 1);
 
-    printf("PID = %d, map range = 0x%p - 0x%p\n",
-    	getpid(),
-	tvals->mapped, tvals->last_byte);
+    if (verbose) {
+    	printf("PID = %d, map range = 0x%p - 0x%p\n",
+    		getpid(),
+		tvals->mapped,
+		tvals->last_byte);
 #if 1
-    sprintf(cmd, "/bin/grep '^%lx' /proc/%d/maps",
-    	(unsigned long)tvals->mapped, getpid());
-    printf("%s\n", cmd);
-    system(cmd);
+    	sprintf(cmd, "/bin/grep '^%lx' /proc/%d/maps",
+    		(unsigned long)tvals->mapped, getpid());
+    	printf("%s\n", cmd);
+    	system(cmd);
 #endif
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////
 
+void printtime(
+	struct tvals_t *tvals, struct timespec *start, struct timespec *stop)
+{
+    unsigned long naccesses;
+    int i;
+    float delta =
+        ((float)(stop->tv_nsec) / 1000000000.0) + (float)(stop->tv_sec)
+        -
+        ((float)(start->tv_nsec) / 1000000000.0 + (float)(start->tv_sec));
+
+    naccesses = 0;
+    for (i = 0; i < tvals->nthreads; i++) {
+    	naccesses += tvals->naccesses[i];
+	if (verbose)
+	    printf("Thread %4d: %'22lu accesses\n", i, tvals->naccesses[i]);
+    }
+
+    printf("%'20lu accesses across %d threads in %.2f seconds\n",
+	 naccesses, tvals->nthreads, delta);
+    if (delta > 0.007)
+        printf("%'20lu accesses/thread/second\n",
+	    (unsigned long)((float)naccesses/ (float)tvals->nthreads / delta));
+}
+
 int main(int argc, char *argv[])
 {
     struct tvals_t tvals;
-    pthread_t *tids;
-    int i;
+    int i, ret;
 
+    setlocale(LC_NUMERIC, "");          // backtick for radix comma
     cmdline_prepfile(&tvals, argc, argv);
     mmapper(&tvals);
-
-    if (tvals.nthreads && 
-        !(tids = calloc(tvals.nthreads, sizeof(pthread_t)))) {
-    	fprintf(stderr, "calloc(%d threads) failed: %s\n",
-		tvals.nthreads, strerror(errno));
-	exit(1);
-    }
+    srandom(time(NULL));		// Randomize the seed
 
     //---------------------------------------------------------------------
-    // load and go
+    // load and go.  Threads pause at the barrier, then one starts the clock.
+
+    if (pthread_barrier_init(&barrier, NULL, tvals.nthreads) == -1) {
+    	perror("pthread_barrier_init() failed");
+	exit(1);
+    }
+    if (tvals.seconds)		// Loop counter will be ignored
+	tvals.proceed = 1;
 
     for (i = 0; i < tvals.nthreads; i++) {
-	int ret;
-
-	if ((ret = pthread_create(&tids[i], NULL, payload, &tvals))) {
+	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
 		perror("pthread_create() failed");
 		exit(1);
 	}
-    }	
-    payload(&tvals);	// I'm a thread, too
+    }
+    if (tvals.seconds) {
+	sleep(tvals.seconds);
+	tvals.proceed = 0;
+    }
 
     for (i = 0; i < tvals.nthreads; i++) {
-	int ret;
     	void *payload_ret;
 
-	if ((ret = pthread_join(tids[i], &payload_ret))) {
+	if ((ret = pthread_join(tvals.tids[i], &payload_ret))) {
 		perror("pthread_join() failed");
 		exit(1);
 	}
     }
-    free(tids);
-    tids = NULL;
+    clock_gettime(CLOCK_MONOTONIC, &stop);
+
+    printtime(&tvals, &start, &stop);
 
     //---------------------------------------------------------------------
     if (tvals.unmap) {

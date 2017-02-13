@@ -1,0 +1,99 @@
+#!/bin/bash
+
+set -u
+
+PSSHOSTS=$HOME/hosts.pssh
+shopt -s expand_aliases
+alias pssh="parallel-ssh -i -h $PSSHOSTS -l l4tm"
+
+TMHOSTS=`jq -r '.racks[].enclosures[].nodes[].soc.hostname' < /etc/tmconfig`
+# echo $TMHOSTS
+
+declare -ag HOSTNAMES NODE_IDS
+
+function setglobals() {
+    HOSTNAMES=()
+    for H in $TMHOSTS; do
+	ping -c1 $H >/dev/null 2>&1
+	[ $? -eq 0 ] && HOSTNAMES+=($H) || echo "$H offline"
+    done
+    # echo ${HOSTNAMES[*]}
+    echo ${HOSTNAMES[*]} | tr ' ' '\n' > $PSSHOSTS
+
+    NODE_IDS=()
+    for H in ${HOSTNAMES[*]}; do
+	NODE_IDS+=(${H:4:2})
+    done
+    echo "Active nodes: ${NODE_IDS[*]}"
+
+    # Can I hit them all?
+    pssh echo >/dev/null 2>&1
+    [ $? -ne 0 ] && echo "pssh echo failed" >&2 && exit 1	# Yes, fatal
+}
+
+function parallel_policy () {
+	POLICY=$1
+	pssh rm -f '/lfs/`hostname`' >/dev/null 2>&1
+	[ $? -ne 0 ] && echo "pssh rm failed" >&2 && return 1
+
+	pssh setfattr -n user.LFS.AllocationPolicyDefault -v $POLICY /lfs >/dev/null 2>&1
+	[ $? -ne 0 ] && echo "pssh set default policy failed" >&2 && return 1
+	return 0
+}
+
+function allocate_pernode_files() {
+	POLICY=$1
+	SIZE=$2
+
+	parallel_policy $POLICY
+	[ $? -ne 0 ] && return 1
+
+	pssh truncate -s $SIZE '/lfs/`hostname`' >/dev/null 2>&1
+	[ $? -ne 0 ] && echo "pssh truncate failed" >&2 && return 1
+	
+	# Without subscript, uses the first one
+	# ssh $HOSTNAMES getfattr -e hex -n user.LFS.Interleave /lfs/*
+
+	return 0
+}
+
+function parallel_maptrap() {
+	MSG="$1"
+	shift
+	ARGS=$*
+	echo -n "$MSG: maptrap $ARGS /lfs/nodeXX..."
+	pssh /srv/rocky/maptrap $ARGS '/lfs/`hostname`' >/dev/null 2>&1
+	[ $? -ne 0 ] && echo "FAILED" && return 1
+	echo "passed"
+	return 0
+}
+
+function hispeed() {
+	POLICY=$1
+	LIMIT=$2
+	allocate_pernode_files $POLICY 2100M
+	[ $? -ne 0 ] && exit 1
+
+	# parallel_maptrap "$POLICY fixed read" -H1 -L$LIMIT -T100
+	# [ $? -ne 0 ] && exit 1
+
+	parallel_maptrap "$POLICY random read" -H2 -L$LIMIT -T100
+	[ $? -ne 0 ] && exit 1
+
+	parallel_maptrap "$POLICY random R-M-W" -H3 -L$LIMIT -T100
+	[ $? -ne 0 ] && exit 1
+}
+
+setglobals
+
+hispeed LocalNode 15
+
+hispeed NearestRemote 15
+
+allocate_pernode_files RandomBooks 200G
+[ $? -ne 0 ] && exit 1
+
+parallel_maptrap "Full random R-M-W" -qSRW -L10 -T30
+[ $? -ne 0 ] && exit 1
+
+exit 0
