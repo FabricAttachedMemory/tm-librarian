@@ -589,7 +589,6 @@ class LibrarianCommandEngine(object):
             self.errno = 0
             context = cmdict['context']
             command = self._commands[cmdict['command']]
-            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
         except KeyError as e:
             # This comment might go better in the module that imports json.
             # From StackOverflow: NULL is not zero. It's not a value, per se:
@@ -609,6 +608,7 @@ class LibrarianCommandEngine(object):
             # If this is a performance problem, cache node_id
             assert FRDnode(int(cmdict['context']['node_id'])) in self.nodes, \
                 'Node is not configured in Librarian topology'
+            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
             errmsg = ''  # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
@@ -623,7 +623,7 @@ class LibrarianCommandEngine(object):
             if self.verbose > 2:
                 print('%s failed: %s: %s' %
                     (cmdict['command'],
-                    errno.errorcode.get(self.errno, 'EEEEEEEK!'),
+                    errno.errorcode.get(self.errno, ''),
                     errmsg),
                     file=sys.stderr)
             return { 'errmsg': errmsg, 'errno': self.errno }, None
