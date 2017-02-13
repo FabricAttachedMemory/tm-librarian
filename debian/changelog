@@ -1,3 +1,9 @@
+tm-librarian (1.20+l4tm1) catapult; urgency=low
+
+  * Handle node death and new maptrap features
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 13 Feb 2017 10:57:25 -0700
+
 tm-librarian (1.19+l4tm1) catapult; urgency=low
 
   * Fixes to LMP for coordinate syntax changes
