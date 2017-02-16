@@ -135,7 +135,7 @@ void usage() {
     fprintf(stderr, "\t-R    read memory accesses\n");
     fprintf(stderr, "\t-s n  stride (in bytes) for each loop iteration\n");
     fprintf(stderr, "\t-t n  size of file for (f)truncate (default 16M)\n");
-    fprintf(stderr, "\t-T n  number of threads (default 1, max %d)\n", nprocs);
+    fprintf(stderr, "\t-T n  number of threads (default 1, max %d or ALL)\n", nprocs);
     fprintf(stderr, "\t-u    suppress final munmap()\n");
     fprintf(stderr, "\t-v    increase verbosity (might hurt performance)\n");
     fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l|-L\n");
@@ -490,7 +490,11 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 	case 'q':	prompt_arg = -1; break;
     	case 'r':	read1st = 1; break;
     	case 't': 	tvals->fsize = bignum(optarg, 0); break;
-    	case 'T':	tvals->nthreads = atol(optarg); break;
+    	case 'T':	if (!strcmp(optarg, "ALL"))
+				tvals->nthreads = nprocs;
+			else
+				tvals->nthreads = atol(optarg);
+			break;
 	case 'u':	tvals->unmap = 0; break;
 	case 'v':	verbose++; break;
 
