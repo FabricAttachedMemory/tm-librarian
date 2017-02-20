@@ -151,7 +151,7 @@ function parallel_maptrap() {
 	test $? -eq 0 -a ${FNAME:0:1} = '/'
 	if [ $? -eq 0 ]; then
 		trace "$MSG ($ARGS)"
-		[ "$QUIET" ] && echo -n "$MSG ($ARGS)"
+		[ "$QUIET" ] && echo -n "$MSG ($ARGS)..."
 		eval pssh /srv/rocky/maptrap $ARGS $QUIET
 	else
 		trace "$MSG ($ARGS /lfs/nodeXX)"
@@ -197,8 +197,8 @@ function allocate_one_node_files() {
 }
 
 ###########################################################################
-# Use the -H option of maptrap.  It uses "fast" random number generation 
-# which only spans 0 thru 2^31, so it only needs a 2G+ file.   It's still
+# Use the -H option of maptrap which uses fast random number generation 
+# that only spans 0 thru 2^31, thus it only needs a 2G+ file.   It's still
 # bigger than the CPU cache.
 
 function hispeed() {
@@ -207,13 +207,12 @@ function hispeed() {
 	allocate_pernode_files $POLICY 2100M
 	[ $? -ne 0 ] && exit 1
 
-	# Shawn Walker likes it, but it's not useful here.
+	# Shawn Walker asked for this, but it's not exercising FAM, just cache.
 	# parallel_maptrap "HiSpeed fixed read $POLICY" -H1 -L$LIMIT -T $THREADS
 
 	parallel_maptrap "HiSpeed random read $POLICY" -H2 -L$LIMIT -T $THREADS
 
 	parallel_maptrap "HiSpeed random R-M-W $POLICY" -H3 -L$LIMIT -T $THREADS
-	return 0
 }
 
 ###########################################################################
@@ -228,10 +227,10 @@ eval pssh sudo killall -9 maptrap $DEVNULL
 remove_pmaptrap_files
 
 #--------------------------------------------------------------------------
-# Canned tests that haven't failed in a while.
-# Look like LSGi.  It's got about 300G of data (approximately one book
-# per node).  We believe is the data on each node is subject to local 
-# processing, the precept of memory-centric computing.
+# Canned tests that haven't failed in a while, but when they did it was quick.
+# Look like LSGi whose 1B-node run is about 350G of data (approximately one book
+# per node).  We believe the data on each node is subject to local  processing,
+# the precept of memory-centric computing.  But that might be naive.
 
 hispeed LocalNode 60
 
@@ -252,7 +251,7 @@ parallel_maptrap "Full random R-M-W" -qSRWj -L300 -T $THREADS
 for ID in ${NODE_IDS[*]}; do
 	allocate_one_node_files $ID
 	[ $? -ne 0 ] && exit 1
-	parallel_maptrap "Full random R-M-W, files on node$ID" -qSRWj -L600 -T $THREADS
+	parallel_maptrap "Full random R-M-W, files on node$ID" -qSRWj -L30 -T $THREADS
 done
 
 #--------------------------------------------------------------------------
@@ -264,6 +263,6 @@ parallel_policy RandomBooks
 
 ssh $HOSTNAMES truncate -s 500G $BIGFILE
 
-parallel_maptrap "Full random R-M-W to $BIGFILE" -qSRWj -L600 -T $THREADS $BIGFILE
+parallel_maptrap "Full random R-M-W to $BIGFILE" -qSRWj -L300 -T $THREADS $BIGFILE
 
 exit 0
