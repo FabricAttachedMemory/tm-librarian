@@ -45,8 +45,9 @@ function set_globals() {
     HOSTNAMES=()
     for H in $TMHOSTS; do
 	eval ping -c1 $H $DEVNULL
-	[ $? -eq 0 ] && HOSTNAMES+=($H) || echo "$H offline"
+	[ $? -eq 0 ] && HOSTNAMES+=($H) || echo "No ping response from $H" >&2
     done
+    [ ${#HOSTNAMES[*]} -eq 0 ] && echo "All nodes fail ping" >&2 && exit 1
     # echo ${HOSTNAMES[*]}
     echo ${HOSTNAMES[*]} | tr ' ' '\n' > $PSSHOSTS
 
