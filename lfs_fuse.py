@@ -516,7 +516,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if self.fakezero:
             cmd = '/bin/sleep 5'
         else:
-            cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
+            cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc,fsync iflag=count_bytes count=%d' % (
             fullpath, shelf.size_bytes)
 
         dd = self._cmd2sub(cmd)
