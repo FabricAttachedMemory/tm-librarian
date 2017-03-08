@@ -1,55 +1,134 @@
 #!/bin/bash
 
+# Wrapper for parallel-ssh (pssh) execution of maptrap across all live nodes
+# in an instance.  This can be run from the TorMS in /srv/rocky.  pssh depends
+# upon the manifest specifying a phraseless keypair as l4tm_pubkey, and the
+# invoking ToRMS user having the matching private key in ~/.ssh/config
+
+# Host node*
+#	User l4tm
+#	IdentityFile /srv/rocky/id_rsa.nophrase
+
+THREADS=ALL	# a number, or ALL, threads on each node
+
+###########################################################################
+# Process command line, set scalar globals.
+
+DEVNULL='> /dev/null 2>&1'
+[ "$1" = "-v" ] && QUIET="" || QUIET="$DEVNULL"
+
 set -u
 
+BIGFILE=/lfs/bigfile
 PSSHOSTS=$HOME/hosts.pssh
 shopt -s expand_aliases
-alias pssh="parallel-ssh -i -h $PSSHOSTS -l l4tm"
+alias pssh="parallel-ssh -i -h $PSSHOSTS -l l4tm -t 0"
 
 TMHOSTS=`jq -r '.racks[].enclosures[].nodes[].soc.hostname' < /etc/tmconfig`
 # echo $TMHOSTS
 
+###########################################################################
+
+function trace() {
+    [ "$QUIET" ] || echo -e "\n------ $*\n"
+}
+
+###########################################################################
+# Give values to globally-scoped arrays.
+
 declare -ag HOSTNAMES NODE_IDS
 
-function setglobals() {
+function set_globals() {
+    trace "Set globals"
+
+    # Which of the nodes configured in /etc/tmconfig are actually running?
     HOSTNAMES=()
     for H in $TMHOSTS; do
-	ping -c1 $H >/dev/null 2>&1
-	[ $? -eq 0 ] && HOSTNAMES+=($H) || echo "$H offline"
+	eval ping -c1 $H $DEVNULL
+	[ $? -eq 0 ] && HOSTNAMES+=($H) || echo "No ping response from $H" >&2
     done
+    [ ${#HOSTNAMES[*]} -eq 0 ] && echo "All nodes fail ping" >&2 && exit 1
     # echo ${HOSTNAMES[*]}
     echo ${HOSTNAMES[*]} | tr ' ' '\n' > $PSSHOSTS
 
+    # Assumes hostnames are of the form "nodeXX"
     NODE_IDS=()
     for H in ${HOSTNAMES[*]}; do
 	NODE_IDS+=(${H:4:2})
     done
     echo "Active nodes: ${NODE_IDS[*]}"
 
-    # Can I hit them all?
-    pssh echo >/dev/null 2>&1
+    # Can I hit them all?  If not, it's usually an ssh config problem
+    # but may be a mismatch between /etc/tmconfig and reality.
+    eval pssh echo $QUIET
     [ $? -ne 0 ] && echo "pssh echo failed" >&2 && exit 1	# Yes, fatal
+
+    return 0
 }
+
+###########################################################################
+# Can't really run on nodes booted "nosmp".
+
+function verify_boottype() {
+	NOSMP=0
+	for H in ${HOSTNAMES[*]}; do
+		ssh $H grep -q nosmp /proc/cmdline
+		let RET=1-$?
+		let NOSMP+=$RET
+		[ $RET -ne 0 ] && echo $H is running nosmp >&2
+	done
+	[ $NOSMP -gt 0 ] && echo "Re-bind and reboot those nodes" >&2 && exit 1
+	return 0
+}
+
+###########################################################################
+# If there are other files, this won't go to zero.  If "fake_zero" is not
+# set in the Librarian, this may take a while to go to zero.
+
+function remove_pmaptrap_files()
+{
+	# Kill the current file as it now has a private policy.
+	eval pssh rm -f '/lfs/\`hostname\`' $DEVNULL
+	[ $? -ne 0 ] && echo "pssh rm failed" >&2 && return 1
+
+	ssh $HOSTNAMES rm -f $BIGFILE	# no subscript == first one
+
+	NFILES=`ssh $HOSTNAMES ls -a /lfs | wc -l`
+	while [ $NFILES -gt 2 ]; do
+		echo "Waiting for files on /lfs to clear"
+		sleep 5
+		NFILES=`ssh $HOSTNAMES ls -a /lfs | wc -l`
+	done
+	return 0
+}
+
+###########################################################################
+# Set the default allocation policy on all nodes
 
 function parallel_policy () {
 	POLICY=$1
-	pssh rm -f '/lfs/`hostname`' >/dev/null 2>&1
-	[ $? -ne 0 ] && echo "pssh rm failed" >&2 && return 1
 
-	pssh setfattr -n user.LFS.AllocationPolicyDefault -v $POLICY /lfs >/dev/null 2>&1
-	[ $? -ne 0 ] && echo "pssh set default policy failed" >&2 && return 1
+	eval pssh setfattr -n user.LFS.AllocationPolicyDefault -v $POLICY /lfs $DEVNULL
+	[ $? -ne 0 ] && echo "pssh set default policy $POLICY failed" >&2 && return 1
 	return 0
 }
+
+###########################################################################
+# Create per-node files of a given size under a given allocation policy.
+# Note that the escaping of the backquotes makes the command "hostname"
+# execute on the node, not here on the ToRMS.
 
 function allocate_pernode_files() {
 	POLICY=$1
 	SIZE=$2
 
+	remove_pmaptrap_files
+
 	parallel_policy $POLICY
 	[ $? -ne 0 ] && return 1
 
-	pssh truncate -s $SIZE '/lfs/`hostname`' >/dev/null 2>&1
-	[ $? -ne 0 ] && echo "pssh truncate failed" >&2 && return 1
+	eval pssh truncate -s $SIZE '/lfs/\`hostname\`' $DEVNULL
+	[ $? -ne 0 ] && echo "pssh truncate $SIZE failed" >&2 && return 1
 	
 	# Without subscript, uses the first one
 	# ssh $HOSTNAMES getfattr -e hex -n user.LFS.Interleave /lfs/*
@@ -57,16 +136,71 @@ function allocate_pernode_files() {
 	return 0
 }
 
+###########################################################################
+# Standard maptrap options are passed in.  If the final argument is not an
+# existing file, calculate the filename.  See comments in 
+# allocate_pernode_files() about the funky backslashes.  Failures are fatal.
+
 function parallel_maptrap() {
 	MSG="$1"
 	shift
-	ARGS=$*
-	echo -n "$MSG: maptrap $ARGS /lfs/nodeXX..."
-	pssh /srv/rocky/maptrap $ARGS '/lfs/`hostname`' >/dev/null 2>&1
-	[ $? -ne 0 ] && echo "FAILED" && return 1
-	echo "passed"
+	declare -a TMP=($*)
+	FNAME=${TMP[-1]}
+	ARGS="${TMP[*]}"
+	eval pssh sudo killall -9 maptrap $DEVNULL
+	ssh $HOSTNAMES ls $FNAME $DEVNULL
+	test $? -eq 0 -a ${FNAME:0:1} = '/'
+	if [ $? -eq 0 ]; then
+		trace "$MSG ($ARGS)"
+		[ "$QUIET" ] && echo -n "$MSG ($ARGS)..."
+		eval pssh /srv/rocky/maptrap $ARGS $QUIET
+	else
+		trace "$MSG ($ARGS /lfs/nodeXX)"
+		[ "$QUIET" ] && echo -n "$MSG ($ARGS /lfs/nodeXX)..."
+		eval pssh /srv/rocky/maptrap $ARGS '/lfs/\`hostname\`' $QUIET
+	fi
+	if [ $? -ne 0 ]; then
+		[ "$QUIET" ] && echo "FAILED"
+		exit 1
+	fi
+	[ "$QUIET" ] && echo "passed"
 	return 0
 }
+
+###########################################################################
+#  Have every file live on one node.  At 128G NVM DIMMs, max of 3 books.
+
+function allocate_one_node_files() {
+    let IG=$1-1
+    IG=`printf "0x%02X" $IG`
+
+    remove_pmaptrap_files
+
+    for H in HOSTNAMES; do
+	eval pssh touch '/lfs/\`hostname\`' $DEVNULL
+	[ $? -ne 0 ] && echo "pssh touch failed" >&2 && return 1
+    	
+	eval pssh setfattr -n user.LFS.AllocationPolicy -v RequestIG \
+		'/lfs/\`hostname\`' $DEVNULL
+	[ $? -ne 0 ] && echo "pssh setfattr RequestIG failed" >&2 && return 1
+
+	eval pssh setfattr -n user.LFS.InterleaveRequest -v $IG \
+		'/lfs/\`hostname\`' $DEVNULL
+	[ $? -ne 0 ] && echo "pssh setfattr IG request $IG failed" >&2 && return 1
+
+	SIZE=24G
+	eval pssh truncate -s $SIZE '/lfs/\`hostname\`' $DEVNULL
+	[ $? -ne 0 ] && echo "pssh truncate $SIZE failed" >&2 && return 1
+
+    done
+
+    return 0
+}
+
+###########################################################################
+# Use the -H option of maptrap which uses fast random number generation 
+# that only spans 0 thru 2^31, thus it only needs a 2G+ file.   It's still
+# bigger than the CPU cache.
 
 function hispeed() {
 	POLICY=$1
@@ -74,26 +208,62 @@ function hispeed() {
 	allocate_pernode_files $POLICY 2100M
 	[ $? -ne 0 ] && exit 1
 
-	# parallel_maptrap "$POLICY fixed read" -H1 -L$LIMIT -T100
-	# [ $? -ne 0 ] && exit 1
+	# Shawn Walker asked for this, but it's not exercising FAM, just cache.
+	# parallel_maptrap "HiSpeed fixed read $POLICY" -H1 -L$LIMIT -T $THREADS
 
-	parallel_maptrap "$POLICY random read" -H2 -L$LIMIT -T100
-	[ $? -ne 0 ] && exit 1
+	parallel_maptrap "HiSpeed random read $POLICY" -H2 -L$LIMIT -T $THREADS
 
-	parallel_maptrap "$POLICY random R-M-W" -H3 -L$LIMIT -T100
-	[ $? -ne 0 ] && exit 1
+	parallel_maptrap "HiSpeed random R-M-W $POLICY" -H3 -L$LIMIT -T $THREADS
 }
 
-setglobals
+###########################################################################
+# MAIN.  Begin with setup/cleanup.
 
-hispeed LocalNode 15
+set_globals
 
-hispeed NearestRemote 15
+verify_boottype
 
-allocate_pernode_files RandomBooks 200G
-[ $? -ne 0 ] && exit 1
+eval pssh sudo killall -9 maptrap $DEVNULL
 
-parallel_maptrap "Full random R-M-W" -qSRW -L10 -T30
-[ $? -ne 0 ] && exit 1
+remove_pmaptrap_files
+
+#--------------------------------------------------------------------------
+# Canned tests that haven't failed in a while, but when they did it was quick.
+# Look like LSGi whose 1B-node run is about 350G of data (approximately one book
+# per node).  We believe the data on each node is subject to local  processing,
+# the precept of memory-centric computing.  But that might be naive.
+
+hispeed LocalNode 60
+
+hispeed NearestRemote 60	# should stay inTRA-enclosure, not inTER
+
+#--------------------------------------------------------------------------
+# 200G is 20% of a node's NVM with 32G DIMMs, aka 24 books.
+# Open it up.  With forty nodes and many books in each node's file, lots
+# of intra-node, intra-enclosure, and inter-enclosure traffic will ensue.
+
+allocate_pernode_files RandomBooks 300G
+
+parallel_maptrap "Full random R-M-W" -qSRWj -L300 -T $THREADS
+
+#--------------------------------------------------------------------------
+# Have one node host all the per-node files.  Give them all a chance.
+
+for ID in ${NODE_IDS[*]}; do
+	allocate_one_node_files $ID
+	[ $? -ne 0 ] && exit 1
+	parallel_maptrap "Full random R-M-W, files on node$ID" -qSRWj -L30 -T $THREADS
+done
+
+#--------------------------------------------------------------------------
+# Have one large file accessed by all nodes: probably what LSGi really does.
+
+remove_pmaptrap_files
+
+parallel_policy RandomBooks
+
+ssh $HOSTNAMES truncate -s 500G $BIGFILE
+
+parallel_maptrap "Full random R-M-W to $BIGFILE" -qSRWj -L300 -T $THREADS $BIGFILE
 
 exit 0
