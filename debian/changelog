@@ -1,3 +1,9 @@
+tm-librarian (1.21+l4tm1) catapult; urgency=low
+
+  * add fsync to book zeroing, updates to maptrap
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 13 Mar 2017 11:37:45 -0600
+
 tm-librarian (1.20+l4tm1) catapult; urgency=low
 
   * Handle node death and new maptrap features
