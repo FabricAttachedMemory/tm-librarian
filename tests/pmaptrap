@@ -9,10 +9,11 @@
 #	User l4tm
 #	IdentityFile /srv/rocky/id_rsa.nophrase
 
-THREADS=ALL	# a number, or ALL, threads on each node
-
 ###########################################################################
-# Process command line, set scalar globals.
+# Process command line and environment variables; set scalar globals.
+
+THREADS=${THREADS:-ALL}		# a number, or ALL, threads on each node
+TMHOSTS=${TMHOSTS:-}
 
 DEVNULL='> /dev/null 2>&1'
 [ "$1" = "-v" ] && QUIET="" || QUIET="$DEVNULL"
@@ -24,7 +25,9 @@ PSSHOSTS=$HOME/hosts.pssh
 shopt -s expand_aliases
 alias pssh="parallel-ssh -i -h $PSSHOSTS -l l4tm -t 0"
 
-TMHOSTS=`jq -r '.racks[].enclosures[].nodes[].soc.hostname' < /etc/tmconfig`
+if [ ! "$TMHOSTS" ]; then
+  TMHOSTS=`jq -r '.racks[].enclosures[].nodes[].soc.hostname' < /etc/tmconfig | tr '\n' ' '`
+fi
 # echo $TMHOSTS
 
 ###########################################################################
