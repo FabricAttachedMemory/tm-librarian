@@ -233,6 +233,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # There are times when the process that invoked an action,
         # notably release(), has died by the time this point is reached.
         # In that case uid/gid/pid will all be zero.
+        # BUG: PID is the original process, not a twice-forked daemon.
         context = cmdict['context']
         (context['uid'],
          context['gid'],
@@ -445,13 +446,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.EINVAL)
 
         shelf_name = self.path2shelf(path)
-        for bad in self._badjson:
-            if bad in valbytes:
-                raise TmfsOSError(errno.EDOM)
-        try:
-            value = int(valbytes)
-        except ValueError as e:
-            pass
+
+        # Don't forget the setfattr command, and the shell it runs in, does
+        # things to a "numeric" argument.   setfattr processes a leading
+        # 0x and does a byte-by-byte conversion, yielding a byte array.
+        # It needs pairs of digits and can be of arbitrary length.  Any
+        # other argument ends up here as a pure string (well, byte array).
         try:
             value = valbytes.decode()
         except ValueError as e:
@@ -835,34 +835,39 @@ def mount_LFS(args):
     os.makedirs(args.mountpoint, mode=0o777, exist_ok=True)
     os.chmod(args.mountpoint, mode=0o777)
 
+    msg = 'explicit'
     if not args.physloc:
+        msg = 'derived'
         try:
-            with open(ACPI_NODE_UID, 'r') as uid_file:
-                node_uid = uid_file.read().strip().split('/')
-                assert node_uid.startswith('/MachineRevision/1'), \
-                    'Incompatible machine revision'
-                node_rack = node_uid[node_uid.index('Rack') + 1]
-                node_enc = node_uid[node_uid.index('EncNum') + 1]
-                node_id = node_uid[node_uid.index('Node') + 1]
-                # FIXME: keep full string including Datacenter and Rack
-                # description to qualify initial contact with Librarian.
+            with open(ACPI_NODE_UID, 'r') as uid_file: # actually a coordinate
+                node_uid = uid_file.read().strip()
+                assert node_uid.startswith('/MachineVersion/1/Datacenter'), \
+                    'Incompatible machine revision in %s' % ACPI_NODE_UID
+                elems = node_uid.split('/')
+                node_rack = '1'   # MFT, only one rack
+                node_enc = elems[elems.index('EncNum') + 1]
+                node_id = elems[elems.index('Node') + 1]
                 args.physloc = node_rack + ":" + node_enc + ":" + node_id
-        except:
+        except AssertionError:
             # Fabric Emulation auto start shortcut (assumes eth0).
             # If the last three octets of the MAC are equal use that value
             # as the node id (1-80), derive the enclosure and rack number.
             try:
                 with open(FAME_DEFAULT_NET) as mac_file:
                     mac = mac_file.read().strip().split(':')
-                    if mac[2] == '42' and (mac[3] == mac[4] == mac[5]):
-                        args.physloc = int(mac[5])
+                    assert (mac[2] == '42' and
+                           (mac[3] == mac[4] == mac[5]) and
+                           1 <= int(mac[5]) <= 40), 'Not a FAME node'
+                    args.physloc = int(mac[5])
             except Exception as e:
-                raise SystemExit('Missing physical location and could not automatically derive')
+                raise SystemExit(
+                    'Could not automatically derive coordinate, use --physloc')
 
     try:
         args.physloc = FRDnode(args.physloc)
     except Exception as e:
-        raise SystemExit('Bad physical location (--physloc) argument \'%s\'' % args.physloc)
+        raise SystemExit(
+            'Bad %s physical location \'%s\'' % (msg, args.physloc))
 
     try:
         tmp = socket.gethostbyname(args.hostname)
