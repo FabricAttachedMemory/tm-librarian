@@ -43,7 +43,8 @@ def _node_id2ig(node_id):
 
 class BookPolicy(object):
 
-    _policies = ('RandomBooks', 'LocalNode', 'Nearest', 'NearestRemote',
+    _policies = ('RandomBooks', 'LocalNode', 'Nearest',
+                 'NearestRemote', 'NearestEnc', 'NearestRack',
                  'LZAascending', 'LZAdescending', 'RequestIG')
 
     DEFAULT_ALLOCATION_POLICY = 'RandomBooks'    # mutable
@@ -84,6 +85,7 @@ class BookPolicy(object):
                 reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
                 interleave_groups = LCEobj.db.get_interleave_groups()
                 currentIGs = [ig.groupId for ig in interleave_groups]
+                LCEobj.errno = errno.EDOM
                 assert set(reqIGs).issubset(currentIGs), \
                     'Requested IGs not subset of known IGs'
                 # Reset current position in pattern.
@@ -141,10 +143,19 @@ class BookPolicy(object):
         return books[:books_needed]
 
     def _policy_LocalNode(self, books_needed):
-        return self._policy_Nearest(books_needed, fromRemote=False)
+        return self._policy_Nearest(books_needed,
+            fromEnc=False, fromRack=False)
 
     def _policy_NearestRemote(self, books_needed):
         return self._policy_Nearest(books_needed, fromLocal=False)
+
+    def _policy_NearestEnc(self, books_needed):
+        return self._policy_Nearest(books_needed,
+            fromLocal=False, fromRack=False)
+
+    def _policy_NearestRack(self, books_needed):
+        return self._policy_Nearest(books_needed,
+            fromLocal=False, fromEnc=False)
 
     def _node_ids2books(self, books_needed, node_ids, shuffle=True):
         '''This should ONLY be called from _policy_Nearest()'''
@@ -157,49 +168,56 @@ class BookPolicy(object):
         IGs = [ _node_id2ig(n) for n in node_ids ]
         return self._IGs2books(books_needed, IGs, shuffle=shuffle)
 
-    def _policy_Nearest(self, books_needed, fromLocal=True, fromRemote=True):
+    def _policy_Nearest(self, books_needed,
+            fromLocal=True, fromEnc=True, fromRack=True):
         '''Get books closest to calling SoC.  Stop when enough books are
            found OR no more can be found (ie, return a short list).'''
 
-        assert fromLocal or fromRemote, '_policy_Nearest(): nothing selected'
+        assert fromLocal or fromEnc or fromRack, \
+            '_policy_Nearest(): nothing selected'
+
         caller_id = int(self.context['node_id'])
         caller = [n for n in self.LCEobj.nodes if n.node_id == caller_id][0]
         extant_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
+        enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
+            if n.enc == caller.enc))
+        localbooks = []
+        encbooks = []
+        nonencbooks = []
 
         if fromLocal:
-            localbooks = self._node_ids2books(books_needed, caller_id, shuffle=False)
-        else:
-            localbooks = []
+            localbooks = self._node_ids2books(
+                books_needed, caller_id, shuffle=False)
 
-        if not fromRemote:
+        if not (fromEnc or fromRack):
             return localbooks   # stop now regardless of len(localbooks)
 
         # Are there enough local books?
         books_needed -= len(localbooks)
-        assert books_needed >= 0, '"Nearest" policy internal error: node'
+        assert books_needed >= 0, '"Nearest" policy error: node'
         if not books_needed:
             return localbooks
 
-        # Get the next batch from elsewhere in this enclosure.  Calculate
-        # all the nodes, sparsity is handled elsewhere.
-        enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
-            if n.enc == caller.enc))
-        other_node_ids = enc_node_ids - frozenset((caller_id, ))
-        encbooks = self._node_ids2books(books_needed, other_node_ids)
+        # Where does the next batch come from?
+        if fromEnc:
+            candidate_ids = enc_node_ids - frozenset((caller_id, ))
+            encbooks = self._node_ids2books(books_needed, candidate_ids)
 
-        # Are there enough additional books in this enclosure?
-        books_needed -= len(encbooks)
-        assert books_needed >= 0, '"Nearest" policy internal error: enclosure'
-        if not books_needed:
-            return localbooks + encbooks
+            # Are there enough additional books in this enclosure?
+            books_needed -= len(encbooks)
+            assert books_needed >= 0, '"Nearest" policy error: enclosure'
+            if not books_needed:
+                return localbooks + encbooks
 
-        # Get the next batch from OUTSIDE this enclosure.
-        other_node_ids = extant_node_ids - enc_node_ids
-        nonencbooks = self._node_ids2books(books_needed, other_node_ids)
+        # How about the final batch?
+        if fromRack:
+            candidate_ids = extant_node_ids - enc_node_ids
+            nonencbooks = self._node_ids2books(books_needed, candidate_ids)
 
-        # It doesn't really matter if there are enough, this is it
-        books_needed -= len(nonencbooks)
-        assert books_needed >= 0, '"Nearest" policy internal error: rack'
+            # It doesn't really matter if there are enough, this is it
+            books_needed -= len(nonencbooks)
+            assert books_needed >= 0, '"Nearest" policy error: rack'
+
         return localbooks + encbooks + nonencbooks
 
     def _policy_RandomBooks(self, books_needed):
