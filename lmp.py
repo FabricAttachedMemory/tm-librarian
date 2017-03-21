@@ -361,7 +361,7 @@ def show_allocated(coordinate):
                 d_ig_cnt[m.IG] = 1
 
         # One row for each MC a book is spread across
-        c_filter = coordinate + '%'
+        c_filter = '/' + coordinate + '%'
         cur.execute('''SELECT * FROM books
             JOIN FAModules ON books.intlv_group = FAModules.IG
             WHERE FAModules.coordinate LIKE ?
