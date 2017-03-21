@@ -2,7 +2,6 @@
 
 rm -rf /usr/lib/python3/dist-packages/tm_librarian/__pycache__
 rm -rf /usr/lib/python3/dist-packages/tm_librarian/tests/__pycache__
-rm -rf /var/hpetm
 
 /bin/systemctl stop tm-lfs
 /bin/systemctl disable tm-lfs

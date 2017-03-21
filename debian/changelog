@@ -1,3 +1,9 @@
+tm-librarian (1.22+l4tm1) catapult; urgency=low
+
+  * add leading slash to coordinate in LMP allocated routine
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 21 Mar 2017 10:48:17 -0600
+
 tm-librarian (1.21+l4tm1) catapult; urgency=low
 
   * add fsync to book zeroing, updates to maptrap
