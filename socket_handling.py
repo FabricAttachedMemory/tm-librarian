@@ -554,9 +554,11 @@ class Server(SocketReadWrite):
                     # 113 (EHOSTUNREACH, no route to host) occurs when node
                     # dies in middle of transaction and can't receive the
                     # response.  It usually shows up on a (forced) reboot
-                    # of the node.
+                    # of the node. 106 (ECONNABORTED) is when lfs_fuse shuts
+                    # down more gracefully.
                     if isinstance(e, OSError):
-                        if e.errno not in (errno.EHOSTUNREACH, ):
+                        if e.errno not in (errno.EHOSTUNREACH, 
+                                           errno.ECONNABORTED):
                             if sys.stdin.isatty():
                                 print('Unhandled OSError during response')
                                 set_trace()
