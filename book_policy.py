@@ -43,8 +43,8 @@ def _node_id2ig(node_id):
 
 class BookPolicy(object):
 
-    _policies = ('RandomBooks', 'LocalNode', 'Nearest',
-                 'NearestRemote', 'NearestEnc', 'NearestRack',
+    _policies = ('RandomBooks', 'LocalNode', 'LocalEnc', 'NonLocal_Enc',
+                 'Nearest', 'NearestRemote', 'NearestEnc', 'NearestRack',
                  'LZAascending', 'LZAdescending', 'RequestIG')
 
     DEFAULT_ALLOCATION_POLICY = 'RandomBooks'    # mutable
@@ -85,7 +85,6 @@ class BookPolicy(object):
                 reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
                 interleave_groups = LCEobj.db.get_interleave_groups()
                 currentIGs = [ig.groupId for ig in interleave_groups]
-                LCEobj.errno = errno.EDOM
                 assert set(reqIGs).issubset(currentIGs), \
                     'Requested IGs not subset of known IGs'
                 # Reset current position in pattern.
@@ -142,20 +141,51 @@ class BookPolicy(object):
             random.shuffle(books)
         return books[:books_needed]
 
+    # For "NUMA" distance calculations there are three sources
+    # (Node | Enc | OffEnc aka Rack), eight states.
+    # Node  Enc Rack
+    # T     T   T   Full "Nearest", serves as the basis for others
+    # T     T   F   NearestEnclosure, starting with myself
+    # T     F   T   LocalNodeRack
+    # T     F   F   LocalNode only
+    # F     T   T   NearestRemote
+    # F     T   F   NonLocal_Enc: Off node but this enc:
+    # F     F   T   Away from this node and this enc: NearestRack
+    # F     F   F   noop state, not sane, not used
+
+    # T T T: Nearest, below
+
+    # T T F
+    def _policy_NearestEnc(self, books_needed):
+        return self._policy_Nearest(books_needed,
+            fromRack=False)
+
+    # T F T
+    def _policy_LocalNodeRack(self, books_needed):
+        return self._policy_Nearest(books_needed,
+            fromEnc=False)
+
+    # T F F
     def _policy_LocalNode(self, books_needed):
         return self._policy_Nearest(books_needed,
             fromEnc=False, fromRack=False)
 
+    # F T T
     def _policy_NearestRemote(self, books_needed):
-        return self._policy_Nearest(books_needed, fromLocal=False)
+        return self._policy_Nearest(books_needed,
+            fromLocal=False)
 
-    def _policy_NearestEnc(self, books_needed):
+    # F T F
+    def _policy_NonLocal_Enc(self, books_needed):
         return self._policy_Nearest(books_needed,
             fromLocal=False, fromRack=False)
 
+    # F F T
     def _policy_NearestRack(self, books_needed):
         return self._policy_Nearest(books_needed,
             fromLocal=False, fromEnc=False)
+
+    # F F F: noop, not used
 
     def _node_ids2books(self, books_needed, node_ids, shuffle=True):
         '''This should ONLY be called from _policy_Nearest()'''
