@@ -40,7 +40,11 @@ class SQLite3assist(SQLassist):
 
     def DBconnect(self):
         try:
-            self._conn = sqlite3.connect(self.db_file,
+            uri = 'file:%s' % self.db_file
+            if self.ro:
+                 uri += '?mode=ro'
+            self._conn = sqlite3.connect(uri,
+                                         uri=True,
                                          isolation_level='EXCLUSIVE')
             self._cursor = self._conn.cursor()
         except Exception as e:

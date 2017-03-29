@@ -85,6 +85,7 @@ class SQLassist(object):
         'user':             None,
         'passwd':           None,
         'raiseOnExecFail':  True,
+        'ro':               False
     }
 
     def DBconnect(self, *args):
