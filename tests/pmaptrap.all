@@ -1,6 +1,6 @@
 #!/bin/bash
 
-. pmaptrap.lib
+. libpmaptrap.sh
 
 #--------------------------------------------------------------------------
 # Canned tests that haven't failed in a while, but when they did it was quick.
