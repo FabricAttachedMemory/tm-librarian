@@ -121,8 +121,9 @@ void usage() {
     fprintf(stderr, "\t-F    fdatasync() after update\n");
     fprintf(stderr, "\t-H n  high-performance test n: each thread does...\n");
     fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
-    fprintf(stderr, "\t   2  random reads from first 2G of a file\n");
-    fprintf(stderr, "\t   3  random read-incr-write from first 2G of a file\n");
+    fprintf(stderr, "\t   2  cacheline walk reads from first 2G of a file\n");
+    fprintf(stderr, "\t   3  random reads from first 2G of a file\n");
+    fprintf(stderr, "\t   4  random read-incr-write from first 2G of a file\n");
     fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
@@ -225,22 +226,49 @@ void *hiperf_fixed_read_personal_cacheline(
     return NULL;
 }
 
+void *hiperf_walk_read_1G(struct tvals_t *tvals, unsigned int myindex)
+{
+    volatile unsigned int *access, currval, *proceed;
+    unsigned long naccesses = 0, base, offset;
+    
+    // Unroll some references
+    base = (unsigned long)tvals->mapped;
+    proceed = &(tvals->proceed);
+
+    offset = myindex * 1024 * 1024 * 16;
+    if (verbose)
+	printf("Beginning offset %10lu\n", offset);
+    while (*proceed) {
+	access = (void *)(base + offset);
+    	currval = *access;
+	naccesses++;
+	offset += 64;
+	if (offset > 1<<30) offset = 0;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
 void *hiperf_random_read_2G(struct tvals_t *tvals, unsigned int myindex)
 {
-    unsigned int *access = NULL, *seedp;
-    volatile unsigned int currval, *proceed;
-    unsigned long naccesses = 0, base;
+    unsigned int *seedp;
+    volatile unsigned int *access, currval, *proceed;
+    unsigned long naccesses = 0, base, mask;
 
     // Unroll some references
     base = (unsigned long)tvals->mapped;
-    proceed = &(tvals->proceed);	// unroll this reference
+    proceed = &(tvals->proceed);
 
     // I need per-thread space for the RNG rolling seed.  man 3 rand_r
     seedp = (void *)&tvals->naccesses[myindex];
     *seedp = myindex * 1000 + time(NULL);
 
+    mask = ~(sizeof(*access) - 1UL);
     while (*proceed) {
-	access = (void *)(base + (rand_r(seedp) % sizeof(*access)));
+	access = (void *)(base + (rand_r(seedp) & mask));
     	currval = *access;
 	naccesses++;
     }
@@ -253,21 +281,28 @@ void *hiperf_random_read_2G(struct tvals_t *tvals, unsigned int myindex)
 
 void *hiperf_random_incr_2G(struct tvals_t *tvals, unsigned int myindex)
 {
-    unsigned int *access = NULL, *seedp;
-    volatile unsigned int currval, *proceed;
-    unsigned long naccesses = 0, base;
+    volatile unsigned int *access, currval, *proceed;
+    unsigned int *seedp;
+    unsigned long naccesses = 0, base, mask;
 
     // Unroll some references
     base = (unsigned long)tvals->mapped;
-    proceed = &(tvals->proceed);	// unroll this reference
+    proceed = &(tvals->proceed);
 
     // I need per-thread space for the RNG rolling seed.  man 3 rand_r
     seedp = (void *)&tvals->naccesses[myindex];
     *seedp = myindex * 1000 + time(NULL);
 
+    mask = ~(sizeof(*access) - 1UL);
     while (*proceed) {
-	access = (void *)(base + (rand_r(seedp) % sizeof(*access)));
-    	*access += 1;
+	unsigned long offset;
+
+	offset = rand_r(seedp) & mask;
+	access = (void *)(base + offset);
+	currval = *access;
+	// printf("0x%16lu = %d\n", offset, currval);
+	currval++;
+	*access = currval;
 	naccesses += 2;
     }
     tvals->naccesses[myindex] = naccesses;
@@ -286,8 +321,8 @@ void *payload(void *threadarg)
     pthread_t mytid = pthread_self();
     unsigned long foffset, stride, naccesses = 0;
     char *s;
-    unsigned int *access;
-    unsigned int curr_val, myindex;
+    unsigned int *access, curr_val, myindex;
+    volatile unsigned int *proceed;
     long loop;
     int b;
     
@@ -310,8 +345,11 @@ void *payload(void *threadarg)
     case 1:
     	return hiperf_fixed_read_personal_cacheline(tvals, myindex);
     case 2:
-    	return hiperf_random_read_2G(tvals, myindex);
+	tvals->stride = 64;	// only used during final numbers report
+    	return hiperf_walk_read_1G(tvals, myindex);
     case 3:
+    	return hiperf_random_read_2G(tvals, myindex);
+    case 4:
     	return hiperf_random_incr_2G(tvals, myindex);
     }
 
@@ -334,6 +372,7 @@ void *payload(void *threadarg)
     }
 
     loop = tvals->loop;	// poor man's TLS
+    proceed = &(tvals->proceed);	// unroll this reference
     do {
     	if (!prompt_arg) printf("\n");
 
@@ -401,7 +440,7 @@ void *payload(void *threadarg)
 	if (!tvals->walking)
 		loop--;
 
-    } while (loop > 0 || tvals->proceed);
+    } while (loop > 0 || *proceed);
     tvals->naccesses[myindex] = naccesses;
     return NULL;
 }
@@ -598,6 +637,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     switch (tvals->hiperf) {
     case 2:
     case 3:
+    case 4:
 	if (tvals->fsize < (1L<<31) - 1L)
 	    die("%s size must be at least 2G", tvals->fname);
 	break;
@@ -661,9 +701,16 @@ void printtime(
 
     printf("%'20lu accesses across %d threads in %.2f seconds\n",
 	 naccesses, tvals->nthreads, delta);
-    if (delta > 0.007)
+    if (delta > 0.007) {
+        unsigned long aps = (float)naccesses / delta;
+
         printf("%'20lu accesses/thread/second\n",
-	    (unsigned long)((float)naccesses/ (float)tvals->nthreads / delta));
+	    (unsigned long)((float)aps/(float)tvals->nthreads));
+	if (tvals->stride >= 64) 
+	    // Each access is a cache line of FAM, that's << 6 b/s.
+	    // Output as MB/sec, that's >> 20.
+            printf("%20lu MB/sec FAM traffic\n", aps >> 14);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -679,12 +726,13 @@ int main(int argc, char *argv[])
     //---------------------------------------------------------------------
     // load and go.  Threads pause at the barrier, then one starts the clock.
 
+    if (tvals.seconds)		// Loop counter will be ignored.
+	tvals.proceed = 1;	// Flushed at pthread_barrier_xxx.
+
     if (pthread_barrier_init(&barrier, NULL, tvals.nthreads) == -1) {
     	perror("pthread_barrier_init() failed");
 	exit(1);
     }
-    if (tvals.seconds)		// Loop counter will be ignored
-	tvals.proceed = 1;
 
     for (i = 0; i < tvals.nthreads; i++) {
 	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
