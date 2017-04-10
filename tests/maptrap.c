@@ -47,6 +47,9 @@
 
 #include <sys/time.h>
 
+#define _GNU_SOURCE
+#include <sched.h>
+
 #ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
 #endif
@@ -59,7 +62,7 @@
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
 	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
-	    jumparound;
+	    jumparound, HTpercore, HTspan;
 	long loop;
 	unsigned int *mapped, *last_byte, hiperf, seconds, proceed;
 	unsigned long flags, access_offset;
@@ -119,11 +122,13 @@ void usage() {
     fprintf(stderr, "\t-d    delete file before creating it\n");
     fprintf(stderr, "\t-f    fsync() after update\n");
     fprintf(stderr, "\t-F    fdatasync() after update\n");
-    fprintf(stderr, "\t-H n  high-performance test n: each thread does...\n");
+    fprintf(stderr, "\t-h n  high-performance test n: each thread does...\n");
     fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
     fprintf(stderr, "\t   2  cacheline walk reads from first 2G of a file\n");
     fprintf(stderr, "\t   3  random reads from first 2G of a file\n");
     fprintf(stderr, "\t   4  random read-incr-write from first 2G of a file\n");
+    fprintf(stderr, "\t-Hx,y Hyperthread info: x=HT/core, y=span\n");
+    fprintf(stderr, "\t      TM with HT: -H 4,4    w/o HT: -H 1,1 (default)\n");
     fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
@@ -324,13 +329,20 @@ void *payload(void *threadarg)
     unsigned int *access, curr_val, myindex;
     volatile unsigned int *proceed;
     long loop;
-    int b;
+    int cpu, b;
+    cpu_set_t cpuset;
     
     for (myindex = 0; myindex < nprocs; myindex++) {
 	if (mytid == tvals->tids[myindex])
 	    break;
     }
     if (myindex >= nprocs) die("Cannot find my TID\n");
+    cpu = myindex * tvals->HTpercore;
+    CPU_ZERO(&cpuset);
+    CPU_SET(cpu, &cpuset);
+    if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1)
+    	die("setaffinity() failed: %s", strerror(errno));
+    sleep(1);	// force a reschedule and allow affinity to kick in
 
     // Let the thread startup settle and start the clock.
 
@@ -480,7 +492,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 {
     int opt, do_create = 0, do_delete = 0, do_close = 0, read1st = 0;
     struct stat buf;
-    char *s;
+    char *s, *HTspec = NULL;
 
     if ((nprocs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
     	die("Cannot determine active logical CPU count\n");
@@ -493,9 +505,10 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     tvals->nthreads = 1;		// main() is a thread
     tvals->stride = sizeof(int);	// that which gets accessed
     tvals->unmap = 1;			// usually call munmap()
+    tvals->HTpercore = tvals->HTspan = 1;  // Essentially, HT off
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfFH:jl:L:mo:OpPqrRSs:t:T:uvw:WZ"))
+    while ((opt = getopt(argc, argv, "c:CdfFh:H:jl:L:mo:OpPqrRSs:t:T:uvw:WZ"))
 		!= EOF)
       switch (opt) {
 
@@ -519,7 +532,8 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 		*s++ = opt;
 		break;
 
-	case 'H':	tvals->hiperf = bignum(optarg, 0); break;
+	case 'h':	tvals->hiperf = bignum(optarg, 0); break;
+	case 'H':	HTspec = optarg; break;
 	case 'j':	tvals->jumparound = 1; break;
     	case 'l':	tvals->loop = bignum(optarg, 0); break;
     	case 'L':	tvals->seconds = bignum(optarg, 0); break;
@@ -562,11 +576,15 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     	if (!tvals->flags)
 	    die("-P and -S are mutually exclusive\n");
 	if (!tvals->RW)
-    	    die("Use at least one of -R|-W, or -H which ignores them\n");
+    	    die("Use at least one of -R|-W, or -h which ignores them\n");
     }
     if (tvals->nthreads && nprocs == 1)
-    	die("Can't effectively multithread on a nosmp system\n")
-    if (tvals->nthreads < 1 || tvals->nthreads > nprocs )
+    	die("Can't effectively multithread on a nosmp system\n");
+    if (HTspec) {
+	if (sscanf(HTspec, "%d,%d", &tvals->HTpercore, &tvals->HTspan) != 2)
+	    die("Illegal HTspec '%s'\n", HTspec);
+    }
+    if (tvals->nthreads < 1 || tvals->nthreads > (nprocs / tvals->HTpercore))
     	die("Dude, %d threads?  Nice try.\n", tvals->nthreads);
 
     // do_delete and do_close only make sense when trying to create a file
@@ -701,7 +719,7 @@ void printtime(
 
     printf("%'20lu accesses across %d threads in %.2f seconds\n",
 	 naccesses, tvals->nthreads, delta);
-    if (delta > 0.007) {
+    if (delta > 0.99) {
         unsigned long aps = (float)naccesses / delta;
 
         printf("%'20lu accesses/thread/second\n",
