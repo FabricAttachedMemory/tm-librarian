@@ -237,7 +237,7 @@ void *hiperf_fixed_read_personal_cacheline(
     return NULL;
 }
 
-void set_limits(
+void set_hiperf_limits(
 	unsigned int **access, unsigned long *limit, unsigned int **reset,
 	void *mapped, unsigned int myindex, int full)
 {
@@ -260,7 +260,7 @@ void *hiperf_walk_read_2G(struct tvals_t *tvals, unsigned int myindex, int full)
     volatile unsigned int currval, *proceed;
     unsigned long naccesses = 0, limit;
 
-    set_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
+    set_hiperf_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
     proceed = &(tvals->proceed);
 
     while (*proceed) {
@@ -279,11 +279,11 @@ void *hiperf_walk_read_2G(struct tvals_t *tvals, unsigned int myindex, int full)
 
 void *hiperf_walk_write_2G(struct tvals_t *tvals, unsigned int myindex, int full)
 {
-    unsigned int *access, *reset, *proceed;
-    volatile unsigned int currval = 42;
+    unsigned int *access, *reset;
+    volatile unsigned int currval = 42, *proceed;
     unsigned long naccesses = 0, limit;
 
-    set_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
+    set_hiperf_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
     proceed = &(tvals->proceed);
 
     while (*proceed) {
