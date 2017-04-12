@@ -21,6 +21,7 @@
 // to compile and see intermixed assembly:
 // http://www.systutorials.com/240/generate-a-mixed-source-and-assembly-listing-using-gcc/
 // gcc -o maptrap -Wall -Werror -pthread -g -Wa,-adhln maptrap.c > maptrap.s
+// To see thread bindings, "ps -mo pid,tid,fname,user,psr -p `pgrep maptrap`"
 
 // Origin: exerciser for MMS PoC development in 2013
 // Rocky Craig rocky.craig@hpe.com
@@ -76,7 +77,7 @@ struct tvals_t {
 ///////////////////////////////////////////////////////////////////////////
 // globals
 
-static int prompt_arg = 0, nprocs = 0, verbose = 0;
+static int prompt_arg = 0, nLinuxCPUs = 0, verbose = 0;
 static pthread_barrier_t barrier;
 static pthread_t golden1 = 0;
 struct timespec start, stop;
@@ -124,10 +125,13 @@ void usage() {
     fprintf(stderr, "\t-F    fdatasync() after update\n");
     fprintf(stderr, "\t-h n  high-performance test n: each thread does...\n");
     fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
-    fprintf(stderr, "\t   2  cacheline walk reads from first 2G of a file\n");
-    fprintf(stderr, "\t   3  random reads from first 2G of a file\n");
-    fprintf(stderr, "\t   4  random read-incr-write from first 2G of a file\n");
-    fprintf(stderr, "\t-Hx,y Hyperthread info: x=HT/core, y=span\n");
+    fprintf(stderr, "\t   2  cacheline walk reads from first 2G of a file (full)\n");
+    fprintf(stderr, "\t   3  cacheline walk reads from first 2G of a file (chunk)\n");
+    fprintf(stderr, "\t   4  cacheline walk writes to  first 2G of a file (full)\n");
+    fprintf(stderr, "\t   5  cacheline walk writes to  first 2G of a file (chunk)\n");
+    fprintf(stderr, "\t   6  random reads from first 2G of a file\n");
+    fprintf(stderr, "\t   7  random read-incr-write from first 2G of a file\n");
+    fprintf(stderr, "\t-Hx,y Hyperthread info: x=HT/core, y=core-to-core span\n");
     fprintf(stderr, "\t      TM with HT: -H 4,4    w/o HT: -H 1,1 (default)\n");
     fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
@@ -141,7 +145,9 @@ void usage() {
     fprintf(stderr, "\t-R    read memory accesses\n");
     fprintf(stderr, "\t-s n  stride (in bytes) for each loop iteration\n");
     fprintf(stderr, "\t-t n  size of file for (f)truncate (default 16M)\n");
-    fprintf(stderr, "\t-T n  number of threads (default 1, max %d or ALL)\n", nprocs);
+    fprintf(stderr, "\t-T n  number of threads (default 1)\n");
+    fprintf(stderr, "\t      'ALL' will get the max %d\n", nLinuxCPUs);
+    fprintf(stderr, "\t      'CORES' will get one thread per core (use -H)\n");
     fprintf(stderr, "\t-u    suppress final munmap()\n");
     fprintf(stderr, "\t-v    increase verbosity (might hurt performance)\n");
     fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l|-L\n");
@@ -231,24 +237,61 @@ void *hiperf_fixed_read_personal_cacheline(
     return NULL;
 }
 
-void *hiperf_walk_read_1G(struct tvals_t *tvals, unsigned int myindex)
+void set_limits(
+	unsigned int **access, unsigned long *limit, unsigned int **reset,
+	void *mapped, unsigned int myindex, int full)
 {
-    volatile unsigned int *access, currval, *proceed;
-    unsigned long naccesses = 0, base, offset;
-    
-    // Unroll some references
-    base = (unsigned long)tvals->mapped;
+    unsigned long base = (unsigned long)mapped,
+    	          span = 1024L * 1024L * 64L;  // 32 threads in 2G file
+
+    *access = (void *)(base + myindex * span);
+    if (full) {
+	*limit = base + (1L << 31);
+	*reset = (void *)base;
+    } else {
+	*limit = (unsigned long)(*access) + span;
+	*reset = *access;
+    }
+}
+
+void *hiperf_walk_read_2G(struct tvals_t *tvals, unsigned int myindex, int full)
+{
+    unsigned int *access, *reset;
+    volatile unsigned int currval, *proceed;
+    unsigned long naccesses = 0, limit;
+
+    set_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
     proceed = &(tvals->proceed);
 
-    offset = myindex * 1024 * 1024 * 16;
-    if (verbose)
-	printf("Beginning offset %10lu\n", offset);
     while (*proceed) {
-	access = (void *)(base + offset);
     	currval = *access;
 	naccesses++;
-	offset += 64;
-	if (offset > 1<<30) offset = 0;
+	access = (void *)((unsigned long)access + 64);
+	if ((unsigned long)access >= limit)
+		access = reset;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
+void *hiperf_walk_write_2G(struct tvals_t *tvals, unsigned int myindex, int full)
+{
+    unsigned int *access, *reset, *proceed;
+    volatile unsigned int currval = 42;
+    unsigned long naccesses = 0, limit;
+
+    set_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
+    proceed = &(tvals->proceed);
+
+    while (*proceed) {
+    	*access = currval;
+	naccesses++;
+	access = (void *)((unsigned long)access + 64);
+	if ((unsigned long)access >= limit)
+		access = reset;
     }
     tvals->naccesses[myindex] = naccesses;
     if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
@@ -326,20 +369,32 @@ void *payload(void *threadarg)
     pthread_t mytid = pthread_self();
     unsigned long foffset, stride, naccesses = 0;
     char *s;
-    unsigned int *access, curr_val, myindex;
+    unsigned int *access, curr_val, myindex, ncores;
     volatile unsigned int *proceed;
     long loop;
-    int cpu, b;
+    int LinuxCPU, b;
     cpu_set_t cpuset;
     
-    for (myindex = 0; myindex < nprocs; myindex++) {
+    for (myindex = 0; myindex < nLinuxCPUs; myindex++) {
 	if (mytid == tvals->tids[myindex])
 	    break;
     }
-    if (myindex >= nprocs) die("Cannot find my TID\n");
-    cpu = myindex * tvals->HTpercore;
+    if (myindex >= nLinuxCPUs) die("Cannot find my TID\n");
+
+    // HTpercore and HTspan are an assist to fill all cores with Linux threads
+    // before engaging hypterthreads.  In TM there are 4 threads per core and
+    // one socket.  So Linux logical CPU 0-3 is core 0 HT 0-3 and so on, as
+    // verified via "ps -mo pid,tid,fname,user,psr -p `pgrep maptrap`".
+    // Thus the core-major, HT-minor approach is Linux affinity 0,4,8...124
+    // for the first 32 threads, then 1,5,9...125 for the next 32 and so on.
+
+    ncores = nLinuxCPUs / tvals->HTpercore;
+    LinuxCPU = ((myindex % ncores) * tvals->HTspan) + (myindex / ncores);
+    if (verbose)	// also use -L1 to see this
+    	printf("ncores %d index %d cpu %u\n", ncores, myindex, LinuxCPU);
+
     CPU_ZERO(&cpuset);
-    CPU_SET(cpu, &cpuset);
+    CPU_SET(LinuxCPU, &cpuset);
     if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1)
     	die("setaffinity() failed: %s", strerror(errno));
     sleep(1);	// force a reschedule and allow affinity to kick in
@@ -358,14 +413,24 @@ void *payload(void *threadarg)
     	return hiperf_fixed_read_personal_cacheline(tvals, myindex);
     case 2:
 	tvals->stride = 64;	// only used during final numbers report
-    	return hiperf_walk_read_1G(tvals, myindex);
+    	return hiperf_walk_read_2G(tvals, myindex, 1);
     case 3:
-    	return hiperf_random_read_2G(tvals, myindex);
+	tvals->stride = 64;	// only used during final numbers report
+    	return hiperf_walk_read_2G(tvals, myindex, 0);
     case 4:
+	tvals->stride = 64;	// only used during final numbers report
+    	return hiperf_walk_write_2G(tvals, myindex, 1);
+    case 5:
+	tvals->stride = 64;	// only used during final numbers report
+    	return hiperf_walk_write_2G(tvals, myindex, 0);
+    case 6:
+    	return hiperf_random_read_2G(tvals, myindex);
+    case 7:
     	return hiperf_random_incr_2G(tvals, myindex);
     }
 
     curr_val = 0x42424241;	// For WRONLY, gotta start somewhere
+    stride = 0;			// Even if unused, avoid compiler warnings
 
     // bytes
     if (tvals->jumparound) {
@@ -492,11 +557,11 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 {
     int opt, do_create = 0, do_delete = 0, do_close = 0, read1st = 0;
     struct stat buf;
-    char *s, *HTspec = NULL;
+    char *s, *HTspec = NULL, *bigT = NULL;
 
-    if ((nprocs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
+    if ((nLinuxCPUs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
     	die("Cannot determine active logical CPU count\n");
-    printf("%d logical CPUs available\n", nprocs);
+    printf("%d logical CPUs available\n", nLinuxCPUs);
 
     // Initialize default thread payload values
     memset(tvals, 0, sizeof(struct tvals_t));
@@ -543,11 +608,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 	case 'q':	prompt_arg = -1; break;
     	case 'r':	read1st = 1; break;
     	case 't': 	tvals->fsize = bignum(optarg, 0); break;
-    	case 'T':	if (!strcmp(optarg, "ALL"))
-				tvals->nthreads = nprocs;
-			else
-				tvals->nthreads = atol(optarg);
-			break;
+    	case 'T':	bigT = optarg; break;
 	case 'u':	tvals->unmap = 0; break;
 	case 'v':	verbose++; break;
 
@@ -578,13 +639,21 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 	if (!tvals->RW)
     	    die("Use at least one of -R|-W, or -h which ignores them\n");
     }
-    if (tvals->nthreads && nprocs == 1)
-    	die("Can't effectively multithread on a nosmp system\n");
     if (HTspec) {
 	if (sscanf(HTspec, "%d,%d", &tvals->HTpercore, &tvals->HTspan) != 2)
 	    die("Illegal HTspec '%s'\n", HTspec);
     }
-    if (tvals->nthreads < 1 || tvals->nthreads > (nprocs / tvals->HTpercore))
+    if (bigT) {
+    	if (!strcmp(bigT, "ALL"))
+		tvals->nthreads = nLinuxCPUs;
+    	else if (!strcmp(bigT, "CORES"))
+		tvals->nthreads = nLinuxCPUs / tvals->HTpercore;
+    	else
+		tvals->nthreads = atol(bigT);
+    }
+    if (tvals->nthreads > 1 && nLinuxCPUs == 1)
+    	die("Can't effectively multithread on a nosmp system\n");
+    if (tvals->nthreads < 1 || tvals->nthreads > nLinuxCPUs)
     	die("Dude, %d threads?  Nice try.\n", tvals->nthreads);
 
     // do_delete and do_close only make sense when trying to create a file
@@ -653,9 +722,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 
     // Final idiot checks
     switch (tvals->hiperf) {
-    case 2:
-    case 3:
-    case 4:
+    case 2-7:
 	if (tvals->fsize < (1L<<31) - 1L)
 	    die("%s size must be at least 2G", tvals->fname);
 	break;
@@ -727,7 +794,7 @@ void printtime(
 	if (tvals->stride >= 64) 
 	    // Each access is a cache line of FAM, that's << 6 b/s.
 	    // Output as MB/sec, that's >> 20.
-            printf("%20lu MB/sec FAM traffic\n", aps >> 14);
+            printf("%20lu MB/sec cache traffic\n", aps >> 14);
     }
 }
 
