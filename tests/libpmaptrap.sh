@@ -12,11 +12,16 @@
 ###########################################################################
 # Process command line and environment variables; set scalar globals.
 
-THREADS=${THREADS:-ALL}		# a number, or ALL, threads on each node
+THREADS=${THREADS:-CORE}	# a number, or ALL (=HT on) or CORE (=HT off)
 TMHOSTS=${TMHOSTS:-}
 
 DEVNULL='> /dev/null 2>&1'
-[ "$1" = "-v" ] && QUIET="" || QUIET="$DEVNULL"
+if [ "$1" = "-v" ]; then
+	QUIET=""
+	shift
+else
+	QUIET="$DEVNULL"
+fi
 
 set -u
 
@@ -42,7 +47,7 @@ DIE_RUNTIME=3
 
 function die() {
 	MSG=$1
-	[ $# -eq 2 ] && CODE=$2 || CODE=$DIE_GENERIC
+	[ $# -eq 2 ] && CODE=$2 || CODE=$DIE_RUNTIME
 	echo "$MSG" >&2
 	exit $CODE
 }
@@ -96,6 +101,16 @@ function verify_boottype() {
 	done
 	[ $NOSMP -gt 0 ] && die "Re-bind and reboot those nodes" $DIE_SETUP
 	return 0
+}
+
+###########################################################################
+# Synchronous kill and wait
+
+function killwait() {
+    eval pssh sudo killall -9 $1 $DEVNULL
+    for H in ${HOSTNAMES[*]}; do
+    	while ssh $H pgrep $1; do sleep 1; done
+    done
 }
 
 ###########################################################################
@@ -161,7 +176,7 @@ function allocate_pernode_files() {
 # allocate_pernode_files() about the funky backslashes.  Failures are fatal.
 
 function parallel_maptrap() {
-	eval pssh pkill maptrap $DEVNULL
+	killwait maptrap
 	# $? is multivalued, just ignore for now
 	MSG="$1"
 	PTHREADS=$2
@@ -246,6 +261,4 @@ set_globals
 
 verify_boottype
 
-eval pssh sudo killall -9 maptrap $DEVNULL
-
-remove_pmaptrap_files
+killwait $EXEC

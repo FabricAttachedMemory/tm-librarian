@@ -2,6 +2,8 @@
 
 . libpmaptrap.sh
 
+remove_pmaptrap_files
+
 #--------------------------------------------------------------------------
 # Canned tests that haven't failed in a while, but when they did it was quick.
 # Look like LSGi whose 1B-node run is about 350G of data (approximately one book
