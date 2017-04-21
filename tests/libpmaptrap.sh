@@ -114,6 +114,16 @@ function killwait() {
 }
 
 ###########################################################################
+# Read the database directly, useful during error triage.
+
+function jfdi() {
+	DB=/var/hpetm/librarian.db
+	trace "sqlite3 \"file:$DB?mode=ro\" \"$*\""
+	sudo sqlite3 $DB "$*"
+	return $?
+}
+
+###########################################################################
 # If there are other files, this won't go to zero.  If "fake_zero" is not
 # set in the Librarian, this may take a while to go to zero.
 
