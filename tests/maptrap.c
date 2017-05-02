@@ -239,11 +239,13 @@ void *hiperf_fixed_read_personal_cacheline(
 
 void set_hiperf_limits(
 	unsigned int **access, unsigned long *limit, unsigned int **reset,
-	void *mapped, unsigned int myindex, int full)
+	struct tvals_t *tvals, unsigned int myindex, int full)
 {
-    unsigned long base = (unsigned long)mapped,
+    unsigned long base = (unsigned long)tvals->mapped,
     	          span = 1024L * 1024L * 64L;  // 32 threads in 2G file
 
+    if (tvals->nthreads > 32 && !myindex)	// don't need copies
+    	die("hiperf_xxx() are limited to 32 threads * 64M == 2G files\n");
     *access = (void *)(base + myindex * span);
     if (full) {
 	*limit = base + (1L << 31);
@@ -260,7 +262,7 @@ void *hiperf_walk_read_2G(struct tvals_t *tvals, unsigned int myindex, int full)
     volatile unsigned int currval, *proceed;
     unsigned long naccesses = 0, limit;
 
-    set_hiperf_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
+    set_hiperf_limits(&access, &limit, &reset, tvals, myindex, full);
     proceed = &(tvals->proceed);
 
     while (*proceed) {
@@ -283,9 +285,8 @@ void *hiperf_walk_write_2G(struct tvals_t *tvals, unsigned int myindex, int full
     volatile unsigned int currval = 42, *proceed;
     unsigned long naccesses = 0, limit;
 
-    set_hiperf_limits(&access, &limit, &reset, tvals->mapped, myindex, full);
+    set_hiperf_limits(&access, &limit, &reset, tvals, myindex, full);
     proceed = &(tvals->proceed);
-
     while (*proceed) {
     	*access = currval;
 	naccesses++;
@@ -375,11 +376,11 @@ void *payload(void *threadarg)
     int LinuxCPU, b;
     cpu_set_t cpuset;
     
-    for (myindex = 0; myindex < nLinuxCPUs; myindex++) {
+    for (myindex = 0; myindex < tvals->nthreads; myindex++) {
 	if (mytid == tvals->tids[myindex])
 	    break;
     }
-    if (myindex >= nLinuxCPUs) die("Cannot find my TID\n");
+    if (myindex >= tvals->nthreads) die("Cannot find my TID\n");
 
     // HTpercore and HTspan are an assist to fill all cores with Linux threads
     // before engaging hypterthreads.  In TM there are 4 threads per core and
@@ -561,7 +562,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 
     if ((nLinuxCPUs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
     	die("Cannot determine active logical CPU count\n");
-    printf("%d logical CPUs available\n", nLinuxCPUs);
+    printf("%3d logical CPUs available\n", nLinuxCPUs);
 
     // Initialize default thread payload values
     memset(tvals, 0, sizeof(struct tvals_t));
@@ -651,6 +652,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     	else
 		tvals->nthreads = atol(bigT);
     }
+    printf("%3d threads will be spawned\n", tvals->nthreads);
     if (tvals->nthreads > 1 && nLinuxCPUs == 1)
     	die("Can't effectively multithread on a nosmp system\n");
     if (tvals->nthreads < 1 || tvals->nthreads > nLinuxCPUs)
