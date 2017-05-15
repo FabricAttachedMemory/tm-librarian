@@ -17,7 +17,7 @@
 
 // mmap() exerciser with looping, increments, single-stepping and more.
 
-// gcc -o maptrap -Wall -Werror -pthread maptrap.c
+// gcc -o maptrap -O2 -Wall -Werror -pthread maptrap.c
 // to compile and see intermixed assembly:
 // http://www.systutorials.com/240/generate-a-mixed-source-and-assembly-listing-using-gcc/
 // gcc -o maptrap -Wall -Werror -pthread -g -Wa,-adhln maptrap.c > maptrap.s
@@ -125,12 +125,14 @@ void usage() {
     fprintf(stderr, "\t-F    fdatasync() after update\n");
     fprintf(stderr, "\t-h n  high-performance test n: each thread does...\n");
     fprintf(stderr, "\t   1  fixed reads from per-thread cache line\n");
-    fprintf(stderr, "\t   2  cacheline walk reads from first 2G of a file (full)\n");
-    fprintf(stderr, "\t   3  cacheline walk reads from first 2G of a file (chunk)\n");
-    fprintf(stderr, "\t   4  cacheline walk writes to  first 2G of a file (full)\n");
-    fprintf(stderr, "\t   5  cacheline walk writes to  first 2G of a file (chunk)\n");
-    fprintf(stderr, "\t   6  random reads from first 2G of a file\n");
-    fprintf(stderr, "\t   7  random read-incr-write from first 2G of a file\n");
+    fprintf(stderr, "\t   2  cacheline walk load  in 1st 2G of a file (full)\n");
+    fprintf(stderr, "\t   3  cacheline walk load  in 1st 2G of a file (chunk)\n");
+    fprintf(stderr, "\t   4  cacheline walk store to 1st 2G of a file (full)\n");
+    fprintf(stderr, "\t   5  cacheline walk store to 1st 2G of a file (chunk)\n");
+    fprintf(stderr, "\t   6  cacheline walk LD-ST in 1st 2G of a file (full)\n");
+    fprintf(stderr, "\t   7  cacheline walk LD-ST in 1st 2G of a file (chunk)\n");
+    fprintf(stderr, "\t   8  random LD            in 1st 2G of a file\n");
+    fprintf(stderr, "\t   9  random LD-incr-ST    in 1st 2G of a file\n");
     fprintf(stderr, "\t-Hx,y Hyperthread info: x=HT/core, y=core-to-core span\n");
     fprintf(stderr, "\t      TM with HT: -H 4,4    w/o HT: -H 1,1 (default)\n");
     fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
@@ -279,6 +281,29 @@ void *hiperf_walk_read_2G(struct tvals_t *tvals, unsigned int myindex, int full)
     return NULL;
 }
 
+void *hiperf_walk_RW_2G(struct tvals_t *tvals, unsigned int myindex, int full)
+{
+    unsigned int *access, *reset;
+    volatile unsigned int currval = 42, *proceed;
+    unsigned long naccesses = 0, limit;
+
+    set_hiperf_limits(&access, &limit, &reset, tvals, myindex, full);
+    proceed = &(tvals->proceed);
+    while (*proceed) {
+    	currval = *access;
+    	*access = currval;
+	naccesses++;	// same cache line
+	access = (void *)((unsigned long)access + 64);
+	if ((unsigned long)access >= limit)
+		access = reset;
+    }
+    tvals->naccesses[myindex] = naccesses;
+    if (verbose > 1) printf("%s index %3u had %'lu accesses\n",
+	__FUNCTION__, myindex, naccesses);
+    myindex = currval;	// forestall "unused variable" compiler whining
+    return NULL;
+}
+
 void *hiperf_walk_write_2G(struct tvals_t *tvals, unsigned int myindex, int full)
 {
     unsigned int *access, *reset;
@@ -398,7 +423,7 @@ void *payload(void *threadarg)
     CPU_SET(LinuxCPU, &cpuset);
     if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1)
     	die("setaffinity() failed: %s", strerror(errno));
-    sleep(1);	// force a reschedule and allow affinity to kick in
+    usleep(50000);	// force a reschedule and allow affinity to kick in
 
     // Let the thread startup settle and start the clock.
 
@@ -413,20 +438,20 @@ void *payload(void *threadarg)
     case 1:
     	return hiperf_fixed_read_personal_cacheline(tvals, myindex);
     case 2:
-	tvals->stride = 64;	// only used during final numbers report
     	return hiperf_walk_read_2G(tvals, myindex, 1);
     case 3:
-	tvals->stride = 64;	// only used during final numbers report
     	return hiperf_walk_read_2G(tvals, myindex, 0);
     case 4:
-	tvals->stride = 64;	// only used during final numbers report
     	return hiperf_walk_write_2G(tvals, myindex, 1);
     case 5:
-	tvals->stride = 64;	// only used during final numbers report
     	return hiperf_walk_write_2G(tvals, myindex, 0);
     case 6:
-    	return hiperf_random_read_2G(tvals, myindex);
+    	return hiperf_walk_RW_2G(tvals, myindex, 1);
     case 7:
+    	return hiperf_walk_RW_2G(tvals, myindex, 0);
+    case 8:
+    	return hiperf_random_read_2G(tvals, myindex);
+    case 9:
     	return hiperf_random_incr_2G(tvals, myindex);
     }
 
@@ -724,7 +749,10 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 
     // Final idiot checks
     switch (tvals->hiperf) {
-    case 2-7:
+    case 2 ... 7:
+	tvals->stride = 64;	// only used during final numbers report
+				// fall through
+    case 8 ... 9:
 	if (tvals->fsize < (1L<<31) - 1L)
 	    die("%s size must be at least 2G", tvals->fname);
 	break;
