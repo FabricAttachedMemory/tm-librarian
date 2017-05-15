@@ -12,8 +12,10 @@
 ###########################################################################
 # Process command line and environment variables; set scalar globals.
 
-THREADS=${THREADS:-CORE}	# a number, or ALL (=HT on) or CORE (=HT off)
+THREADS=${THREADS:-CORES}	# a number, or ALL (=HT on) or CORES (=HT off)
 TMHOSTS=${TMHOSTS:-}
+
+TOPHINT=
 
 DEVNULL='> /dev/null 2>&1'
 if [ "$1" = "-v" ]; then
@@ -84,6 +86,11 @@ function set_globals() {
     echo Testing parallel-ssh connectivity...
     eval pssh -t 20 echo $DEVNULL
     [ $? -ne 0 ] && die "pssh echo failed" $DIE_SETUP
+
+    # Topology hint
+
+    TPC=`ssh $HOSTNAMES lscpu | awk '/per core:/ {print $NF}'`
+    [ $TPC -eq 4 ] && TOPHINT='-H4,4' || TOPHINT='-H1,1'
 
     return 0
 }
@@ -198,7 +205,7 @@ function parallel_maptrap() {
 	[ $TIMEOUT -lt 15 ] && TIMEOUT=15
 	[ $TIMEOUT -gt 60 ] && TIMEOUT=60
 	let TIMEOUT+=$PLIMIT
-	ARGS="-T $PTHREADS -L $PLIMIT ${TMP[*]}"
+	ARGS="$TOPHINT -T $PTHREADS -L $PLIMIT ${TMP[*]}"
 
 	# Is the last argument an optional file name?
 	LASTARG=${TMP[-1]}
@@ -246,7 +253,7 @@ function allocate_one_node_files() {
 }
 
 ###########################################################################
-# Use the -H option of maptrap which uses fast random number generation 
+# Use the -h option of maptrap which uses fast random number generation 
 # that only spans 0 thru 2^31, thus it only needs a 2G+ file.   It's still
 # bigger than the CPU cache.
 
@@ -257,11 +264,11 @@ function hispeed() {
 	[ $? -ne 0 ] && die "File allocation failed" $DIE_RUNTIME
 
 	# Shawn Walker asked for this, but it's not exercising FAM, just cache.
-	# parallel_maptrap "HiSpeed fixed read $POLICY" $THREADS $LIMIT -H1
+	# parallel_maptrap "HiSpeed fixed read $POLICY" $THREADS $LIMIT -h1
 
-	parallel_maptrap "HiSpeed random read $POLICY" $THREADS $LIMIT -H2
+	parallel_maptrap "HiSpeed random read $POLICY" $THREADS $LIMIT -h8
 
-	parallel_maptrap "HiSpeed random R-M-W $POLICY" $THREADS $LIMIT -H3
+	parallel_maptrap "HiSpeed random R-M-W $POLICY" $THREADS $LIMIT -h9
 }
 
 ###########################################################################
