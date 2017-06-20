@@ -1,5 +1,11 @@
 tm-librarian (1.22+l4tm1) catapult; urgency=low
 
+  * maptrap updates and read-only access to librarian database for LMP
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 20 Jun 2017 10:53:52 -0600
+
+tm-librarian (1.22+l4tm1) catapult; urgency=low
+
   * add leading slash to coordinate in LMP allocated routine
 
  -- Greg Pearson <greg.pearson@hpe.com>  Tue, 21 Mar 2017 10:48:17 -0600
