@@ -55,7 +55,7 @@ def _response_bad(errmsg, status_code=418):
 def check_version(*args, **kwargs):
     if mainapp.cur is None:
         mainapp.cur = SQLite3assist(
-            db_file=mainapp.db_file, raiseOnExecFail=True)
+            db_file=mainapp.db_file, raiseOnExecFail=True, ro=True)
     if not requestor_wants_json(request):  # Ignore versioning for HTML
         return None
     hdr_accept = request.headers['Accept']

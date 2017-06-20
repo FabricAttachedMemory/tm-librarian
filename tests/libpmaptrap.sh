@@ -12,11 +12,18 @@
 ###########################################################################
 # Process command line and environment variables; set scalar globals.
 
-THREADS=${THREADS:-ALL}		# a number, or ALL, threads on each node
+THREADS=${THREADS:-CORES}	# a number, or ALL (=HT on) or CORES (=HT off)
 TMHOSTS=${TMHOSTS:-}
 
+TOPHINT=
+
 DEVNULL='> /dev/null 2>&1'
-[ "$1" = "-v" ] && QUIET="" || QUIET="$DEVNULL"
+if [ "$1" = "-v" ]; then
+	QUIET=""
+	shift
+else
+	QUIET="$DEVNULL"
+fi
 
 set -u
 
@@ -42,7 +49,7 @@ DIE_RUNTIME=3
 
 function die() {
 	MSG=$1
-	[ $# -eq 2 ] && CODE=$2 || CODE=$DIE_GENERIC
+	[ $# -eq 2 ] && CODE=$2 || CODE=$DIE_RUNTIME
 	echo "$MSG" >&2
 	exit $CODE
 }
@@ -80,6 +87,11 @@ function set_globals() {
     eval pssh -t 20 echo $DEVNULL
     [ $? -ne 0 ] && die "pssh echo failed" $DIE_SETUP
 
+    # Topology hint
+
+    TPC=`ssh $HOSTNAMES lscpu | awk '/per core:/ {print $NF}'`
+    [ $TPC -eq 4 ] && TOPHINT='-H4,4' || TOPHINT='-H1,1'
+
     return 0
 }
 
@@ -96,6 +108,26 @@ function verify_boottype() {
 	done
 	[ $NOSMP -gt 0 ] && die "Re-bind and reboot those nodes" $DIE_SETUP
 	return 0
+}
+
+###########################################################################
+# Synchronous kill and wait
+
+function killwait() {
+    eval pssh sudo killall -9 $1 $DEVNULL
+    for H in ${HOSTNAMES[*]}; do
+    	while ssh $H pgrep $1; do sleep 1; done
+    done
+}
+
+###########################################################################
+# Read the database directly, useful during error triage.
+
+function jfdi() {
+	DB=/var/hpetm/librarian.db
+	trace "sqlite3 \"file:$DB?mode=ro\" \"$*\""
+	sudo sqlite3 $DB "$*"
+	return $?
 }
 
 ###########################################################################
@@ -161,7 +193,7 @@ function allocate_pernode_files() {
 # allocate_pernode_files() about the funky backslashes.  Failures are fatal.
 
 function parallel_maptrap() {
-	eval pssh pkill maptrap $DEVNULL
+	killwait maptrap
 	# $? is multivalued, just ignore for now
 	MSG="$1"
 	PTHREADS=$2
@@ -173,7 +205,7 @@ function parallel_maptrap() {
 	[ $TIMEOUT -lt 15 ] && TIMEOUT=15
 	[ $TIMEOUT -gt 60 ] && TIMEOUT=60
 	let TIMEOUT+=$PLIMIT
-	ARGS="-T $PTHREADS -L $PLIMIT ${TMP[*]}"
+	ARGS="$TOPHINT -T $PTHREADS -L $PLIMIT ${TMP[*]}"
 
 	# Is the last argument an optional file name?
 	LASTARG=${TMP[-1]}
@@ -187,7 +219,7 @@ function parallel_maptrap() {
 		MSG="$MSG ($ARGS /lfs/nodeXX)"
 	fi
 	trace "$MSG"
-	[ "$QUIET" ] && echo -n "$MSG ($ARGS)..."
+	[ "$QUIET" ] && echo -n "$MSG..."
 	eval pssh -t $TIMEOUT $EXEC $ARGS $LASTARG
 	[ $? -ne 0 ] && die "parallel_maptrap() FAILED" $DIE_RUNTIME
 	[ "$QUIET" ] && echo "passed"
@@ -199,6 +231,7 @@ function parallel_maptrap() {
 
 function allocate_one_node_files() {
     let IG=$1-1
+    SIZE=$2
     IG=`printf "0x%02X" $IG`
     remove_pmaptrap_files
 
@@ -213,15 +246,14 @@ function allocate_one_node_files() {
     	'/lfs/\`hostname\`' $DEVNULL
     [ $? -ne 0 ] && echo "pssh setfattr IG request $IG failed" >&2 && return 1
 
-    SIZE=24G
-    eval pssh truncate -s $SIZE '/lfs/\`hostname\`' $DEVNULL
+    eval pssh truncate -s $SIZE '/lfs/\`hostname\`' $QUIET
     [ $? -ne 0 ] && echo "pssh truncate $SIZE failed" >&2 && return 1
 
     return 0
 }
 
 ###########################################################################
-# Use the -H option of maptrap which uses fast random number generation 
+# Use the -h option of maptrap which uses fast random number generation 
 # that only spans 0 thru 2^31, thus it only needs a 2G+ file.   It's still
 # bigger than the CPU cache.
 
@@ -232,11 +264,11 @@ function hispeed() {
 	[ $? -ne 0 ] && die "File allocation failed" $DIE_RUNTIME
 
 	# Shawn Walker asked for this, but it's not exercising FAM, just cache.
-	# parallel_maptrap "HiSpeed fixed read $POLICY" $THREADS $LIMIT -H1
+	# parallel_maptrap "HiSpeed fixed read $POLICY" $THREADS $LIMIT -h1
 
-	parallel_maptrap "HiSpeed random read $POLICY" $THREADS $LIMIT -H2
+	parallel_maptrap "HiSpeed random read $POLICY" $THREADS $LIMIT -h8
 
-	parallel_maptrap "HiSpeed random R-M-W $POLICY" $THREADS $LIMIT -H3
+	parallel_maptrap "HiSpeed random R-M-W $POLICY" $THREADS $LIMIT -h9
 }
 
 ###########################################################################
@@ -246,6 +278,4 @@ set_globals
 
 verify_boottype
 
-eval pssh sudo killall -9 maptrap $DEVNULL
-
-remove_pmaptrap_files
+killwait $EXEC

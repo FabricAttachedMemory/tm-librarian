@@ -1,6 +1,8 @@
 #!/bin/bash
 
-. pmaptrap.lib
+. libpmaptrap.sh
+
+remove_pmaptrap_files
 
 #--------------------------------------------------------------------------
 # Canned tests that haven't failed in a while, but when they did it was quick.
