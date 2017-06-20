@@ -1,4 +1,4 @@
-tm-librarian (1.22+l4tm1) catapult; urgency=low
+tm-librarian (1.23+l4tm1) catapult; urgency=low
 
   * maptrap updates and read-only access to librarian database for LMP
 
