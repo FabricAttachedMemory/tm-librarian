@@ -26,7 +26,7 @@ I am not sure how this is done or who is running this, so it is commented out
 * Start librarian.py server with newly created book database
 -->
 
-First the configuration file (configfiles/book_data.ini) needs created to mirror the FAME or physical setup. If you are running FAME, the numbers must be consistent up to how the emulation_configure.bash was ran. Example for a 4 node FAME setup with a 16G backing store:
+First the configuration file (configfiles/book_data.ini) needs to be modified or initiated. This config file must mirror the FAME or physical hardware setup. If you are running FAME, the numbers must be consistent up to how the emulation_configure.bash was ran. Example for a 4 node FAME setup with a 16G backing store:
 
     [global]
     node_count = 4
@@ -57,13 +57,42 @@ With this notation different nodes can have different memory sizes. A shorthand 
 
 Where:
 
-    [global]        - (STR) global section name
-    node_count      - (INT) total number of nodes
-    book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
-    [node##]        - (STR) unique section name
-    node_id         - (INT) unique global node ID for SoC
-    nvm_size        - (INT) total size of NVM hosted by node
-    bytes_per_node  - (INT) total NVM per node in bytes
+* [global]        - (STR) global section name
+* node_count      - (INT) total number of nodes
+* book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
+* [node##]        - (STR) unique section name
+* node_id         - (INT) unique global node ID for SoC
+* nvm_size        - (INT) total size of NVM hosted by node
+* bytes_per_node  - (INT) total NVM per node in bytes
+
+book_size_bytes and nvm_size also support suffix multipliers:
+
+* M = MB (size * 1024 * 1024)
+* G = GB (size * 1024 * 1024 * 1024)
+* T = TB (size * 1024 * 1024 * 1024 * 1024)
+* B = books (nvm_size only)    
+
+Assumptions:
+
+* "node_cnt" matches the number of "[node#]" sections present in file
+* "nvm_size" is a multiple of "book_size"
+* nodes are in increasing order based on "lza_base"
+* "lza_base" plus "nvm_size" does not overlap next node "lza_base"
+* there can be gaps between the end of one nodes NVM and the start of another nodes NVM
+
+Debian packaging of Librarian
+
+* git clone https://some.where.com/tm-librarian.git
+* cd librarian
+* ensure you are on the master branch "git checkout master"
+* edit debian/changelog file and create new entry and increment version
+* create a git tag for the commit you want to package (ex: git tag -a v0.0.1 <commit>)
+* push the changelog and tag to gitlab master branch "git push origin master"
+* create the debian package "dpkg-buildpackage -tc"
+* packaged files will be located in the parent directory
+* copy the .deb, .dsc, .tar.gz and .changes files to 
+  hlinux-incoming.us.rdlabs.hpecorp.net
+  to the "/var/foreign/l4tm/pool/main/t/tm-librarian" directory
 
 Next, the database holding book metadata must be created using the setup script (book_register.py), feeding it the configuration file (configfiles/book_data.ini) and the location and name of the database file to be created using the -d option. Example:
 
@@ -75,7 +104,7 @@ After this the database file is created and the librarian is ready to be used.
 
 To run, simply run the librarian.py feeding it the location of the database file:
 
-    ./librarian.py -db_file ~/librarian.db
+    ./librarian.py --db_file ~/librarian.db
 
 ## Environnments
 
@@ -129,32 +158,30 @@ Example 2:
 
 Where:
 
-    [global]        - (STR) global section name
-    node_count      - (INT) total number of nodes
-    book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
-    [node##]        - (STR) unique section name
-    node_id         - (INT) unique global node ID for SoC
-    nvm_size        - (INT) total size of NVM hosted by node
-    bytes_per_node  - (INT) total NVM per node in bytes
+* [global]        - (STR) global section name
+* node_count      - (INT) total number of nodes
+* book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
+* [node##]        - (STR) unique section name
+* node_id         - (INT) unique global node ID for SoC
+* nvm_size        - (INT) total size of NVM hosted by node
+* bytes_per_node  - (INT) total NVM per node in bytes
 
-Value modifiers:
+book_size_bytes and nvm_size also support suffix multipliers:
 
-    book_size_bytes and nvm_size also support suffix multipliers:
-
-        M = MB (size * 1024 * 1024)
-        G = GB (size * 1024 * 1024 * 1024)
-        T = TB (size * 1024 * 1024 * 1024 * 1024)
-        B = books (nvm_size only)    
+* M = MB (size * 1024 * 1024)
+* G = GB (size * 1024 * 1024 * 1024)
+* T = TB (size * 1024 * 1024 * 1024 * 1024)
+* B = books (nvm_size only)    
 
 Assumptions:
 
-    - "node_cnt" matches the number of "[node#]" sections present in file
-    - "nvm_size" is a multiple of "book_size"
-    - nodes are in increasing order based on "lza_base"
-    - "lza_base" plus "nvm_size" does not overlap next node "lza_base"
-    - there can be gaps between the end of one nodes NVM and the start of another nodes NVM
+* "node_cnt" matches the number of "[node#]" sections present in file
+* "nvm_size" is a multiple of "book_size"
+* nodes are in increasing order based on "lza_base"
+* "lza_base" plus "nvm_size" does not overlap next node "lza_base"
+* there can be gaps between the end of one nodes NVM and the start of another nodes NVM
 
-$Debian packaging of Librarian
+Debian packaging of Librarian
 
 * git clone https://some.where.com/tm-librarian.git
 * cd librarian
@@ -170,16 +197,18 @@ $Debian packaging of Librarian
 
 ## Librarian Server
 
- *Librarian.py          - main librarian module
-   *backend_sqlite3.py  - sqlite3 interface module
-     *sqlassist.py      - generic sql database helper
-   *engine.py           - process supported librarian commands
-     *book_shelf_bos.py - book, shelf, bos class and methods
-     *cmdproto.py       - command definition for server and client
-     *genericobj.py     - base object class with dictionary helper
-   *socket_handling.py  - server/client socket handling
-   *librarian_chain.py  - chain conversion functions for librarian
-     *function_chain.py - generic function chain helper
+Script | Function
+-------------|--------------
+Librarian.py|main librarian module
+backend_sqlite3.py|sqlite3 interface module
+sqlassist.py|generic sql database helper
+engine.py|process supported librarian commands
+book_shelf_bos.py|book, shelf, bos class and methods
+cmdproto.py|command definition for server and client
+genericobj.py|base object class with dictionary helper
+socket_handling.py|server/client socket handling
+librarian_chain.py|chain conversion functions for librarian
+function_chain.py|generic function chain helper
 
 ## Librarian FUSE interface
 
@@ -188,12 +217,12 @@ interfaces with the Librarian to manage NVM related operations. It can also
 be used interactively to test or query the Librarian and to pre-initialize
 NVM for use by an application.
 
-   *lfs_fuse.py           - main librarian filesystem interface module
-       *book_shelf_bos.py - book, shelf, bos class and methods
-       *cmdproto.py       - command definition for server and client
-       *lfs_daemon.py	  - common support routines encapsulated by different
-			    classes for different execution environments
-
+Script | Function
+-------|---------
+lfs_fuse.py|main librarian filesystem interface module
+book_shelf_bos.py|book, shelf, bos class and methods
+cmdproto.py|command definition for server and client
+lfs_daemon.py|common support routines encapsulated by different classes for different execution environments
 
 ## Book Allocation Policies
 
@@ -205,15 +234,16 @@ See the man pages for attr(5), xattr(7), getfattr(1), getxattr(2).
 
 Policy is used in two fashions:
 
-1a: create a shelf of zero length, it gets the node's default policy
-1b: explicitly set the allocation policy
-1c: allocate the desired amount of space
+* One
+  * create a shelf of zero length, it gets the node's default policy
+  * explicitly set the allocation policy
+  * allocate the desired amount of space
 
 or 
 
-2a: explicitly set the node's default allocation policy.  All shelf creations
-    from this point get this policy.
-2b: create a shelf of the desired size.
+* Two
+  * explicitly set the node's default allocation policy.  All shelf creations from this point get this policy.
+  * create a shelf of the desired size.
 
 ## Librarian supported commands
 
