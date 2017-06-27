@@ -115,7 +115,7 @@ class LibrarianCommandProtocol(object):
         ),
         'mkdir': GO(
             doc='create new directory',
-            parms=('path', 'mode')
+            parms=('path', 'mode'),
         ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
