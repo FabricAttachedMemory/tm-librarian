@@ -818,9 +818,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def mkdir(self, path, mode):
-        mode = _MODE_DEFAULT_DIR
+        mode = self._MODE_DEFAULT_DIR
         tmp = self.lcp('mkdir', path=path, mode=mode)
-        rsp = self.librarian(rsp)
+        rsp = self.librarian(tmp)
         return 0
 
     @prentry
