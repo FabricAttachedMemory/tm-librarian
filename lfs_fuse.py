@@ -818,9 +818,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def mkdir(self, path, mode):
-        mode = _MODE_DEFAULT_DIR
+        mode = self._MODE_DEFAULT_DIR
         tmp = self.lcp('mkdir', path=path, mode=mode)
-        rsp = self.librarian(rsp)
+        rsp = self.librarian(tmp)
         return 0
 
     @prentry
@@ -852,7 +852,7 @@ def mount_LFS(args):
                 node_enc = elems[elems.index('EncNum') + 1]
                 node_id = elems[elems.index('Node') + 1]
                 args.physloc = node_rack + ":" + node_enc + ":" + node_id
-        except AssertionError:
+        except Exception as e:
             # Fabric Emulation auto start shortcut (assumes eth0).
             # If the last three octets of the MAC are equal use that value
             # as the node id (1-80), derive the enclosure and rack number.
