@@ -213,11 +213,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @staticmethod
     def path2shelf(path):
         elems = path.split('/')
-        """
-        was in place, not sure why. see what breaks when its removed
         if len(elems) > 2:
             raise TmfsOSError(errno.E2BIG)
-        """
         shelf_name = elems[-1]        # if empty, original path was '/'
         return shelf_name
 
