@@ -361,6 +361,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
+        # TODO make this a bit more flexible for subs
         if path != '/':
             raise TmfsOSError(errno.ENOENT)
         rsp = self.librarian(self.lcp('list_shelves'))
