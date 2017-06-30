@@ -1,5 +1,6 @@
 #!/usr/bin/python3 -tt
 
+
 # Copyright 2017 Hewlett Packard Enterprise Development LP
 
 # This program is free software: you can redistribute it and/or modify
@@ -357,6 +358,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
+        # TODO make this a bit more flexible for subs
         if path != '/':
             raise TmfsOSError(errno.ENOENT)
         rsp = self.librarian(self.lcp('list_shelves'))
@@ -817,7 +819,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def mkdir(self, path, mode):
-        raise TmfsOSError(errno.ENOSYS)
+        mode = self._MODE_DEFAULT_DIR
+        tmp = self.lcp('mkdir', path=path, mode=mode)
+        rsp = self.librarian(tmp)
+        return 0
 
     @prentry
     def symlink(self, name, target):

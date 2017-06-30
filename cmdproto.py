@@ -113,6 +113,10 @@ class LibrarianCommandProtocol(object):
             doc='get all books in database sorted by LZA',
             parms=None,
         ),
+        'mkdir': GO(
+            doc='create new directory',
+            parms=('path', 'mode'),
+        ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
             parms=('status',),
