@@ -21,6 +21,7 @@
 import argparse
 import errno
 import os
+import psutil
 import shlex
 import socket
 import subprocess
@@ -165,6 +166,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         self.heartbeat = Heartbeat(FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
         self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
+        psutil.cpu_percent()	# dummy call to set interval baseline
         self.librarian(self.lcp('update_node_soc_status',
             status=FRDnode.SOC_STATUS_ACTIVE))
         self.librarian(self.lcp('update_node_mc_status',
@@ -303,7 +305,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def send_heartbeat(self):
         try:
             self.librarian(self.lcp('update_node_soc_status',
-                status=self.lfs_status))
+                status=self.lfs_status,
+                cpu_percent=psutil.cpu_percent()))
         except Exception as e:
             # Connection failure with Librarian ends up here.
             # FIXME shorten the heartbeat interval to speed up reconnect?
@@ -450,7 +453,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf_name = self.path2shelf(path)
 
         # Don't forget the setfattr command, and the shell it runs in, does
-        # things to a "numeric" argument.   setfattr processes a leading
+        # things to a "numeric" argument.  setfattr processes a leading
         # 0x and does a byte-by-byte conversion, yielding a byte array.
         # It needs pairs of digits and can be of arbitrary length.  Any
         # other argument ends up here as a pure string (well, byte array).
