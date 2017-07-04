@@ -168,7 +168,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
         psutil.cpu_percent()	# dummy call to set interval baseline
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_ACTIVE))
+            status=FRDnode.SOC_STATUS_ACTIVE,
+            cpu_percent=psutil.cpu_percent(),
+            rootfs_percent=psutil.disk_usage('/')[-1]))
         self.librarian(self.lcp('update_node_mc_status',
             status=FRDFAModule.MC_STATUS_ACTIVE))
         self.heartbeat.schedule()
@@ -188,7 +190,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
         self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_OFFLINE))
+            status=FRDnode.SOC_STATUS_OFFLINE,
+            cpu_percent=0.0,
+            rootfs_percent=0.0))
         self.librarian(self.lcp('update_node_mc_status',
             status=FRDFAModule.MC_STATUS_OFFLINE))
         assert threading.current_thread() is threading.main_thread()
@@ -306,7 +310,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         try:
             self.librarian(self.lcp('update_node_soc_status',
                 status=self.lfs_status,
-                cpu_percent=psutil.cpu_percent()))
+                cpu_percent=psutil.cpu_percent(),
+                rootfs_percent=psutil.disk_usage('/')[-1]))
         except Exception as e:
             # Connection failure with Librarian ends up here.
             # FIXME shorten the heartbeat interval to speed up reconnect?

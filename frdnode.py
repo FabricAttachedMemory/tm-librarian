@@ -155,7 +155,14 @@ class FRDnode(FRDnodeID):
 
     SOC_STATUS_OFFLINE = 0
     SOC_STATUS_ACTIVE = 1
-    SOC_HEARTBEAT_SECS = 300.0
+
+    # Was 300.0 until we got rid of Monasca, which was driving the
+    # librarian of each node at 2 Hz (80 Hz on 40 nodes).  Assuming a
+    # very steady state, sampling the cluster once every 5-10 seconds
+    # should be good, let's go five.  Reverse Nyquist says sample here
+    # at 10, to get an average cluster update of 5.   That's 4 Hz against
+    # the librarian from 40 nodes.
+    SOC_HEARTBEAT_SECS = 10.0
 
     def __init__(self, node, enc=None, module_size_books=0, autoMCs=True):
         self._hostname = None
