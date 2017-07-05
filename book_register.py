@@ -29,6 +29,7 @@ import configparser
 import json
 import argparse
 import time
+import stat
 
 from collections import OrderedDict
 from pdb import set_trace
@@ -174,6 +175,9 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 
 
 def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
+
+    _MODE_DEFAULT_DIR= stat.S_IFDIR + 0o777
+
     books_total = nvm_bytes_total // book_size_bytes
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
@@ -265,6 +269,21 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                 (lza, ig.groupId, igoffset, 0, 0))
         cur.commit()    # every IG
+
+    # add the initial directory shelves
+    tmp = int(time.time())
+    # first a garbage shelf to make root id = 2
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (1, 0, 0, 0, tmp, tmp, "garbage", _MODE_DEFAULT_DIR)) # name cant be empty string
+
+    cur.commit()
+
+    # and then root directory
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR))
+
 
     cur.commit()
     cur.close()
