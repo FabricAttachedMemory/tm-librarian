@@ -1,4 +1,20 @@
 #!/usr/bin/python3 -tt
+
+# Copyright 2017 Hewlett Packard Enterprise Development LP
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2 as
+# published by the Free Software Foundation.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
 # Dependencies:
 # - python3-flask
 # - librarian DB must be created from json configuration file
@@ -14,6 +30,8 @@ from pdb import set_trace
 from backend_sqlite3 import SQLite3assist
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from frdnode import FRDnode, FRDFAModule
+
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 mainapp = Flask('tm_lmp', static_url_path='/static')
 mainapp.config.from_object('lmp_config')
@@ -37,7 +55,7 @@ def _response_bad(errmsg, status_code=418):
 def check_version(*args, **kwargs):
     if mainapp.cur is None:
         mainapp.cur = SQLite3assist(
-            db_file=mainapp.db_file, raiseOnExecFail=True)
+            db_file=mainapp.db_file, raiseOnExecFail=True, ro=True)
     if not requestor_wants_json(request):  # Ignore versioning for HTML
         return None
     hdr_accept = request.headers['Accept']
@@ -343,7 +361,7 @@ def show_allocated(coordinate):
                 d_ig_cnt[m.IG] = 1
 
         # One row for each MC a book is spread across
-        c_filter = coordinate + '%'
+        c_filter = '/' + coordinate + '%'
         cur.execute('''SELECT * FROM books
             JOIN FAModules ON books.intlv_group = FAModules.IG
             WHERE FAModules.coordinate LIKE ?
@@ -397,16 +415,17 @@ def show_allocated(coordinate):
 def show_active(coordinate):
     try:
         c_type = coordinate.split('/')[-2]
+        coordinate = '/' + coordinate
 
         cur = mainapp.cur
 
-        if c_type == 'datacenter':
+        if c_type == 'Datacenter':
             cur.execute('''
                 SELECT DISTINCT opened_shelves.shelf_id, shelves.book_count
                 FROM opened_shelves
                 JOIN shelves ON opened_shelves.shelf_id = shelves.id
                 JOIN SOCs ON opened_shelves.node_id = SOCs.node_id''')
-        elif c_type == 'soc':
+        elif c_type == 'Soc':
             cur.execute('''
                 SELECT DISTINCT opened_shelves.shelf_id, shelves.book_count
                 FROM opened_shelves

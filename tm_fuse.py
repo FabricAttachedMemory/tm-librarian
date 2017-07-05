@@ -1,3 +1,4 @@
+# Basis: https://github.com/terencehonles/fusepy modified for TM Librarian HPE
 # Copyright (c) 2012 Terence Honles <terence@honles.com> (maintainer)
 # Copyright (c) 2008 Giorgos Verigakis <verigak@gmail.com> (author)
 #
@@ -12,8 +13,6 @@
 # WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-
-
 
 from ctypes import *
 from ctypes.util import find_library

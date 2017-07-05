@@ -1,6 +1,21 @@
-#!/usr/bin/python3 -tt
+#!/usr/bin/python3
 
-# Full Rack Demo (FRD) for June 2016
+# Copyright 2017 Hewlett Packard Enterprise Development LP
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2 as
+# published by the Free Software Foundation.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
+# Full Rack Demo (FRD) for 2016
 # Max of one rack of eight enclosures of ten nodes: exclude rack.  FRD
 # has 4T per node, or 512 books per node, or 128 books per media controller.
 
@@ -72,6 +87,7 @@ class FRDFAModule(FRDnodeID):
         self.node = node
         self.ordMC = ordMC
         self.rawCID = (enc - 1) << 9 | (node - 1) << 4 | (8 + ordMC)
+        self.coordinate = 'MemoryBoard/1/MediaController/%d' % (ordMC + 1)
 
     def __str__(self):
         return 'node_id %2d: %d:%d:%d (%d books)' % (
@@ -139,7 +155,14 @@ class FRDnode(FRDnodeID):
 
     SOC_STATUS_OFFLINE = 0
     SOC_STATUS_ACTIVE = 1
-    SOC_HEARTBEAT_SECS = 300.0
+
+    # Was 300.0 until we got rid of Monasca, which was driving the
+    # librarian of each node at 2 Hz (80 Hz on 40 nodes).  Assuming a
+    # very steady state, sampling the cluster once every 5-10 seconds
+    # should be good, let's go five.  Reverse Nyquist says sample here
+    # at 10, to get an average cluster update of 5.   That's 4 Hz against
+    # the librarian from 40 nodes.
+    SOC_HEARTBEAT_SECS = 10.0
 
     def __init__(self, node, enc=None, module_size_books=0, autoMCs=True):
         self._hostname = None
@@ -176,7 +199,7 @@ class FRDnode(FRDnodeID):
         # The value is for QEMU (52:54), FAME (42), to trigger node ID
         # (matching three octects).
 
-        self.coordinate = 'node/%d' % (self.node)
+        self.coordinate = 'Node/%d' % (self.node)
         self.serialNumber = self.physloc
         self.soc = GenericObject(
             macAddress='52:54:42:%02d:%02d:%02d' % (
@@ -197,11 +220,6 @@ class FRDnode(FRDnodeID):
             [ '%d:%d:%d' % (enc, node, ordMC) for ordMC in range(4) ],
             module_size_books
         )
-
-        # Finish the JSON spoof, do a partial here and complete it in caller
-        for mc in self.mediaControllers:
-            mc.coordinate = 'Enclosure/UV/EncNum/%d/Node/%d/MemoryBoard/1/MediaController/%d' % (
-                mc.enc, mc.node, mc.ordMC + 1)
 
     # FIXME: TMConfig should use this class
     @property

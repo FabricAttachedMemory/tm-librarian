@@ -4,6 +4,21 @@
    a method to construct a valid command dictionary from a variety
    of input parameter conventions.'''
 
+# Copyright 2017 Hewlett Packard Enterprise Development LP
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2 as
+# published by the Free Software Foundation.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
 import sys
 import threading
 from collections import OrderedDict
@@ -98,9 +113,13 @@ class LibrarianCommandProtocol(object):
             doc='get all books in database sorted by LZA',
             parms=None,
         ),
+        'mkdir': GO(
+            doc='create new directory',
+            parms=('path', 'mode'),
+        ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
-            parms=('status',),
+            parms=('status', 'cpu_percent', 'rootfs_percent'),
         ),
         'update_node_mc_status': GO(
             doc='update the status for each media controller on a given node',

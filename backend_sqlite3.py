@@ -1,5 +1,20 @@
 #!/usr/bin/python3 -tt
 
+# Copyright 2017 Hewlett Packard Enterprise Development LP
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2 as
+# published by the Free Software Foundation.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
 # Two convenience modules are exported: lower and higher levels of abstraction.
 # Some of this (INSERT, UPDATE, DELETE) might be better in sqlassist.
 # In SQLite3, cursor.rowcount doesn't seem to be valid after SELECT.
@@ -25,7 +40,11 @@ class SQLite3assist(SQLassist):
 
     def DBconnect(self):
         try:
-            self._conn = sqlite3.connect(self.db_file,
+            uri = 'file:%s' % self.db_file
+            if self.ro:
+                 uri += '?mode=ro'
+            self._conn = sqlite3.connect(uri,
+                                         uri=True,
                                          isolation_level='EXCLUSIVE')
             self._cursor = self._conn.cursor()
         except Exception as e:

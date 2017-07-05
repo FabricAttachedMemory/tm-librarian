@@ -1,10 +1,27 @@
 #!/usr/bin/python3 -tt
 
+
+# Copyright 2017 Hewlett Packard Enterprise Development LP
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2 as
+# published by the Free Software Foundation.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
 # https://www.kernel.org/doc/Documentation/filesystems/vfs.txt
 
 import argparse
 import errno
 import os
+import psutil
 import shlex
 import socket
 import subprocess
@@ -12,6 +29,7 @@ import stat
 import sys
 import threading
 import time
+import logging
 
 from pdb import set_trace
 
@@ -148,8 +166,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         self.heartbeat = Heartbeat(FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
         self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
+        psutil.cpu_percent()	# dummy call to set interval baseline
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_ACTIVE))
+            status=FRDnode.SOC_STATUS_ACTIVE,
+            cpu_percent=psutil.cpu_percent(),
+            rootfs_percent=psutil.disk_usage('/')[-1]))
         self.librarian(self.lcp('update_node_mc_status',
             status=FRDFAModule.MC_STATUS_ACTIVE))
         self.heartbeat.schedule()
@@ -169,7 +190,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
         self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_OFFLINE))
+            status=FRDnode.SOC_STATUS_OFFLINE,
+            cpu_percent=0.0,
+            rootfs_percent=0.0))
         self.librarian(self.lcp('update_node_mc_status',
             status=FRDFAModule.MC_STATUS_OFFLINE))
         assert threading.current_thread() is threading.main_thread()
@@ -217,6 +240,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # There are times when the process that invoked an action,
         # notably release(), has died by the time this point is reached.
         # In that case uid/gid/pid will all be zero.
+        # BUG: PID is the original process, not a twice-forked daemon.
         context = cmdict['context']
         (context['uid'],
          context['gid'],
@@ -285,7 +309,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def send_heartbeat(self):
         try:
             self.librarian(self.lcp('update_node_soc_status',
-                status=self.lfs_status))
+                status=self.lfs_status,
+                cpu_percent=psutil.cpu_percent(),
+                rootfs_percent=psutil.disk_usage('/')[-1]))
         except Exception as e:
             # Connection failure with Librarian ends up here.
             # FIXME shorten the heartbeat interval to speed up reconnect?
@@ -340,6 +366,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
+        # TODO make this a bit more flexible for subs
         if path != '/':
             raise TmfsOSError(errno.ENOENT)
         rsp = self.librarian(self.lcp('list_shelves'))
@@ -429,13 +456,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.EINVAL)
 
         shelf_name = self.path2shelf(path)
-        for bad in self._badjson:
-            if bad in valbytes:
-                raise TmfsOSError(errno.EDOM)
-        try:
-            value = int(valbytes)
-        except ValueError as e:
-            pass
+
+        # Don't forget the setfattr command, and the shell it runs in, does
+        # things to a "numeric" argument.  setfattr processes a leading
+        # 0x and does a byte-by-byte conversion, yielding a byte array.
+        # It needs pairs of digits and can be of arbitrary length.  Any
+        # other argument ends up here as a pure string (well, byte array).
         try:
             value = valbytes.decode()
         except ValueError as e:
@@ -498,22 +524,23 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         assert shelf.name.startswith(self._ZERO_PREFIX)
         fullpath = '%s/%s' % (self.mountpoint, shelf.name)
         if self.fakezero:
-            cmd = '/bin/sleep 10'
+            cmd = '/bin/sleep 5'
         else:
-            cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc iflag=count_bytes count=%d' % (
+            cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc,fsync iflag=count_bytes count=%d' % (
             fullpath, shelf.size_bytes)
 
         dd = self._cmd2sub(cmd)
         self.logger.info('%s: PID %d' % ('dd', dd.pid))
         with self.zerosema:
             try:
-                polled = dd.poll()
-                while polled is not None and polled.returncode is None:
+                polled = dd.poll()   # None == not yet terminated, else retval
+                while polled is None:
                     try:
-                        dd.send_signal(os.SIGUSR1)
+                        dd.send_signal(os.SIGUSR1)	# gets status readout
                         stdout, stderr = dd.communicate(timeout=5)
                     except TimeoutExpired as e:
                         self.logger.error(str(stderr))
+                    time.sleep(3)
                     polled = dd.poll()
             except Exception as e:
                 pass
@@ -654,7 +681,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
         shelf_name = self.path2shelf(path)
-        zero_enabled = self.shadow.zero_on_unlink and not self.fakezero
+        zero_enabled = self.shadow.zero_on_unlink
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.
@@ -800,7 +827,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def mkdir(self, path, mode):
-        raise TmfsOSError(errno.ENOSYS)
+        mode = self._MODE_DEFAULT_DIR
+        tmp = self.lcp('mkdir', path=path, mode=mode)
+        rsp = self.librarian(tmp)
+        return 0
 
     @prentry
     def symlink(self, name, target):
@@ -816,47 +846,53 @@ def mount_LFS(args):
        Validate fields and call FUSE'''
 
     os.makedirs(args.mountpoint, mode=0o777, exist_ok=True)
+    os.chmod(args.mountpoint, mode=0o777)
 
+    msg = 'explicit'
     if not args.physloc:
+        msg = 'derived'
         try:
-            with open(ACPI_NODE_UID, 'r') as uid_file:
-                node_uid = uid_file.read().strip().split('/')
-                assert node_uid.startswith('/MachineRevision/1'), \
-                    'Incompatible machine revision'
-                node_rack = node_uid[node_uid.index('Rack') + 1]
-                node_enc = node_uid[node_uid.index('EncNum') + 1]
-                node_id = node_uid[node_uid.index('Node') + 1]
-                # FIXME: keep full string including Datacenter and Rack
-                # description to qualify initial contact with Librarian.
+            with open(ACPI_NODE_UID, 'r') as uid_file: # actually a coordinate
+                node_uid = uid_file.read().strip()
+                assert node_uid.startswith('/MachineVersion/1/Datacenter'), \
+                    'Incompatible machine revision in %s' % ACPI_NODE_UID
+                elems = node_uid.split('/')
+                node_rack = '1'   # MFT, only one rack
+                node_enc = elems[elems.index('EncNum') + 1]
+                node_id = elems[elems.index('Node') + 1]
                 args.physloc = node_rack + ":" + node_enc + ":" + node_id
-        except:
+        except Exception as e:
             # Fabric Emulation auto start shortcut (assumes eth0).
             # If the last three octets of the MAC are equal use that value
             # as the node id (1-80), derive the enclosure and rack number.
             try:
                 with open(FAME_DEFAULT_NET) as mac_file:
                     mac = mac_file.read().strip().split(':')
-                    if mac[2] == '42' and (mac[3] == mac[4] == mac[5]):
-                        args.physloc = int(mac[5])
+                    assert (mac[2] == '42' and
+                           (mac[3] == mac[4] == mac[5]) and
+                           1 <= int(mac[5]) <= 40), 'Not a FAME node'
+                    args.physloc = int(mac[5])
             except Exception as e:
-                raise SystemExit('Missing physical location and could not automatically derive')
+                raise SystemExit(
+                    'Could not automatically derive coordinate, use --physloc')
 
     try:
         args.physloc = FRDnode(args.physloc)
     except Exception as e:
-        raise SystemExit('Bad physical location (--physloc) argument \'%s\'' % args.physloc)
+        raise SystemExit(
+            'Bad %s physical location \'%s\'' % (msg, args.physloc))
 
     try:
         tmp = socket.gethostbyname(args.hostname)
     except Exception as e:
-       print('could not verify (--hostname) argument \'%s\'' % args.hostname)
+        logging.warning('could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
     tmp = sum((d, f))
     if tmp == 1:
         if args.fixed1906:
-            print('shadow_xxxx overrides fixed1906')
+            logging.info('shadow_xxxx overrides fixed1906')
             args.fixed1906 = False
     elif tmp > 1:
         raise RuntimeError('Only one of shadow_[dir|file] is allowed')

@@ -1,0 +1,47 @@
+#!/bin/bash
+
+. libpmaptrap.sh
+
+remove_pmaptrap_files
+
+#--------------------------------------------------------------------------
+# Canned tests that haven't failed in a while, but when they did it was quick.
+# Look like LSGi whose 1B-node run is about 350G of data (approximately one book
+# per node).  We believe the data on each node is subject to local  processing,
+# the precept of memory-centric computing.  But that might be naive.
+
+hispeed LocalNode 120
+
+hispeed NearestRemote 120	# should stay inTRA-enclosure, not inTER
+
+#--------------------------------------------------------------------------
+# 200G is 20% of a node's NVM with 32G DIMMs, aka 24 books.
+# Open it up.  With forty nodes and many books in each node's file, lots
+# of intra-node, intra-enclosure, and inter-enclosure traffic will ensue.
+
+allocate_pernode_files RandomBooks 300G
+
+parallel_maptrap "Full random R-M-W" $THREADS 300 -qSRWj
+
+#--------------------------------------------------------------------------
+# Have one node host all the per-node files.  Give them all a chance.
+
+for ID in ${NODE_IDS[*]}; do
+    allocate_one_node_files $ID
+    [ $? -ne 0 ] && die "File allocation failed" $DIE_RUNTIME
+    parallel_maptrap "Full random R-M-W, files on node$ID" $THREADS 30 -qSRWj
+    [ $? -ne 0 ] && die "parallel_maptrap() failed" $DIE_RUNTIME
+done
+
+#--------------------------------------------------------------------------
+# Have one large file accessed by all nodes: probably what LSGi really does.
+
+remove_pmaptrap_files
+
+parallel_policy RandomBooks
+
+ssh $HOSTNAMES truncate -s 500G $BIGFILE
+
+parallel_maptrap "Full random R-M-W to $BIGFILE" $THREADS 300 -qSRWj $BIGFILE
+
+exit 0

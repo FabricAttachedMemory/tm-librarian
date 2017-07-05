@@ -1,4 +1,20 @@
-#!/usr/bin/python3 -tt
+#!/usr/bin/python3
+
+# Copyright 2017 Hewlett Packard Enterprise Development LP
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License, version 2 as
+# published by the Free Software Foundation.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program.  If not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
 #---------------------------------------------------------------------------
 # Librarian engine module
 #---------------------------------------------------------------------------
@@ -25,9 +41,7 @@ class LibrarianCommandEngine(object):
 
     @staticmethod
     def argparse_extend(parser):
-        parser.add_argument('--nozombies',
-                            help='Do not use ZOMBIE state in book lifecycle',
-                            action='store_true')
+        pass
 
     _book_size_bytes = 0
     _nvm_bytes_total = 0  # read from DB
@@ -179,8 +193,6 @@ class LibrarianCommandEngine(object):
             assert book.allocated == TMBook.ALLOC_FREE, msg
         elif newalloc == TMBook.ALLOC_ZOMBIE:
             assert book.allocated == TMBook.ALLOC_INUSE, msg
-            if self.nozombies:
-                newalloc = TMBook.ALLOC_FREE
         elif newalloc == TMBook.ALLOC_FREE:
             assert book.allocated == TMBook.ALLOC_ZOMBIE, msg
         else:
@@ -216,6 +228,7 @@ class LibrarianCommandEngine(object):
                 shelf.mode = stat.S_IFREG
                 shelf.matchfields = 'mode'
                 shelf = self.db.modify_shelf(shelf)
+            self.db.commit()
         return shelf
 
     # This is a protocol operation, not necessarily POSIX flow.  Search
@@ -506,6 +519,8 @@ class LibrarianCommandEngine(object):
         return self.db.get_book_info_all(cmdict['intlv_group'])
 
     def cmd_update_node_soc_status(self, cmdict):
+        # Executive Dashboard face transplant next steps:
+        # add 'cpu_percent' and 'rootfs_percent' along with 'status'
         self.db.modify_node_soc_status(cmdict['context']['node_id'], cmdict['status'])
 
     def cmd_update_node_mc_status(self, cmdict):
@@ -518,7 +533,6 @@ class LibrarianCommandEngine(object):
     def __init__(self, backend, optargs=None, cooked=False):
         innerE = None
         self.verbose = getattr(optargs, 'verbose', 0)
-        self.nozombies = getattr(optargs, 'nozombies', False)
         try:
             self.db = backend
             globals = self.db.get_globals()
@@ -577,7 +591,6 @@ class LibrarianCommandEngine(object):
             self.errno = 0
             context = cmdict['context']
             command = self._commands[cmdict['command']]
-            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
         except KeyError as e:
             # This comment might go better in the module that imports json.
             # From StackOverflow: NULL is not zero. It's not a value, per se:
@@ -597,6 +610,7 @@ class LibrarianCommandEngine(object):
             # If this is a performance problem, cache node_id
             assert FRDnode(int(cmdict['context']['node_id'])) in self.nodes, \
                 'Node is not configured in Librarian topology'
+            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
             errmsg = ''  # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
@@ -611,7 +625,7 @@ class LibrarianCommandEngine(object):
             if self.verbose > 2:
                 print('%s failed: %s: %s' %
                     (cmdict['command'],
-                    errno.errorcode.get(self.errno, 'EEEEEEEK!'),
+                    errno.errorcode.get(self.errno, ''),
                     errmsg),
                     file=sys.stderr)
             return { 'errmsg': errmsg, 'errno': self.errno }, None
