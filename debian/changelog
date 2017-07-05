@@ -1,3 +1,9 @@
+tm-librarian (1.15-1) unstable; urgency=medium
+
+  * Merge recent librarian changes
+
+ -- Keith Packard <keithp@keithp.com>  Wed, 05 Jul 2017 13:16:04 -0700
+
 tm-librarian (1.14-1) unstable; urgency=medium
 
   * Set LMP daemon working directory to python tm_librarian dir
