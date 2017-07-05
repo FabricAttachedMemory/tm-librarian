@@ -518,6 +518,21 @@ class LibrarianCommandEngine(object):
     def cmd_get_book_info_all(self, cmdict):
         return self.db.get_book_info_all(cmdict['intlv_group'])
 
+    def cmd_mkdir(self, cmdict):
+        # currently similar to cmd_create_shelf with slight modifications
+        name = cmdict['path'].split('/')[-1]
+        cmdict['name'] = name
+        try:
+            shelf = self.cmd_open_shelf(cmdict)
+            return shelf
+        except Exception as e:
+            pass
+        self.errno = errno.EINVAL
+        shelf = TMShelf(cmdict)
+        self.db.create_shelf(shelf)
+
+        return self.cmd_open_shelf(cmdict)
+
     def cmd_update_node_soc_status(self, cmdict):
         self.db.modify_node_soc_status(cmdict['context']['node_id'], cmdict['status'])
 

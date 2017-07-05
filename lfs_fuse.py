@@ -211,10 +211,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
-    def path2shelf(path):
+    def path2shelf(path, ignoreError=False):
         elems = path.split('/')
-        if len(elems) > 2:
-            raise TmfsOSError(errno.E2BIG)
+        # error ignored for subdirectories, might be ignore for other stuff later
+        if not ignoreError:
+            if len(elems) > 2:
+                raise TmfsOSError(errno.E2BIG)
         shelf_name = elems[-1]        # if empty, original path was '/'
         return shelf_name
 
