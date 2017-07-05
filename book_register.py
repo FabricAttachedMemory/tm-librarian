@@ -274,15 +274,15 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
     tmp = int(time.time())
     # first a garbage shelf to make root id = 2
     cur.execute(
-        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        (1, 0, 0, 0, tmp, tmp, "garbage", _MODE_DEFAULT_DIR)) # name cant be empty string
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (1, 0, 0, 0, tmp, tmp, "garbage", _MODE_DEFAULT_DIR, 0)) # name cant be empty string
 
     cur.commit()
 
     # and then root directory
     cur.execute(
-        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR))
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2))
 
 
     cur.commit()
@@ -672,7 +672,8 @@ def create_empty_db(cur):
             ctime INT,
             mtime INT,
             name TEXT,
-            mode INT
+            mode INT,
+            parent_id INT
             )
             """
         cur.execute(table_create)
