@@ -119,7 +119,7 @@ class LibrarianCommandProtocol(object):
         ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
-            parms=('status',),
+            parms=('status', 'cpu_percent', 'rootfs_percent'),
         ),
         'update_node_mc_status': GO(
             doc='update the status for each media controller on a given node',
