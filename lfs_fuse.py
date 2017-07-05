@@ -608,7 +608,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def utimens(self, path, times=None):
-        shelf_name = self.path2shelf(path)  # bomb here on '/'
+        shelf_name = self.path2shelf(path, ignoreError=True)  # bomb here on '/'
         if times is not None:
             times = tuple(map(int, times))
             if abs(int(time.time() - times[1])) < 3:  # "now" on this system
