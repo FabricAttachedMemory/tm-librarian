@@ -323,12 +323,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def getattr(self, path, fh=None):
+        # TODO remove some root hardcoding now that a real root exists
         if fh is not None:
             raise TmfsOSError(errno.ENOENT)  # never saw this in 8 months
 
         if path == '/':
             now = int(time.time())
-            shelves = self.librarian(self.lcp('list_shelves'))
+            shelves = self.librarian(self.lcp('list_shelves', path=path))
             tmp = {
                 'st_uid':       42,
                 'st_gid':       42,
@@ -361,10 +362,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
         # TODO make this a bit more flexible for subs
+        """ comment this out, see how behavior changes
         if path != '/':
             raise TmfsOSError(errno.ENOENT)
-        rsp = self.librarian(self.lcp('list_shelves'))
-        yield '.'
+        """
+        rsp = self.librarian(self.lcp('list_shelves', path=path))
         yield '..'
         for shelf in rsp:
             yield shelf['name']

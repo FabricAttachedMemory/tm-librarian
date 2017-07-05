@@ -54,8 +54,8 @@ class LibrarianCommandProtocol(object):
             parms=('name', ),
         ),
         'list_shelves': GO(
-            doc='list all shelf names',
-            parms=None,
+            doc='list shelf names',
+            parms=('path', ),
         ),
         'list_open_shelves': GO(
             doc='show all open shelves',
