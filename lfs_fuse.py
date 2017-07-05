@@ -341,7 +341,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             }
             return tmp
 
-        shelf_name = self.path2shelf(path)
+        shelf_name = self.path2shelf(path, ignoreError=True)
         rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
         shelf = TMShelf(rsp)
         tmp = {
