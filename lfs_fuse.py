@@ -640,7 +640,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if fh is not None:
             # createat(2), methinks, but I never saw this in 8 months
             raise TmfsOSError(errno.ENOSYS)
-        shelf_name = self.path2shelf(path)
+        shelf_name = self.path2shelf(path, ignoreError=True)
         if supermode is None:
             mode &= 0o777
             tmpmode = stat.S_IFREG + mode
