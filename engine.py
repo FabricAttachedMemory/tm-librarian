@@ -31,7 +31,7 @@ from pdb import set_trace
 
 from book_policy import BookPolicy
 from book_shelf_bos import TMBook, TMShelf, TMBos
-from cmdproto import LibrarianCommandProtocol
+from cmdproto import LibrarianCommandProtocol as lcp
 from frdnode import FRDnode
 
 _ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
@@ -133,7 +133,24 @@ class LibrarianCommandEngine(object):
 
     def cmd_list_shelves(self, cmdict):
         '''Returns a list.'''
-        return self.db.get_shelf_all()
+        path = cmdict['path']
+        parent_shelf = self._path2shelf(path)
+        return self.db.get_directory_shelves(parent_shelf)
+
+    def _path2shelf(self, path):
+        '''Returns shelf object corresponding to given path'''
+        path_list = [ directory for directory in path.split('/') if directory != '']
+        # not sure if this will work, attempting to start at root and move from there
+        tmp = TMShelf(id=2)
+        tmp.matchfields = ('id', )
+        current_shelf = self.db.get_shelf(tmp)
+        for name in path_list:
+            tmp = TMShelf(parent_id=current_shelf.id, name=name)
+            tmp.matchfields = ('parent_id', 'name')
+            current_shelf = self.db.get_shelf(tmp)
+
+        return current_shelf
+
 
     def cmd_list_open_shelves(self, cmdict):
         '''Returns a list.'''

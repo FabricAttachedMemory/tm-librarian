@@ -466,6 +466,19 @@ class LibrarianDBackendSQL(object):
                 node_id != context['node_id'] or pid != context['pid'] ]
         return tmp
 
+    def get_directory_shelves(self, parent_shelf):
+        """ Retrieve all shelves from a single parent directory
+            Input---
+              parent_shelf (parent directory)
+            Output---
+              List of TMShelf objects (could be empty) or raise error
+        """
+        parent_id = parent_shelf.id
+        self._cur.execute('SELECT * FROM shelves WHERE parent_id = %d ORDER BY id' % parent_id)
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        return shelves
+
     def get_shelf_all(self):
         """ Retrieve all shelves from the database.
             Input---
