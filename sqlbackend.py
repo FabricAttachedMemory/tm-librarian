@@ -418,6 +418,7 @@ class LibrarianDBackendSQL(object):
             shelf.mode = stat.S_IFREG + 0o666
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
+        shelf.parent_id = 2 # will need to be changed later, 2 now for root
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
 
