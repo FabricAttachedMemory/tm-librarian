@@ -43,7 +43,7 @@ class LibrarianCommandProtocol(object):
         ),
         'create_shelf': GO(
             doc='create new shelf',
-            parms=('name', 'mode'),
+            parms=('path', 'mode'),
         ),
         'get_shelf': GO(
             doc='get shelf details by shelf name',

@@ -418,7 +418,8 @@ class LibrarianDBackendSQL(object):
             shelf.mode = stat.S_IFREG + 0o666
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
-        shelf.parent_id = 2 # will need to be changed later, 2 now for root
+        if shelf.parent_id == 0:
+            shelf.parent_id = 2 # is now a default for if it given to go in root
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
 

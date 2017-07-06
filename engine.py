@@ -85,6 +85,10 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
+        path_list = self._path2list(cmdict['path'])
+        cmdict['name'] = path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parent_id'] = parent_shelf.id
         # POSIX: if extant, open it; else create and then open
         try:
             shelf = self.cmd_open_shelf(cmdict)
@@ -139,8 +143,10 @@ class LibrarianCommandEngine(object):
 
     def _path2shelf(self, path):
         '''Returns shelf object corresponding to given path'''
-        path_list = [ directory for directory in path.split('/') if directory != '']
+        # accepts a string, or a list. if string, turns into list here
+        path_list = self._path2list(path)
         # not sure if this will work, attempting to start at root and move from there
+        # if things break, this would be a reasonable place to look
         tmp = TMShelf(id=2)
         tmp.matchfields = ('id', )
         current_shelf = self.db.get_shelf(tmp)
@@ -163,6 +169,7 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
+        # TODO include parent id so that multiple of same name still works
         shelf = self.cmd_get_shelf(cmdict)  # may raise ENOENT
         self.db.modify_opened_shelves(shelf, 'get', cmdict['context'])
         return shelf
@@ -537,18 +544,30 @@ class LibrarianCommandEngine(object):
 
     def cmd_mkdir(self, cmdict):
         # currently similar to cmd_create_shelf with slight modifications
-        name = cmdict['path'].split('/')[-1]
-        cmdict['name'] = name
+        path_list = self._path2list(cmdict['path'])
+        cmdict['name'] = path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parent_id'] = parent_shelf.id
+
         try:
             shelf = self.cmd_open_shelf(cmdict)
             return shelf
         except Exception as e:
+
             pass
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
 
         return self.cmd_open_shelf(cmdict)
+
+    def _path2list(self, path):
+        """ Splits path strings into list of names """
+        # if path is already a string, just clean it up
+        if type(path) is list:
+            return [directory for directory in path if directory != '']
+        # if not do split then clean up
+        return [directory for directory in path.split('/') if directory != '']
 
     def cmd_update_node_soc_status(self, cmdict):
         self.db.modify_node_soc_status(cmdict['context']['node_id'], cmdict['status'])

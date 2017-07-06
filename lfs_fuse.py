@@ -642,14 +642,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if fh is not None:
             # createat(2), methinks, but I never saw this in 8 months
             raise TmfsOSError(errno.ENOSYS)
+        ''' shouldn't need this anymore
         shelf_name = self.path2shelf(path, ignoreError=True)
+        '''
         if supermode is None:
             mode &= 0o777
             tmpmode = stat.S_IFREG + mode
         else:
             mode = supermode & 0o777
             tmpmode = supermode
-        tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
+        tmp = self.lcp('create_shelf', path=path, mode=tmpmode)
         rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)                # This is an open shelf...
         fx = self.shadow.create(shelf, mode)     # ...added to the cache...
