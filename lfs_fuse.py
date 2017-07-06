@@ -563,7 +563,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if cached is not None:                  # Not a good sign
             open_handles = cached.open_handle
             if open_handles is not None:        # Definitely a bad sign
-                set_trace()
                 raise TmfsOSError(errno.EBUSY)
 
                 # Once upon a time I forced it...
