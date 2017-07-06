@@ -196,6 +196,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # helpers
 
     def get_bos(self, shelf):
+        set_trace()
         shelf.bos = self.librarian(self.lcp('list_shelf_books', shelf))
         for book in shelf.bos:
             # Replaced a per-book loop of lcp('get_book') which was done
