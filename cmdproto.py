@@ -47,7 +47,7 @@ class LibrarianCommandProtocol(object):
         ),
         'get_shelf': GO(
             doc='get shelf details by shelf name',
-            parms=('name', ),
+            parms=('path', ),
         ),
         'list_shelf_books': GO(
             doc='list books on a shelf',

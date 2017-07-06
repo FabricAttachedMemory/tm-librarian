@@ -109,7 +109,7 @@ class LibrarianCommandEngine(object):
 
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
-    def cmd_get_shelf(self, cmdict, match_id=False):
+    def cmd_get_shelf(self, cmdict, match_id=False, match_parent_id=True):
         """ List a given shelf.
             In (dict)---
                 name
@@ -118,9 +118,17 @@ class LibrarianCommandEngine(object):
                 TMShelf object
         """
         self.errno = errno.EINVAL
+        path_list = self._path2list(path)
+        cmdict['name']= path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parend_id'] = parent_shelf.id
         shelf = TMShelf(cmdict)
-        assert shelf.name, 'Missing shelf name'
-        if match_id:
+        assert shelf.path, 'Missing shelf path'
+        if match_id and match_parent_id:
+            shelf.matchfields = ('name', 'id', 'parent_id')
+        elif match_parent_id:
+            shelf.matchfields = ('name', 'parent_id')
+        elif match_id:
             shelf.matchfields = ('name', 'id')
         else:
             shelf.matchfields = ('name', )
@@ -170,7 +178,7 @@ class LibrarianCommandEngine(object):
                 TMShelf object
         """
         # TODO include parent id so that multiple of same name still works
-        shelf = self.cmd_get_shelf(cmdict)  # may raise ENOENT
+        shelf = self.cmd_get_shelf(cmdict, match_parent_id = True)  # may raise ENOENT
         self.db.modify_opened_shelves(shelf, 'get', cmdict['context'])
         return shelf
 

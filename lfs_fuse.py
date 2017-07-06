@@ -341,9 +341,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'st_mtime':     now,
             }
             return tmp
-
-        shelf_name = self.path2shelf(path, ignoreError=True)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        # TODO fix get shelf to use path instead of name
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         tmp = {
             'st_ctime':     shelf.ctime,
