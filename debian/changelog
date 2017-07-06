@@ -1,3 +1,9 @@
+tm-librarian (1.24+l4tm1) catapult; urgency=low
+
+  * Add cpu_percent and rootfs_percent to heartbeat data
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Thu, 06 Jul 2017 14:25:26 -0600
+
 tm-librarian (1.23+l4tm1) catapult; urgency=low
 
   * maptrap updates and read-only access to librarian database for LMP
