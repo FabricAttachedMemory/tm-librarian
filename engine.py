@@ -118,12 +118,13 @@ class LibrarianCommandEngine(object):
                 TMShelf object
         """
         self.errno = errno.EINVAL
-        path_list = self._path2list(path)
+        path_list = self._path2list(cmdict['path'])
         cmdict['name']= path_list[-1]
         parent_shelf = self._path2shelf(path_list[:-1])
-        cmdict['parend_id'] = parent_shelf.id
+        cmdict['parent_id'] = parent_shelf.id
         shelf = TMShelf(cmdict)
-        assert shelf.path, 'Missing shelf path'
+        assert shelf.name, 'Missing shelf name'
+        assert shelf.parent_id, 'Missing parent id'
         if match_id and match_parent_id:
             shelf.matchfields = ('name', 'id', 'parent_id')
         elif match_parent_id:
