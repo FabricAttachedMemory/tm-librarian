@@ -1,3 +1,18 @@
+tm-librarian (1.24-1) unstable; urgency=medium
+
+  * Add cpu_percent and rootfs_percent to heartbeat data
+  * maptrap updates and read-only access to librarian database for LMP
+  * add leading slash to coordinate in LMP allocated routine
+  * add fsync to book zeroing, updates to maptrap
+  * Handle node death and new maptrap features
+  * Fixes to LMP for coordinate syntax changes
+  * Added GPL2 headers
+  * Create /var/hpetm directory, bug fixes
+  * Change /lfs permissions to 777 on creation
+  * Create /usr/bin/check-book.py softlink, add services to tmconfig, bug fixes
+
+ -- Keith Packard <keithp@keithp.com>  Thu, 06 Jul 2017 14:30:14 -0700
+
 tm-librarian (1.15-1) unstable; urgency=medium
 
   * Merge recent librarian changes
