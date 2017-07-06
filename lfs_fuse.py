@@ -353,7 +353,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_nlink':     1,
             'st_size':      shelf.size_bytes
         }
-        if shelf_name.startswith('block'):
+        if shelf.name.startswith('block'):
             tmp['st_mode'] = self._MODE_DEFAULT_BLK
         return tmp
 
