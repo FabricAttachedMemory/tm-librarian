@@ -702,6 +702,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Refresh shelf info
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
+        set_trace()
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
         self.get_bos(shelf)
