@@ -13,7 +13,7 @@ X-Python3-Version: >= 3.2
 
 Package: tm-librarian
 Architecture: all
-Depends: python3 (>= 3.2)
+Depends: python3 (>= 3.2),python3-psutil
 Recommends: attr
 Description: Librarian and LFS utilities
   Librarian and LFS fabric attached memory management tools for The Machine

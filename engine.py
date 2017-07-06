@@ -579,6 +579,8 @@ class LibrarianCommandEngine(object):
         return [directory for directory in path.split('/') if directory != '']
 
     def cmd_update_node_soc_status(self, cmdict):
+        # Executive Dashboard face transplant next steps:
+        # add 'cpu_percent' and 'rootfs_percent' along with 'status'
         self.db.modify_node_soc_status(cmdict['context']['node_id'], cmdict['status'])
 
     def cmd_update_node_mc_status(self, cmdict):
