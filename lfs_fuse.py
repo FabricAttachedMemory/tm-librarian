@@ -341,7 +341,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'st_mtime':     now,
             }
             return tmp
-        # TODO fix get shelf to use path instead of name
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         tmp = {
@@ -396,6 +395,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         shelf_name = self.path2shelf(path)
 
+        # Does this also need changed to support path instead of name?
         # Piggy back for queries by kernel (globals & fault handling).
         if xattr.startswith('_obtain_'):
             data = self.shadow.getxattr(shelf_name, xattr)
@@ -415,7 +415,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         try:
             rsp = self.librarian(
-                self.lcp('get_xattr', name=shelf_name, xattr=xattr))
+                self.lcp('get_xattr', path=path, xattr=xattr))
             value = rsp['value']
             assert value is not None    # 'No such attribute'
             if isinstance(value, int):
@@ -431,9 +431,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def listxattr(self, path):
         """getfattr(1) -d calls listxattr(2).  Return a list of names."""
-        shelf_name = self.path2shelf(path)
         rsp = self.librarian(
-                self.lcp('list_xattrs', name=shelf_name))
+                self.lcp('list_xattrs', path=path))
         value = rsp['value']
         return value
 
@@ -450,8 +449,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if elems[0] != 'user' or len(elems) < 2:
             raise TmfsOSError(errno.EINVAL)
 
-        shelf_name = self.path2shelf(path)
-
         # Don't forget the setfattr command, and the shell it runs in, does
         # things to a "numeric" argument.   setfattr processes a leading
         # 0x and does a byte-by-byte conversion, yielding a byte array.
@@ -464,16 +461,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             value = valbytes.decode('cp437')
 
         rsp = self.librarian(
-                self.lcp('set_xattr', name=shelf_name,
+                self.lcp('set_xattr', path=path,
                          xattr=xattr, value=value))
         if rsp is not None:  # unexpected
             raise TmfsOSError(errno.ENOTTY)
 
     @prentry
     def removexattr(self, path, xattr):
-        shelf_name = self.path2shelf(path)
         rsp = self.librarian(
-            self.lcp('remove_xattr', name=shelf_name, xattr=xattr))
+            self.lcp('remove_xattr', path=path, xattr=xattr))
         if rsp is not None:  # unexpected
             raise TmfsOSError(errno.ENOTTY)
 
@@ -559,8 +555,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'unlink: unexpected args'
-        shelf_name = self.path2shelf(path)
-        shelf = TMShelf(self.librarian(self.lcp('get_shelf', name=shelf_name)))
+        shelf = TMShelf(self.librarian(self.lcp('get_shelf', path=path)))
 
         # Paranoia check for (dangling) opens.  Does VFS catch these first?
         cached = self.shadow[shelf.name]
@@ -579,7 +574,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                     except Exception as e:
                         pass
 
-        self.shadow.unlink(shelf_name)  # empty cache INCLUDING dangling opens
+        self.shadow.unlink(shelf.name)  # empty cache INCLUDING dangling opens
 
         # Early exit: no explicit zeroing required if:
         # 1. it's zero bytes long
@@ -590,13 +585,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if ((not shelf.size_bytes) or
              shelf.name.startswith(self._ZERO_PREFIX) or
              (not self.shadow.zero_on_unlink)):
-            self.librarian(self.lcp('destroy_shelf', name=shelf.name))
+            self.librarian(self.lcp('destroy_shelf', path=path))
             return 0
 
         # Schedule for zeroing; a second entry to unlink() will occur on
         # this shelf with the new name.
         zeroname = '%s%d' % (self._ZERO_PREFIX, shelf.id)
-        if zeroname != shelf_name:
+        if zeroname != shelf.name:
             self.rename(shelf.name, zeroname)
             shelf.name = zeroname
             shelf.mode = stat.S_IFREG   # un-block it as was done on server
@@ -609,7 +604,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def utimens(self, path, times=None):
-        shelf_name = self.path2shelf(path, ignoreError=True)  # bomb here on '/'
         if times is not None:
             times = tuple(map(int, times))
             if abs(int(time.time() - times[1])) < 3:  # "now" on this system
@@ -617,7 +611,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if times is None:
             times = (0, 0)  # let librarian pick it
         self.librarian(
-            self.lcp('set_am_time', name=shelf_name,
+            self.lcp('set_am_time', path=path,
                      atime=times[0],
                      mtime=times[1]))
         return 0  # os.utime
@@ -626,8 +620,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def open(self, path, flags, mode=None):
         # looking for filehandles?  See FUSE docs.  Librarian will do
         # all access calculations so call it first.
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('open_shelf', path=path))
         shelf = TMShelf(rsp)
         self.get_bos(shelf)
         # File handle is a proxy for FuSE to refer to "real" file descriptor.
@@ -641,9 +634,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if fh is not None:
             # createat(2), methinks, but I never saw this in 8 months
             raise TmfsOSError(errno.ENOSYS)
-        ''' shouldn't need this anymore
-        shelf_name = self.path2shelf(path, ignoreError=True)
-        '''
         if supermode is None:
             mode &= 0o777
             tmpmode = stat.S_IFREG + mode
@@ -677,15 +667,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def truncate(self, path, length, fh=None):
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
-        shelf_name = self.path2shelf(path)
         zero_enabled = self.shadow.zero_on_unlink
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
         req = self.lcp('resize_shelf',
-                       name=shelf_name,
+                       path=path,
                        size_bytes=length,
                        id=rsp['id'],
                        zero_enabled=zero_enabled)
@@ -700,7 +689,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             threading.Thread(target=self._zero, args=(z_shelf,)).start()
 
         # Refresh shelf info
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
@@ -723,8 +712,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if mode:
             raise TmfsOSError(errno.EOPNOTSUPP)
         if fh is None:
-            shelf_name = self.path2shelf(path)
-            rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+            rsp = self.librarian(self.lcp('get_shelf', path=path))
             shelf = TMShelf(rsp)
         else:
             shelf = self.shadow[fh]
@@ -772,12 +760,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def rename(self, old, new):
         # 0 or raise
-        old = self.path2shelf(old)
-        rsp = self.librarian(self.lcp('get_shelf', name=old))
+        rsp = self.librarian(self.lcp('get_shelf', path=old))
         shelf = TMShelf(rsp)
-        new = self.path2shelf(new)
         self.shadow.rename(old, new)
-        req = self.lcp('rename_shelf', name=old, id=shelf.id, newname=new)
+        req = self.lcp('rename_shelf', path=old, id=shelf.id, newname=new)
         self.librarian(req)  # None or raise
         return 0
 
@@ -801,8 +787,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # File can't exist already or upper levels of VFS reject the call.
         if mode & stat.S_IFBLK != stat.S_IFBLK:
             raise TmfsOSError(errno.ENOTBLK)
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name),
+        rsp = self.librarian(self.lcp('get_shelf', path=path),
                                       errorOK=True)
         if 'errmsg' not in rsp:
             raise TmfsOSError(errno.EEXIST)

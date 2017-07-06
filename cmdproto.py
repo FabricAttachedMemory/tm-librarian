@@ -51,7 +51,7 @@ class LibrarianCommandProtocol(object):
         ),
         'list_shelf_books': GO(
             doc='list books on a shelf',
-            parms=('name', ),
+            parms=('path', ),
         ),
         'list_shelves': GO(
             doc='list shelf names',
@@ -63,15 +63,15 @@ class LibrarianCommandProtocol(object):
         ),
         'open_shelf': GO(
             doc='open shelf and setup node access',
-            parms=('name', )
+            parms=('path', )
         ),
         'resize_shelf': GO(
             doc='resize shelf to given size in bytes',
-            parms=('name', 'id', 'size_bytes', 'zero_enabled'),
+            parms=('path', 'id', 'size_bytes', 'zero_enabled'),
         ),
         'rename_shelf': GO(
             doc='rename shelf',
-            parms=('name', 'id', 'newname' ),
+            parms=('path', 'id', 'newname' ),
         ),
         'close_shelf': GO(
             doc='close shelf and end node access',
@@ -79,7 +79,7 @@ class LibrarianCommandProtocol(object):
         ),
         'destroy_shelf': GO(
             doc='destroy shelf and free reserved books',
-            parms=('name', ),
+            parms=('path', ),
         ),
         'get_book': GO(
             doc='get book details by book id',
@@ -87,23 +87,23 @@ class LibrarianCommandProtocol(object):
         ),
         'get_xattr': GO(
             doc='get extended attribute for a shelf',
-            parms=('name', 'xattr'),
+            parms=('path', 'xattr'),
         ),
         'list_xattrs': GO(
             doc='get current extended attribute names for a shelf',
-            parms=('name',),
+            parms=('path',),
         ),
         'set_xattr': GO(
             doc='set extended attribute for a shelf',
-            parms=('name', 'xattr', 'value'),
+            parms=('path', 'xattr', 'value'),
         ),
         'remove_xattr': GO(
             doc='remove an extended attribute for a shelf',
-            parms=('name', 'xattr'),
+            parms=('path', 'xattr'),
         ),
         'set_am_time': GO(
             doc='set access/modified times on a shelf',
-            parms=('name', 'atime', 'mtime'),
+            parms=('path', 'atime', 'mtime'),
         ),
         'send_OOB': GO(
             doc='send an out-of-band message to all connected clients',
