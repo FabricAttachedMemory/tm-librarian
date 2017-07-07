@@ -112,7 +112,7 @@ class LibrarianCommandEngine(object):
     def cmd_get_shelf(self, cmdict, match_id=False, match_parent_id=True):
         """ List a given shelf.
             In (dict)---
-                name
+                path
                 optional flag to force a match on id (ie, already open)
                 optional flag to force a match on parent_id, defaulted to True
             Out (TMShelf object) ---
@@ -310,12 +310,12 @@ class LibrarianCommandEngine(object):
     def cmd_resize_shelf(self, cmdict):
         """ Resize given shelf to new size in bytes.
             In (dict)---
-                name
+                path
                 id
                 size_bytes
                 zero_enabled
             Out (dict) ---
-                z_shelf_name
+                z_shelf_path
         """
         shelf = self.cmd_get_shelf(cmdict, match_id=True)
         bos = self._list_shelf_books(shelf)
@@ -323,7 +323,7 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
-        out_buf = {'z_shelf_name': None}
+        out_buf = {'z_shelf_path': None}
         if bos:
             seqs = [ b.seq_num for b in bos ]
             self.errno = errno.EBADFD
@@ -376,11 +376,17 @@ class LibrarianCommandEngine(object):
 
             if not freeing and zero_enabled:
                 # Create a zeroing shelf for the books being removed
-                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' +
-                    str(time.time()) + '_' + cmdict['context']['physloc'])
+                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' + shelf.parent_id +
+                     ' ' + str(time.time()) + '_' + cmdict['context']['physloc'])
+                # all are placed in root, so path is easy
+                z_shelf_path = '/' + z_shelf_name
                 z_shelf_data = {}
                 z_shelf_data.update({'context':cmdict['context']})
                 z_shelf_data.update({'name':z_shelf_name})
+                # place all zeroing shelves at root (/lfs) with parent_id = 2
+                # this makes sure that they are not placed in a directory that
+                # is removed before they can be zeroed and deleted themselves
+                z_shelf_data.update({'parent_id':2})
                 self.errno = errno.EINVAL
                 z_shelf = TMShelf(z_shelf_data)
                 self.db.create_shelf(z_shelf)
@@ -414,7 +420,7 @@ class LibrarianCommandEngine(object):
             if not freeing and zero_enabled:
                 z_shelf.matchfields = ('size_bytes', 'book_count')
                 z_shelf = self.db.modify_shelf(z_shelf, commit=True)
-                out_buf = {'z_shelf_name': z_shelf_name}
+                out_buf = {'z_shelf_path': z_shelf_path}
 
         else:
             self.db.rollback()
@@ -579,7 +585,7 @@ class LibrarianCommandEngine(object):
         '''
         path = ['/']
         shelf = TMShelf(cmdict)
-        shelf.matchfields = ('id', )
+        shelf.matchfields = ('name', 'parent_id')
         current_shelf = self.db.get_shelf(shelf) # shelf who needs path
         path.insert(1, current_shelf.name)
         while current_shelf.parent_id != 2:

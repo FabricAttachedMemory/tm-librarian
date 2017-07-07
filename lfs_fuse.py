@@ -695,9 +695,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         # If books were removed from the shelf and added to a zeroing
         # shelf, start a process to zero the books on that shelf.
-        if rsp['z_shelf_name'] is not None:
+        if rsp['z_shelf_path'] is not None:
             z_rsp = self.librarian(self.lcp(
-                'get_shelf', name=rsp['z_shelf_name']))
+                'get_shelf', path=rsp['z_shelf_path']))
             z_shelf = TMShelf(z_rsp)
             threading.Thread(target=self._zero, args=(z_shelf,)).start()
 
