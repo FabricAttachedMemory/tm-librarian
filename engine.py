@@ -376,7 +376,7 @@ class LibrarianCommandEngine(object):
 
             if not freeing and zero_enabled:
                 # Create a zeroing shelf for the books being removed
-                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' + shelf.parent_id +
+                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' + str(shelf.parent_id) +
                      ' ' + str(time.time()) + '_' + cmdict['context']['physloc'])
                 # all are placed in root, so path is easy
                 z_shelf_path = '/' + z_shelf_name
