@@ -117,6 +117,10 @@ class LibrarianCommandProtocol(object):
             doc='create new directory',
             parms=('path', 'mode'),
         ),
+        'get_shelf_path': GO(
+            doc='retrieve shelf path from name and parent_id',
+            parms=('name', 'parent_id'),
+        ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
             parms=('status', 'cpu_percent', 'rootfs_percent'),
