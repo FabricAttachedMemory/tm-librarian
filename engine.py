@@ -109,28 +109,32 @@ class LibrarianCommandEngine(object):
 
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
-    def cmd_get_shelf(self, cmdict, match_id=False, match_parent_id=True):
+    def cmd_get_shelf(self, cmdict, match_id=False, match_parent_id=True, match_name=True):
         """ List a given shelf.
             In (dict)---
                 name
                 optional flag to force a match on id (ie, already open)
+                optional flag to force a match on parent_id, defaulted to True
+                optional flag to force a match on name, defaulted to True
             Out (TMShelf object) ---
                 TMShelf object
         """
         self.errno = errno.EINVAL
         path_list = self._path2list(cmdict['path'])
-        cmdict['name']= path_list[-1]
+        cmdict['name'] = path_list[-1]
         parent_shelf = self._path2shelf(path_list[:-1])
         cmdict['parent_id'] = parent_shelf.id
         shelf = TMShelf(cmdict)
         assert shelf.name, 'Missing shelf name'
         assert shelf.parent_id, 'Missing parent id'
-        if match_id and match_parent_id:
+        if match_id and match_parent_id and match_name:
             shelf.matchfields = ('name', 'id', 'parent_id')
-        elif match_parent_id:
+        elif match_parent_id and match_name:
             shelf.matchfields = ('name', 'parent_id')
-        elif match_id:
+        elif match_id and match_name:
             shelf.matchfields = ('name', 'id')
+        elif match_id:
+            shelf.matchfields = ('id', )
         else:
             shelf.matchfields = ('name', )
         shelf = self.db.get_shelf(shelf)
@@ -569,6 +573,19 @@ class LibrarianCommandEngine(object):
         self.db.create_shelf(shelf)
 
         return self.cmd_open_shelf(cmdict)
+
+    def cmd_get_shelf_path(self, cmdict):
+        ''' Retrieves path to any given shelf '''
+        path = ['/']
+        current_shelf = self.cmd_get_shelf(cmdict) # shelf who needs path
+        path.insert(1, current_shelf.name)
+        while current_shelf.parent_id != 2:
+            cmdict['id'] = current_shelf.parent_id # modify passing command dict
+            current_shelf = self.cmd_get_shelf(cmdict, match_id=True, match_parent_id=False, match_name=False) # gets parent shelf
+            path.insert(1, '/')
+            path.insert(1, current_shelf.name)
+
+        return str().join(path)
 
     def _path2list(self, path):
         """ Splits path strings into list of names """
