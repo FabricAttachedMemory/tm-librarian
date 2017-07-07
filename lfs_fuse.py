@@ -202,6 +202,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # helpers
 
     def get_bos(self, shelf):
+        path = self.get_shelf_path(shelf)
         shelf.bos = self.librarian(self.lcp('list_shelf_books', path=path))
         for book in shelf.bos:
             # Replaced a per-book loop of lcp('get_book') which was done
@@ -214,6 +215,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             book['ig_book_num'] = (book['lza'] >> 33) & 8191    # low 13 bits
             book['intlv_group'] = book['lza'] >> 46             # top 7 bits
         self.logger.info('%s BOS: %s' % (shelf.name, shelf.bos))
+
+    def get_shelf_path(self, shelf):
+        tmp = self.lcp('get_shelf_path', shelf)
+        path = self.librarian(tmp)
+        return path
 
     # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
@@ -629,7 +635,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # all access calculations so call it first.
         rsp = self.librarian(self.lcp('open_shelf', path=path))
         shelf = TMShelf(rsp)
-        shelf.path = path
         self.get_bos(shelf)
         # File handle is a proxy for FuSE to refer to "real" file descriptor.
         # Different shadow types may return different things for kernel.
@@ -699,7 +704,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Refresh shelf info
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
-        shelf.path = path
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
         self.get_bos(shelf)
