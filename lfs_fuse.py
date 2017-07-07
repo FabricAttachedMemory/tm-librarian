@@ -201,7 +201,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # helpers
 
-    def get_bos(self, path):
+    def get_bos(self, shelf):
         shelf.bos = self.librarian(self.lcp('list_shelf_books', path=path))
         for book in shelf.bos:
             # Replaced a per-book loop of lcp('get_book') which was done
@@ -629,7 +629,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # all access calculations so call it first.
         rsp = self.librarian(self.lcp('open_shelf', path=path))
         shelf = TMShelf(rsp)
-        self.get_bos(path)
+        shelf.path = path
+        self.get_bos(shelf)
         # File handle is a proxy for FuSE to refer to "real" file descriptor.
         # Different shadow types may return different things for kernel.
         fx = self.shadow.open(shelf, flags, mode)
@@ -698,9 +699,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Refresh shelf info
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
+        shelf.path = path
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
-        self.get_bos(path)
+        self.get_bos(shelf)
         return self.shadow.truncate(shelf, length, fh)
 
     @prentry
