@@ -114,7 +114,7 @@ class Test_Basic(unittest.TestCase):
 		self.assertTrue(file_exists,'Failed to create directory')
 	def test_shelf_double_mkdir(self):
 		print_prog("Test: creating a directory with a directory inside it in one command")
-		output1 = subprocess.call(['mkdir','/lfs/dir/subdir'])
+		output1 = subprocess.call(['mkdir','/lfs/dir/subdir','-p'])
 		file_exists = os.path.isdir("/lfs/dir/subdir")
 		if file_exists:
 			os.rmdir('/lfs/dir/subdir')
