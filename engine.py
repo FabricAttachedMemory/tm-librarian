@@ -120,11 +120,11 @@ class LibrarianCommandEngine(object):
         """
         self.errno = errno.EINVAL
         path_list = self._path2list(cmdict['path'])
-        if not path_list.empty():
+        try:
             cmdict['name'] = path_list[-1]
             parent_shelf = self._path2shelf(path_list[:-1])
             cmdict['parent_id'] = parent_shelf.id
-        else:
+        except IndexError:
             #case of getting root
             cmdict['name'] = '.'
             cmdict['parent_id'] = 2
