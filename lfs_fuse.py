@@ -819,8 +819,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def rmdir(self, path):
-        raise TmfsOSError(errno.ENOSYS)
-
+        rsp = self.librarian(self.lcp('rmdir', path = path))
+        return 0
     @prentry
     def mkdir(self, path, mode):
         mode = self._MODE_DEFAULT_DIR

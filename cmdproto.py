@@ -117,6 +117,10 @@ class LibrarianCommandProtocol(object):
             doc='create new directory',
             parms=('path', 'mode'),
         ),
+        'rmdir': GO(
+            doc='remove empty directory',
+            parms=('path', ),
+        ),
         'get_shelf_path': GO(
             doc='retrieve shelf path from name and parent_id',
             parms=('name', 'parent_id'),
