@@ -132,7 +132,7 @@ class Test_Basic(unittest.TestCase):
 		if file_exists_wrong_dir:
 			os.remove("/lfs/test_file")
 			os.rmdir('/lfs/test_dir')
-		self.assertTrue(not(file_exists_wrong_dir), "File was created, but not in correct directory")
+		self.assertFalse(file_exists_wrong_dir, "File was created, but not in correct directory")
 		self.assertTrue(file_exists, "File failed to be created in subdirectory, mkdir suspected as cause of failure")
 	def test_shelf_mv_subdir(self):
 		print_prog("Test: moving a file from /lfs to a subdirectory")
@@ -142,6 +142,14 @@ class Test_Basic(unittest.TestCase):
 		subprocess.call(['mv','/lfs/test_dir/s1','/lfs/s1'])
 		file_moved2 = os.path.isfile('/lfs/s1')
 		self.assertTrue(file_moved and file_moved2, "File failed to be moved to and from subdirectory")
+	def test_shelf_rmdir(self):
+		print_prog("Test: Remove an empty directory")
+		output1 = subprocess.call(['mkdir','/lfs/test_dir'])
+		file_exists = os.path.isdir("/lfs/test_dir")
+		self.assertTrue(file_exists, "Failed to create directory for rmdir to remove, reported failure or success of rmdir may not be meaningful")
+		output2 = subprocess.call(['rmdir','/lfs/test_dir'])
+		file_exists = os.path.isdir('/lfs/test_dir')
+		self.assertFalse(file_exists, "Failed to remove directory, it may never have been created")
 	def test_shelf_ls(self):
 		print_prog("Test: ls command")
 		output = subprocess.call('ls')
