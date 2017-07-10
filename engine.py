@@ -586,6 +586,14 @@ class LibrarianCommandEngine(object):
 
         return self.cmd_open_shelf(cmdict)
 
+    def cmd_rmdir(self, cmdict):
+        shelf = self._path2shelf(cmdict['path'])
+        children = self.db.get_directory_shelves(shelf)
+        self.errno = errno.ENOTEMPTY
+        assert not children, 'Directory is not empty'
+        shelf = self.db.delete_shelf(shelf)
+        return shelf
+
     def cmd_get_shelf_path(self, cmdict):
         ''' Retrieves path to any given shelf
             "shelf" is an incomplete shelf generated from cmdict
