@@ -154,7 +154,7 @@ class LibrarianCommandEngine(object):
 
     def _path2shelf(self, path):
         '''Returns shelf object corresponding to given path'''
-        # accepts a string, or a list. if string, turns into list here
+        # accepts a string, or a list. either is handled in path2list
         path_list = self._path2list(path)
         # not sure if this will work, attempting to start at root and move from there
         # if things break, this would be a reasonable place to look
@@ -242,16 +242,19 @@ class LibrarianCommandEngine(object):
     def cmd_rename_shelf(self, cmdict):
         """Rename a shelf
             In (dict)---
-                name (current)
+                path (current)
                 id
-                newname
+                newpath
             Out (dict) ---
                 shelf
         """
         self.errno = errno.ENOENT
         shelf = self.cmd_get_shelf(cmdict)
-        shelf.name = cmdict['newname']
-        shelf.matchfields = 'name'
+        new_path_list = self._path2list(cmdict['newpath'])
+        shelf.name = new_path_list[-1]
+        parent_shelf = self._path2shelf(new_path_list[:-1])
+        shelf.parent_id = parent_shelf.id
+        shelf.matchfields = ('name', 'parent_id')
         shelf = self.db.modify_shelf(shelf, commit=True)
         if shelf.name.startswith(_ZERO_PREFIX):  # zombify and unblock
             bos = self.db.get_bos_by_shelf_id(shelf.id)
@@ -600,7 +603,7 @@ class LibrarianCommandEngine(object):
 
     def _path2list(self, path):
         """ Splits path strings into list of names """
-        # if path is already a string, just clean it up
+        # if path is already a list, just clean it up
         if type(path) is list:
             return [directory for directory in path if directory != '']
         # if not do split then clean up

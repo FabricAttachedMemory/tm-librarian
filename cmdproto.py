@@ -71,7 +71,7 @@ class LibrarianCommandProtocol(object):
         ),
         'rename_shelf': GO(
             doc='rename shelf',
-            parms=('path', 'id', 'newname' ),
+            parms=('path', 'id', 'newpath' ),
         ),
         'close_shelf': GO(
             doc='close shelf and end node access',
