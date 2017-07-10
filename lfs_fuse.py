@@ -606,7 +606,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         zeroname = '%s%d' % (self._ZERO_PREFIX, shelf.id)
         if zeroname != shelf.name:
 
-            self.rename(get_shelf_path(shelf), zeroname)
+            self.rename(self.get_shelf_path(shelf), zeroname)
             shelf.name = zeroname
             shelf.mode = stat.S_IFREG   # un-block it as was done on server
         if self.verbose <= 3:
