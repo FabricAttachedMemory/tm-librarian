@@ -190,9 +190,8 @@ class shadow_support(object):
         '''Part of the support for duck-typing a dict with multiple keys.'''
         return key in self._shelfcache
 
-    def __delitem__(self, key):
+    def __delitem__(self, key, is_fh=True):
         '''Part of the support for duck-typing a dict with multiple keys.'''
-        is_fh = isinstance(key, int)
         set_trace()
         try:
             cached = self._shelfcache[key]
@@ -279,7 +278,11 @@ class shadow_support(object):
 
     def unlink(self, shelf):
         try:
-            del self[shelf.id]
+            # this was the call: del self[shelf.id]
+            # couldn't find a way to make the is_fh
+            # default argument work any other way
+            # than by calling __delitem__ like below
+            self.__delitem__(shelf.id, is_fh=False)
         except Exception as e:
             set_trace()
             raise
