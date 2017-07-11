@@ -192,7 +192,6 @@ class shadow_support(object):
 
     def __delitem__(self, key, is_fh=True):
         '''Part of the support for duck-typing a dict with multiple keys.'''
-        set_trace()
         try:
             cached = self._shelfcache[key]
         except KeyError as e:
