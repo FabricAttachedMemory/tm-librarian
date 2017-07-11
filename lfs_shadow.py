@@ -304,7 +304,7 @@ class shadow_support(object):
     # Idiot checking and caching: shadow_support
     def create(self, shelf, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
-        assert self[shelf.name] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
+        assert (self[shelf.name] is None and self[shelf.parent_id] is None) and self[shelf.open_handle] is None, 'Cache inconsistency'
         self[shelf.open_handle] = shelf     # should be first one
         return shelf.open_handle
 
