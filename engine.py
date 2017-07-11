@@ -153,7 +153,7 @@ class LibrarianCommandEngine(object):
 
     def cmd_list_shelves(self, cmdict):
         '''Returns a list.'''
-        path_list = self._path2list['path']
+        path_list = self._path2list(cmdict['path'])
         working_dir = self._path2shelf(path_list)
         parent_dir = self._path2shelf(path_list[:-1]) # not sure if it will handle root correctly
         children_dirs = self.db.get_directory_shelves(working_dir)
