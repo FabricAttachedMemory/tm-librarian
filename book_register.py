@@ -272,26 +272,12 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
     # add the initial directory shelves
     tmp = int(time.time())
-    # 2 garbage shelves must be added to make the inode display number of root = 2
-    # although it will be shelf id = 3, the database is indexed at 1 while the
-    # filesystem indexes inodes at 0, so they are all shifted down by 1
-    # this is shown by the names being inode 0 and 1, while having id = 1, 2
+    # garbage shelves dont work, still sets inode of root to 1. it might just be that way
+
+    # add root directory
     cur.execute(
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (1, 0, 0, 0, tmp, tmp, "inode_0", _MODE_DEFAULT_DIR, 0, 0)) # name cant be empty string
-
-    cur.commit()
-
-    cur.execute(
-        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (2, 0, 0, 0, tmp, tmp, "inode_1", _MODE_DEFAULT_DIR, 0, 0)) # name cant be empty string
-
-    cur.commit()
-
-    # and then root directory
-    cur.execute(
-        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (3, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
+        (1, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
 
 
     cur.commit()
