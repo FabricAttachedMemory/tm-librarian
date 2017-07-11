@@ -413,7 +413,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Piggy back for queries by kernel (globals & fault handling).
         if xattr.startswith('_obtain_'):
             # this will need some work
-            data = self.shadow.getxattr(shelf_name, xattr)
+            data = self.shadow.getxattr(shelf, xattr)
             try:
                 return bytes(data.encode())
             except AttributeError as e:     # probably the "encode()"
