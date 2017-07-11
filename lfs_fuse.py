@@ -406,8 +406,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if position:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 8 months
 
-        # should be obsolete, ROSS remove this after some checking
-        shelf_name = self.path2shelf(path, ignoreError=True)
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
 
         # Does this also need changed to support path instead of name?
         # Piggy back for queries by kernel (globals & fault handling).
