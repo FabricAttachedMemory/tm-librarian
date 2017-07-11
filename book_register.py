@@ -291,7 +291,7 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
     # and then root directory
     cur.execute(
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
+        (3, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
 
 
     cur.commit()
