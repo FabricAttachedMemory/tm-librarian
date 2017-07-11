@@ -156,11 +156,13 @@ class LibrarianCommandEngine(object):
         path_list = self._path2list(cmdict['path'])
         working_dir = self._path2shelf(path_list)
         parent_dir = self._path2shelf(path_list[:-1]) # not sure if it will handle root correctly
-        children_dirs = self.db.get_directory_shelves(working_dir)
+        # root needs to be pulled out of children_dirs, as it is handled through the working_dir object
+        children_dirs = [shelf for shelf in self.db.get_directory_shelves(working_dir) if shelf.name != '.']
         # rename shelf object for working and parent to . and ..
         working_dir.name = '.'
         parent_dir.name = '..'
-        # return both added to list
+        # return both added to list.
+
         return [working_dir] + [parent_dir] + children_dirs
 
     def _path2shelf(self, path):
