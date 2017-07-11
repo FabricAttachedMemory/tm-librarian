@@ -243,9 +243,9 @@ class shadow_support(object):
 
     # End of dictionary duck typing, now use that cache
 
-    def shadow_offset(self, shelf_name, shelf_offset):
+    def shadow_offset(self, shelf, shelf_offset):
         '''Translate shelf-relative offset to flat shadow (file) offset'''
-        bos = self[shelf_name].bos
+        bos = self[shelf.id].bos
         bos_index = shelf_offset // self.book_size  # (0..n)
 
         # Stop FS read ahead past shelf, but what about writes?  Later.
@@ -647,17 +647,17 @@ class apertures(shadow_support):
 
     # open(), create(), release() only do caching as handled by superclass
 
-    def getxattr(self, shelf_name, xattr):
+    def getxattr(self, shelf, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
         try:
-            data = super().getxattr(shelf_name, xattr)
+            data = super().getxattr(shelf, xattr)
             if data != 'FALLBACK':  # superclass handles some things
                 return data
 
             assert xattr.startswith('_obtain_lza_for_page_fault'), \
                 'BAD KERNEL XATTR %s' % xattr
 
-            bos = self[shelf_name].bos
+            bos = self[shelf.id].bos
             cmd, comm, pid, PABO = xattr.split(',')
             pid = int(pid)
             PABO = int(PABO)  # page-aligned byte offset into shelf
@@ -669,8 +669,8 @@ class apertures(shadow_support):
             # Remember, this IS in the kernel :-)
             reason = cmd.split('_for_')[1]
             self.logger.debug(
-                'Get LZA (%s): process %s[%d] shelf=%s, PABO=%d (0x%x)' %
-                (reason, comm, pid, shelf_name, PABO, PABO))
+                'Get LZA (%s): process %s[%d] shelf_id=%s, PABO=%d (0x%x)' %
+                (reason, comm, pid, shelf.name, PABO, PABO))
             self.logger.debug(
                 'shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                 shelf_book_num,
@@ -685,7 +685,7 @@ class apertures(shadow_support):
             # last bits of "accuracy".  DON'T DO THE OFFSET ADDITION TWICE!
 
             if self.addr_mode in (self._MODE_FAME, self._MODE_FAME_DESC):
-                phys_offset = self.shadow_offset(shelf_name, PABO)
+                phys_offset = self.shadow_offset(shelf, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 map_addr = self.aperture_base + phys_offset
