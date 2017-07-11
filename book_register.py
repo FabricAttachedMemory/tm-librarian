@@ -272,12 +272,19 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
     # add the initial directory shelves
     tmp = int(time.time())
-    # garbage shelves dont work, still sets inode of root to 1. it might just be that way
+    # garbage shelves will not make the inode numbers work for ls -i,
+    # but they keep root as id = 2 consistent so a single one is added
+
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (1, 0, 0, 0, tmp, tmp, 'garbage', _MODE_DEFAULT_DIR, 0, 0))
+
+    cur.commit()
 
     # add root directory
     cur.execute(
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (1, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
+        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
 
 
     cur.commit()
