@@ -297,7 +297,7 @@ class shadow_support(object):
             cached.name = newname
             self._shelfcache[shelf.id] = cached
         except KeyError as e:
-            if new.startswith('.tmfs_hidden'):
+            if newname.startswith('.tmfs_hidden'):
                 # VFS thinks it's there so I should too
                 raise TmfsOSError(errno.ESTALE)
         return 0
