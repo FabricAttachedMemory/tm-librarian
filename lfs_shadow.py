@@ -45,6 +45,11 @@ import tm_ioctl_opt as IOCTL
 # Account for multiple opens by same PID as well as different PIDs.
 # Multinode support will require OOB support and a few more Librarian calls.
 
+# EDIT: the dictionary is being modified to index by shelf id instead of name
+# so that same name shelves in different directories can still be acted upon
+
+# shadow file and shadow directory yet to be implimented for subs
+
 
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
@@ -117,8 +122,8 @@ class shadow_support(object):
         '''Part of the support for duck-typing a dict with multiple keys.'''
         fh = shelf.open_handle
         if fh is None:
-            assert key == shelf.name, 'Might take more thought on this'
-        cached = self._shelfcache.get(shelf.name, None)
+            assert key == shelf.id, 'Might take more thought on this'
+        cached = self._shelfcache.get(shelf.id, None)
         pid = tmfs_get_context()[2]
 
         # Is it a completely new addtion?  Remember, only cache open shelves.
@@ -130,7 +135,7 @@ class shadow_support(object):
             # its open handles.  The copy itself has a list of the fh keys
             # indexed by pid, so open_handle.keys() is all the pids.
             cached = deepcopy(shelf)
-            self._shelfcache[cached.name] = cached
+            self._shelfcache[cached.id] = cached
             self._shelfcache[key] = cached
             cached.open_handle = { }
             cached.open_handle[pid] = [ key, ]
@@ -268,12 +273,12 @@ class shadow_support(object):
             # This is an update, but there's no good way to flag that to
             # __setitem__.  Do an idiot check here.
             assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not' % shelf.name
-        self[shelf.name] = shelf
+        self[shelf.id] = shelf
         return 0
 
-    def unlink(self, shelf_name):
+    def unlink(self, shelf):
         try:
-            del self[shelf_name]
+            del self[shelf.id]
         except Exception as e:
             set_trace()
             raise
@@ -281,13 +286,13 @@ class shadow_support(object):
 
     # "man fuse" regarding "hard_remove": an "rm" of a file with active
     # opens tries to rename it.
-    def rename(self, old, new):
+    def rename(self, shelf, oldname, newname):
         try:
             # Retrieve shared object, fix it, and rebind to new name.
-            cached = self._shelfcache[old]
-            cached.name = new
-            del self._shelfcache[old]
-            self._shelfcache[new] = cached
+            cached = self._shelfcache[shelf.id]
+            assert cached.name == oldname, 'Mismatch - shelf id = %d does not have name %s' % (shelf.id, oldname)
+            cached.name = newname
+            self._shelfcache[shelf.id] = cached
         except KeyError as e:
             if new.startswith('.tmfs_hidden'):
                 # VFS thinks it's there so I should too
@@ -304,7 +309,7 @@ class shadow_support(object):
     # Idiot checking and caching: shadow_support
     def create(self, shelf, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
-        assert (self[shelf.name] is None or self[shelf.parent_id] is None) and self[shelf.open_handle] is None, 'Cache inconsistency'
+        assert self[shelf.id] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
         self[shelf.open_handle] = shelf     # should be first one
         return shelf.open_handle
 
@@ -336,9 +341,9 @@ class shadow_support(object):
         return response
 
     # Support for getxattr, it comes next
-    def _map_populate(self, shelf_name, start_book, buflen):
+    def _map_populate(self, shelf, start_book, buflen):
         '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
-        bos = self[shelf_name].bos
+        bos = self[shelf.id].bos
 
         # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
         # 20-bit combo of 7:13 IG:book as a form of compression.
@@ -356,7 +361,7 @@ class shadow_support(object):
     # wants more.  In shadow modes return 'FALLBACK' to get legacy, generic
     # cache-based handler with stock read() and write() spill and fill.
     # Overridden in class apertures to do true mmaps.
-    def getxattr(self, shelf_name, xattr):
+    def getxattr(self, shelf, xattr):
         try:
             if xattr == '_obtain_booksize_addrmode_aperbase':
                 data = '%s,%d,%s' % (
@@ -370,7 +375,7 @@ class shadow_support(object):
                 _, start_book, buflen = xattr.split(',')
                 start_book = int(start_book)
                 buflen = int(buflen)
-                return self._map_populate(shelf_name, start_book, buflen)
+                return self._map_populate(shelf, start_book, buflen)
 
             return 'FALLBACK'   # might be circumvented by subclass
         except Exception as e:
@@ -378,13 +383,13 @@ class shadow_support(object):
                 sys.exc_info()[2].tb_lineno, str(e)))
             return 'ERROR'
 
-    def read(self, shelf_name, length, offset, fd):
+    def read(self, shelf, length, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
 
-    def write(self, shelf_name, buf, offset, fd):
+    def write(self, shelf, buf, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
 
-    def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
+    def ioctl(self, shelf, cmd, arg, fh, flags, data):
         return -1
 
 #--------------------------------------------------------------------------
