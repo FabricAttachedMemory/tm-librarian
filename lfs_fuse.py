@@ -379,8 +379,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.ENOENT)
         """
         rsp = self.librarian(self.lcp('list_shelves', path=path))
-        yield '.'
-        yield '..'
         for shelf in rsp:
             yield shelf['name']
 
