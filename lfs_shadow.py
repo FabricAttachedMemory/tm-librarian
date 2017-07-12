@@ -271,7 +271,7 @@ class shadow_support(object):
         if fh is not None:
             # This is an update, but there's no good way to flag that to
             # __setitem__.  Do an idiot check here.
-            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not' % shelf.name
+            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not, shelf_id: %s' % (shelf.name, shelf.id)
         self[shelf.id] = shelf
         return 0
 
