@@ -193,7 +193,6 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
-        # TODO include parent id so that multiple of same name still works
         shelf = self.cmd_get_shelf(cmdict, match_parent_id = True)  # may raise ENOENT
         self.db.modify_opened_shelves(shelf, 'get', cmdict['context'])
         return shelf
@@ -201,7 +200,7 @@ class LibrarianCommandEngine(object):
     def cmd_close_shelf(self, cmdict):
         """ Close a shelf against access by a node.
             In (dict)---
-                shelf_id, name, handle
+                shelf_id, handle
             Out (dict) ---
                 TMShelf object
         """

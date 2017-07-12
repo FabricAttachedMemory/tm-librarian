@@ -574,7 +574,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         # Paranoia check for (dangling) opens.  Does VFS catch these first?
         # ROSS changing to id, not name
-        cached = self.shadow[shelf.name]
+        cached = self.shadow[shelf.id]
         if cached is not None:                  # Not a good sign
             open_handles = cached.open_handle
             if open_handles is not None:        # Definitely a bad sign
