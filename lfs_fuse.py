@@ -573,11 +573,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(self.librarian(self.lcp('get_shelf', path=path)))
 
         # Paranoia check for (dangling) opens.  Does VFS catch these first?
-        # ROSS changing to id, not name
         cached = self.shadow[shelf.id]
         if cached is not None:                  # Not a good sign
             open_handles = cached.open_handle
-            if open_handles is not None:        # Definitely a bad sign
+            # This was if not none, but cached.open_handle was returning empty dict,
+            # not a NoneObject
+            if open_handles:        # Definitely a bad sign
                 raise TmfsOSError(errno.EBUSY)
 
                 # Once upon a time I forced it...
