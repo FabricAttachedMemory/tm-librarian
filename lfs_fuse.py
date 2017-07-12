@@ -667,25 +667,25 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def read(self, path, length, offset, fh):
-        # ROSS
-        # this needs work bot to get rid of path2shelf
-        # and the shadow running on shelf name
-        shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, fh)
+        # even though this has not been implimented on shadow,
+        # it should attempt to pass it reasonable things
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
+        return self.shadow.read(shelf, length, offset, fh)
 
     @prentry
     def write(self, path, buf, offset, fh):
-        # ROSS get rid of path2shelf
-        # and shadow change to ID
-        shelf_name = self.path2shelf(path)
+        # not implimented in shadow, but see read
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
 
         # Resize shelf "on the fly" for writes past EOF
         # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
-        if self.shadow[shelf_name].size_bytes < req_size:
+        if self.shadow[shelf.id].size_bytes < req_size:
             self.truncate(path, req_size, fh) # updates the cache
 
-        return self.shadow.write(shelf_name, buf, offset, fh)
+        return self.shadow.write(shelf, buf, offset, fh)
 
     @prentry
     def truncate(self, path, length, fh=None):
@@ -724,8 +724,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def ioctl(self, path, cmd, arg, fh, flags, data):
         # ROSS fix path2shelf and shadow name lookup
-        shelf_name = self.path2shelf(path)
-        return self.shadow.ioctl(shelf_name, cmd, arg, fh, flags, data)
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
+        return self.shadow.ioctl(shelf, cmd, arg, fh, flags, data)
 
     @prentry
     def fallocate(self, path, mode, offset, length, fh=None):
@@ -788,10 +789,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # 0 or raise
         rsp = self.librarian(self.lcp('get_shelf', path=old))
         shelf = TMShelf(rsp)
-        # ROSS this may need fixed as well, although with ID index it
-        # might be obsolete
-        new_name = self.path2shelf(new)
-        old_name = self.path2shelf(old)
+        # one of the only places path2shelf still exists
+        new_name = self.path2shelf(new, ignoreError=True)
+        old_name = self.path2shelf(old, ignoreError=True)
         self.shadow.rename(shelf, old_name, new_name)
         req = self.lcp('rename_shelf', path=old, id=shelf.id, newpath=new)
         self.librarian(req)  # None or raise
