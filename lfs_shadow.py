@@ -211,7 +211,7 @@ class shadow_support(object):
                     if not fhlist:
                         del open_handles[pid]
                     if not open_handles:            # Last reference
-                        del self._shelfcache[cached.name]
+                        del self._shelfcache[cached.id]
                     return
             # There has to be one
             raise AssertionError('Cannot find fh to delete')
