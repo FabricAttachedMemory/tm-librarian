@@ -198,7 +198,7 @@ class LibrarianDBackendSQL(object):
     def modify_shelf(self, shelf, commit=False):
         """ Modify data for an individual shelf.
             Input---
-              shelf - object containing fixed sheld ID info plus updated
+              shelf - object containing fixed shelf ID info plus updated
                       fields listed in the "match_fields" attribute.
               commit - persist the transaction now
             Output---

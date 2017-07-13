@@ -373,11 +373,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
-        # ROSS make this a bit more flexible for subs
-        """ comment this out, see how behavior changes
-        if path != '/':
-            raise TmfsOSError(errno.ENOENT)
-        """
         rsp = self.librarian(self.lcp('list_shelves', path=path))
         for shelf in rsp:
             yield shelf['name']
@@ -590,7 +585,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                     except Exception as e:
                         pass
 
-        # ROSS changing to id, not name
         self.shadow.unlink(shelf)  # empty cache INCLUDING dangling opens
 
         # Early exit: no explicit zeroing required if:
@@ -602,7 +596,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if ((not shelf.size_bytes) or
              shelf.name.startswith(self._ZERO_PREFIX) or
              (not self.shadow.zero_on_unlink)):
-            # ROSS changing to id, not name
             self.librarian(self.lcp('destroy_shelf', path=path))
             return 0
 
@@ -691,7 +684,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def truncate(self, path, length, fh=None):
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
-        # ROSS find if this needs modified
         zero_enabled = self.shadow.zero_on_unlink
 
         # ALWAYS get the shelf by name, even if fh is valid.
@@ -723,7 +715,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def ioctl(self, path, cmd, arg, fh, flags, data):
-        # ROSS fix path2shelf and shadow name lookup
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         return self.shadow.ioctl(shelf, cmd, arg, fh, flags, data)
