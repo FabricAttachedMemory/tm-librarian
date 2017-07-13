@@ -39,6 +39,8 @@ _ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
 
 class LibrarianCommandEngine(object):
 
+    _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
+
     @staticmethod
     def argparse_extend(parser):
         pass
@@ -89,6 +91,11 @@ class LibrarianCommandEngine(object):
         cmdict['name'] = path_list[-1]
         parent_shelf = self._path2shelf(path_list[:-1])
         cmdict['parent_id'] = parent_shelf.id
+        if cmdict['mode'] == self._MODE_DEFAULT_DIR:
+            cmdict['link_count'] = 2 # directories get two...
+        else:
+            cmdict['link_count'] = 1 # and normal files get one
+
         # POSIX: if extant, open it; else create and then open
         try:
             shelf = self.cmd_open_shelf(cmdict)
@@ -101,6 +108,11 @@ class LibrarianCommandEngine(object):
         self.db.create_xattr(shelf,
             BookPolicy.XATTR_ALLOCATION_POLICY,
             BookPolicy.DEFAULT_ALLOCATION_POLICY)
+
+        # parent directory shelf has to also have link count incremented
+        parent_shelf.link_count += 1
+        parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(parent_shelf, commit=True)
 
         # Will be ignored until AllocationPolicy set to RequestIG.  I just
         # want it to show up in a full xattr dump (getfattr -d /lfs/xxxx)
@@ -262,12 +274,24 @@ class LibrarianCommandEngine(object):
         """
         self.errno = errno.ENOENT
         shelf = self.cmd_get_shelf(cmdict)
+        old_path_list = self._path2list(cmdict['path'])
         new_path_list = self._path2list(cmdict['newpath'])
         shelf.name = new_path_list[-1]
-        parent_shelf = self._path2shelf(new_path_list[:-1])
-        shelf.parent_id = parent_shelf.id
+        old_parent_shelf = self._path2shelf(old_path_list[:-1])
+        new_parent_shelf = self._path2shelf(new_path_list[:-1])
+        shelf.parent_id = new_parent_shelf.id
         shelf.matchfields = ('name', 'parent_id')
         shelf = self.db.modify_shelf(shelf, commit=True)
+
+        # link count modifications: remove 1 from old, add 1 to new
+        old_parent_shelf.link_count -= 1
+        old_parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(old_parent_shelf, commit=True)
+
+        new_parent_shelf.link_count += 1
+        new_parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(new_parent_shelf, commit=True)
+
         if shelf.name.startswith(_ZERO_PREFIX):  # zombify and unblock
             bos = self.db.get_bos_by_shelf_id(shelf.id)
             while bos:
@@ -289,7 +313,7 @@ class LibrarianCommandEngine(object):
     def cmd_destroy_shelf(self, cmdict):
         """ For a shelf, zombify books (mark for zeroing) and remove xattrs
             In (dict)---
-                shelf
+                path
                 node
             Out (dict) ---
                 shelf data
@@ -305,7 +329,16 @@ class LibrarianCommandEngine(object):
             _ = self._set_book_alloc(thisbos, TMBook.ALLOC_ZOMBIE)
         for xattr in xattrs:
             self.db.remove_xattr(shelf, xattr)
-        return self.db.delete_shelf(shelf, commit=True)
+        rsp = self.db.delete_shelf(shelf, commit=True)
+
+        # handle link counts. put after the delete call, so that if
+        # the delete fails, the link counts remain consistent
+        parent_shelf = self._path2shelf(self._path2list(cmdict['path'])[:-1]) # fingers crossed
+        parent_shelf.link_count -= 1
+        parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(parent_shelf, commit=True)
+
+        return rsp
 
     def cmd_kill_zombie_books(self, cmdict):
         '''repl_client command to "zero" zombie books.  Needs work.'''
