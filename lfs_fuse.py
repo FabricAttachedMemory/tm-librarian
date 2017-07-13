@@ -341,6 +341,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if fh is not None:
             raise TmfsOSError(errno.ENOENT)  # never saw this in 8 months
 
+        ''' This does need to go away, but some stuff might have to
+        be changed first for the real thing to work
         if path == '/':
             now = int(time.time())
             shelves = self.librarian(self.lcp('list_shelves', path=path))
@@ -355,6 +357,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 'st_mtime':     now,
             }
             return tmp
+        '''
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         tmp = {
@@ -363,7 +366,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_uid':       42,
             'st_gid':       42,
             'st_mode':      shelf.mode,
-            'st_nlink':     1,
+            'st_nlink':     shelf.link_count,
             'st_size':      shelf.size_bytes
         }
         if shelf.name.startswith('block'):
