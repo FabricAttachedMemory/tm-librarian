@@ -275,14 +275,15 @@ class LibrarianCommandEngine(object):
         shelf.matchfields = ('name', 'parent_id')
         shelf = self.db.modify_shelf(shelf, commit=True)
 
-        # link count modifications: remove 1 from old, add 1 to new
-        old_parent_shelf.link_count -= 1
-        old_parent_shelf.matchfields = ('link_count', )
-        self.db.modify_shelf(old_parent_shelf, commit=True)
+        # link count modifications if move is directory: remove 1 from old, add 1 to new
+        if shelf.mode == _MODE_DEFAULT_DIR:
+            old_parent_shelf.link_count -= 1
+            old_parent_shelf.matchfields = ('link_count', )
+            self.db.modify_shelf(old_parent_shelf, commit=True)
 
-        new_parent_shelf.link_count += 1
-        new_parent_shelf.matchfields = ('link_count', )
-        self.db.modify_shelf(new_parent_shelf, commit=True)
+            new_parent_shelf.link_count += 1
+            new_parent_shelf.matchfields = ('link_count', )
+            self.db.modify_shelf(new_parent_shelf, commit=True)
 
         if shelf.name.startswith(_ZERO_PREFIX):  # zombify and unblock
             bos = self.db.get_bos_by_shelf_id(shelf.id)
