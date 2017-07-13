@@ -340,24 +340,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # ROSS remove some root hardcoding now that a real root exists
         if fh is not None:
             raise TmfsOSError(errno.ENOENT)  # never saw this in 8 months
-
-        ''' This does need to go away, but some stuff might have to
-        be changed first for the real thing to work
-        if path == '/':
-            now = int(time.time())
-            shelves = self.librarian(self.lcp('list_shelves', path=path))
-            tmp = {
-                'st_uid':       42,
-                'st_gid':       42,
-                'st_mode':      stat.S_ISVTX + stat.S_IFDIR + 0o777,
-                'st_nlink':     len(shelves) + 2,   # '.' and '..'
-                'st_size':      4096,
-                'st_atime':     now,
-                'st_ctime':     now,
-                'st_mtime':     now,
-            }
-            return tmp
-        '''
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         tmp = {
