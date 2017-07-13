@@ -91,10 +91,7 @@ class LibrarianCommandEngine(object):
         cmdict['name'] = path_list[-1]
         parent_shelf = self._path2shelf(path_list[:-1])
         cmdict['parent_id'] = parent_shelf.id
-        if cmdict['mode'] == self._MODE_DEFAULT_DIR:
-            cmdict['link_count'] = 2 # directories get two...
-        else:
-            cmdict['link_count'] = 1 # and normal files get one
+        cmdict['link_count'] = 1 # normal files get one
 
         # POSIX: if extant, open it; else create and then open
         try:
@@ -108,11 +105,6 @@ class LibrarianCommandEngine(object):
         self.db.create_xattr(shelf,
             BookPolicy.XATTR_ALLOCATION_POLICY,
             BookPolicy.DEFAULT_ALLOCATION_POLICY)
-
-        # parent directory shelf has to also have link count incremented
-        parent_shelf.link_count += 1
-        parent_shelf.matchfields = ('link_count', )
-        self.db.modify_shelf(parent_shelf, commit=True)
 
         # Will be ignored until AllocationPolicy set to RequestIG.  I just
         # want it to show up in a full xattr dump (getfattr -d /lfs/xxxx)
@@ -330,13 +322,6 @@ class LibrarianCommandEngine(object):
         for xattr in xattrs:
             self.db.remove_xattr(shelf, xattr)
         rsp = self.db.delete_shelf(shelf, commit=True)
-
-        # handle link counts. put after the delete call, so that if
-        # the delete fails, the link counts remain consistent
-        parent_shelf = self._path2shelf(self._path2list(cmdict['path'])[:-1]) # fingers crossed
-        parent_shelf.link_count -= 1
-        parent_shelf.matchfields = ('link_count', )
-        self.db.modify_shelf(parent_shelf, commit=True)
 
         return rsp
 
@@ -613,16 +598,22 @@ class LibrarianCommandEngine(object):
         cmdict['name'] = path_list[-1]
         parent_shelf = self._path2shelf(path_list[:-1])
         cmdict['parent_id'] = parent_shelf.id
+        cmdict['link_count'] = 2 # . and .. for directories
 
         try:
             shelf = self.cmd_open_shelf(cmdict)
             return shelf
         except Exception as e:
-
             pass
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
+
+        # parent directory shelf has to also have link count incremented
+        parent_shelf.link_count += 1
+        parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(parent_shelf, commit=True)
+
 
         return self.cmd_open_shelf(cmdict)
 
@@ -632,6 +623,14 @@ class LibrarianCommandEngine(object):
         self.errno = errno.ENOTEMPTY
         assert not children, 'Directory is not empty'
         shelf = self.db.delete_shelf(shelf)
+
+        # handle link counts. put after the delete call, so that if
+        # the delete fails, the link counts remain consistent
+        parent_shelf = self._path2shelf(self._path2list(cmdict['path'])[:-1]) # fingers crossed
+        parent_shelf.link_count -= 1
+        parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(parent_shelf, commit=True)
+
         return shelf
 
     def cmd_get_shelf_path(self, cmdict):
