@@ -272,6 +272,7 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
     # add the initial directory shelves
     tmp = int(time.time())
+
     # garbage shelves will not make the inode numbers work for ls -i,
     # but they keep root as id = 2 consistent so a single one is added
 
@@ -718,9 +719,26 @@ def create_empty_db(cur):
         cur.execute(table_create)
         cur.commit()
 
+        # creating linking table. Will currently house shelf id for
+        # symbolic link shelves, the path for the file being linked to,
+        # and another "magic" field for whatever else needs to be put in
+        # that I can't think of now. Thought about adding a primary key
+        # id for possible debugging purposes, but can't think of what I
+        # would do with it. Will just be for linking other stuff together
+        table_create = """
+            CREATE TABLE links (
+            shelf_id INT,
+            link_path TEXT,
+            other TEXT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
+
         cur.execute('''CREATE UNIQUE INDEX IDX_xattrs
                        ON shelf_xattrs (shelf_id, xattr)''')
         cur.commit()
+
     except Exception as e:
         raise SystemExit('DB operation failed at line %d: %s' % (
             sys.exc_info()[2].tb_lineno, str(e)))
