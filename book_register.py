@@ -272,18 +272,11 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
     # add the initial directory shelves
     tmp = int(time.time())
-<<<<<<< HEAD
+
     # first a garbage shelf to make root id = 2
-||||||| parent of fa079cd... links table to database schema
     # garbage shelves will not make the inode numbers work for ls -i,
     # but they keep root as id = 2 consistent so a single one is added
 
-=======
-
-    # garbage shelves will not make the inode numbers work for ls -i,
-    # but they keep root as id = 2 consistent so a single one is added
-
->>>>>>> fa079cd... links table to database schema
     cur.execute(
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (1, 0, 0, 0, tmp, tmp, "garbage", _MODE_DEFAULT_DIR, 0, 0)) # name cant be empty string
