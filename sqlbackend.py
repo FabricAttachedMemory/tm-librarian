@@ -441,8 +441,9 @@ class LibrarianDBackendSQL(object):
             Output---
                 target path
         """
-        self._cur.execute('SELECT target FROM links WHERE shelf_id=?' % shelf.id)
-        return self._cur.fetchone()
+        self._cur.execute('SELECT target FROM links WHERE shelf_id=?', shelf.id)
+        tmp = self._cur.fetchone()
+        return tmp[0]
 
     def get_shelf(self, shelf):
         """ Retrieve one shelf from the database
