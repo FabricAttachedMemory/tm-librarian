@@ -212,13 +212,15 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              node.serialNumber))
 
         cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
             (node.node_id,
              node.soc.macAddress,
              FRDnode.SOC_STATUS_OFFLINE,
              node.soc.coordinate,
              node.soc.tlsPublicCertificate,
-             0))  # heartbeat
+             0,  # heartbeat
+             0,  # cpu_percent
+             0)) # rootfs_percent
     cur.commit()
 
     # Interleave Groups and MCs.  The FRDnode MC structures are too "isolated"
@@ -634,7 +636,9 @@ def create_empty_db(cur):
             status INT,
             coordinate TEXT,
             tlsPublicCertificate TEXT,
-            heartbeat INT
+            heartbeat INT,
+            cpu_percent INT,
+            rootfs_percent INT
             )
             """
         cur.execute(table_create)
