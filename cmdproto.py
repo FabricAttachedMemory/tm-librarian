@@ -131,7 +131,7 @@ class LibrarianCommandProtocol(object):
         ),
         'readlink': GO(
             doc='find path to actual file through a symbolic link',
-            parms=('path'),
+            parms=('path', ),
         ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
