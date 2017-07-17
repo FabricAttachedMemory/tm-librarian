@@ -728,7 +728,7 @@ def create_empty_db(cur):
         table_create = """
             CREATE TABLE links (
             shelf_id INT,
-            link_path TEXT,
+            target TEXT,
             other TEXT
             )
             """
