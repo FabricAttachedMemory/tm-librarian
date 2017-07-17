@@ -635,12 +635,12 @@ class LibrarianCommandEngine(object):
 
         return shelf
 
-    def cmd_symlink(self, path, target):
+    def cmd_symlink(self, cmdict):
         """ Creates a symlink at path to target
-            Input---
+            Input(dict)---
                 path - path to create symlink at
                 target - path where symlink is supposed to point to
-            Output---
+            Output(shelf)---
                 symlink shelf that was created
         """
         cmdict['mode'] = self._MODE_DEFALUT_LNK
@@ -659,18 +659,18 @@ class LibrarianCommandEngine(object):
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
 
-        self.db.create_symlink(shelf, target)
+        self.db.create_symlink(shelf, cmdict['target'])
 
         return self.cmd_get_shelf(cmdict)
 
-    def cmd_readlink(self, path):
+    def cmd_readlink(self, cmdict):
         """ reads a symlink
-            Input---
+            Input(dict)---
                 path - path to existing symlink
-            Output---
+            Output(string)---
                 path to where symlink points
         """
-        shelf = self._path2shelf(path)
+        shelf = self._path2shelf(cmdict['path'])
         return self.db.get_symlink_target(shelf)
 
     def cmd_get_shelf_path(self, cmdict):
