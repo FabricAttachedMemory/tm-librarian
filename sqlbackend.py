@@ -423,6 +423,27 @@ class LibrarianDBackendSQL(object):
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
 
+    def create_symlink(self, shelf, target):
+        """ Creates a link entry to hold symlink path in link table
+            Input---
+                shelf - contains shelf data to insert
+                target - target path to store that link points to
+            Output---
+                target or error message
+        """
+        self._cur.INSERT('links', (shelf.id, target, None))
+        return target
+
+    def get_symlink_target(self, shelf):
+        """ Fetches symlink path from links table
+            Input---
+                shelf - contains shelf id of symlink file
+            Output---
+                target path
+        """
+        self._cur.execute('SELECT target FROM links WHERE shelf_id=?' % shelf.id)
+        return self._cur.fetchone()
+
     def get_shelf(self, shelf):
         """ Retrieve one shelf from the database
             Input---

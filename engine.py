@@ -40,6 +40,7 @@ _ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
 class LibrarianCommandEngine(object):
 
     _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
+    _MODE_DEFAULT_LNK = stat.S_IFLNK + 0o777
 
     @staticmethod
     def argparse_extend(parser):
@@ -633,6 +634,44 @@ class LibrarianCommandEngine(object):
         self.db.modify_shelf(parent_shelf, commit=True)
 
         return shelf
+
+    def cmd_symlink(self, path, target):
+        """ Creates a symlink at path to target
+            Input---
+                path - path to create symlink at
+                target - path where symlink is supposed to point to
+            Output---
+                symlink shelf that was created
+        """
+        cmdict['mode'] = self._MODE_DEFALUT_LNK
+        path_list = self._path2list(cmdict['path'])
+        cmdict['name'] = path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parent_id'] = parent_shelf.id
+        cmdict['link_count'] = 1 # I think?
+
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+            return shelf
+        except Exception as e:
+            pass
+
+        shelf = TMShelf(cmdict)
+        self.db.create_shelf(shelf)
+
+        self.db.create_symlink(shelf, target)
+
+        return self.cmd_get_shelf(cmdict)
+
+    def cmd_readlink(self, path):
+        """ reads a symlink
+            Input---
+                path - path to existing symlink
+            Output---
+                path to where symlink points
+        """
+        shelf = self._path2shelf(path)
+        return self.db.get_symlink_target(shelf)
 
     def cmd_get_shelf_path(self, cmdict):
         ''' Retrieves path to any given shelf

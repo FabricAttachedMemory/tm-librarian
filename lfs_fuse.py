@@ -786,7 +786,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def readlink(self, path):
-        raise TmfsOSError(errno.ENOSYS)
+        rsp = self.librarian(self.lcp('readlink', path=path))
+        return rsp
 
     @prentry
     def mknod(self, path, mode, dev):
@@ -822,8 +823,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return 0
 
     @prentry
-    def symlink(self, name, target):
-        raise TmfsOSError(errno.ENOSYS)
+    def symlink(self, path, target):
+        rsp = self.librarian(self.lcp('symlink', path=path, target=target))
+        return 0
 
     @prentry
     def link(self, target, name):

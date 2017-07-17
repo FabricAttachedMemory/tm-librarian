@@ -125,6 +125,14 @@ class LibrarianCommandProtocol(object):
             doc='retrieve shelf path from name and parent_id',
             parms=('name', 'parent_id'),
         ),
+        'symlink': GO(
+            doc='crete symbolic link at path, pointing to file target',
+            parms=('path', 'target'),
+        ),
+        'readlink': GO(
+            doc='find path to actual file through a symbolic link',
+            parms=('path'),
+        ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
             parms=('status', 'cpu_percent', 'rootfs_percent'),
@@ -139,12 +147,12 @@ class LibrarianCommandProtocol(object):
         'kill_zombie_books': GO(
             doc='Clean up zombie books, returning them to the FREE state ',
             parms=None,
-         ),
+        ),
 
         'get_book_ig': GO(
             doc='get all books in an interleave group',
             parms=('intlv_group', ),
-         ),
+        ),
 
         'get_book_info_all': GO(
             doc='get all books for an interleave group joined with shelf information',
