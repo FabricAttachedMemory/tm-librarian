@@ -643,7 +643,7 @@ class LibrarianCommandEngine(object):
             Output(shelf)---
                 symlink shelf that was created
         """
-        cmdict['mode'] = self._MODE_DEFALUT_LNK
+        cmdict['mode'] = self._MODE_DEFAULT_LNK
         path_list = self._path2list(cmdict['path'])
         cmdict['name'] = path_list[-1]
         parent_shelf = self._path2shelf(path_list[:-1])
