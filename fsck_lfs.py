@@ -62,7 +62,7 @@ def _10_stale_handles(db):
     db.execute(sql)
     db.iterclass = None
     stale = [ s for s in db ]
-    print('\t %d stale file handles remain' % len(stale))
+    print('\t %d stale file handle(s) remain(s)' % len(stale))
 
 ###########################################################################
 # The "unlink workflow" renames a file to 'tmfs_hidden_NNN (pure FuSE).
@@ -128,7 +128,7 @@ def _40_verify_shelves_return_orphaned_books(db):
     db.execute('SELECT id FROM books where allocated=?', TMBook.ALLOC_INUSE)
     used_books = [ u[0] for u in db ]
     used_books = frozenset(used_books)
-    print('%d books in use' % len(used_books))
+    print('%d book(s) in use' % len(used_books))
     shelves = db.get_shelf_all()    # Keep going even if empty, you'll see
 
     # Seq nums okay?  Eliminate dupes and check
@@ -204,6 +204,71 @@ def _50_clear_orphaned_xattrs(db):
 ###########################################################################
 
 
+# TODO should these variables be used globally?
+_GARBAGE_SHELF_ID = 1
+_ROOT_SHELF_ID = 2
+_LOST_FOUND_SHELF_ID = 3
+
+def _60_find_lost_shelves(db):
+    '''Move files/directories with a non-existent parent directory to lost+found'''
+    shelves = db.get_shelf_all()
+    shelf_ids = [s.id for s in shelves]
+    # TODO should we worry about losing the root directory or the lost+found directory?
+    #if _ROOT_SHELF_ID not in shelf_ids:
+        # re-create root shelf and add it to db with db.create_shelf()
+    #if _LOST_FOUND_SHELF_ID not in shelf_ids:
+        # re-create lost+found shelf and add it to db with db.create_shelf()
+
+    lost_shelves_count = 0
+
+    for shelf in shelves:
+        # ignore garbage shelf
+        if (shelf.id != _GARBAGE_SHELF_ID) and (shelf.parent_id not in shelf_ids):
+            lost_shelves_count += 1
+            shelf.parent_id = _LOST_FOUND_SHELF_ID
+            shelf.matchfields = 'parent_id'
+            db.modify_shelf(shelf)
+            shelf.name = shelf.name + '_' + str(shelf.id)
+            shelf.matchfields = 'name'
+            db.modify_shelf(shelf)
+    print('%s found' % lost_shelves_count)
+    db.commit()
+
+###########################################################################
+
+
+def _70_check_link_counts(db):
+    '''Check for inconsistent link_counts of directories'''
+    shelves = db.get_shelf_all()
+    shelf_parent_ids = [s.parent_id for s in shelves]
+    link_counts_wrong_count = 0
+    for shelf in shelves:
+        wrong = False
+        if (shelf.id != _GARBAGE_SHELF_ID) and (shelf.mode >= 16384) and (shelf.mode <= 20479):
+            # shelf is a directory, check its link count
+            children = shelf_parent_ids.count(shelf.id)
+            if shelf.id == _ROOT_SHELF_ID:
+                # root directory is a little different cuz it's its own parent
+                if shelf.link_count != children + 1:
+                    link_counts_wrong_count += 1
+                    shelf.link_count = children + 1
+                    shelf.matchfields = 'link_count'
+                    db.modify_shelf(shelf)
+            elif shelf.link_count != children + 2:
+                wrong = True
+            elif shelf.link_count < 2:
+                wrong = True
+            if wrong:
+                link_counts_wrong_count += 1
+                shelf.link_count = children + 2
+                shelf.matchfields = 'link_count'
+                db.modify_shelf(shelf)
+    print('%s inconsistency(ies)' % link_counts_wrong_count)
+    db.commit()
+
+###########################################################################
+
+
 def capacity(db):
     '''Print stats until a problem occurs'''
     db.execute('SELECT books_total FROM globals')
@@ -223,6 +288,7 @@ def capacity(db):
 
 
 if __name__ == '__main__':
+
     try:
         # Using this instead of SQLite3assist gets higher level ops
         db = LibrarianDBackendSQLite3(Namespace(db_file=sys.argv[1]))
@@ -236,7 +302,9 @@ if __name__ == '__main__':
               _20_finish_unlink,
               _30_zombie_sith,
               _40_verify_shelves_return_orphaned_books,
-              _50_clear_orphaned_xattrs):
+              _50_clear_orphaned_xattrs,
+              _60_find_lost_shelves,
+              _70_check_link_counts):
         try:
             print(f.__doc__, end=': ')
             f(db)
