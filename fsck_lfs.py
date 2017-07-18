@@ -213,6 +213,11 @@ def _60_find_lost_shelves(db):
     '''Move files/directories with a non-existent parent directory to lost+found'''
     shelves = db.get_shelf_all()
     shelf_ids = [s.id for s in shelves]
+
+    # root directory is not currently included in get_shelf_all(),
+    # but I need it in shelf_ids for this work
+    shelf_ids.append(2)
+
     # TODO should we worry about losing the root directory or the lost+found directory?
     #if _ROOT_SHELF_ID not in shelf_ids:
         # re-create root shelf and add it to db with db.create_shelf()
@@ -243,14 +248,16 @@ def _60_find_lost_shelves(db):
 def _70_check_link_counts(db):
     '''Check for inconsistent link_counts of directories'''
     shelves = db.get_shelf_all()
-    shelf_parent_ids = [s.parent_id for s in shelves]
     link_counts_wrong_count = 0
 
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
-    for s in shelves:
-        if (shelf.mode < 16384) or (shelf.mode > 20479):
-            shelves.remove(s)
+    for sh in shelves:
+        if (sh.mode < 16384) or (sh.mode > 20479):
+            shelves.remove(sh)
+
+    # only get parent_ids after non-directory shelves have been removed
+    shelf_parent_ids = [s.parent_id for s in shelves]
 
     # loop through shelves again to correct link_counts
     for shelf in shelves:
