@@ -48,7 +48,7 @@ import tm_ioctl_opt as IOCTL
 # EDIT: the dictionary is being modified to index by shelf id instead of name
 # so that same name shelves in different directories can still be acted upon
 
-# shadow file and shadow directory yet to be implimented for subs
+# shadow file and shadow directory yet to be implemented for subs
 
 
 class shadow_support(object):

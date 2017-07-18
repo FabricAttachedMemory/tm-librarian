@@ -126,7 +126,7 @@ class LibrarianCommandProtocol(object):
             parms=('name', 'parent_id'),
         ),
         'symlink': GO(
-            doc='crete symbolic link at path, pointing to file target',
+            doc='create symbolic link at path, pointing to file target',
             parms=('path', 'target'),
         ),
         'readlink': GO(
