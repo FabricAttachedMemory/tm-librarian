@@ -767,7 +767,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # 0 or raise
         rsp = self.librarian(self.lcp('get_shelf', path=old))
         shelf = TMShelf(rsp)
-        # one of the only places path2shelf still exists
+        # one of the only places path2name still exists
         new_name = self._legacy_path2name(new)
         old_name = self._legacy_path2name(old)
         self.shadow.rename(shelf, old_name, new_name)
