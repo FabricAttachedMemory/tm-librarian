@@ -17,6 +17,7 @@
 
 import os
 import sys
+import stat
 
 from argparse import Namespace  # result of an argparse sequence
 from pdb import set_trace
@@ -250,10 +251,19 @@ def _70_check_link_counts(db):
     shelves = db.get_shelf_all()
     link_counts_wrong_count = 0
 
+    # add root shelf to shelves (temporary fix)
+    root = TMShelf()
+    root.id = _ROOT_SHELF_ID
+    root.name = "."
+    root.mode = 16895
+    root.parent_id = 2
+    root.link_count = 4
+    shelves.append(root)
+
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
     for sh in shelves:
-        if (sh.mode < 16384) or (sh.mode > 20479):
+        if (sh.mode < stat.S_IFDIR) or (sh.mode >= stat.S_IFBLK):
             shelves.remove(sh)
 
     # only get parent_ids after non-directory shelves have been removed
