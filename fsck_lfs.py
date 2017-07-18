@@ -233,11 +233,9 @@ def _60_find_lost_shelves(db):
             lost_shelves_count += 1
             # move lost shelf (and therefore all its children) to lost+found
             shelf.parent_id = _LOST_FOUND_SHELF_ID
-            shelf.matchfields = 'parent_id'
-            db.modify_shelf(shelf)
             # add "_<shelf_id>" to shelf's name to eliminate safedy issues
             shelf.name = shelf.name + '_' + str(shelf.id)
-            shelf.matchfields = 'name'
+            shelf.matchfields = ['parent_id', 'name']
             db.modify_shelf(shelf)
 
     print('%s found' % lost_shelves_count)
