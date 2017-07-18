@@ -647,15 +647,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def read(self, path, length, offset, fh):
-        # even though this has not been implimented on shadow,
-        # it should attempt to pass it reasonable things
+        # FIXME: this might break shadow directories and shadow files
+        # but those have not been made to work with subs anyway
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         return self.shadow.read(shelf, length, offset, fh)
 
     @prentry
     def write(self, path, buf, offset, fh):
-        # not implimented in shadow, but see read
+        # FIXME: see read comment
         rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
 
