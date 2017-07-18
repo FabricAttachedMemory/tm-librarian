@@ -608,15 +608,11 @@ class LibrarianCommandEngine(object):
         cmdict['parent_id'] = parent_shelf.id
         cmdict['link_count'] = 2  # . and .. for directories
 
-        try:
-            # FIXME: not sure how this errno thing works
-            # but it looks like this is all it takes to send back
-            # to user
-            self.errno = errno.EEXIST
-            shelf = self.cmd_get_shelf(cmdict)
-            return -1 # man 2 mkdir: -1 if error occured
-        except Exception as e:
-            pass
+        shelf = self.cmd_get_shelf(cmdict)
+        # FIXME: not sure how errno works, this might be it
+        self.errno = errno.EEXIST
+        assert shelf is none, 'shelf %s already exists' % shelf.name
+
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
@@ -660,12 +656,12 @@ class LibrarianCommandEngine(object):
         cmdict['parent_id'] = parent_shelf.id
         cmdict['link_count'] = 1  # I think?
 
-        try:
-            shelf = self.cmd_get_shelf(cmdict)
-            return shelf
-        except Exception as e:
-            pass
+        shelf = self.cmd_get_shelf(cmdict)
+        # FIXME: not sure how errno works, this might be it
+        self.errno = errno.EEXIST
+        assert shelf is none, 'shelf %s already exists' % shelf.name
 
+        self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
 
