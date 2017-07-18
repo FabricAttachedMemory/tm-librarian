@@ -226,12 +226,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
-    def path2shelf(path, ignoreError=False):
+    def _legacy_path2name(path):
         elems = path.split('/')
-        # error ignored for subdirectories, might be ignore for other stuff later
-        if not ignoreError:
-            if len(elems) > 2:
-                raise TmfsOSError(errno.E2BIG)
+        # check for len(elems) > 2 used to exist, but is was called to ignore
+        # at every spot it was called so now is removed, as well as default
+        # param to ignore the check
         shelf_name = elems[-1]        # if empty, original path was '/'
         return shelf_name
 
@@ -769,8 +768,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         rsp = self.librarian(self.lcp('get_shelf', path=old))
         shelf = TMShelf(rsp)
         # one of the only places path2shelf still exists
-        new_name = self.path2shelf(new, ignoreError=True)
-        old_name = self.path2shelf(old, ignoreError=True)
+        new_name = self._legacy_path2name(new)
+        old_name = self._legacy_path2name(old)
         self.shadow.rename(shelf, old_name, new_name)
         req = self.lcp('rename_shelf', path=old, id=shelf.id, newpath=new)
         self.librarian(req)  # None or raise
