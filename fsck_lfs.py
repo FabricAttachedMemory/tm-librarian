@@ -255,14 +255,16 @@ def _70_check_link_counts(db):
     root.name = "."
     root.mode = 16895
     root.parent_id = 2
-    root.link_count = 4
+    root.link_count = 3
     shelves.append(root)
 
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
-    for sh in shelves:
-        if stat.S_ISDIR(sh.mode):
-            shelves.remove(sh)
+    tmp = list(shelves)
+    # loop through temp list so no shelves are skipped
+    for s in tmp:
+        if not stat.S_ISDIR(s.mode):
+            shelves.remove(s)
 
     # only get parent_ids after non-directory shelves have been removed
     shelf_parent_ids = [s.parent_id for s in shelves]
