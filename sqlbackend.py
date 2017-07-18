@@ -45,7 +45,9 @@ from frdnode import FRDnode, FRDFAModule, FRDintlv_group
 
 class LibrarianDBackendSQL(object):
 
-    SCHEMA_VERSION = 'LIBRARIAN 0.995'
+    SCHEMA_VERSION = 'LIBRARIAN 0.996'
+    # 0.995     Added heartbeat to SOC
+    # 0.996     Added CPU and root FS percent to SOC; add link table
 
     @staticmethod
     def argparse_extend(parser):
@@ -259,19 +261,20 @@ class LibrarianDBackendSQL(object):
         shelf.matchfields = ()    # time only
         self.modify_shelf(shelf, commit=commit)
 
-    def modify_node_soc_status(self, node_id, status):
+    def modify_node_soc_status(self, node_id,
+            status, cpu_percent=-1, rootfs_percent=-1):
         ''' Update the current heartbeat status for the SoC
         '''
         if status is None:
             self._cur.UPDATE(
                 'SOCs',
-                'heartbeat=? WHERE node_id=?',
-                (int(time.time()), node_id))
+                'heartbeat=?, cpu_percent=?, rootfs_percent=? WHERE node_id=?',
+                (int(time.time()), -1, -1, node_id))
         else:
             self._cur.UPDATE(
                 'SOCs',
-                'status=?, heartbeat=? WHERE node_id=?',
-                (status, int(time.time()), node_id))
+                'status=?, heartbeat=?, cpu_percent=?, rootfs_percent=? WHERE node_id=?',
+                (status, int(time.time()), cpu_percent, rootfs_percent, node_id))
         self._cur.commit()
 
     def modify_node_mc_status(self, node_id, status):
