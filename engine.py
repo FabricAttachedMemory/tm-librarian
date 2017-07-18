@@ -608,10 +608,12 @@ class LibrarianCommandEngine(object):
         cmdict['parent_id'] = parent_shelf.id
         cmdict['link_count'] = 2  # . and .. for directories
 
-        shelf = self.cmd_get_shelf(cmdict)
-        # FIXME: not sure how errno works, this might be it
-        self.errno = errno.EEXIST
-        assert shelf is none, 'shelf %s already exists' % shelf.name
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+            self.errno = errno.EEXIST
+            return shelf
+        except Exception as e:
+            pass
 
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
@@ -622,7 +624,7 @@ class LibrarianCommandEngine(object):
         parent_shelf.matchfields = ('link_count', )
         self.db.modify_shelf(parent_shelf, commit=True)
 
-        return 0 # man 2 mkdir: 0 on success
+        return shelf # man 2 mkdir: 0 on success
 
     def cmd_rmdir(self, cmdict):
         shelf = self._path2shelf(cmdict['path'])
@@ -656,10 +658,12 @@ class LibrarianCommandEngine(object):
         cmdict['parent_id'] = parent_shelf.id
         cmdict['link_count'] = 1  # I think?
 
-        shelf = self.cmd_get_shelf(cmdict)
-        # FIXME: not sure how errno works, this might be it
-        self.errno = errno.EEXIST
-        assert shelf is none, 'shelf %s already exists' % shelf.name
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+            self.errno = errno.EEXIST
+            return shelf
+        except Exception as e:
+            pass
 
         self.errno = errno.EINVAL
         shelf = TMShelf(cmdict)
@@ -667,7 +671,7 @@ class LibrarianCommandEngine(object):
 
         self.db.create_symlink(shelf, cmdict['target'])
 
-        return self.cmd_get_shelf(cmdict)
+        return shelf
 
     def cmd_readlink(self, cmdict):
         """ reads a symlink
