@@ -212,13 +212,15 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              node.serialNumber))
 
         cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
             (node.node_id,
              node.soc.macAddress,
              FRDnode.SOC_STATUS_OFFLINE,
              node.soc.coordinate,
              node.soc.tlsPublicCertificate,
-             0))  # heartbeat
+             0,  # heartbeat
+             0,  # cpu_percent
+             0)) # rootfs_percent
     cur.commit()
 
     # Interleave Groups and MCs.  The FRDnode MC structures are too "isolated"
@@ -273,19 +275,27 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
     # add the initial directory shelves
     tmp = int(time.time())
 
+    # first a garbage shelf to make root id = 2
     # garbage shelves will not make the inode numbers work for ls -i,
     # but they keep root as id = 2 consistent so a single one is added
 
     cur.execute(
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (1, 0, 0, 0, tmp, tmp, 'garbage', _MODE_DEFAULT_DIR, 0, 0))
+        (1, 0, 0, 0, tmp, tmp, "garbage", _MODE_DEFAULT_DIR, 0, 0)) # name cant be empty string
 
     cur.commit()
 
-    # add root directory
+    # and then root directory
     cur.execute(
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
+        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 3))
+
+    cur.commit()
+
+    # add lost+found directory
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (3, 0, 0, 0, tmp, tmp, "lost+found", _MODE_DEFAULT_DIR, 2, 2))
 
     cur.commit()
     cur.close()
@@ -320,7 +330,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
                 ('publicData', domain),
                 ('management', 'N/A for FAME')
             ])
-         ),
+        ),
         ('servers', [
             OrderedDict([
                 ('coordinate', rackcoord),  # why not
@@ -632,7 +642,9 @@ def create_empty_db(cur):
             status INT,
             coordinate TEXT,
             tlsPublicCertificate TEXT,
-            heartbeat INT
+            heartbeat INT,
+            cpu_percent INT,
+            rootfs_percent INT
             )
             """
         cur.execute(table_create)
@@ -754,7 +766,6 @@ def create_empty_db(cur):
         'opened_shelves'), 'Bad schema: opened_shelves'
 
 #---------------------------------------------------------------------------
-
 
 if __name__ == '__main__':
 
