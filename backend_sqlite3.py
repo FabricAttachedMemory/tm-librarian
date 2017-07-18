@@ -42,7 +42,7 @@ class SQLite3assist(SQLassist):
         try:
             uri = 'file:%s' % self.db_file
             if self.ro:
-                 uri += '?mode=ro'
+                uri += '?mode=ro'
             self._conn = sqlite3.connect(uri,
                                          uri=True,
                                          isolation_level='EXCLUSIVE')

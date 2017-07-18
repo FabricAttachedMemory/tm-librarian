@@ -45,6 +45,7 @@ from lfs_shadow import the_shadow_knows
 ACPI_NODE_UID = '/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/uid'
 FAME_DEFAULT_NET = '/sys/class/net/eth0/address'
 
+
 class Heartbeat:
     def __init__(self, timeout_seconds, callback):
         self._timeout_seconds = timeout_seconds
@@ -115,6 +116,7 @@ def prentry(func):
 # so that lfs_fuse.py can struggle on.   That's another good thing overall
 # but dictates where certain operations should be placed.
 
+
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _MODE_DEFAULT_BLK = stat.S_IFBLK + 0o666
@@ -164,15 +166,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
-        self.heartbeat = Heartbeat(FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
+        self.heartbeat = Heartbeat(
+            FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
         self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
-        psutil.cpu_percent()	# dummy call to set interval baseline
+        psutil.cpu_percent()  # dummy call to set interval baseline
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_ACTIVE,
-            cpu_percent=psutil.cpu_percent(),
-            rootfs_percent=psutil.disk_usage('/')[-1]))
+                                status=FRDnode.SOC_STATUS_ACTIVE,
+                                cpu_percent=psutil.cpu_percent(),
+                                rootfs_percent=psutil.disk_usage('/')[-1]))
         self.librarian(self.lcp('update_node_mc_status',
-            status=FRDFAModule.MC_STATUS_ACTIVE))
+                                status=FRDFAModule.MC_STATUS_ACTIVE))
         self.heartbeat.schedule()
 
     # started with "mount" operation.  root is usually ('/', ) probably
@@ -190,11 +193,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
         self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_OFFLINE,
-            cpu_percent=0.0,
-            rootfs_percent=0.0))
+                                status=FRDnode.SOC_STATUS_OFFLINE,
+                                cpu_percent=0.0,
+                                rootfs_percent=0.0))
         self.librarian(self.lcp('update_node_mc_status',
-            status=FRDFAModule.MC_STATUS_OFFLINE))
+                                status=FRDFAModule.MC_STATUS_OFFLINE))
         assert threading.current_thread() is threading.main_thread()
         self.torms.close()
         del self.torms
@@ -286,7 +289,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 tmp = self.torms.connect(reconnect=True)
                 if tmp:
                     # If request is idempotent, re-issue (need a while loop)
-                    pass # for now
+                    pass  # for now
         except MemoryError as e:  # OOB storm and internal error not pull instr
             errmsg['errmsg'] = 'OOM BOOM'
             errmsg['errno'] = errno.ENOMEM
@@ -317,9 +320,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def send_heartbeat(self):
         try:
             self.librarian(self.lcp('update_node_soc_status',
-                status=self.lfs_status,
-                cpu_percent=psutil.cpu_percent(),
-                rootfs_percent=psutil.disk_usage('/')[-1]))
+                                    status=self.lfs_status,
+                                    cpu_percent=psutil.cpu_percent(),
+                                    rootfs_percent=psutil.disk_usage('/')[-1]))
         except Exception as e:
             # Connection failure with Librarian ends up here.
             # FIXME shorten the heartbeat interval to speed up reconnect?
@@ -513,7 +516,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             cmd = '/bin/sleep 5'
         else:
             cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc,fsync iflag=count_bytes count=%d' % (
-            fullpath, shelf.size_bytes)
+                fullpath, shelf.size_bytes)
 
         dd = self._cmd2sub(cmd)
         self.logger.info('%s: PID %d' % ('dd', dd.pid))
@@ -522,7 +525,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 polled = dd.poll()   # None == not yet terminated, else retval
                 while polled is None:
                     try:
-                        dd.send_signal(os.SIGUSR1)	# gets status readout
+                        dd.send_signal(os.SIGUSR1)  # gets status readout
                         stdout, stderr = dd.communicate(timeout=5)
                     except TimeoutExpired as e:
                         self.logger.error(str(stderr))
@@ -579,8 +582,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         #   _zero subprocess failed.
         # 3. The shadow subclass doesn't need it
         if ((not shelf.size_bytes) or
-             shelf.name.startswith(self._ZERO_PREFIX) or
-             (not self.shadow.zero_on_unlink)):
+            shelf.name.startswith(self._ZERO_PREFIX) or
+                (not self.shadow.zero_on_unlink)):
             self.librarian(self.lcp('destroy_shelf', path=path))
             return 0
 
@@ -661,7 +664,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
         if self.shadow[shelf.id].size_bytes < req_size:
-            self.truncate(path, req_size, fh) # updates the cache
+            self.truncate(path, req_size, fh)  # updates the cache
 
         return self.shadow.write(shelf, buf, offset, fh)
 
@@ -795,7 +798,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if mode & stat.S_IFBLK != stat.S_IFBLK:
             raise TmfsOSError(errno.ENOTBLK)
         rsp = self.librarian(self.lcp('get_shelf', path=path),
-                                      errorOK=True)
+                             errorOK=True)
         if 'errmsg' not in rsp:
             raise TmfsOSError(errno.EEXIST)
         nbooks = dev & 0xFF     # minor
@@ -803,7 +806,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.EINVAL)
         mode &= 0o777
         fh = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
-        self.setxattr(path, 'user.LFS.AllocationPolicy', 'LocalNode'.encode(), 0)
+        self.setxattr(path, 'user.LFS.AllocationPolicy',
+                      'LocalNode'.encode(), 0)
         self.truncate(path, nbooks * self.bsize, fh)
         self.release(path, fh)
         # mknod(1m) immediately does a stat looking for S_IFBLK.
@@ -812,7 +816,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def rmdir(self, path):
-        rsp = self.librarian(self.lcp('rmdir', path = path))
+        rsp = self.librarian(self.lcp('rmdir', path=path))
         return 0
 
     @prentry
@@ -843,7 +847,7 @@ def mount_LFS(args):
     if not args.physloc:
         msg = 'derived'
         try:
-            with open(ACPI_NODE_UID, 'r') as uid_file: # actually a coordinate
+            with open(ACPI_NODE_UID, 'r') as uid_file:  # actually a coordinate
                 node_uid = uid_file.read().strip()
                 assert node_uid.startswith('/MachineVersion/1/Datacenter'), \
                     'Incompatible machine revision in %s' % ACPI_NODE_UID
@@ -860,8 +864,8 @@ def mount_LFS(args):
                 with open(FAME_DEFAULT_NET) as mac_file:
                     mac = mac_file.read().strip().split(':')
                     assert (mac[2] == '42' and
-                           (mac[3] == mac[4] == mac[5]) and
-                           1 <= int(mac[5]) <= 40), 'Not a FAME node'
+                            (mac[3] == mac[4] == mac[5]) and
+                            1 <= int(mac[5]) <= 40), 'Not a FAME node'
                     args.physloc = int(mac[5])
             except Exception as e:
                 raise SystemExit(
@@ -876,7 +880,8 @@ def mount_LFS(args):
     try:
         tmp = socket.gethostbyname(args.hostname)
     except Exception as e:
-        logging.warning('could not verify (--hostname) argument \'%s\'' % args.hostname)
+        logging.warning(
+            'could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
@@ -900,6 +905,7 @@ def mount_LFS(args):
     except Exception as e:
         set_trace()    # this should never happen :-)
         raise SystemExit('%s' % str(e))
+
 
 if __name__ == '__main__':
 

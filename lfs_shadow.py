@@ -90,7 +90,7 @@ class shadow_support(object):
         # First get numerically sorted keys.
 
         igkeys = sorted([int(igstr)
-            for igstr in lfs_globals['books_per_IG'].keys()])
+                         for igstr in lfs_globals['books_per_IG'].keys()])
 
         offset = 0
         for ig in igkeys:
@@ -271,7 +271,8 @@ class shadow_support(object):
         if fh is not None:
             # This is an update, but there's no good way to flag that to
             # __setitem__.  Do an idiot check here.
-            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not, shelf_id: %s' % (shelf.name, shelf.id)
+            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not, shelf_id: %s' % (
+                shelf.name, shelf.id)
         self[shelf.id] = shelf
         return 0
 
@@ -293,7 +294,8 @@ class shadow_support(object):
         try:
             # Retrieve shared object, fix it, and rebind to new name.
             cached = self._shelfcache[shelf.id]
-            assert cached.name == oldname, 'Mismatch - shelf id = %d does not have name %s' % (shelf.id, oldname)
+            assert cached.name == oldname, 'Mismatch - shelf id = %d does not have name %s' % (
+                shelf.id, oldname)
             cached.name = newname
             self._shelfcache[shelf.id] = cached
         except KeyError as e:
@@ -331,7 +333,7 @@ class shadow_support(object):
         response = bytearray()
         nextIndex = 0
         for groupId in sorted(self._igstart.keys()):
-            for i in range (groupId - nextIndex):    # non-contiguous IGs
+            for i in range(groupId - nextIndex):    # non-contiguous IGs
                 response.extend(struct.pack('Q', 0))
             physaddr = self._igstart[groupId] + self.aperture_base
             tmp = struct.pack('Q', physaddr)
@@ -624,6 +626,7 @@ class shadow_file(shadow_support):
 # the two classes (actually, just getxattr() from the previous "class fam")
 # gets the best of both worlds (IVHSMEM and HW FAM) in one class.
 
+
 class apertures(shadow_support):
 
     _NDESCRIPTORS = 1906            # Non-secure starting at the BAR...
@@ -634,7 +637,7 @@ class apertures(shadow_support):
     _BOOK_SHIFT = 33                # Bits of offset for 20 bit book number
     _BOOK_MASK = ((1 << 13) - 1)    # Mask for 13 bit book number
     _BOOKLET_SHIFT = 16             # Bits of offset for 17 bit booklet number
-    _BOOKLET_MASK = ((1 << 17) - 1) # Mask for 17 bit booklet number
+    _BOOKLET_MASK = ((1 << 17) - 1)  # Mask for 17 bit booklet number
 
     def __init__(self, args, lfs_globals):
         '''args needs to have valid attributes for IVSHMEM and descriptors.'''
@@ -673,10 +676,10 @@ class apertures(shadow_support):
                 (reason, comm, pid, shelf.name, PABO, PABO))
             self.logger.debug(
                 'shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
-                shelf_book_num,
-                baseLZA,
-                ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
-                ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
+                    shelf_book_num,
+                    baseLZA,
+                    ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
+                    ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
 
             # FAME modes need the "flattened IG" address into the memory area.
             # shadow_offset() returns a full byte-accurate address (for use
@@ -738,7 +741,7 @@ class apertures(shadow_support):
             self.logger.info(
                 "LFS_GET_PHYS_FROM_OFFSET: shelf_name = %s" % shelf_name)
             self.logger.info("offset = %d (0x%x), physaddr = %d (0x%x)" %
-                (offset, offset, physaddr, physaddr))
+                             (offset, offset, physaddr, physaddr))
 
             return 0
         else:
@@ -773,7 +776,8 @@ def _detect_memory_space(args, lfs_globals):
     # direct descriptor mode for now, Zbridge preloads all 1906.
 
     if not (RHstanza in line1 and qemuOK):
-        args.logger.warning('No match with IVSHEM PCI devices, assuming TM(AS)')
+        args.logger.warning(
+            'No match with IVSHEM PCI devices, assuming TM(AS)')
         if args.fixed1906:
             args.addr_mode = shadow_support._MODE_1906_DESC
             args.logger.warning(
@@ -783,7 +787,8 @@ def _detect_memory_space(args, lfs_globals):
             args.logger.warning(
                 'addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
         args.aperture_base = apertures._NVM_BK
-        args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
+        args.aperture_size = apertures._NDESCRIPTORS * \
+            lfs_globals['book_size_bytes']
         return
 
     # Should be FAME, start parsing lspci output.
@@ -799,7 +804,7 @@ def _detect_memory_space(args, lfs_globals):
 
     # At 2.6 resource2 file went away, just detect size from line " [size=64G]"
     size = region2.split('size=')[1][:-1]   # kill the right bracket
-    assert size[-1] in 'GT' , \
+    assert size[-1] in 'GT', \
         'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
     if size[-1] == 'G':
         args.aperture_size = int(size[:-1]) << 30
@@ -829,8 +834,8 @@ def _detect_memory_space(args, lfs_globals):
 
     args.logger.debug(
         'IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
-        args.aperture_size - 1,
-        args.aperture_base, args.aperture_base + args.aperture_size - 1))
+            args.aperture_size - 1,
+            args.aperture_base, args.aperture_base + args.aperture_size - 1))
 
 #--------------------------------------------------------------------------
 

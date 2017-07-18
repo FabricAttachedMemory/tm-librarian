@@ -176,7 +176,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 
 def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
-    _MODE_DEFAULT_DIR= stat.S_IFDIR + 0o777
+    _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
 
     books_total = nvm_bytes_total // book_size_bytes
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
@@ -287,7 +287,6 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
         'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 2))
 
-
     cur.commit()
     cur.close()
     return True
@@ -321,7 +320,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
                 ('publicData', domain),
                 ('management', 'N/A for FAME')
             ])
-        ),
+         ),
         ('servers', [
             OrderedDict([
                 ('coordinate', rackcoord),  # why not
@@ -376,7 +375,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
             thisenc = OrderedDict([
                 ('coordinate', 'Enclosure/%s/EncNum/%d' % (
                     enc2U[thisencnum], thisencnum)),
-                ('iZoneBoards',[    # start of a list comprehension
+                ('iZoneBoards', [    # start of a list comprehension
                     OrderedDict([
                         ('coordinate', 'IZone/1/IZoneBoard/%d' % izzy),
                         ('izBoardMp', dict((
@@ -755,6 +754,7 @@ def create_empty_db(cur):
         'opened_shelves'), 'Bad schema: opened_shelves'
 
 #---------------------------------------------------------------------------
+
 
 if __name__ == '__main__':
 

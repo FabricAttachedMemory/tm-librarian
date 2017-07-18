@@ -100,7 +100,7 @@ class LibrarianDBackendSQL(object):
         except StopIteration:
             raise RuntimeError(
                 '%s is corrupt (missing "globals")' %
-            self._cur.db_file)
+                self._cur.db_file)
         except Exception as e:
             raise RuntimeError(str(e))
 
@@ -277,7 +277,8 @@ class LibrarianDBackendSQL(object):
     def modify_node_mc_status(self, node_id, status):
         ''' Update the current status for a media controller
         '''
-        self._cur.execute('SELECT * FROM FAModules WHERE node_id=?', (node_id,))
+        self._cur.execute(
+            'SELECT * FROM FAModules WHERE node_id=?', (node_id,))
         self._cur.iterclass = 'default'
         MCs = [ r for r in self._cur ]
         for m in MCs:
@@ -419,7 +420,7 @@ class LibrarianDBackendSQL(object):
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
         if shelf.parent_id == 0:
-            shelf.parent_id = 2 # is now a default for if it given to go in root
+            shelf.parent_id = 2  # is now a default for if it given to go in root
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
 
@@ -441,7 +442,8 @@ class LibrarianDBackendSQL(object):
             Output---
                 target path
         """
-        self._cur.execute('SELECT target FROM links WHERE shelf_id=?', shelf.id)
+        self._cur.execute(
+            'SELECT target FROM links WHERE shelf_id=?', shelf.id)
         tmp = self._cur.fetchone()
         return tmp[0]
 
@@ -486,7 +488,7 @@ class LibrarianDBackendSQL(object):
             tmp = [ (node_id, pid) for node_id, pid in tmp ]
         else:
             tmp = [ (node_id, pid) for node_id, pid in tmp if
-                node_id != context['node_id'] or pid != context['pid'] ]
+                    node_id != context['node_id'] or pid != context['pid'] ]
         return tmp
 
     def get_directory_shelves(self, parent_shelf):
@@ -497,7 +499,8 @@ class LibrarianDBackendSQL(object):
               List of TMShelf objects (could be empty) or raise error
         """
         parent_id = parent_shelf.id
-        self._cur.execute('SELECT * FROM shelves WHERE parent_id = %d ORDER BY id' % parent_id)
+        self._cur.execute(
+            'SELECT * FROM shelves WHERE parent_id = %d ORDER BY id' % parent_id)
         self._cur.iterclass = TMShelf
         shelves = [ r for r in self._cur ]
         return shelves
