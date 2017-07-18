@@ -160,7 +160,9 @@ class TMShelf(BookShelfStuff):
         'ctime',
         'mtime',
         'name',
-        'mode'
+        'mode',
+        'parent_id',
+        'link_count'
     )
 
     # Gotta do this here or the mechanism doesn't work.  "bos" will

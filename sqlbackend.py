@@ -418,6 +418,7 @@ class LibrarianDBackendSQL(object):
             shelf.mode = stat.S_IFREG + 0o666
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
+        shelf.parent_id = 2 # will need to be changed later, 2 now for root
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
 
@@ -472,7 +473,9 @@ class LibrarianDBackendSQL(object):
             Output---
               List of TMShelf objects (could be empty) or raise error
         """
-        self._cur.execute('SELECT * FROM shelves ORDER BY id')
+        # where clause below is temporary. It is to remove garbage and . from listing
+        # before full subdirectory implimentation is pushed to the hardware.
+        self._cur.execute('SELECT * FROM shelves WHERE id>2 ORDER BY id')
         self._cur.iterclass = TMShelf
         shelves = [ r for r in self._cur ]
         return shelves
