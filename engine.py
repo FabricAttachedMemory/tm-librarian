@@ -160,7 +160,7 @@ class LibrarianCommandEngine(object):
         '''Returns a list.'''
         path_list = self._path2list(cmdict['path'])
         working_dir = self._path2shelf(path_list)
-        # not sure if it will handle root correctly
+        # FIXME: not sure if it will handle root correctly
         parent_dir = self._path2shelf(path_list[:-1])
         # root needs to be pulled out of children_dirs, as it is handled through the working_dir object
         children_dirs = [shelf for shelf in self.db.get_directory_shelves(
@@ -176,7 +176,7 @@ class LibrarianCommandEngine(object):
         '''Returns shelf object corresponding to given path'''
         # accepts a string, or a list. either is handled in path2list
         path_list = self._path2list(path)
-        # not sure if this will work, attempting to start at root and move from there
+        # FIXME: not sure if this will work, attempting to start at root and move from there
         # if things break, this would be a reasonable place to look
         tmp = TMShelf(id=2)
         tmp.matchfields = ('id', )
@@ -609,8 +609,12 @@ class LibrarianCommandEngine(object):
         cmdict['link_count'] = 2  # . and .. for directories
 
         try:
-            shelf = self.cmd_open_shelf(cmdict)
-            return shelf
+            # FIXME: not sure how this errno thing works
+            # but it looks like this is all it takes to send back
+            # to user
+            self.errno = errno.EEXIST
+            shelf = self.cmd_get_shelf(cmdict)
+            return -1 # man 2 mkdir: -1 if error occured
         except Exception as e:
             pass
         self.errno = errno.EINVAL
@@ -622,7 +626,7 @@ class LibrarianCommandEngine(object):
         parent_shelf.matchfields = ('link_count', )
         self.db.modify_shelf(parent_shelf, commit=True)
 
-        return self.cmd_open_shelf(cmdict)
+        return 0 # man 2 mkdir: 0 on success
 
     def cmd_rmdir(self, cmdict):
         shelf = self._path2shelf(cmdict['path'])
