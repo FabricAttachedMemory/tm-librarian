@@ -225,9 +225,11 @@ def _60_find_lost_shelves(db):
         # ignore garbage shelf
         if (shelf.id != _GARBAGE_SHELF_ID) and (shelf.parent_id not in shelf_ids):
             lost_shelves_count += 1
+            # move lost shelf (and therefore all its children) to lost+found
             shelf.parent_id = _LOST_FOUND_SHELF_ID
             shelf.matchfields = 'parent_id'
             db.modify_shelf(shelf)
+            # add "_<shelf_id>" to shelf's name to eliminate safedy issues
             shelf.name = shelf.name + '_' + str(shelf.id)
             shelf.matchfields = 'name'
             db.modify_shelf(shelf)
