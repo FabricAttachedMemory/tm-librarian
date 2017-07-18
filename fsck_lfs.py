@@ -261,7 +261,7 @@ def _70_check_link_counts(db):
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
     for sh in shelves:
-        if (sh.mode < stat.S_IFDIR) or (sh.mode >= stat.S_IFBLK):
+        if stat.S_ISDIR(sh.mode):
             shelves.remove(sh)
 
     # only get parent_ids after non-directory shelves have been removed
