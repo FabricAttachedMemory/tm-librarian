@@ -1,3 +1,9 @@
+tm-librarian (1.25+l4tm1) catapult; urgency=low
+
+  * Add support for directories
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 19 Jul 2017 11:12:50 -0600
+
 tm-librarian (1.24+l4tm1) catapult; urgency=low
 
   * Add cpu_percent and rootfs_percent to heartbeat data
