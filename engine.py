@@ -279,7 +279,7 @@ class LibrarianCommandEngine(object):
         shelf = self.db.modify_shelf(shelf, commit=True)
 
         # link count modifications if move is directory: remove 1 from old, add 1 to new
-        if shelf.mode & stat.S_IFDIR:
+        if (shelf.mode & stat.S_IFDIR) == stat.S_IFDIR:
             old_parent_shelf.link_count -= 1
             old_parent_shelf.matchfields = ('link_count', )
             self.db.modify_shelf(old_parent_shelf, commit=True)
