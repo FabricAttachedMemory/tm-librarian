@@ -45,6 +45,11 @@ import tm_ioctl_opt as IOCTL
 # Account for multiple opens by same PID as well as different PIDs.
 # Multinode support will require OOB support and a few more Librarian calls.
 
+# EDIT: the dictionary is being modified to index by shelf id instead of name
+# so that same name shelves in different directories can still be acted upon
+
+# shadow file and shadow directory yet to be implemented for subs
+
 
 class shadow_support(object):
     '''Provide private data storage for subclasses.'''
@@ -85,7 +90,7 @@ class shadow_support(object):
         # First get numerically sorted keys.
 
         igkeys = sorted([int(igstr)
-            for igstr in lfs_globals['books_per_IG'].keys()])
+                         for igstr in lfs_globals['books_per_IG'].keys()])
 
         offset = 0
         for ig in igkeys:
@@ -117,8 +122,8 @@ class shadow_support(object):
         '''Part of the support for duck-typing a dict with multiple keys.'''
         fh = shelf.open_handle
         if fh is None:
-            assert key == shelf.name, 'Might take more thought on this'
-        cached = self._shelfcache.get(shelf.name, None)
+            assert key == shelf.id, 'Might take more thought on this'
+        cached = self._shelfcache.get(shelf.id, None)
         pid = tmfs_get_context()[2]
 
         # Is it a completely new addtion?  Remember, only cache open shelves.
@@ -130,7 +135,7 @@ class shadow_support(object):
             # its open handles.  The copy itself has a list of the fh keys
             # indexed by pid, so open_handle.keys() is all the pids.
             cached = deepcopy(shelf)
-            self._shelfcache[cached.name] = cached
+            self._shelfcache[cached.id] = cached
             self._shelfcache[key] = cached
             cached.open_handle = { }
             cached.open_handle[pid] = [ key, ]
@@ -185,9 +190,8 @@ class shadow_support(object):
         '''Part of the support for duck-typing a dict with multiple keys.'''
         return key in self._shelfcache
 
-    def __delitem__(self, key):
+    def __delitem__(self, key, is_fh=True):
         '''Part of the support for duck-typing a dict with multiple keys.'''
-        is_fh = isinstance(key, int)
         try:
             cached = self._shelfcache[key]
         except KeyError as e:
@@ -207,7 +211,7 @@ class shadow_support(object):
                     if not fhlist:
                         del open_handles[pid]
                     if not open_handles:            # Last reference
-                        del self._shelfcache[cached.name]
+                        del self._shelfcache[cached.id]
                     return
             # There has to be one
             raise AssertionError('Cannot find fh to delete')
@@ -239,9 +243,9 @@ class shadow_support(object):
 
     # End of dictionary duck typing, now use that cache
 
-    def shadow_offset(self, shelf_name, shelf_offset):
+    def shadow_offset(self, shelf, shelf_offset):
         '''Translate shelf-relative offset to flat shadow (file) offset'''
-        bos = self[shelf_name].bos
+        bos = self[shelf.id].bos
         bos_index = shelf_offset // self.book_size  # (0..n)
 
         # Stop FS read ahead past shelf, but what about writes?  Later.
@@ -267,13 +271,18 @@ class shadow_support(object):
         if fh is not None:
             # This is an update, but there's no good way to flag that to
             # __setitem__.  Do an idiot check here.
-            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not' % shelf.name
-        self[shelf.name] = shelf
+            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not, shelf_id: %s' % (
+                shelf.name, shelf.id)
+        self[shelf.id] = shelf
         return 0
 
-    def unlink(self, shelf_name):
+    def unlink(self, shelf):
         try:
-            del self[shelf_name]
+            # this was the call: del self[shelf.id]
+            # couldn't find a way to make the is_fh
+            # default argument work any other way
+            # than by calling __delitem__ like below
+            self.__delitem__(shelf.id, is_fh=False)
         except Exception as e:
             set_trace()
             raise
@@ -281,15 +290,16 @@ class shadow_support(object):
 
     # "man fuse" regarding "hard_remove": an "rm" of a file with active
     # opens tries to rename it.
-    def rename(self, old, new):
+    def rename(self, shelf, oldname, newname):
         try:
             # Retrieve shared object, fix it, and rebind to new name.
-            cached = self._shelfcache[old]
-            cached.name = new
-            del self._shelfcache[old]
-            self._shelfcache[new] = cached
+            cached = self._shelfcache[shelf.id]
+            assert cached.name == oldname, 'Mismatch - shelf id = %d does not have name %s' % (
+                shelf.id, oldname)
+            cached.name = newname
+            self._shelfcache[shelf.id] = cached
         except KeyError as e:
-            if new.startswith('.tmfs_hidden'):
+            if newname.startswith('.tmfs_hidden'):
                 # VFS thinks it's there so I should too
                 raise TmfsOSError(errno.ESTALE)
         return 0
@@ -304,7 +314,7 @@ class shadow_support(object):
     # Idiot checking and caching: shadow_support
     def create(self, shelf, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
-        assert self[shelf.name] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
+        assert self[shelf.id] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
         self[shelf.open_handle] = shelf     # should be first one
         return shelf.open_handle
 
@@ -323,7 +333,7 @@ class shadow_support(object):
         response = bytearray()
         nextIndex = 0
         for groupId in sorted(self._igstart.keys()):
-            for i in range (groupId - nextIndex):    # non-contiguous IGs
+            for i in range(groupId - nextIndex):    # non-contiguous IGs
                 response.extend(struct.pack('Q', 0))
             physaddr = self._igstart[groupId] + self.aperture_base
             tmp = struct.pack('Q', physaddr)
@@ -336,9 +346,9 @@ class shadow_support(object):
         return response
 
     # Support for getxattr, it comes next
-    def _map_populate(self, shelf_name, start_book, buflen):
+    def _map_populate(self, shelf, start_book, buflen):
         '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
-        bos = self[shelf_name].bos
+        bos = self[shelf.id].bos
 
         # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
         # 20-bit combo of 7:13 IG:book as a form of compression.
@@ -356,7 +366,7 @@ class shadow_support(object):
     # wants more.  In shadow modes return 'FALLBACK' to get legacy, generic
     # cache-based handler with stock read() and write() spill and fill.
     # Overridden in class apertures to do true mmaps.
-    def getxattr(self, shelf_name, xattr):
+    def getxattr(self, shelf, xattr):
         try:
             if xattr == '_obtain_booksize_addrmode_aperbase':
                 data = '%s,%d,%s' % (
@@ -370,7 +380,7 @@ class shadow_support(object):
                 _, start_book, buflen = xattr.split(',')
                 start_book = int(start_book)
                 buflen = int(buflen)
-                return self._map_populate(shelf_name, start_book, buflen)
+                return self._map_populate(shelf, start_book, buflen)
 
             return 'FALLBACK'   # might be circumvented by subclass
         except Exception as e:
@@ -378,13 +388,13 @@ class shadow_support(object):
                 sys.exc_info()[2].tb_lineno, str(e)))
             return 'ERROR'
 
-    def read(self, shelf_name, length, offset, fd):
+    def read(self, shelf, length, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
 
-    def write(self, shelf_name, buf, offset, fd):
+    def write(self, shelf, buf, offset, fd):
         raise TmfsOSError(errno.ENOSYS)
 
-    def ioctl(self, shelf_name, cmd, arg, fh, flags, data):
+    def ioctl(self, shelf, cmd, arg, fh, flags, data):
         return -1
 
 #--------------------------------------------------------------------------
@@ -616,6 +626,7 @@ class shadow_file(shadow_support):
 # the two classes (actually, just getxattr() from the previous "class fam")
 # gets the best of both worlds (IVHSMEM and HW FAM) in one class.
 
+
 class apertures(shadow_support):
 
     _NDESCRIPTORS = 1906            # Non-secure starting at the BAR...
@@ -626,7 +637,7 @@ class apertures(shadow_support):
     _BOOK_SHIFT = 33                # Bits of offset for 20 bit book number
     _BOOK_MASK = ((1 << 13) - 1)    # Mask for 13 bit book number
     _BOOKLET_SHIFT = 16             # Bits of offset for 17 bit booklet number
-    _BOOKLET_MASK = ((1 << 17) - 1) # Mask for 17 bit booklet number
+    _BOOKLET_MASK = ((1 << 17) - 1)  # Mask for 17 bit booklet number
 
     def __init__(self, args, lfs_globals):
         '''args needs to have valid attributes for IVSHMEM and descriptors.'''
@@ -639,17 +650,17 @@ class apertures(shadow_support):
 
     # open(), create(), release() only do caching as handled by superclass
 
-    def getxattr(self, shelf_name, xattr):
+    def getxattr(self, shelf, xattr):
         # Called from kernel (fault, RW, atomics), don't die here :-)
         try:
-            data = super().getxattr(shelf_name, xattr)
+            data = super().getxattr(shelf, xattr)
             if data != 'FALLBACK':  # superclass handles some things
                 return data
 
             assert xattr.startswith('_obtain_lza_for_page_fault'), \
                 'BAD KERNEL XATTR %s' % xattr
 
-            bos = self[shelf_name].bos
+            bos = self[shelf.id].bos
             cmd, comm, pid, PABO = xattr.split(',')
             pid = int(pid)
             PABO = int(PABO)  # page-aligned byte offset into shelf
@@ -661,14 +672,14 @@ class apertures(shadow_support):
             # Remember, this IS in the kernel :-)
             reason = cmd.split('_for_')[1]
             self.logger.debug(
-                'Get LZA (%s): process %s[%d] shelf=%s, PABO=%d (0x%x)' %
-                (reason, comm, pid, shelf_name, PABO, PABO))
+                'Get LZA (%s): process %s[%d] shelf_id=%s, PABO=%d (0x%x)' %
+                (reason, comm, pid, shelf.name, PABO, PABO))
             self.logger.debug(
                 'shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
-                shelf_book_num,
-                baseLZA,
-                ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
-                ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
+                    shelf_book_num,
+                    baseLZA,
+                    ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
+                    ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
 
             # FAME modes need the "flattened IG" address into the memory area.
             # shadow_offset() returns a full byte-accurate address (for use
@@ -677,7 +688,7 @@ class apertures(shadow_support):
             # last bits of "accuracy".  DON'T DO THE OFFSET ADDITION TWICE!
 
             if self.addr_mode in (self._MODE_FAME, self._MODE_FAME_DESC):
-                phys_offset = self.shadow_offset(shelf_name, PABO)
+                phys_offset = self.shadow_offset(shelf, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 map_addr = self.aperture_base + phys_offset
@@ -730,7 +741,7 @@ class apertures(shadow_support):
             self.logger.info(
                 "LFS_GET_PHYS_FROM_OFFSET: shelf_name = %s" % shelf_name)
             self.logger.info("offset = %d (0x%x), physaddr = %d (0x%x)" %
-                (offset, offset, physaddr, physaddr))
+                             (offset, offset, physaddr, physaddr))
 
             return 0
         else:
@@ -765,7 +776,8 @@ def _detect_memory_space(args, lfs_globals):
     # direct descriptor mode for now, Zbridge preloads all 1906.
 
     if not (RHstanza in line1 and qemuOK):
-        args.logger.warning('No match with IVSHEM PCI devices, assuming TM(AS)')
+        args.logger.warning(
+            'No match with IVSHEM PCI devices, assuming TM(AS)')
         if args.fixed1906:
             args.addr_mode = shadow_support._MODE_1906_DESC
             args.logger.warning(
@@ -775,7 +787,8 @@ def _detect_memory_space(args, lfs_globals):
             args.logger.warning(
                 'addr_mode = MODE_FULL_DESC (with zbridge/flushtm interaction)')
         args.aperture_base = apertures._NVM_BK
-        args.aperture_size = apertures._NDESCRIPTORS * lfs_globals['book_size_bytes']
+        args.aperture_size = apertures._NDESCRIPTORS * \
+            lfs_globals['book_size_bytes']
         return
 
     # Should be FAME, start parsing lspci output.
@@ -791,7 +804,7 @@ def _detect_memory_space(args, lfs_globals):
 
     # At 2.6 resource2 file went away, just detect size from line " [size=64G]"
     size = region2.split('size=')[1][:-1]   # kill the right bracket
-    assert size[-1] in 'GT' , \
+    assert size[-1] in 'GT', \
         'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
     if size[-1] == 'G':
         args.aperture_size = int(size[:-1]) << 30
@@ -821,8 +834,8 @@ def _detect_memory_space(args, lfs_globals):
 
     args.logger.debug(
         'IVSHMEM max offset is 0x%x; physical addresses 0x%x - 0x%x' % (
-        args.aperture_size - 1,
-        args.aperture_base, args.aperture_base + args.aperture_size - 1))
+            args.aperture_size - 1,
+            args.aperture_base, args.aperture_base + args.aperture_size - 1))
 
 #--------------------------------------------------------------------------
 

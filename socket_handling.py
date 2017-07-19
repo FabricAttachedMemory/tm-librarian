@@ -53,6 +53,7 @@ _verbose2level = {
     4:  logging.DEBUG,          # called as debug(), most data of all
 }
 
+
 class perfFilter(logging.Filter):
     '''If verbose == 1 only pass CRITICAL logs.'''
 
@@ -78,7 +79,7 @@ def lfsLogger(loggername, verbose=0, logfilebase=''):
     else:
         h = logging.StreamHandler(stream=sys.stderr)
         datefmt = '%H:%M:%S'
-    h.setFormatter(logging.Formatter(format,datefmt=datefmt))
+    h.setFormatter(logging.Formatter(format, datefmt=datefmt))
 
     # socket_handling calls generic logging.xxxx() which, without an
     # explicit root handler, ends up with basicConfig.  This works
@@ -190,7 +191,7 @@ class SocketReadWrite(object):
         else:
             outbytes = obj.encode()
         logging.info('%s: sending %s' % (self,
-            'NULL' if obj is None else '%d bytes' % len(outbytes)))
+                                         'NULL' if obj is None else '%d bytes' % len(outbytes)))
 
         # socket.sendall will do so and return None on success.  If not,
         # an error is raised with no clue on byte count.  Do it myself.
@@ -358,9 +359,11 @@ class SocketReadWrite(object):
                     return None
 
                 except Exception as e:
-                    raise RuntimeError('JSON decode results have been misinterpreted')
+                    raise RuntimeError(
+                        'JSON decode results have been misinterpreted')
 
-                raise RuntimeError('Unexpectedly reached end of JSON parsing loop')
+                raise RuntimeError(
+                    'Unexpectedly reached end of JSON parsing loop')
 
     def clear(self):
         self.instr = ''
@@ -557,7 +560,7 @@ class Server(SocketReadWrite):
                     # of the node. 106 (ECONNABORTED) is when lfs_fuse shuts
                     # down more gracefully.
                     if isinstance(e, OSError):
-                        if e.errno not in (errno.EHOSTUNREACH, 
+                        if e.errno not in (errno.EHOSTUNREACH,
                                            errno.ECONNABORTED):
                             if sys.stdin.isatty():
                                 print('Unhandled OSError during response')
@@ -626,6 +629,7 @@ def main():
     server = Server(None)
     print('Waiting for connection...')
     server.serv(echo_handler, chain)
+
 
 if __name__ == "__main__":
     main()

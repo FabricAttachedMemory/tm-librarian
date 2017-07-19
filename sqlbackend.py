@@ -102,7 +102,7 @@ class LibrarianDBackendSQL(object):
         except StopIteration:
             raise RuntimeError(
                 '%s is corrupt (missing "globals")' %
-            self._cur.db_file)
+                self._cur.db_file)
         except Exception as e:
             raise RuntimeError(str(e))
 
@@ -200,7 +200,7 @@ class LibrarianDBackendSQL(object):
     def modify_shelf(self, shelf, commit=False):
         """ Modify data for an individual shelf.
             Input---
-              shelf - object containing fixed sheld ID info plus updated
+              shelf - object containing fixed shelf ID info plus updated
                       fields listed in the "match_fields" attribute.
               commit - persist the transaction now
             Output---
@@ -280,7 +280,8 @@ class LibrarianDBackendSQL(object):
     def modify_node_mc_status(self, node_id, status):
         ''' Update the current status for a media controller
         '''
-        self._cur.execute('SELECT * FROM FAModules WHERE node_id=?', (node_id,))
+        self._cur.execute(
+            'SELECT * FROM FAModules WHERE node_id=?', (node_id,))
         self._cur.iterclass = 'default'
         MCs = [ r for r in self._cur ]
         for m in MCs:
@@ -421,9 +422,33 @@ class LibrarianDBackendSQL(object):
             shelf.mode = stat.S_IFREG + 0o666
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
-        shelf.parent_id = 2 # will need to be changed later, 2 now for root
+        if shelf.parent_id == 0:
+            shelf.parent_id = 2  # is now a default for if it given to go in root
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
+
+    def create_symlink(self, shelf, target):
+        """ Creates a link entry to hold symlink path in link table
+            Input---
+                shelf - contains shelf data to insert
+                target - target path to store that link points to
+            Output---
+                target or error message
+        """
+        self._cur.INSERT('links', (shelf.id, target, None))
+        return target
+
+    def get_symlink_target(self, shelf):
+        """ Fetches symlink path from links table
+            Input---
+                shelf - contains shelf id of symlink file
+            Output---
+                target path
+        """
+        self._cur.execute(
+            'SELECT target FROM links WHERE shelf_id=?', shelf.id)
+        tmp = self._cur.fetchone()
+        return tmp[0]
 
     def get_shelf(self, shelf):
         """ Retrieve one shelf from the database
@@ -466,8 +491,22 @@ class LibrarianDBackendSQL(object):
             tmp = [ (node_id, pid) for node_id, pid in tmp ]
         else:
             tmp = [ (node_id, pid) for node_id, pid in tmp if
-                node_id != context['node_id'] or pid != context['pid'] ]
+                    node_id != context['node_id'] or pid != context['pid'] ]
         return tmp
+
+    def get_directory_shelves(self, parent_shelf):
+        """ Retrieve all shelves from a single parent directory
+            Input---
+              parent_shelf (parent directory)
+            Output---
+              List of TMShelf objects (could be empty) or raise error
+        """
+        parent_id = parent_shelf.id
+        self._cur.execute(
+            'SELECT * FROM shelves WHERE parent_id = %d ORDER BY id' % parent_id)
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        return shelves
 
     def get_shelf_all(self):
         """ Retrieve all shelves from the database.
@@ -476,9 +515,7 @@ class LibrarianDBackendSQL(object):
             Output---
               List of TMShelf objects (could be empty) or raise error
         """
-        # where clause below is temporary. It is to remove garbage and . from listing
-        # before full subdirectory implimentation is pushed to the hardware.
-        self._cur.execute('SELECT * FROM shelves WHERE id>2 ORDER BY id')
+        self._cur.execute('SELECT * FROM shelves ORDER BY id')
         self._cur.iterclass = TMShelf
         shelves = [ r for r in self._cur ]
         return shelves
