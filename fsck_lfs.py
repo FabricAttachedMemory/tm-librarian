@@ -233,8 +233,9 @@ def _60_find_lost_shelves(db):
             lost_shelves_count += 1
             # move lost shelf (and therefore all its children) to lost+found
             shelf.parent_id = _LOST_FOUND_SHELF_ID
-            # add "_<shelf_id>" to shelf's name to eliminate safedy issues
+            # add "_<shelf_id>" to shelf's name to eliminate safedy issues (colloquialism)
             shelf.name = shelf.name + '_' + str(shelf.id)
+            # update parent_id and name all at once
             shelf.matchfields = ['parent_id', 'name']
             db.modify_shelf(shelf)
 
@@ -252,11 +253,8 @@ def _70_check_link_counts(db):
     # add root shelf to shelves (temporary fix)
     root = TMShelf()
     root.id = _ROOT_SHELF_ID
-    root.name = "."
-    root.mode = 16895
-    root.parent_id = 2
-    root.link_count = 3
-    shelves.append(root)
+    root.matchfields = 'id'
+    shelves.append(db.get_shelf(root))
 
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
