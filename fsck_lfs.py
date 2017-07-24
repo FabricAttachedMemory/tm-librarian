@@ -211,7 +211,9 @@ _ROOT_SHELF_ID = 2
 _LOST_FOUND_SHELF_ID = 3
 
 def _60_find_lost_shelves(db):
-    '''Move files/directories with a non-existent parent directory to lost+found'''
+    '''Move orphan files/directories to lost+found'''
+
+    # get shelves and their ids from databse
     shelves = db.get_shelf_all()
     shelf_ids = [s.id for s in shelves]
 
@@ -231,9 +233,9 @@ def _60_find_lost_shelves(db):
         # ignore garbage shelf
         if (shelf.id != _GARBAGE_SHELF_ID) and (shelf.parent_id not in shelf_ids):
             lost_shelves_count += 1
-            # move lost shelf (and therefore all its children) to lost+found
+            # move orphan shelf (and therefore all its children) to lost+found
             shelf.parent_id = _LOST_FOUND_SHELF_ID
-            # add "_<shelf_id>" to shelf's name to eliminate safedy issues (colloquialism)
+            # add "_<shelf_id>" to shelf's name to eliminate name conflicts
             shelf.name = shelf.name + '_' + str(shelf.id)
             # update parent_id and name all at once
             shelf.matchfields = ['parent_id', 'name']
@@ -247,6 +249,10 @@ def _60_find_lost_shelves(db):
 
 def _70_check_link_counts(db):
     '''Check for inconsistent link_counts of directories'''
+    # run after _60_find_lost_shelves b/c lost+found link_count
+    # will be wrong if any directories were moved there
+
+    # get shelves from database
     shelves = db.get_shelf_all()
     link_counts_wrong_count = 0
 
