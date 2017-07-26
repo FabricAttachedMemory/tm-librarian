@@ -221,12 +221,6 @@ def _60_find_lost_shelves(db):
     # but I need it in shelf_ids for this work
     shelf_ids.append(2)
 
-    # TODO should we worry about losing the root directory or the lost+found directory?
-    #if _ROOT_SHELF_ID not in shelf_ids:
-        # re-create root shelf and add it to db with db.create_shelf()
-    #if _LOST_FOUND_SHELF_ID not in shelf_ids:
-        # re-create lost+found shelf and add it to db with db.create_shelf()
-
     lost_shelves_count = 0
 
     for shelf in shelves:
