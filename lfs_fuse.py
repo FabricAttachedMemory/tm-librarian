@@ -124,6 +124,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     _ZERO_PREFIX = '.lfs_pending_zero_'
 
+    _LOST_FOUND_PATH = '/lost+found'
+
     def __init__(self, args):
         '''Validate command-line parameters'''
         basename = ''
@@ -816,6 +818,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def rmdir(self, path):
+        # small check to keep lost+found from being deleted
+        if path == self._LOST_FOUND_PATH:
+            raise TmfsOSError(errno.EPERM)
         rsp = self.librarian(self.lcp('rmdir', path=path))
         return 0
 
