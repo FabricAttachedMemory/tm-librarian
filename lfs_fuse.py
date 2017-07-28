@@ -818,6 +818,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def rmdir(self, path):
+        # small check to keep lost+found from being deleted
         if path == self._LOST_FOUND_PATH:
             raise TmfsOSError(errno.EPERM)
         rsp = self.librarian(self.lcp('rmdir', path=path))
