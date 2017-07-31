@@ -476,7 +476,7 @@ class shadow_directory(shadow_support):
                 length)
             shelf.size_bytes = length
             if shelf.open_handle is None:
-                shelf = self[shelf.name]
+                shelf = self[shelf.id]
                 if shelf is not None:
                     shelf.size_bytes = length
             return 0
