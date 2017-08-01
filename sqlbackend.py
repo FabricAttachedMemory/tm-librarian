@@ -262,14 +262,12 @@ class LibrarianDBackendSQL(object):
         self.modify_shelf(shelf, commit=commit)
 
     def modify_node_soc_status(self, node_id,
-            status, cpu_percent=-1, rootfs_percent=-1):
+            status=None, cpu_percent=-44, rootfs_percent=-45):
         ''' Update the current heartbeat status for the SoC
         '''
-        if status is None:
-            self._cur.UPDATE(
-                'SOCs',
-                'heartbeat=?, cpu_percent=?, rootfs_percent=? WHERE node_id=?',
-                (int(time.time()), -1, -1, node_id))
+        if status is None:      # Just advance the last-known-contact time
+            self._cur.UPDATE('SOCs', 'heartbeat=?WHERE node_id=?',
+                (int(time.time()), node_id))
         else:
             self._cur.UPDATE(
                 'SOCs',
