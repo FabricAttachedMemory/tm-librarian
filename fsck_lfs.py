@@ -17,6 +17,7 @@
 
 import os
 import sys
+import stat
 
 from argparse import Namespace  # result of an argparse sequence
 from pdb import set_trace
@@ -210,14 +211,15 @@ _ROOT_SHELF_ID = 2
 _LOST_FOUND_SHELF_ID = 3
 
 def _60_find_lost_shelves(db):
-    '''Move files/directories with a non-existent parent directory to lost+found'''
+    '''Move orphan files/directories to lost+found'''
+
+    # get shelves and their ids from databse
     shelves = db.get_shelf_all()
     shelf_ids = [s.id for s in shelves]
-    # TODO should we worry about losing the root directory or the lost+found directory?
-    #if _ROOT_SHELF_ID not in shelf_ids:
-        # re-create root shelf and add it to db with db.create_shelf()
-    #if _LOST_FOUND_SHELF_ID not in shelf_ids:
-        # re-create lost+found shelf and add it to db with db.create_shelf()
+
+    # root directory is not currently included in get_shelf_all(),
+    # but I need it in shelf_ids for this work
+    shelf_ids.append(2)
 
     lost_shelves_count = 0
 
@@ -225,13 +227,12 @@ def _60_find_lost_shelves(db):
         # ignore garbage shelf
         if (shelf.id != _GARBAGE_SHELF_ID) and (shelf.parent_id not in shelf_ids):
             lost_shelves_count += 1
-            # move lost shelf (and therefore all its children) to lost+found
+            # move orphan shelf (and therefore all its children) to lost+found
             shelf.parent_id = _LOST_FOUND_SHELF_ID
-            shelf.matchfields = 'parent_id'
-            db.modify_shelf(shelf)
-            # add "_<shelf_id>" to shelf's name to eliminate safedy issues
+            # add "_<shelf_id>" to shelf's name to eliminate name conflicts
             shelf.name = shelf.name + '_' + str(shelf.id)
-            shelf.matchfields = 'name'
+            # update parent_id and name all at once
+            shelf.matchfields = ['parent_id', 'name']
             db.modify_shelf(shelf)
 
     print('%s found' % lost_shelves_count)
@@ -242,15 +243,29 @@ def _60_find_lost_shelves(db):
 
 def _70_check_link_counts(db):
     '''Check for inconsistent link_counts of directories'''
+    # run after _60_find_lost_shelves b/c lost+found link_count
+    # will be wrong if any directories were moved there
+
+    # get shelves from database
     shelves = db.get_shelf_all()
-    shelf_parent_ids = [s.parent_id for s in shelves]
     link_counts_wrong_count = 0
+
+    # add root shelf to shelves (temporary fix)
+    root = TMShelf()
+    root.id = _ROOT_SHELF_ID
+    root.matchfields = 'id'
+    shelves.append(db.get_shelf(root))
 
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
-    for s in shelves:
-        if (shelf.mode < 16384) or (shelf.mode > 20479):
+    tmp = list(shelves)
+    # loop through temp list so no shelves are skipped
+    for s in tmp:
+        if not stat.S_ISDIR(s.mode):
             shelves.remove(s)
+
+    # only get parent_ids after non-directory shelves have been removed
+    shelf_parent_ids = [s.parent_id for s in shelves]
 
     # loop through shelves again to correct link_counts
     for shelf in shelves:
