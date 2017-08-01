@@ -232,7 +232,7 @@ def _60_find_lost_shelves(db):
             # add "_<shelf_id>" to shelf's name to eliminate name conflicts
             shelf.name = shelf.name + '_' + str(shelf.id)
             # update parent_id and name all at once
-            shelf.matchfields = ['parent_id', 'name']
+            shelf.matchfields = ('parent_id', 'name')
             db.modify_shelf(shelf)
 
     print('%s found' % lost_shelves_count)
