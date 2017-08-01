@@ -97,8 +97,12 @@ def prentry(func):
                 if len(tmp) > 128:
                     tmp = tmp[:128] + '...'
                 self.logger.info(tmp)
-        if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
-            self.heartbeat.schedule()
+
+        # Now that the heartbeat has more data, don't put it off
+        # just because this command is proof-of-life.  I think.
+        # if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
+            # self.heartbeat.schedule()
+
         return ret
 
     # Be a well-behaved decorator

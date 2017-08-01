@@ -807,7 +807,8 @@ class LibrarianCommandEngine(object):
             # If this is a performance problem, cache node_id
             assert FRDnode(int(cmdict['context']['node_id'])) in self.nodes, \
                 'Node is not configured in Librarian topology'
-            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
+            # Advance the last-known-contact timestamp.
+            self.db.modify_node_soc_status(cmdict['context']['node_id'])
             errmsg = ''  # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
