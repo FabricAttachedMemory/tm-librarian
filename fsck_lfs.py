@@ -217,10 +217,6 @@ def _60_find_lost_shelves(db):
     shelves = db.get_shelf_all()
     shelf_ids = [s.id for s in shelves]
 
-    # root directory is not currently included in get_shelf_all(),
-    # but I need it in shelf_ids for this work
-    shelf_ids.append(2)
-
     lost_shelves_count = 0
 
     for shelf in shelves:
@@ -241,20 +237,14 @@ def _60_find_lost_shelves(db):
 ###########################################################################
 
 
-def _70_check_link_counts(db):
-    '''Check for inconsistent link_counts of directories'''
+def _70_fix_link_counts(db):
+    '''Fix any inconsistent link_counts of directories'''
     # run after _60_find_lost_shelves b/c lost+found link_count
     # will be wrong if any directories were moved there
 
     # get shelves from database
     shelves = db.get_shelf_all()
     link_counts_wrong_count = 0
-
-    # add root shelf to shelves (temporary fix)
-    root = TMShelf()
-    root.id = _ROOT_SHELF_ID
-    root.matchfields = 'id'
-    shelves.append(db.get_shelf(root))
 
     # remove all shelves that are not directories;
     # they should not be counted when shelf_parent_ids.count() is called
@@ -334,7 +324,7 @@ if __name__ == '__main__':
               _40_verify_shelves_return_orphaned_books,
               _50_clear_orphaned_xattrs,
               _60_find_lost_shelves,
-              _70_check_link_counts):
+              _70_fix_link_counts):
         try:
             print(f.__doc__, end=': ')
             f(db)
