@@ -128,7 +128,10 @@ class shadow_support(object):
         assert key[0] is None or key[1] is None, 'Shadow calls must have one None field'
         fh = shelf.open_handle
         assert fh is not None or key[0] == shelf.id, 'Might take more thought on this'
-        cached = self[key]
+        # DO NOT change following lookup from (shelf.id, None) to key, although it
+        # mirrors one possible key. If it exists at all it has to be found here,
+        # if not breaks upon multiple opens
+        cached = self[(shelf.id, None)]
         pid = tmfs_get_context()[2]
 
         # Is it a completely new addtion?  Remember, only cache open shelves.
