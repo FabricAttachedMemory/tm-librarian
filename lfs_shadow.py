@@ -294,14 +294,14 @@ class shadow_support(object):
     # "man fuse" regarding "hard_remove": an "rm" of a file with active
     # opens tries to rename it.
     def rename(self, shelf, oldname, newname):
-        try:
+        cached = self[(shelf.id, None)]
+        if cached is not None:
             # Retrieve shared object, fix it, and rebind to new name.
-            cached = self[(shelf.id, None)]
             assert cached.name == oldname, 'Mismatch - shelf id = %d does not have name %s' % (
                 shelf.id, oldname)
             cached.name = newname
             self[(shelf.id, None)] = cached
-        except KeyError as e:
+        else:
             if newname.startswith('.tmfs_hidden'):
                 # VFS thinks it's there so I should too
                 raise TmfsOSError(errno.ESTALE)
