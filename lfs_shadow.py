@@ -664,7 +664,7 @@ class apertures(shadow_support):
             assert xattr.startswith('_obtain_lza_for_page_fault'), \
                 'BAD KERNEL XATTR %s' % xattr
 
-            bos = self[shelf.id].bos
+            bos = self[(shelf.id, None)].bos
             cmd, comm, pid, PABO = xattr.split(',')
             pid = int(pid)
             PABO = int(PABO)  # page-aligned byte offset into shelf
