@@ -237,8 +237,8 @@ def _60_find_lost_shelves(db):
 ###########################################################################
 
 
-def _70_check_link_counts(db):
-    '''Check for inconsistent link_counts of directories'''
+def _70_fix_link_counts(db):
+    '''Fix any inconsistent link_counts of directories'''
     # run after _60_find_lost_shelves b/c lost+found link_count
     # will be wrong if any directories were moved there
 
@@ -324,7 +324,7 @@ if __name__ == '__main__':
               _40_verify_shelves_return_orphaned_books,
               _50_clear_orphaned_xattrs,
               _60_find_lost_shelves,
-              _70_check_link_counts):
+              _70_fix_link_counts):
         try:
             print(f.__doc__, end=': ')
             f(db)
