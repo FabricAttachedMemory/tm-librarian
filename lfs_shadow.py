@@ -109,7 +109,7 @@ class shadow_support(object):
             for vlist in cached.open_handle.values():
                 all_fh += vlist
             for v_fh in all_fh:
-                assert v_fh in self._shelfcache, 'Inconsistent list members'
+                assert (None, v_fh) in self._shelfcache, 'Inconsistent list members'
         except Exception as e:
             self.logger.error('Shadow cache is corrupt: %s' % str(e))
             if self.verbose > 3:
@@ -118,12 +118,17 @@ class shadow_support(object):
 
     # Most uses send an open handle fh (integer) as key.  truncate by name
     # is the exception.  An update needs to be reflected for all keys.
+
     def __setitem__(self, key, shelf):
         '''Part of the support for duck-typing a dict with multiple keys.'''
+        # First things first, this object only has support for either a shelf.id or a fh
+        # the reason for the tuple was to tell shadow which is was, but calling with both
+        # is currently not necessary and unsupported. Better stop it here than deal with
+        # it later
+        assert key[0] is None or key[1] is None, 'Shadow calls must have one None field'
         fh = shelf.open_handle
-        if fh is None:
-            assert key == shelf.id, 'Might take more thought on this'
-        cached = self._shelfcache.get(shelf.id, None)
+        assert fh is not None or key[0] == shelf.id, 'Might take more thought on this'
+        cached = self[key]
         pid = tmfs_get_context()[2]
 
         # Is it a completely new addtion?  Remember, only cache open shelves.
@@ -135,10 +140,11 @@ class shadow_support(object):
             # its open handles.  The copy itself has a list of the fh keys
             # indexed by pid, so open_handle.keys() is all the pids.
             cached = deepcopy(shelf)
-            self._shelfcache[cached.id] = cached
+            self._shelfcache[(cached.id, None)] = cached
             self._shelfcache[key] = cached
             cached.open_handle = { }
-            cached.open_handle[pid] = [ key, ]
+            # was key, hopefully key[1] still holds
+            cached.open_handle[pid] = [ key[1], ]
             return
 
         self._consistent(cached)    # As long as I'm here...
@@ -173,13 +179,13 @@ class shadow_support(object):
 
         # fh is unique (created by Librarian as table index).  Does it
         # need to be appended?
-        if not isinstance(fh, int) or fh in self._shelfcache:
+        if not isinstance(fh, int) or (None, fh) in self._shelfcache:
             return
         self._shelfcache[key] = cached
         try:
-            cached.open_handle[pid].append(key)
+            cached.open_handle[pid].append(key[1])  # again, now key[1]
         except KeyError as e:
-            cached.open_handle[pid] = [ key, ]  # new pid
+            cached.open_handle[pid] = [ key[1], ]  # new pid, same as ^^
 
     def __getitem__(self, key):
         '''Part of the support for duck-typing a dict with multiple keys.
@@ -190,28 +196,29 @@ class shadow_support(object):
         '''Part of the support for duck-typing a dict with multiple keys.'''
         return key in self._shelfcache
 
-    def __delitem__(self, key, is_fh=True):
+    def __delitem__(self, key):
         '''Part of the support for duck-typing a dict with multiple keys.'''
-        try:
-            cached = self._shelfcache[key]
-        except KeyError as e:
+        cached = self[key]
+        if cached is None:
             # Not currently open, something like "rm somefile"
-            if not is_fh:
+            if key[1] is None:
                 return
             raise AssertionError('Deleting a missing fh?')
+
         self._consistent(cached)    # As long as I'm here...
 
-        del self._shelfcache[key]   # always
-        if is_fh:
+        # and now delete
+        del self._shelfcache[key]  # always
+        if key[1] is not None:
             # Remove this direct shelf reference plus the back link
             open_handles = cached.open_handle
             for pid, fhlist in open_handles.items():
-                if key in fhlist:
-                    fhlist.remove(key)
+                if key[1] in fhlist:
+                    fhlist.remove(key[1])
                     if not fhlist:
                         del open_handles[pid]
                     if not open_handles:            # Last reference
-                        del self._shelfcache[cached.id]
+                        del self._shelfcache[(cached.id, None)]
                     return
             # There has to be one
             raise AssertionError('Cannot find fh to delete')
@@ -227,7 +234,7 @@ class shadow_support(object):
                 all_fh += vlist
             all_fh = frozenset(all_fh)  # paranoid: remove dupes
             for fh in all_fh:
-                del self._shelfcache[fh]
+                del self._shelfcache[(None, fh)]
 
     def keys(self):
         '''Part of the support for duck-typing a dict with multiple keys.'''
@@ -245,7 +252,7 @@ class shadow_support(object):
 
     def shadow_offset(self, shelf, shelf_offset):
         '''Translate shelf-relative offset to flat shadow (file) offset'''
-        bos = self[shelf.id].bos
+        bos = self[(shelf.id, None)].bos
         bos_index = shelf_offset // self.book_size  # (0..n)
 
         # Stop FS read ahead past shelf, but what about writes?  Later.
@@ -271,18 +278,14 @@ class shadow_support(object):
         if fh is not None:
             # This is an update, but there's no good way to flag that to
             # __setitem__.  Do an idiot check here.
-            assert fh in self._shelfcache, 'VFS thinks %s is open but LFS does not, shelf_id: %s' % (
+            assert (None, fh) in self, 'VFS thinks %s is open but LFS does not, shelf_id: %s' % (
                 shelf.name, shelf.id)
-        self[shelf.id] = shelf
+        self[(shelf.id, None)] = shelf
         return 0
 
     def unlink(self, shelf):
         try:
-            # this was the call: del self[shelf.id]
-            # couldn't find a way to make the is_fh
-            # default argument work any other way
-            # than by calling __delitem__ like below
-            self.__delitem__(shelf.id, is_fh=False)
+            del self[(shelf.id, None)]
         except Exception as e:
             set_trace()
             raise
@@ -293,11 +296,11 @@ class shadow_support(object):
     def rename(self, shelf, oldname, newname):
         try:
             # Retrieve shared object, fix it, and rebind to new name.
-            cached = self._shelfcache[shelf.id]
+            cached = self[(shelf.id, None)]
             assert cached.name == oldname, 'Mismatch - shelf id = %d does not have name %s' % (
                 shelf.id, oldname)
             cached.name = newname
-            self._shelfcache[shelf.id] = cached
+            self[(shelf.id, None)] = cached
         except KeyError as e:
             if newname.startswith('.tmfs_hidden'):
                 # VFS thinks it's there so I should too
@@ -308,22 +311,23 @@ class shadow_support(object):
     # be called LAST, after any localized ops on the shelf, like _fd.
     def open(self, shelf, flags, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in open()'
-        self[shelf.open_handle] = shelf
+        self[(None, shelf.open_handle)] = shelf
         return shelf.open_handle
 
     # Idiot checking and caching: shadow_support
     def create(self, shelf, mode=None):
         assert isinstance(shelf.open_handle, int), 'Bad handle in create()'
-        assert self[shelf.id] is None and self[shelf.open_handle] is None, 'Cache inconsistency'
-        self[shelf.open_handle] = shelf     # should be first one
+        assert self[(shelf.id, None)] is None and self[(
+            None, shelf.open_handle)] is None, 'Cache inconsistency'
+        self[(None, shelf.open_handle)] = shelf     # should be first one
         return shelf.open_handle
 
     # Idiot checking and UNcaching: shadow_support
     def release(self, fh):                  # Must be an fh, not an fd
-        cached = self[fh]
+        cached = self[(None, fh)]
         retval = deepcopy(cached)
         retval.open_handle = fh             # could be larger list
-        del self[fh]
+        del self[(None, fh)]
         return retval
 
     # Support for getxattr, it comes soon
@@ -348,7 +352,7 @@ class shadow_support(object):
     # Support for getxattr, it comes next
     def _map_populate(self, shelf, start_book, buflen):
         '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
-        bos = self[shelf.id].bos
+        bos = self[(shelf.id, None)].bos
 
         # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
         # 20-bit combo of 7:13 IG:book as a form of compression.
