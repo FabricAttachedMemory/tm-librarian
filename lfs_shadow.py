@@ -121,10 +121,10 @@ class shadow_support(object):
 
     def __setitem__(self, key, shelf):
         '''Part of the support for duck-typing a dict with multiple keys.'''
-        # First things first, this object only has support for either a shelf.id or a fh
-        # the reason for the tuple was to tell shadow which is was, but calling with both
-        # is currently not necessary and unsupported. Better stop it here than deal with
-        # it later
+        # This object only has support for either a shelf.id or a fh
+        # The tuple indicates to shadow which it is, either (shelf.id, None)
+        # or (None, fh). (shelf.id, fh) is not supported. Stop it here
+        # rather than deal with it later
         assert key[0] is None or key[1] is None, 'Shadow calls must have one None field'
         fh = shelf.open_handle
         assert fh is not None or key[0] == shelf.id, 'Might take more thought on this'
