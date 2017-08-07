@@ -561,7 +561,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         shelf = TMShelf(self.librarian(self.lcp('get_shelf', path=path)))
 
         # Paranoia check for (dangling) opens.  Does VFS catch these first?
-        cached = self.shadow[shelf.id]
+        cached = self.shadow[(shelf.id, None)]
         if cached is not None:                  # Not a good sign
             open_handles = cached.open_handle
             # This was if not none, but cached.open_handle was returning empty dict,
@@ -668,7 +668,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # Resize shelf "on the fly" for writes past EOF
         # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
-        if self.shadow[shelf.id].size_bytes < req_size:
+        if self.shadow[(shelf.id, None)].size_bytes < req_size:
             self.truncate(path, req_size, fh)  # updates the cache
 
         return self.shadow.write(shelf, buf, offset, fh)
@@ -726,7 +726,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             rsp = self.librarian(self.lcp('get_shelf', path=path))
             shelf = TMShelf(rsp)
         else:
-            shelf = self.shadow[fh]
+            shelf = self.shadow[(None, fh)]
             if not shelf:
                 raise TmfsOSError(errno.ESTALE)
         if shelf.size_bytes >= offset + length:
