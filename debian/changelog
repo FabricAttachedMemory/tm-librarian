@@ -1,3 +1,9 @@
+tm-librarian (1.26+l4tm1) catapult; urgency=low
+
+  * Fix file open caching issue
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Mon, 07 Aug 2017 14:13:43 -0600
+
 tm-librarian (1.25+l4tm1) catapult; urgency=low
 
   * Add support for directories
