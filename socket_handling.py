@@ -551,7 +551,11 @@ class Server(SocketReadWrite):
                     if self.verbose == 1:
                         logging.critical('%s: %s' % (s, cmdict['command']))
                     else:
-                        logging.warning('%s: %s' % (s, str(cmdict)))
+                        # "True" == print heartbeat; "False" == suppress it
+                        if (False or not
+                            cmdict['command'].startswith('update_node')
+                           ):
+                            logging.warning('%s: %s' % (s, str(cmdict)))
                 except (ConnectionError, OSError) as e:
                     # ConnectionError is a base class in Python3.  OSError
                     # 113 (EHOSTUNREACH, no route to host) occurs when node
