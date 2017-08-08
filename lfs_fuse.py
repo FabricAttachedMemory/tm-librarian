@@ -74,7 +74,8 @@ class Heartbeat:
 def prentry(func):
     def new_func(*args, **kwargs):
         self = args[0]
-        self.heartbeat.unschedule()
+        # remove unschedule to match removal of schedule below
+        # self.heartbeat.unschedule()
         self.logger.info('----------------------------------')
         if self.verbose:
             tmp = ', '.join([str(a) for a in args[1:]])
