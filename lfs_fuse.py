@@ -100,7 +100,7 @@ def prentry(func):
                 self.logger.info(tmp)
 
         # Now that the heartbeat has more data, don't put it off
-        # just because this command is proof-of-life.  I think.
+        # just because this command is proof-of-life.
         # if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
             # self.heartbeat.schedule()
 
