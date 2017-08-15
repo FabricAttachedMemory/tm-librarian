@@ -29,6 +29,7 @@ import configparser
 import json
 import argparse
 import time
+import stat
 
 from collections import OrderedDict
 from pdb import set_trace
@@ -174,6 +175,9 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 
 
 def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
+
+    _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
+
     books_total = nvm_bytes_total // book_size_bytes
     cur = SQLite3assist(db_file=args.dfile, raiseOnExecFail=True)
     create_empty_db(cur)
@@ -208,13 +212,15 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              node.serialNumber))
 
         cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?)',
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
             (node.node_id,
              node.soc.macAddress,
              FRDnode.SOC_STATUS_OFFLINE,
              node.soc.coordinate,
              node.soc.tlsPublicCertificate,
-             0))  # heartbeat
+             0,  # heartbeat
+             0,  # cpu_percent
+             0)) # rootfs_percent
     cur.commit()
 
     # Interleave Groups and MCs.  The FRDnode MC structures are too "isolated"
@@ -265,6 +271,31 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                 (lza, ig.groupId, igoffset, 0, 0))
         cur.commit()    # every IG
+
+    # add the initial directory shelves
+    tmp = int(time.time())
+
+    # first a garbage shelf to make root id = 2
+    # garbage shelves will not make the inode numbers work for ls -i,
+    # but they keep root as id = 2 consistent so a single one is added
+
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (1, 0, 0, 0, tmp, tmp, "garbage", _MODE_DEFAULT_DIR, 0, 0)) # name cant be empty string
+
+    cur.commit()
+
+    # and then root directory
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (2, 0, 0, 0, tmp, tmp, ".", _MODE_DEFAULT_DIR, 2, 3))
+
+    cur.commit()
+
+    # add lost+found directory
+    cur.execute(
+        'INSERT INTO shelves VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        (3, 0, 0, 0, tmp, tmp, "lost+found", _MODE_DEFAULT_DIR, 2, 2))
 
     cur.commit()
     cur.close()
@@ -354,7 +385,7 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
             thisenc = OrderedDict([
                 ('coordinate', 'Enclosure/%s/EncNum/%d' % (
                     enc2U[thisencnum], thisencnum)),
-                ('iZoneBoards',[    # start of a list comprehension
+                ('iZoneBoards', [    # start of a list comprehension
                     OrderedDict([
                         ('coordinate', 'IZone/1/IZoneBoard/%d' % izzy),
                         ('izBoardMp', dict((
@@ -611,7 +642,9 @@ def create_empty_db(cur):
             status INT,
             coordinate TEXT,
             tlsPublicCertificate TEXT,
-            heartbeat INT
+            heartbeat INT,
+            cpu_percent INT,
+            rootfs_percent INT
             )
             """
         cur.execute(table_create)
@@ -653,7 +686,9 @@ def create_empty_db(cur):
             ctime INT,
             mtime INT,
             name TEXT,
-            mode INT
+            mode INT,
+            parent_id INT,
+            link_count INT
             )
             """
         cur.execute(table_create)
@@ -695,9 +730,26 @@ def create_empty_db(cur):
         cur.execute(table_create)
         cur.commit()
 
+        # creating linking table. Will currently house shelf id for
+        # symbolic link shelves, the path for the file being linked to,
+        # and another "magic" field for whatever else needs to be put in
+        # that I can't think of now. Thought about adding a primary key
+        # id for possible debugging purposes, but can't think of what I
+        # would do with it. Will just be for linking other stuff together
+        table_create = """
+            CREATE TABLE links (
+            shelf_id INT,
+            target TEXT,
+            other TEXT
+            )
+            """
+        cur.execute(table_create)
+        cur.commit()
+
         cur.execute('''CREATE UNIQUE INDEX IDX_xattrs
                        ON shelf_xattrs (shelf_id, xattr)''')
         cur.commit()
+
     except Exception as e:
         raise SystemExit('DB operation failed at line %d: %s' % (
             sys.exc_info()[2].tb_lineno, str(e)))

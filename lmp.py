@@ -185,11 +185,16 @@ def show_global():
                     FRDnode.SOC_STATUS_OFFLINE)
         s_offline = cur.fetchone()[0]
 
+        cur.execute('SELECT AVG(cpu_percent) FROM SOCs')
+        s_cpu_percent = cur.fetchone()[0]
+
         d_socs = {
             'total': s_total,
             'active': s_active,
             'offline': s_offline,
-            'indeterminate': s_indeterminate }
+            'indeterminate': s_indeterminate,
+            'cpu_percent': s_cpu_percent
+        }
 
         cur.execute('SELECT COUNT(*) FROM FAModules')
         p_total = cur.fetchone()[0]
@@ -259,11 +264,15 @@ def show_nodes():
             cur.execute('SELECT * FROM SOCs WHERE node_id=?', n.node_id)
             cur.iterclass = 'default'
             socs = [ r for r in cur ]
-            for s in socs:
-                d_soc = {}
-                d_soc['coordinate'] = s.coordinate
-                d_soc['tlsPublicCertificate'] = s.tlsPublicCertificate
-                d_soc['macAddress'] = s.MAC
+            assert len(socs) == 1, 'Only 1 SOC can be handled'
+            s = socs[0]
+            d_soc = {
+                'coordinate': s.coordinate,
+                'tlsPublicCertificate': s.tlsPublicCertificate,
+                'macAddress': s.MAC,
+                'cpu_percent': s.cpu_percent,
+                'rootfs_percent': s.rootfs_percent,
+            }
 
             cur.execute('SELECT * FROM FAModules WHERE node_id=?', n.node_id)
             cur.iterclass = 'default'

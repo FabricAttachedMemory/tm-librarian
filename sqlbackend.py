@@ -45,7 +45,9 @@ from frdnode import FRDnode, FRDFAModule, FRDintlv_group
 
 class LibrarianDBackendSQL(object):
 
-    SCHEMA_VERSION = 'LIBRARIAN 0.995'
+    SCHEMA_VERSION = 'LIBRARIAN 0.996'
+    # 0.995     Added heartbeat to SOC
+    # 0.996     Added CPU and root FS percent to SOC; add link table
 
     @staticmethod
     def argparse_extend(parser):
@@ -100,7 +102,7 @@ class LibrarianDBackendSQL(object):
         except StopIteration:
             raise RuntimeError(
                 '%s is corrupt (missing "globals")' %
-            self._cur.db_file)
+                self._cur.db_file)
         except Exception as e:
             raise RuntimeError(str(e))
 
@@ -198,7 +200,7 @@ class LibrarianDBackendSQL(object):
     def modify_shelf(self, shelf, commit=False):
         """ Modify data for an individual shelf.
             Input---
-              shelf - object containing fixed sheld ID info plus updated
+              shelf - object containing fixed shelf ID info plus updated
                       fields listed in the "match_fields" attribute.
               commit - persist the transaction now
             Output---
@@ -259,25 +261,25 @@ class LibrarianDBackendSQL(object):
         shelf.matchfields = ()    # time only
         self.modify_shelf(shelf, commit=commit)
 
-    def modify_node_soc_status(self, node_id, status):
+    def modify_node_soc_status(self, node_id,
+            status=None, cpu_percent=-44, rootfs_percent=-45):
         ''' Update the current heartbeat status for the SoC
         '''
-        if status is None:
-            self._cur.UPDATE(
-                'SOCs',
-                'heartbeat=? WHERE node_id=?',
+        if status is None:      # Just advance the last-known-contact time
+            self._cur.UPDATE('SOCs', 'heartbeat=?WHERE node_id=?',
                 (int(time.time()), node_id))
         else:
             self._cur.UPDATE(
                 'SOCs',
-                'status=?, heartbeat=? WHERE node_id=?',
-                (status, int(time.time()), node_id))
+                'status=?, heartbeat=?, cpu_percent=?, rootfs_percent=? WHERE node_id=?',
+                (status, int(time.time()), cpu_percent, rootfs_percent, node_id))
         self._cur.commit()
 
     def modify_node_mc_status(self, node_id, status):
         ''' Update the current status for a media controller
         '''
-        self._cur.execute('SELECT * FROM FAModules WHERE node_id=?', (node_id,))
+        self._cur.execute(
+            'SELECT * FROM FAModules WHERE node_id=?', (node_id,))
         self._cur.iterclass = 'default'
         MCs = [ r for r in self._cur ]
         for m in MCs:
@@ -418,8 +420,33 @@ class LibrarianDBackendSQL(object):
             shelf.mode = stat.S_IFREG + 0o666
         tmp = int(time.time())
         shelf.ctime = shelf.mtime = tmp
+        if shelf.parent_id == 0:
+            shelf.parent_id = 2  # is now a default for if it given to go in root
         shelf.id = self._cur.INSERT('shelves', shelf.tuple())
         return shelf
+
+    def create_symlink(self, shelf, target):
+        """ Creates a link entry to hold symlink path in link table
+            Input---
+                shelf - contains shelf data to insert
+                target - target path to store that link points to
+            Output---
+                target or error message
+        """
+        self._cur.INSERT('links', (shelf.id, target, None))
+        return target
+
+    def get_symlink_target(self, shelf):
+        """ Fetches symlink path from links table
+            Input---
+                shelf - contains shelf id of symlink file
+            Output---
+                target path
+        """
+        self._cur.execute(
+            'SELECT target FROM links WHERE shelf_id=?', shelf.id)
+        tmp = self._cur.fetchone()
+        return tmp[0]
 
     def get_shelf(self, shelf):
         """ Retrieve one shelf from the database
@@ -462,8 +489,22 @@ class LibrarianDBackendSQL(object):
             tmp = [ (node_id, pid) for node_id, pid in tmp ]
         else:
             tmp = [ (node_id, pid) for node_id, pid in tmp if
-                node_id != context['node_id'] or pid != context['pid'] ]
+                    node_id != context['node_id'] or pid != context['pid'] ]
         return tmp
+
+    def get_directory_shelves(self, parent_shelf):
+        """ Retrieve all shelves from a single parent directory
+            Input---
+              parent_shelf (parent directory)
+            Output---
+              List of TMShelf objects (could be empty) or raise error
+        """
+        parent_id = parent_shelf.id
+        self._cur.execute(
+            'SELECT * FROM shelves WHERE parent_id = %d ORDER BY id' % parent_id)
+        self._cur.iterclass = TMShelf
+        shelves = [ r for r in self._cur ]
+        return shelves
 
     def get_shelf_all(self):
         """ Retrieve all shelves from the database.

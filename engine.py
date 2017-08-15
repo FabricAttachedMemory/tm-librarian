@@ -31,13 +31,16 @@ from pdb import set_trace
 
 from book_policy import BookPolicy
 from book_shelf_bos import TMBook, TMShelf, TMBos
-from cmdproto import LibrarianCommandProtocol
+from cmdproto import LibrarianCommandProtocol as lcp
 from frdnode import FRDnode
 
 _ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
 
 
 class LibrarianCommandEngine(object):
+
+    _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
+    _MODE_DEFAULT_LNK = stat.S_IFLNK + 0o777
 
     @staticmethod
     def argparse_extend(parser):
@@ -85,6 +88,12 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf data
         """
+        path_list = self._path2list(cmdict['path'])
+        cmdict['name'] = path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parent_id'] = parent_shelf.id
+        cmdict['link_count'] = 1  # normal files get one
+
         # POSIX: if extant, open it; else create and then open
         try:
             shelf = self.cmd_open_shelf(cmdict)
@@ -95,8 +104,8 @@ class LibrarianCommandEngine(object):
         shelf = TMShelf(cmdict)
         self.db.create_shelf(shelf)
         self.db.create_xattr(shelf,
-            BookPolicy.XATTR_ALLOCATION_POLICY,
-            BookPolicy.DEFAULT_ALLOCATION_POLICY)
+                             BookPolicy.XATTR_ALLOCATION_POLICY,
+                             BookPolicy.DEFAULT_ALLOCATION_POLICY)
 
         # Will be ignored until AllocationPolicy set to RequestIG.  I just
         # want it to show up in a full xattr dump (getfattr -d /lfs/xxxx)
@@ -105,18 +114,34 @@ class LibrarianCommandEngine(object):
 
         return self.cmd_open_shelf(cmdict)  # Does the handle thang
 
-    def cmd_get_shelf(self, cmdict, match_id=False):
+    def cmd_get_shelf(self, cmdict, match_id=False, match_parent_id=True):
         """ List a given shelf.
             In (dict)---
-                name
+                path
                 optional flag to force a match on id (ie, already open)
+                optional flag to force a match on parent_id, defaulted to True
             Out (TMShelf object) ---
                 TMShelf object
         """
         self.errno = errno.EINVAL
+        path_list = self._path2list(cmdict['path'])
+        try:
+            cmdict['name'] = path_list[-1]
+            parent_shelf = self._path2shelf(path_list[:-1])
+            cmdict['parent_id'] = parent_shelf.id
+        except IndexError:
+            #case of getting root
+            cmdict['name'] = '.'
+            cmdict['parent_id'] = 2
         shelf = TMShelf(cmdict)
         assert shelf.name, 'Missing shelf name'
-        if match_id:
+        if match_parent_id:
+            assert shelf.parent_id, 'Missing parent id'
+        if match_id and match_parent_id:
+            shelf.matchfields = ('name', 'id', 'parent_id')
+        elif match_parent_id:
+            shelf.matchfields = ('name', 'parent_id')
+        elif match_id:
             shelf.matchfields = ('name', 'id')
         else:
             shelf.matchfields = ('name', )
@@ -133,7 +158,35 @@ class LibrarianCommandEngine(object):
 
     def cmd_list_shelves(self, cmdict):
         '''Returns a list.'''
-        return self.db.get_shelf_all()
+        path_list = self._path2list(cmdict['path'])
+        working_dir = self._path2shelf(path_list)
+        # FIXME: not sure if it will handle root correctly
+        parent_dir = self._path2shelf(path_list[:-1])
+        # root needs to be pulled out of children_dirs, as it is handled through the working_dir object
+        children_dirs = [shelf for shelf in self.db.get_directory_shelves(
+            working_dir) if shelf.name != '.']
+        # rename shelf object for working and parent to . and ..
+        working_dir.name = '.'
+        parent_dir.name = '..'
+        # return both added to list.
+
+        return [working_dir] + [parent_dir] + children_dirs
+
+    def _path2shelf(self, path):
+        '''Returns shelf object corresponding to given path'''
+        # accepts a string, or a list. either is handled in path2list
+        path_list = self._path2list(path)
+        # FIXME: not sure if this will work, attempting to start at root and move from there
+        # if things break, this would be a reasonable place to look
+        tmp = TMShelf(id=2)
+        tmp.matchfields = ('id', )
+        current_shelf = self.db.get_shelf(tmp)
+        for name in path_list:
+            tmp = TMShelf(parent_id=current_shelf.id, name=name)
+            tmp.matchfields = ('parent_id', 'name')
+            current_shelf = self.db.get_shelf(tmp)
+
+        return current_shelf
 
     def cmd_list_open_shelves(self, cmdict):
         '''Returns a list.'''
@@ -146,14 +199,15 @@ class LibrarianCommandEngine(object):
             Out ---
                 TMShelf object
         """
-        shelf = self.cmd_get_shelf(cmdict)  # may raise ENOENT
+        shelf = self.cmd_get_shelf(
+            cmdict, match_parent_id=True)  # may raise ENOENT
         self.db.modify_opened_shelves(shelf, 'get', cmdict['context'])
         return shelf
 
     def cmd_close_shelf(self, cmdict):
         """ Close a shelf against access by a node.
             In (dict)---
-                shelf_id, name, handle
+                shelf_id, handle
             Out (dict) ---
                 TMShelf object
         """
@@ -207,17 +261,33 @@ class LibrarianCommandEngine(object):
     def cmd_rename_shelf(self, cmdict):
         """Rename a shelf
             In (dict)---
-                name (current)
+                path (current)
                 id
-                newname
+                newpath
             Out (dict) ---
                 shelf
         """
         self.errno = errno.ENOENT
         shelf = self.cmd_get_shelf(cmdict)
-        shelf.name = cmdict['newname']
-        shelf.matchfields = 'name'
+        old_path_list = self._path2list(cmdict['path'])
+        new_path_list = self._path2list(cmdict['newpath'])
+        shelf.name = new_path_list[-1]
+        old_parent_shelf = self._path2shelf(old_path_list[:-1])
+        new_parent_shelf = self._path2shelf(new_path_list[:-1])
+        shelf.parent_id = new_parent_shelf.id
+        shelf.matchfields = ('name', 'parent_id')
         shelf = self.db.modify_shelf(shelf, commit=True)
+
+        # link count modifications if move is directory: remove 1 from old, add 1 to new
+        if (shelf.mode & stat.S_IFDIR) == stat.S_IFDIR:
+            old_parent_shelf.link_count -= 1
+            old_parent_shelf.matchfields = ('link_count', )
+            self.db.modify_shelf(old_parent_shelf, commit=True)
+
+            new_parent_shelf.link_count += 1
+            new_parent_shelf.matchfields = ('link_count', )
+            self.db.modify_shelf(new_parent_shelf, commit=True)
+
         if shelf.name.startswith(_ZERO_PREFIX):  # zombify and unblock
             bos = self.db.get_bos_by_shelf_id(shelf.id)
             while bos:
@@ -239,7 +309,7 @@ class LibrarianCommandEngine(object):
     def cmd_destroy_shelf(self, cmdict):
         """ For a shelf, zombify books (mark for zeroing) and remove xattrs
             In (dict)---
-                shelf
+                path
                 node
             Out (dict) ---
                 shelf data
@@ -255,7 +325,9 @@ class LibrarianCommandEngine(object):
             _ = self._set_book_alloc(thisbos, TMBook.ALLOC_ZOMBIE)
         for xattr in xattrs:
             self.db.remove_xattr(shelf, xattr)
-        return self.db.delete_shelf(shelf, commit=True)
+        rsp = self.db.delete_shelf(shelf, commit=True)
+
+        return rsp
 
     def cmd_kill_zombie_books(self, cmdict):
         '''repl_client command to "zero" zombie books.  Needs work.'''
@@ -275,12 +347,12 @@ class LibrarianCommandEngine(object):
     def cmd_resize_shelf(self, cmdict):
         """ Resize given shelf to new size in bytes.
             In (dict)---
-                name
+                path
                 id
                 size_bytes
                 zero_enabled
             Out (dict) ---
-                z_shelf_name
+                z_shelf_path
         """
         shelf = self.cmd_get_shelf(cmdict, match_id=True)
         bos = self._list_shelf_books(shelf)
@@ -288,7 +360,7 @@ class LibrarianCommandEngine(object):
         self.errno = errno.EINVAL
         assert new_size_bytes >= 0, 'Bad size'
         new_book_count = self._nbooks(new_size_bytes)
-        out_buf = {'z_shelf_name': None}
+        out_buf = {'z_shelf_path': None}
         if bos:
             seqs = [ b.seq_num for b in bos ]
             self.errno = errno.EBADFD
@@ -336,16 +408,23 @@ class LibrarianCommandEngine(object):
             # The unlink workflow has one step which zero truncates
             # a file with a certain name.  IOW not all shelves are USED,
             # some may be full of ZOMBIES
-            freeing = shelf.name.startswith(_ZERO_PREFIX) and not new_book_count
+            freeing = shelf.name.startswith(
+                _ZERO_PREFIX) and not new_book_count
             zero_enabled = cmdict['zero_enabled']
 
             if not freeing and zero_enabled:
                 # Create a zeroing shelf for the books being removed
-                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' +
-                    str(time.time()) + '_' + cmdict['context']['physloc'])
+                z_shelf_name = (_ZERO_PREFIX + shelf.name + '_' + str(shelf.parent_id) +
+                                '_' + str(time.time()) + '_' + cmdict['context']['physloc'])
+                # all are placed in root, so path is easy
+                z_shelf_path = '/' + z_shelf_name
                 z_shelf_data = {}
-                z_shelf_data.update({'context':cmdict['context']})
-                z_shelf_data.update({'name':z_shelf_name})
+                z_shelf_data.update({'context': cmdict['context']})
+                z_shelf_data.update({'name': z_shelf_name})
+                # place all zeroing shelves at root (/lfs) with parent_id = 2
+                # this makes sure that they are not placed in a directory that
+                # is removed before they can be zeroed and deleted themselves
+                z_shelf_data.update({'parent_id': 2})
                 self.errno = errno.EINVAL
                 z_shelf = TMShelf(z_shelf_data)
                 self.db.create_shelf(z_shelf)
@@ -365,7 +444,8 @@ class LibrarianCommandEngine(object):
 
                     if not freeing and zero_enabled:
                         # Add removed book to zeroing shelf
-                        z_thisbos = TMBos(shelf_id=z_shelf.id, book_id=book.id, seq_num=z_seq_num)
+                        z_thisbos = TMBos(shelf_id=z_shelf.id,
+                                          book_id=book.id, seq_num=z_seq_num)
                         z_thisbos = self.db.create_bos(z_thisbos)
                         z_shelf.size_bytes += self.book_size_bytes
                         z_shelf.book_count += 1
@@ -374,12 +454,13 @@ class LibrarianCommandEngine(object):
                 except Exception as e:
                     self.db.rollback()
                     self.errno = errno.EREMOTEIO
-                    raise RuntimeError('Resizing shelf smaller failed: %s' % str(e))
+                    raise RuntimeError(
+                        'Resizing shelf smaller failed: %s' % str(e))
 
             if not freeing and zero_enabled:
                 z_shelf.matchfields = ('size_bytes', 'book_count')
                 z_shelf = self.db.modify_shelf(z_shelf, commit=True)
-                out_buf = {'z_shelf_name': z_shelf_name}
+                out_buf = {'z_shelf_path': z_shelf_path}
 
         else:
             self.db.rollback()
@@ -509,7 +590,8 @@ class LibrarianCommandEngine(object):
         }
 
     def cmd_get_book_ig(self, cmdict):
-        allocated = [ TMBook.ALLOC_FREE, TMBook.ALLOC_INUSE, TMBook.ALLOC_ZOMBIE ]
+        allocated = [ TMBook.ALLOC_FREE,
+                      TMBook.ALLOC_INUSE, TMBook.ALLOC_ZOMBIE ]
         return self.db.get_books_by_intlv_group(9999, cmdict['intlv_group'], allocated)
 
     def cmd_get_book_all(self, cmdict):
@@ -518,13 +600,128 @@ class LibrarianCommandEngine(object):
     def cmd_get_book_info_all(self, cmdict):
         return self.db.get_book_info_all(cmdict['intlv_group'])
 
+    def cmd_mkdir(self, cmdict):
+        # currently similar to cmd_create_shelf with slight modifications
+        path_list = self._path2list(cmdict['path'])
+        cmdict['name'] = path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parent_id'] = parent_shelf.id
+        cmdict['link_count'] = 2  # . and .. for directories
+
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+            self.errno = errno.EEXIST
+            return shelf
+        except Exception as e:
+            pass
+
+        self.errno = errno.EINVAL
+        shelf = TMShelf(cmdict)
+        self.db.create_shelf(shelf)
+
+        # parent directory shelf has to also have link count incremented
+        parent_shelf.link_count += 1
+        parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(parent_shelf, commit=True)
+
+        return shelf # man 2 mkdir: 0 on success
+
+    def cmd_rmdir(self, cmdict):
+        shelf = self._path2shelf(cmdict['path'])
+        children = self.db.get_directory_shelves(shelf)
+        self.errno = errno.ENOTEMPTY
+        assert not children, 'Directory is not empty'
+        shelf = self.db.delete_shelf(shelf)
+
+        # handle link counts. put after the delete call, so that if
+        # the delete fails, the link counts remain consistent
+        parent_shelf = self._path2shelf(self._path2list(
+            cmdict['path'])[:-1])  # fingers crossed
+        parent_shelf.link_count -= 1
+        parent_shelf.matchfields = ('link_count', )
+        self.db.modify_shelf(parent_shelf, commit=True)
+
+        return shelf
+
+    def cmd_symlink(self, cmdict):
+        """ Creates a symlink at path to target
+            Input(dict)---
+                path - path to create symlink at
+                target - path where symlink is supposed to point to
+            Output(shelf)---
+                symlink shelf that was created
+        """
+        cmdict['mode'] = self._MODE_DEFAULT_LNK
+        path_list = self._path2list(cmdict['path'])
+        cmdict['name'] = path_list[-1]
+        parent_shelf = self._path2shelf(path_list[:-1])
+        cmdict['parent_id'] = parent_shelf.id
+        cmdict['link_count'] = 1  # I think?
+
+        try:
+            shelf = self.cmd_get_shelf(cmdict)
+            self.errno = errno.EEXIST
+            return shelf
+        except Exception as e:
+            pass
+
+        self.errno = errno.EINVAL
+        shelf = TMShelf(cmdict)
+        self.db.create_shelf(shelf)
+
+        self.db.create_symlink(shelf, cmdict['target'])
+
+        return shelf
+
+    def cmd_readlink(self, cmdict):
+        """ reads a symlink
+            Input(dict)---
+                path - path to existing symlink
+            Output(string)---
+                path to where symlink points
+        """
+        shelf = self._path2shelf(cmdict['path'])
+        return self.db.get_symlink_target(shelf)
+
+    def cmd_get_shelf_path(self, cmdict):
+        ''' Retrieves path to any given shelf
+            "shelf" is an incomplete shelf generated from cmdict
+            "current_shelf" is complete shelf fetched from db
+        '''
+        path = ['/']
+        shelf = TMShelf(cmdict)
+        shelf.matchfields = ('name', 'parent_id')
+        current_shelf = self.db.get_shelf(shelf)  # shelf who needs path
+        path.insert(1, current_shelf.name)
+        while current_shelf.parent_id != 2:
+            # modify passing command dict
+            cmdict['id'] = current_shelf.parent_id
+            shelf = TMShelf(cmdict)
+            shelf.matchfields = ('id', )
+            current_shelf = self.db.get_shelf(shelf)
+            path.insert(1, '/')
+            path.insert(1, current_shelf.name)
+
+        return str().join(path)
+
+    def _path2list(self, path):
+        """ Splits path strings into list of names """
+        # if path is already a list, just clean it up
+        if type(path) is list:
+            return [directory for directory in path if directory != '']
+        # if not do split then clean up
+        return [directory for directory in path.split('/') if directory != '']
+
     def cmd_update_node_soc_status(self, cmdict):
-        # Executive Dashboard face transplant next steps:
-        # add 'cpu_percent' and 'rootfs_percent' along with 'status'
-        self.db.modify_node_soc_status(cmdict['context']['node_id'], cmdict['status'])
+        self.db.modify_node_soc_status(
+            cmdict['context']['node_id'],
+            cmdict['status'],
+            cmdict['cpu_percent'],
+            cmdict['rootfs_percent'])
 
     def cmd_update_node_mc_status(self, cmdict):
-        self.db.modify_node_mc_status(cmdict['context']['node_id'], cmdict['status'])
+        self.db.modify_node_mc_status(
+            cmdict['context']['node_id'], cmdict['status'])
 
     #######################################################################
 
@@ -557,7 +754,7 @@ class LibrarianCommandEngine(object):
                                n in encnodes ]
                     if self.verbose:
                         print('Rack %d Enc %2d nodes:' % (racknum, encnum),
-                            ' '.join(outstr))
+                              ' '.join(outstr))
                 racknum += 1
                 racknodes = [ n for n in self.nodes if n.rack == racknum ]
 
@@ -569,7 +766,7 @@ class LibrarianCommandEngine(object):
 
             self.IGs = sorted(self.IGs, key=attrgetter('groupId'))
             self.__class__.books_per_IG = dict([(ig.groupId, ig.total_books)
-                                          for ig in self.IGs])
+                                                for ig in self.IGs])
 
             # Skip 'cmd_' prefix
             self.__class__._commands = dict(
@@ -610,7 +807,8 @@ class LibrarianCommandEngine(object):
             # If this is a performance problem, cache node_id
             assert FRDnode(int(cmdict['context']['node_id'])) in self.nodes, \
                 'Node is not configured in Librarian topology'
-            self.db.modify_node_soc_status(cmdict['context']['node_id'], None)
+            # Advance the last-known-contact timestamp.
+            self.db.modify_node_soc_status(cmdict['context']['node_id'])
             errmsg = ''  # High-level internal errors, not LFS state errors
             self.errno = 0
             ret = OOBmsg = None
@@ -624,10 +822,10 @@ class LibrarianCommandEngine(object):
         if errmsg:  # Looks better _cooked
             if self.verbose > 2:
                 print('%s failed: %s: %s' %
-                    (cmdict['command'],
-                    errno.errorcode.get(self.errno, ''),
-                    errmsg),
-                    file=sys.stderr)
+                      (cmdict['command'],
+                       errno.errorcode.get(self.errno, ''),
+                       errmsg),
+                      file=sys.stderr)
             return { 'errmsg': errmsg, 'errno': self.errno }, None
 
         if isinstance(ret, dict):

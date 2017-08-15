@@ -17,6 +17,7 @@
 
 import os
 import sys
+import stat
 
 from argparse import Namespace  # result of an argparse sequence
 from pdb import set_trace
@@ -62,7 +63,7 @@ def _10_stale_handles(db):
     db.execute(sql)
     db.iterclass = None
     stale = [ s for s in db ]
-    print('\t %d stale file handles remain' % len(stale))
+    print('\t %d stale file handle(s) remain(s)' % len(stale))
 
 ###########################################################################
 # The "unlink workflow" renames a file to 'tmfs_hidden_NNN (pure FuSE).
@@ -128,7 +129,7 @@ def _40_verify_shelves_return_orphaned_books(db):
     db.execute('SELECT id FROM books where allocated=?', TMBook.ALLOC_INUSE)
     used_books = [ u[0] for u in db ]
     used_books = frozenset(used_books)
-    print('%d books in use' % len(used_books))
+    print('%d book(s) in use' % len(used_books))
     shelves = db.get_shelf_all()    # Keep going even if empty, you'll see
 
     # Seq nums okay?  Eliminate dupes and check
@@ -204,6 +205,90 @@ def _50_clear_orphaned_xattrs(db):
 ###########################################################################
 
 
+# TODO should these variables be used globally?
+_GARBAGE_SHELF_ID = 1
+_ROOT_SHELF_ID = 2
+_LOST_FOUND_SHELF_ID = 3
+
+def _60_find_lost_shelves(db):
+    '''Move orphan files/directories to lost+found'''
+
+    # get shelves and their ids from databse
+    shelves = db.get_shelf_all()
+    shelf_ids = [s.id for s in shelves]
+
+    lost_shelves_count = 0
+
+    for shelf in shelves:
+        # ignore garbage shelf
+        if (shelf.id != _GARBAGE_SHELF_ID) and (shelf.parent_id not in shelf_ids):
+            lost_shelves_count += 1
+            # move orphan shelf (and therefore all its children) to lost+found
+            shelf.parent_id = _LOST_FOUND_SHELF_ID
+            # add "_<shelf_id>" to shelf's name to eliminate name conflicts
+            shelf.name = shelf.name + '_' + str(shelf.id)
+            # update parent_id and name all at once
+            shelf.matchfields = ('parent_id', 'name')
+            db.modify_shelf(shelf)
+
+    print('%s found' % lost_shelves_count)
+    db.commit()
+
+###########################################################################
+
+
+def _70_fix_link_counts(db):
+    '''Fix any inconsistent link_counts of directories'''
+    # run after _60_find_lost_shelves b/c lost+found link_count
+    # will be wrong if any directories were moved there
+
+    # get shelves from database
+    shelves = db.get_shelf_all()
+    link_counts_wrong_count = 0
+
+    # remove all shelves that are not directories;
+    # they should not be counted when shelf_parent_ids.count() is called
+    tmp = list(shelves)
+    # loop through temp list so no shelves are skipped
+    for s in tmp:
+        if not stat.S_ISDIR(s.mode):
+            shelves.remove(s)
+
+    # only get parent_ids after non-directory shelves have been removed
+    shelf_parent_ids = [s.parent_id for s in shelves]
+
+    # loop through shelves again to correct link_counts
+    for shelf in shelves:
+        wrong = False
+        # skip garbage shelf
+        if shelf.id != _GARBAGE_SHELF_ID:
+            # check shelf's link_count
+            children = shelf_parent_ids.count(shelf.id)
+            if shelf.id == _ROOT_SHELF_ID:
+                # root directory is a little different cuz it's its own parent
+                if shelf.link_count != children + 1:
+                    link_counts_wrong_count += 1
+                    shelf.link_count = children + 1
+                    shelf.matchfields = 'link_count'
+                    db.modify_shelf(shelf)
+            elif shelf.link_count != children + 2:
+                wrong = True
+            elif shelf.link_count < 2:
+                # given the above elif, this may be unnecessary, but shouldn't hurt
+                wrong = True
+            # don't have duplicate code to modify db inside each if/elif
+            if wrong:
+                link_counts_wrong_count += 1
+                shelf.link_count = children + 2
+                shelf.matchfields = 'link_count'
+                db.modify_shelf(shelf)
+
+    print('%s inconsistency(ies)' % link_counts_wrong_count)
+    db.commit()
+
+###########################################################################
+
+
 def capacity(db):
     '''Print stats until a problem occurs'''
     db.execute('SELECT books_total FROM globals')
@@ -223,6 +308,7 @@ def capacity(db):
 
 
 if __name__ == '__main__':
+
     try:
         # Using this instead of SQLite3assist gets higher level ops
         db = LibrarianDBackendSQLite3(Namespace(db_file=sys.argv[1]))
@@ -236,7 +322,9 @@ if __name__ == '__main__':
               _20_finish_unlink,
               _30_zombie_sith,
               _40_verify_shelves_return_orphaned_books,
-              _50_clear_orphaned_xattrs):
+              _50_clear_orphaned_xattrs,
+              _60_find_lost_shelves,
+              _70_fix_link_counts):
         try:
             print(f.__doc__, end=': ')
             f(db)
