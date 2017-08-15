@@ -43,19 +43,19 @@ class LibrarianCommandProtocol(object):
         ),
         'create_shelf': GO(
             doc='create new shelf',
-            parms=('name', 'mode'),
+            parms=('path', 'mode'),
         ),
         'get_shelf': GO(
             doc='get shelf details by shelf name',
-            parms=('name', ),
+            parms=('path', ),
         ),
         'list_shelf_books': GO(
             doc='list books on a shelf',
-            parms=('name', ),
+            parms=('path', ),
         ),
         'list_shelves': GO(
-            doc='list all shelf names',
-            parms=None,
+            doc='list shelf names',
+            parms=('path', ),
         ),
         'list_open_shelves': GO(
             doc='show all open shelves',
@@ -63,15 +63,15 @@ class LibrarianCommandProtocol(object):
         ),
         'open_shelf': GO(
             doc='open shelf and setup node access',
-            parms=('name', )
+            parms=('path', )
         ),
         'resize_shelf': GO(
             doc='resize shelf to given size in bytes',
-            parms=('name', 'id', 'size_bytes', 'zero_enabled'),
+            parms=('path', 'id', 'size_bytes', 'zero_enabled'),
         ),
         'rename_shelf': GO(
             doc='rename shelf',
-            parms=('name', 'id', 'newname' ),
+            parms=('path', 'id', 'newpath' ),
         ),
         'close_shelf': GO(
             doc='close shelf and end node access',
@@ -79,7 +79,7 @@ class LibrarianCommandProtocol(object):
         ),
         'destroy_shelf': GO(
             doc='destroy shelf and free reserved books',
-            parms=('name', ),
+            parms=('path', ),
         ),
         'get_book': GO(
             doc='get book details by book id',
@@ -87,23 +87,23 @@ class LibrarianCommandProtocol(object):
         ),
         'get_xattr': GO(
             doc='get extended attribute for a shelf',
-            parms=('name', 'xattr'),
+            parms=('path', 'xattr'),
         ),
         'list_xattrs': GO(
             doc='get current extended attribute names for a shelf',
-            parms=('name',),
+            parms=('path',),
         ),
         'set_xattr': GO(
             doc='set extended attribute for a shelf',
-            parms=('name', 'xattr', 'value'),
+            parms=('path', 'xattr', 'value'),
         ),
         'remove_xattr': GO(
             doc='remove an extended attribute for a shelf',
-            parms=('name', 'xattr'),
+            parms=('path', 'xattr'),
         ),
         'set_am_time': GO(
             doc='set access/modified times on a shelf',
-            parms=('name', 'atime', 'mtime'),
+            parms=('path', 'atime', 'mtime'),
         ),
         'send_OOB': GO(
             doc='send an out-of-band message to all connected clients',
@@ -116,6 +116,22 @@ class LibrarianCommandProtocol(object):
         'mkdir': GO(
             doc='create new directory',
             parms=('path', 'mode'),
+        ),
+        'rmdir': GO(
+            doc='remove empty directory',
+            parms=('path', ),
+        ),
+        'get_shelf_path': GO(
+            doc='retrieve shelf path from name and parent_id',
+            parms=('name', 'parent_id'),
+        ),
+        'symlink': GO(
+            doc='create symbolic link at path, pointing to file target',
+            parms=('path', 'target'),
+        ),
+        'readlink': GO(
+            doc='find path to actual file through a symbolic link',
+            parms=('path', ),
         ),
         'update_node_soc_status': GO(
             doc='update the status and heartbeat of an SOC on a given node',
@@ -131,12 +147,12 @@ class LibrarianCommandProtocol(object):
         'kill_zombie_books': GO(
             doc='Clean up zombie books, returning them to the FREE state ',
             parms=None,
-         ),
+        ),
 
         'get_book_ig': GO(
             doc='get all books in an interleave group',
             parms=('intlv_group', ),
-         ),
+        ),
 
         'get_book_info_all': GO(
             doc='get all books for an interleave group joined with shelf information',

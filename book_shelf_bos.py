@@ -38,7 +38,8 @@ class BookShelfStuff(object):      # could become a mixin
     def __init__(self, *args, **kwargs):
         if not self._sorted:
             self.__class__._sorted = tuple(sorted(self._ordered_schema))
-        assert not (args and kwargs), self._msg('full tuple or kwargs, not both')
+        assert not (args and kwargs), self._msg(
+            'full tuple or kwargs, not both')
         if args and isinstance(args[0], dict):
             kwargs = args[0]
             args = None
@@ -134,7 +135,7 @@ class TMBook(BookShelfStuff):
     ALLOC_FREE = 0    # available for allocation
     ALLOC_INUSE = 1   # allocated in shelves
     ALLOC_ZOMBIE = 2  # being prepared for allocation
-    ALLOC_OFFLINE = 3 # unavailable for allocation
+    ALLOC_OFFLINE = 3  # unavailable for allocation
 
     _ordered_schema = (  # a little dodgy
         'id',
@@ -160,7 +161,9 @@ class TMShelf(BookShelfStuff):
         'ctime',
         'mtime',
         'name',
-        'mode'
+        'mode',
+        'parent_id',
+        'link_count'
     )
 
     # Gotta do this here or the mechanism doesn't work.  "bos" will

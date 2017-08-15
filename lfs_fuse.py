@@ -45,6 +45,7 @@ from lfs_shadow import the_shadow_knows
 ACPI_NODE_UID = '/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/uid'
 FAME_DEFAULT_NET = '/sys/class/net/eth0/address'
 
+
 class Heartbeat:
     def __init__(self, timeout_seconds, callback):
         self._timeout_seconds = timeout_seconds
@@ -73,7 +74,8 @@ class Heartbeat:
 def prentry(func):
     def new_func(*args, **kwargs):
         self = args[0]
-        self.heartbeat.unschedule()
+        # remove unschedule to match removal of schedule below
+        # self.heartbeat.unschedule()
         self.logger.info('----------------------------------')
         if self.verbose:
             tmp = ', '.join([str(a) for a in args[1:]])
@@ -96,8 +98,12 @@ def prentry(func):
                 if len(tmp) > 128:
                     tmp = tmp[:128] + '...'
                 self.logger.info(tmp)
-        if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
-            self.heartbeat.schedule()
+
+        # Now that the heartbeat has more data, don't put it off
+        # just because this command is proof-of-life.
+        # if self.lfs_status != FRDnode.SOC_STATUS_OFFLINE:
+            # self.heartbeat.schedule()
+
         return ret
 
     # Be a well-behaved decorator
@@ -115,12 +121,15 @@ def prentry(func):
 # so that lfs_fuse.py can struggle on.   That's another good thing overall
 # but dictates where certain operations should be placed.
 
+
 class LibrarianFS(Operations):  # Name shows up in mount point
 
     _MODE_DEFAULT_BLK = stat.S_IFBLK + 0o666
     _MODE_DEFAULT_DIR = stat.S_IFDIR + 0o777
 
     _ZERO_PREFIX = '.lfs_pending_zero_'
+
+    _LOST_FOUND_PATH = '/lost+found'
 
     def __init__(self, args):
         '''Validate command-line parameters'''
@@ -164,15 +173,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.shadow = the_shadow_knows(args, lfs_globals)
         self.zerosema = threading.Semaphore(value=8)
 
-        self.heartbeat = Heartbeat(FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
+        self.heartbeat = Heartbeat(
+            FRDnode.SOC_HEARTBEAT_SECS, self.send_heartbeat)
         self.lfs_status = FRDnode.SOC_STATUS_ACTIVE
-        psutil.cpu_percent()	# dummy call to set interval baseline
+        psutil.cpu_percent()  # dummy call to set interval baseline
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_ACTIVE,
-            cpu_percent=psutil.cpu_percent(),
-            rootfs_percent=psutil.disk_usage('/')[-1]))
+                                status=FRDnode.SOC_STATUS_ACTIVE,
+                                cpu_percent=psutil.cpu_percent(),
+                                rootfs_percent=psutil.disk_usage('/')[-1]))
         self.librarian(self.lcp('update_node_mc_status',
-            status=FRDFAModule.MC_STATUS_ACTIVE))
+                                status=FRDFAModule.MC_STATUS_ACTIVE))
         self.heartbeat.schedule()
 
     # started with "mount" operation.  root is usually ('/', ) probably
@@ -190,11 +200,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def destroy(self, path):    # fusermount -u or SIGINT aka control-C
         self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
-            status=FRDnode.SOC_STATUS_OFFLINE,
-            cpu_percent=0.0,
-            rootfs_percent=0.0))
+                                status=FRDnode.SOC_STATUS_OFFLINE,
+                                cpu_percent=0.0,
+                                rootfs_percent=0.0))
         self.librarian(self.lcp('update_node_mc_status',
-            status=FRDFAModule.MC_STATUS_OFFLINE))
+                                status=FRDFAModule.MC_STATUS_OFFLINE))
         assert threading.current_thread() is threading.main_thread()
         self.torms.close()
         del self.torms
@@ -202,7 +212,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     # helpers
 
     def get_bos(self, shelf):
-        shelf.bos = self.librarian(self.lcp('list_shelf_books', shelf))
+        path = self.get_shelf_path(shelf)
+        shelf.bos = self.librarian(self.lcp('list_shelf_books', path=path))
         for book in shelf.bos:
             # Replaced a per-book loop of lcp('get_book') which was done
             # in anticipation of drilling down on more info.  Turns out
@@ -215,12 +226,18 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             book['intlv_group'] = book['lza'] >> 46             # top 7 bits
         self.logger.info('%s BOS: %s' % (shelf.name, shelf.bos))
 
+    def get_shelf_path(self, shelf):
+        tmp = self.lcp('get_shelf_path', shelf)
+        path = self.librarian(tmp)
+        return path
+
     # Round 1: flat namespace at / requires a leading / and no others.
     @staticmethod
-    def path2shelf(path):
+    def _legacy_path2name(path):
         elems = path.split('/')
-        if len(elems) > 2:
-            raise TmfsOSError(errno.E2BIG)
+        # check for len(elems) > 2 used to exist, but is was called to ignore
+        # at every spot it was called so now is removed, as well as default
+        # param to ignore the check
         shelf_name = elems[-1]        # if empty, original path was '/'
         return shelf_name
 
@@ -278,7 +295,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 tmp = self.torms.connect(reconnect=True)
                 if tmp:
                     # If request is idempotent, re-issue (need a while loop)
-                    pass # for now
+                    pass  # for now
         except MemoryError as e:  # OOB storm and internal error not pull instr
             errmsg['errmsg'] = 'OOM BOOM'
             errmsg['errno'] = errno.ENOMEM
@@ -309,9 +326,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def send_heartbeat(self):
         try:
             self.librarian(self.lcp('update_node_soc_status',
-                status=self.lfs_status,
-                cpu_percent=psutil.cpu_percent(),
-                rootfs_percent=psutil.disk_usage('/')[-1]))
+                                    status=self.lfs_status,
+                                    cpu_percent=psutil.cpu_percent(),
+                                    rootfs_percent=psutil.disk_usage('/')[-1]))
         except Exception as e:
             # Connection failure with Librarian ends up here.
             # FIXME shorten the heartbeat interval to speed up reconnect?
@@ -329,26 +346,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def getattr(self, path, fh=None):
+        # ROSS remove some root hardcoding now that a real root exists
         if fh is not None:
             raise TmfsOSError(errno.ENOENT)  # never saw this in 8 months
-
-        if path == '/':
-            now = int(time.time())
-            shelves = self.librarian(self.lcp('list_shelves'))
-            tmp = {
-                'st_uid':       42,
-                'st_gid':       42,
-                'st_mode':      stat.S_ISVTX + stat.S_IFDIR + 0o777,
-                'st_nlink':     len(shelves) + 2,   # '.' and '..'
-                'st_size':      4096,
-                'st_atime':     now,
-                'st_ctime':     now,
-                'st_mtime':     now,
-            }
-            return tmp
-
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         tmp = {
             'st_ctime':     shelf.ctime,
@@ -356,22 +357,17 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'st_uid':       42,
             'st_gid':       42,
             'st_mode':      shelf.mode,
-            'st_nlink':     1,
+            'st_nlink':     shelf.link_count,
             'st_size':      shelf.size_bytes
         }
-        if shelf_name.startswith('block'):
+        if shelf.name.startswith('block'):
             tmp['st_mode'] = self._MODE_DEFAULT_BLK
         return tmp
 
     @prentry
     def readdir(self, path, index):
         '''Either be a real generator, or get called like one.'''
-        # TODO make this a bit more flexible for subs
-        if path != '/':
-            raise TmfsOSError(errno.ENOENT)
-        rsp = self.librarian(self.lcp('list_shelves'))
-        yield '.'
-        yield '..'
+        rsp = self.librarian(self.lcp('list_shelves', path=path))
         for shelf in rsp:
             yield shelf['name']
 
@@ -399,11 +395,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if position:
             raise TmfsOSError(errno.ENOSYS)    # never saw this in 8 months
 
-        shelf_name = self.path2shelf(path)
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
 
+        # Does this also need changed to support path instead of name?
         # Piggy back for queries by kernel (globals & fault handling).
         if xattr.startswith('_obtain_'):
-            data = self.shadow.getxattr(shelf_name, xattr)
+            # this will need some work
+            data = self.shadow.getxattr(shelf, xattr)
             try:
                 return bytes(data.encode())
             except AttributeError as e:     # probably the "encode()"
@@ -420,7 +419,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         try:
             rsp = self.librarian(
-                self.lcp('get_xattr', name=shelf_name, xattr=xattr))
+                self.lcp('get_xattr', path=path, xattr=xattr))
             value = rsp['value']
             assert value is not None    # 'No such attribute'
             if isinstance(value, int):
@@ -436,9 +435,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def listxattr(self, path):
         """getfattr(1) -d calls listxattr(2).  Return a list of names."""
-        shelf_name = self.path2shelf(path)
         rsp = self.librarian(
-                self.lcp('list_xattrs', name=shelf_name))
+                self.lcp('list_xattrs', path=path))
         value = rsp['value']
         return value
 
@@ -455,8 +453,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if elems[0] != 'user' or len(elems) < 2:
             raise TmfsOSError(errno.EINVAL)
 
-        shelf_name = self.path2shelf(path)
-
         # Don't forget the setfattr command, and the shell it runs in, does
         # things to a "numeric" argument.  setfattr processes a leading
         # 0x and does a byte-by-byte conversion, yielding a byte array.
@@ -469,16 +465,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             value = valbytes.decode('cp437')
 
         rsp = self.librarian(
-                self.lcp('set_xattr', name=shelf_name,
+                self.lcp('set_xattr', path=path,
                          xattr=xattr, value=value))
         if rsp is not None:  # unexpected
             raise TmfsOSError(errno.ENOTTY)
 
     @prentry
     def removexattr(self, path, xattr):
-        shelf_name = self.path2shelf(path)
         rsp = self.librarian(
-            self.lcp('remove_xattr', name=shelf_name, xattr=xattr))
+            self.lcp('remove_xattr', path=path, xattr=xattr))
         if rsp is not None:  # unexpected
             raise TmfsOSError(errno.ENOTTY)
 
@@ -527,7 +522,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             cmd = '/bin/sleep 5'
         else:
             cmd = '/bin/dd if=/dev/zero of=%s bs=64k conv=notrunc,fsync iflag=count_bytes count=%d' % (
-            fullpath, shelf.size_bytes)
+                fullpath, shelf.size_bytes)
 
         dd = self._cmd2sub(cmd)
         self.logger.info('%s: PID %d' % ('dd', dd.pid))
@@ -536,7 +531,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                 polled = dd.poll()   # None == not yet terminated, else retval
                 while polled is None:
                     try:
-                        dd.send_signal(os.SIGUSR1)	# gets status readout
+                        dd.send_signal(os.SIGUSR1)  # gets status readout
                         stdout, stderr = dd.communicate(timeout=5)
                     except TimeoutExpired as e:
                         self.logger.error(str(stderr))
@@ -564,15 +559,15 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def unlink(self, path, *args, **kwargs):
         assert not args and not kwargs, 'unlink: unexpected args'
-        shelf_name = self.path2shelf(path)
-        shelf = TMShelf(self.librarian(self.lcp('get_shelf', name=shelf_name)))
+        shelf = TMShelf(self.librarian(self.lcp('get_shelf', path=path)))
 
         # Paranoia check for (dangling) opens.  Does VFS catch these first?
-        cached = self.shadow[shelf.name]
+        cached = self.shadow[(shelf.id, None)]
         if cached is not None:                  # Not a good sign
             open_handles = cached.open_handle
-            if open_handles is not None:        # Definitely a bad sign
-                set_trace()
+            # This was if not none, but cached.open_handle was returning empty dict,
+            # not a NoneObject
+            if open_handles:        # Definitely a bad sign
                 raise TmfsOSError(errno.EBUSY)
 
                 # Once upon a time I forced it...
@@ -584,7 +579,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
                     except Exception as e:
                         pass
 
-        self.shadow.unlink(shelf_name)  # empty cache INCLUDING dangling opens
+        self.shadow.unlink(shelf)  # empty cache INCLUDING dangling opens
 
         # Early exit: no explicit zeroing required if:
         # 1. it's zero bytes long
@@ -593,16 +588,17 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         #   _zero subprocess failed.
         # 3. The shadow subclass doesn't need it
         if ((not shelf.size_bytes) or
-             shelf.name.startswith(self._ZERO_PREFIX) or
-             (not self.shadow.zero_on_unlink)):
-            self.librarian(self.lcp('destroy_shelf', name=shelf.name))
+            shelf.name.startswith(self._ZERO_PREFIX) or
+                (not self.shadow.zero_on_unlink)):
+            self.librarian(self.lcp('destroy_shelf', path=path))
             return 0
 
         # Schedule for zeroing; a second entry to unlink() will occur on
         # this shelf with the new name.
         zeroname = '%s%d' % (self._ZERO_PREFIX, shelf.id)
-        if zeroname != shelf_name:
-            self.rename(shelf.name, zeroname)
+        if zeroname != shelf.name:
+
+            self.rename(self.get_shelf_path(shelf), zeroname)
             shelf.name = zeroname
             shelf.mode = stat.S_IFREG   # un-block it as was done on server
         if self.verbose <= 3:
@@ -614,7 +610,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def utimens(self, path, times=None):
-        shelf_name = self.path2shelf(path)  # bomb here on '/'
         if times is not None:
             times = tuple(map(int, times))
             if abs(int(time.time() - times[1])) < 3:  # "now" on this system
@@ -622,7 +617,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if times is None:
             times = (0, 0)  # let librarian pick it
         self.librarian(
-            self.lcp('set_am_time', name=shelf_name,
+            self.lcp('set_am_time', path=path,
                      atime=times[0],
                      mtime=times[1]))
         return 0  # os.utime
@@ -631,8 +626,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def open(self, path, flags, mode=None):
         # looking for filehandles?  See FUSE docs.  Librarian will do
         # all access calculations so call it first.
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('open_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('open_shelf', path=path))
         shelf = TMShelf(rsp)
         self.get_bos(shelf)
         # File handle is a proxy for FuSE to refer to "real" file descriptor.
@@ -646,14 +640,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if fh is not None:
             # createat(2), methinks, but I never saw this in 8 months
             raise TmfsOSError(errno.ENOSYS)
-        shelf_name = self.path2shelf(path)
         if supermode is None:
             mode &= 0o777
             tmpmode = stat.S_IFREG + mode
         else:
             mode = supermode & 0o777
             tmpmode = supermode
-        tmp = self.lcp('create_shelf', name=shelf_name, mode=tmpmode)
+        tmp = self.lcp('create_shelf', path=path, mode=tmpmode)
         rsp = self.librarian(tmp)
         shelf = TMShelf(rsp)                # This is an open shelf...
         fx = self.shadow.create(shelf, mode)     # ...added to the cache...
@@ -661,34 +654,38 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def read(self, path, length, offset, fh):
-        shelf_name = self.path2shelf(path)
-        return self.shadow.read(shelf_name, length, offset, fh)
+        # FIXME: this might break shadow directories and shadow files
+        # but those have not been made to work with subs anyway
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
+        return self.shadow.read(shelf, length, offset, fh)
 
     @prentry
     def write(self, path, buf, offset, fh):
-        shelf_name = self.path2shelf(path)
+        # FIXME: see read comment
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
 
         # Resize shelf "on the fly" for writes past EOF
         # BUG: what if shelf was resized elsewhere?  And what about read?
         req_size = offset + len(buf)
-        if self.shadow[shelf_name].size_bytes < req_size:
-            self.truncate(path, req_size, fh) # updates the cache
+        if self.shadow[(shelf.id, None)].size_bytes < req_size:
+            self.truncate(path, req_size, fh)  # updates the cache
 
-        return self.shadow.write(shelf_name, buf, offset, fh)
+        return self.shadow.write(shelf, buf, offset, fh)
 
     @prentry
     def truncate(self, path, length, fh=None):
         '''truncate(2) calls with fh == None; based on path but access
            must be checked.  ftruncate passes in open handle'''
-        shelf_name = self.path2shelf(path)
         zero_enabled = self.shadow.zero_on_unlink
 
         # ALWAYS get the shelf by name, even if fh is valid.
         # FIXME: Compare self.shadow[fh] to returned shelf.
         # IMPLICIT ASSUMPTION: without tenants this will never EPERM
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
         req = self.lcp('resize_shelf',
-                       name=shelf_name,
+                       path=path,
                        size_bytes=length,
                        id=rsp['id'],
                        zero_enabled=zero_enabled)
@@ -696,14 +693,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
         # If books were removed from the shelf and added to a zeroing
         # shelf, start a process to zero the books on that shelf.
-        if rsp['z_shelf_name'] is not None:
+        if rsp['z_shelf_path'] is not None:
             z_rsp = self.librarian(self.lcp(
-                'get_shelf', name=rsp['z_shelf_name']))
+                'get_shelf', path=rsp['z_shelf_path']))
             z_shelf = TMShelf(z_rsp)
             threading.Thread(target=self._zero, args=(z_shelf,)).start()
 
         # Refresh shelf info
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
         shelf = TMShelf(rsp)
         if shelf.size_bytes < length:
             raise TmfsOSError(errno.EINVAL)
@@ -712,8 +709,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def ioctl(self, path, cmd, arg, fh, flags, data):
-        shelf_name = self.path2shelf(path)
-        return self.shadow.ioctl(shelf_name, cmd, arg, fh, flags, data)
+        rsp = self.librarian(self.lcp('get_shelf', path=path))
+        shelf = TMShelf(rsp)
+        return self.shadow.ioctl(shelf, cmd, arg, fh, flags, data)
 
     @prentry
     def fallocate(self, path, mode, offset, length, fh=None):
@@ -726,11 +724,10 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         if mode:
             raise TmfsOSError(errno.EOPNOTSUPP)
         if fh is None:
-            shelf_name = self.path2shelf(path)
-            rsp = self.librarian(self.lcp('get_shelf', name=shelf_name))
+            rsp = self.librarian(self.lcp('get_shelf', path=path))
             shelf = TMShelf(rsp)
         else:
-            shelf = self.shadow[fh]
+            shelf = self.shadow[(None, fh)]
             if not shelf:
                 raise TmfsOSError(errno.ESTALE)
         if shelf.size_bytes >= offset + length:
@@ -775,12 +772,14 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def rename(self, old, new):
         # 0 or raise
-        old = self.path2shelf(old)
-        rsp = self.librarian(self.lcp('get_shelf', name=old))
+        rsp = self.librarian(self.lcp('get_shelf', path=old))
         shelf = TMShelf(rsp)
-        new = self.path2shelf(new)
-        self.shadow.rename(old, new)
-        req = self.lcp('rename_shelf', name=old, id=shelf.id, newname=new)
+        # one of the only places path2name still exists
+        # renamed from old path2shelf
+        new_name = self._legacy_path2name(new)
+        old_name = self._legacy_path2name(old)
+        self.shadow.rename(shelf, old_name, new_name)
+        req = self.lcp('rename_shelf', path=old, id=shelf.id, newpath=new)
         self.librarian(req)  # None or raise
         return 0
 
@@ -797,16 +796,16 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def readlink(self, path):
-        raise TmfsOSError(errno.ENOSYS)
+        rsp = self.librarian(self.lcp('readlink', path=path))
+        return rsp
 
     @prentry
     def mknod(self, path, mode, dev):
         # File can't exist already or upper levels of VFS reject the call.
         if mode & stat.S_IFBLK != stat.S_IFBLK:
             raise TmfsOSError(errno.ENOTBLK)
-        shelf_name = self.path2shelf(path)
-        rsp = self.librarian(self.lcp('get_shelf', name=shelf_name),
-                                      errorOK=True)
+        rsp = self.librarian(self.lcp('get_shelf', path=path),
+                             errorOK=True)
         if 'errmsg' not in rsp:
             raise TmfsOSError(errno.EEXIST)
         nbooks = dev & 0xFF     # minor
@@ -814,7 +813,8 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             raise TmfsOSError(errno.EINVAL)
         mode &= 0o777
         fh = self.create(path, 0, supermode=stat.S_IFBLK + mode)  # w/shadow
-        self.setxattr(path, 'user.LFS.AllocationPolicy', 'LocalNode'.encode(), 0)
+        self.setxattr(path, 'user.LFS.AllocationPolicy',
+                      'LocalNode'.encode(), 0)
         self.truncate(path, nbooks * self.bsize, fh)
         self.release(path, fh)
         # mknod(1m) immediately does a stat looking for S_IFBLK.
@@ -823,7 +823,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
 
     @prentry
     def rmdir(self, path):
-        raise TmfsOSError(errno.ENOSYS)
+        # small check to keep lost+found from being deleted
+        if path == self._LOST_FOUND_PATH:
+            raise TmfsOSError(errno.EPERM)
+        rsp = self.librarian(self.lcp('rmdir', path=path))
+        return 0
 
     @prentry
     def mkdir(self, path, mode):
@@ -833,8 +837,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         return 0
 
     @prentry
-    def symlink(self, name, target):
-        raise TmfsOSError(errno.ENOSYS)
+    def symlink(self, path, target):
+        rsp = self.librarian(self.lcp('symlink', path=path, target=target))
+        return 0
 
     @prentry
     def link(self, target, name):
@@ -852,7 +857,7 @@ def mount_LFS(args):
     if not args.physloc:
         msg = 'derived'
         try:
-            with open(ACPI_NODE_UID, 'r') as uid_file: # actually a coordinate
+            with open(ACPI_NODE_UID, 'r') as uid_file:  # actually a coordinate
                 node_uid = uid_file.read().strip()
                 assert node_uid.startswith('/MachineVersion/1/Datacenter'), \
                     'Incompatible machine revision in %s' % ACPI_NODE_UID
@@ -869,8 +874,8 @@ def mount_LFS(args):
                 with open(FAME_DEFAULT_NET) as mac_file:
                     mac = mac_file.read().strip().split(':')
                     assert (mac[2] == '42' and
-                           (mac[3] == mac[4] == mac[5]) and
-                           1 <= int(mac[5]) <= 40), 'Not a FAME node'
+                            (mac[3] == mac[4] == mac[5]) and
+                            1 <= int(mac[5]) <= 40), 'Not a FAME node'
                     args.physloc = int(mac[5])
             except Exception as e:
                 raise SystemExit(
@@ -885,7 +890,8 @@ def mount_LFS(args):
     try:
         tmp = socket.gethostbyname(args.hostname)
     except Exception as e:
-        logging.warning('could not verify (--hostname) argument \'%s\'' % args.hostname)
+        logging.warning(
+            'could not verify (--hostname) argument \'%s\'' % args.hostname)
 
     d = int(bool(args.shadow_dir))
     f = int(bool(args.shadow_file))
@@ -909,6 +915,7 @@ def mount_LFS(args):
     except Exception as e:
         set_trace()    # this should never happen :-)
         raise SystemExit('%s' % str(e))
+
 
 if __name__ == '__main__':
 
