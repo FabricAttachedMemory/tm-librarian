@@ -1,3 +1,11 @@
+tm-librarian (1.27-1) unstable; urgency=medium
+
+  * Fix heartbeat unschedule issue
+  * Fix file open caching issue
+  * Add support for directories
+
+ -- Keith Packard <keithp@keithp.com>  Tue, 15 Aug 2017 09:48:56 -0700
+
 tm-librarian (1.24-1) unstable; urgency=medium
 
   * Add cpu_percent and rootfs_percent to heartbeat data
