@@ -1,8 +1,0 @@
-#/bin/sh
-
-set -e
-
-mkdir -p /var/hpetm
-chmod 777 /var/hpetm
-
-exit 0
