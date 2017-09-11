@@ -1,0 +1,4 @@
+#!/usr/bin/dh-exec
+
+systemd_tm-lfs			=> etc/default/tm-lfs
+systemd_tm-lfs.service		=> lib/systemd/system/tm-lfs.service
