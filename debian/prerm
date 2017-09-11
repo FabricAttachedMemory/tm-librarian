@@ -3,12 +3,12 @@
 rm -rf /usr/lib/python3/dist-packages/tm_librarian/__pycache__
 rm -rf /usr/lib/python3/dist-packages/tm_librarian/tests/__pycache__
 
-/bin/systemctl stop tm-lfs
-/bin/systemctl disable tm-lfs
-/bin/systemctl stop tm-librarian
-/bin/systemctl disable tm-librarian
-/bin/systemctl stop tm-lmp
-/bin/systemctl disable tm-lmp
-/bin/systemctl daemon-reload
+deb-systemd-invoke stop tm-lfs
+deb-systemd-invoke disable tm-lfs
+deb-systemd-invoke stop tm-librarian
+deb-systemd-invoke disable tm-librarian
+deb-systemd-invoke stop tm-lmp
+deb-systemd-invoke disable tm-lmp
+systemctl daemon-reload
 
-exit 0
+#DEBHELPER#
