@@ -1,7 +1,7 @@
 Source: tm-librarian
 Section: misc
 Priority: optional
-Maintainer: Keith Packard <packard@hpe.com>
+Maintainer: Greg Pearson <greg.pearson@hpe.com>
 Uploaders: Keith Packard <keithp@keithp.com>
 Origin: HPE
 Build-Depends: debhelper (>= 9),
