@@ -1,0 +1,13 @@
+#!/usr/bin/dh-exec
+
+systemd_tm-lmp			=> etc/default/tm-lmp
+systemd_tm-lmp.service		=> lib/systemd/system/tm-lmp.service
+templates/show_allocated.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_nodes.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_directory.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_global.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_views.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_active.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_books.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_shelf.html	usr/lib/python3/dist-packages/tm_librarian/templates
+templates/show_interleaveGroups.html	usr/lib/python3/dist-packages/tm_librarian/templates
