@@ -557,19 +557,27 @@ class Server(SocketReadWrite):
                            ):
                             logging.warning('%s: %s' % (s, str(cmdict)))
                 except (ConnectionError, OSError) as e:
-                    # ConnectionError is a base class in Python3.  OSError
-                    # 113 (EHOSTUNREACH, no route to host) occurs when node
-                    # dies in middle of transaction and can't receive the
-                    # response.  It usually shows up on a (forced) reboot
-                    # of the node. 106 (ECONNABORTED) is when lfs_fuse shuts
-                    # down more gracefully.
+                    # These are mostly seen on the server side because it's
+                    # tremendously more stable than a pile of nodes.
+                    # ConnectionError is a base class in Python3.
+                    # OSError 104 (ECONNRESET) happens when lfs_fuse.py gets
+                    # kill or kill -9 in the middle of a transaction.
+                    # Client sent RST/ACK.
+                    # OSError 106 (ECONNABORTED, SW caused conn abort) happens
+                    # when lfs_fuse shuts down gracefully.
+                    # OSError 113 (EHOSTUNREACH, no route to host) occurs when
+                    # a node dies in middle of transaction and can't receive
+                    # the # response.  It usually shows up on a (forced)
+                    # Jreboot # of the node.
+                    logging.error(str(e))
                     if isinstance(e, OSError):
                         if e.errno not in (errno.EHOSTUNREACH,
-                                           errno.ECONNABORTED):
+                                           errno.ECONNABORTED,
+                                           errno.ECONNRESET):
                             if sys.stdin.isatty():
                                 print('Unhandled OSError during response')
                                 set_trace()
-                    logging.error(str(e))
+                            continue    # Don't yet have a reason to kill it
                     clients.remove(s)
                     if s in to_write:
                         to_write.remove(s)
