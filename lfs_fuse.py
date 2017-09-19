@@ -157,6 +157,7 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             'physloc': physloc,
         }
         self.lcp = LibrarianCommandProtocol(context)
+        self.inflight = threading.Lock()
 
         # Command-line miscues like a bad shadow path.  However that needs a
         # socket, so do it now.
@@ -279,49 +280,52 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         # recv_all error processing, put a "while" around certain things...
         errmsg = { }
         rspdict = None
-        try:
-            self.torms.send_all(cmdict)
-            while rspdict is None:
-                rspdict = self.torms.recv_all()
-                if self.torms.inOOB:
-                    self.handleOOB()
-            if 'errmsg' in rspdict:  # higher-order librarian internal error
-                errmsg['errmsg'] = rspdict['errmsg']
-                errmsg['errno'] = rspdict['errno']
-        except OSError as e:
-            errmsg['errmsg'] = 'Communications error with librarian'
-            errmsg['errno'] = e.errno   # was always HOSTDOWN
-            if e.errno in (errno.ECONNABORTED, ):
-                tmp = self.torms.connect(reconnect=True)
-                if tmp:
-                    # If request is idempotent, re-issue (need a while loop)
-                    pass  # for now
-        except MemoryError as e:  # OOB storm and internal error not pull instr
-            errmsg['errmsg'] = 'OOM BOOM'
-            errmsg['errno'] = errno.ENOMEM
-        except Exception as e:
-            errmsg['errmsg'] = str(e)
-            errmsg['errno'] = errno.EREMOTEIO
+        with self.inflight:
+            try:
+                self.torms.send_all(cmdict)
+                while rspdict is None:
+                    rspdict = self.torms.recv_all()
+                    if self.torms.inOOB:
+                        self.handleOOB()
+                if 'errmsg' in rspdict:  # higher-order librarian internal error
+                    errmsg['errmsg'] = rspdict['errmsg']
+                    errmsg['errno'] = rspdict['errno']
+            except OSError as e:
+                errmsg['errmsg'] = 'Communications error with librarian'
+                errmsg['errno'] = e.errno   # was always HOSTDOWN
+                if e.errno in (errno.ECONNABORTED, ):
+                    tmp = self.torms.connect(reconnect=True)
+                    if tmp:
+                        # If request is idempotent, re-issue (need a while loop)
+                        pass  # for now
+            except MemoryError as e:  # OOB storm and internal error not pull instr
+                errmsg['errmsg'] = 'OOM BOOM'
+                errmsg['errno'] = errno.ENOMEM
+            except Exception as e:
+                errmsg['errmsg'] = str(e)
+                errmsg['errno'] = errno.EREMOTEIO
 
-        # if rspdict is None a comms error occurred and it's game over.
-        # Otherwise an error occurred in evaluating the request (ie, shelf
-        # not found).  In general quitting here is sufficent.
-        if errmsg:
-            self.logger.error('%s failed: %s' % (command, errmsg['errmsg']))
-            if rspdict is not None and errorOK:
-                return rspdict
-            raise TmfsOSError(errmsg['errno'])
+            # if rspdict is None a comms error occurred and it's game over.
+            # Otherwise an error occurred in evaluating the request (ie, shelf
+            # not found).  In general quitting here is sufficent.
+            if errmsg:
+                self.logger.error('%s failed: %s' % (command, errmsg['errmsg']))
+                if rspdict is not None and errorOK:
+                    return rspdict
+                raise TmfsOSError(errmsg['errno'])
 
-        try:
-            value = rspdict['value']
-            rspseq = rspdict['context']['seq']
-            if seq != rspseq:
-                msg = 'Response not for me %s != %s' % (seq, rspseq)
-                raise OSError(errno.EILSEQ, msg)
-        except KeyError as e:
-            raise OSError(errno.ERANGE, 'Bad response format')
+            try:
+                value = rspdict['value']
+                rspseq = rspdict['context']['seq']
+                if seq != rspseq:
+                    msg = 'Response not for me %s != %s' % (seq, rspseq)
+                    self.logger.error(msg)
+                    # raise OSError(errno.EILSEQ, msg)
+                    raise TmfsOSError(errno.EILSEQ)
+            except KeyError as e:
+                raise OSError(errno.ERANGE, 'Bad response format')
 
-        return value  # None is legal, let the caller deal with it.
+            return value  # None is legal, let the caller deal with it.
 
     def send_heartbeat(self):
         try:
