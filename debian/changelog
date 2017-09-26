@@ -1,3 +1,9 @@
+tm-librarian (1.28+l4tm1) catapult; urgency=low
+
+  * Fix overlapping message issue
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 26 Sep 2017 11:26:40 -0600
+
 tm-librarian (1.27+l4tm1) catapult; urgency=low
 
   * Fix heartbeat unschedule issue
