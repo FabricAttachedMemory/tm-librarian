@@ -259,13 +259,17 @@ def MDC990x_Book_table(cur, nodes, book_size_bytes):
         physaddr = node.nvm_physaddr    # here is where multiple chunks go
         remaining = node.nvm_size
         while remaining:
-            cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                (physaddr,              # id
-                 tag | node.node_id,    # intlv_group
-                 book_num,              # book_num
-                 0,                     # allocated
-                 0))                    # attributes
+            try:
+                cur.execute(
+                    'INSERT INTO books VALUES(?, ?, ?, ?, ?)', (
+                    physaddr,               # id
+                    tag | node.node_id,     # intlv_group
+                    book_num,               # book_num
+                    0,                      # allocated
+                    0))                     # attributes
+            except OverflowError as e:
+                raise SystemExit(
+                    'Unsigned-64 value won\'t slide into an SQLite signed INT')
             remaining -= book_size_bytes
             physaddr += book_size_bytes
             book_num += 1
@@ -568,7 +572,7 @@ def load_book_data_ini(inifile):
             assert 1 <= len(elems) <= 2, 'Bad nvm_size syntax'
             try:
                 nvm_size, tmp = elems
-                tmp = tmp.strip()
+                tmp = tmp.strip().lower()  # because hex() returns lower
                 try:
                     nvm_physaddr = int(tmp, 16)
                 except ValueError as e:
