@@ -66,6 +66,7 @@ nvm_size = N
 :
 
 hostnameX should usually be nodeYY where YY matches node_id.
+nvm_size may have optional "@ 0xYYYY" for use on MDC 990x.
 For autoprovisioning, only the global section is needed
 with one extra parameter "nvm_size_per_node":
 
@@ -172,6 +173,105 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
     return FRDnodes
 
 #--------------------------------------------------------------------------
+# Broke out MFT-specific table initialization when ux300/990x came along.
+# Interleave Groups and MCs: the FRDnode MC structures are too "isolated"
+# and can't compute mc.memorySize without passing in book_size, and that
+# seems too clunky.  Compute it here (composition pattern).
+# FIXME: do we actually use mc.memorySize anywhere (probably LMP) or
+# was it just a good idea at the time?
+# INI:  type(mc) == frdnode.FRDFAModule
+# JSON: type(mc) == tmconfig.mediaControllers
+
+# FIXME: these need to go somewhere global.  They are the interpretation
+# of the "id" field of the "books" table.  This is a tag encoded above
+# the lowest 16 bits of the intlv_group, giving it plenty of headroom.
+
+_BOOKS_ID_SHIFT = 16    # Give it plenty of room
+
+_BOOKS_ID_LZA = 0       # MFT, whether TMAS, TM, or legacy FAME.  Implicit.
+
+_BOOKS_ID_PHYSADDR = 1  # 990x and FAME, if you do IVSHMEM math yourself.
+
+
+def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
+    for ig in IGs:
+        if verbose > 1:
+            print("InterleaveGroup: %d" % ig.groupId)
+        for mc in ig.mediaControllers:
+            if isinstance(mc, FRDFAModule):
+                assert not hasattr(mc, 'memorySize'), 'Must have fixed it'
+                mc.memorySize = mc.module_size_books * book_size_bytes
+
+            if verbose > 1:
+                print('  node_id %2d: %d books, rawCID = %d' %
+                      (mc.node_id, mc.module_size_books, mc.rawCID))
+            cur.execute(
+                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
+                (mc.node_id,
+                 ig.groupId,
+                 mc.module_size_books,
+                 mc.rawCID,
+                 FRDFAModule.MC_STATUS_OFFLINE,
+                 mc.coordinate,
+                 mc.memorySize))
+        cur.commit()    # Every IG
+
+    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
+    # fields: IG (7) | book num (13) | book offset (33) for real hardware
+    # (8G books). The "id" field is now more than a simple index, it's
+    # the LZA, layout:
+    #   [0:32]  - book offset, ALWAYS ZERO.  These bits seem like they're
+    #             "wasted" but it avoided lots of shifting elsewhere.  As
+    #             a bonus, they'll be used as sentinels/values in 990x mode.
+    #             This use is implicitly _BOOKS_ID_LZA
+    #   [33:45] - book number within interleave group (0 - 8191)
+    #   [46:52] - interleave group (0 - 127)
+    #   [53:63] - reserved (zeros)
+    tag = _BOOKS_ID_LZA << _BOOKS_ID_SHIFT      # For completeness...
+    assert not tag, 'You just broke the MFT'    # ...because it's a noop here
+    for ig in IGs:
+        for igoffset in range(ig.total_books):
+            lza = ((ig.groupId << _IG_SHIFT) +
+                   (igoffset << _BOOK_SHIFT))
+            if verbose > 2:
+                print("lza 0x%016x, IG = %s, igoffset = %d" % (
+                    lza, ig.groupId, igoffset))
+            cur.execute(
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
+                (lza,               # id
+                 tag | ig.groupId,  # intlv_group
+                 igoffset,          # book_num
+                 0,                 # allocated
+                 0))                # attributes
+        cur.commit()    # every IG
+
+#--------------------------------------------------------------------------
+# _BOOKS_ID_PHYSADDR: First use is in 990 mode, but an extended FAME mode
+# also falls in here.  IGs are stolen for a base number and tag:
+# 23-16: _BOOKS_ID_PHYSADDR
+# 15-0:  node ID (option base 1)
+# The "id" field is then the raw physical address.
+
+def MDC990x_Book_table(cur, nodes, book_size_bytes):
+    tag = _BOOKS_ID_PHYSADDR << _BOOKS_ID_SHIFT
+    for node in nodes:
+        book_num = 0
+        physaddr = node.nvm_physaddr    # here is where multiple chunks go
+        remaining = node.nvm_size
+        while remaining:
+            cur.execute(
+                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
+                (physaddr,              # id
+                 tag | node.node_id,    # intlv_group
+                 book_num,              # book_num
+                 0,                     # allocated
+                 0))                    # attributes
+            remaining -= book_size_bytes
+            physaddr += book_size_bytes
+            book_num += 1
+        cur.commit()    # every node
+
+#--------------------------------------------------------------------------
 
 
 def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
@@ -223,54 +323,10 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              0)) # rootfs_percent
     cur.commit()
 
-    # Interleave Groups and MCs.  The FRDnode MC structures are too "isolated"
-    # and can't compute mc.memorySize without passing in book_size, and that
-    # seems too clunky.  Compute it here (composition pattern).
-    # FIXME: do we actually use mc.memorySize anywhere (probably LMP) or
-    # was it just a good idea at the time?
-    # INI:  type(mc) == frdnode.FRDFAModule
-    # JSON: type(mc) == tmconfig.mediaControllers
-    for ig in IGs:
-        if verbose > 1:
-            print("InterleaveGroup: %d" % ig.groupId)
-        for mc in ig.mediaControllers:
-            if isinstance(mc, FRDFAModule):
-                assert not hasattr(mc, 'memorySize'), 'Must have fixed it'
-                mc.memorySize = mc.module_size_books * book_size_bytes
-
-            if verbose > 1:
-                print('  node_id %2d: %d books, rawCID = %d' %
-                      (mc.node_id, mc.module_size_books, mc.rawCID))
-            cur.execute(
-                'INSERT INTO FAModules VALUES(?, ?, ?, ?, ?, ?, ?)',
-                (mc.node_id,
-                 ig.groupId,
-                 mc.module_size_books,
-                 mc.rawCID,
-                 FRDFAModule.MC_STATUS_OFFLINE,
-                 mc.coordinate,
-                 mc.memorySize))
-    cur.commit()
-
-    # Books are allocated behind IGs, not nodes. An LZA is a set of bit
-    # fields: IG (7) | book num (13) | book offset (33) for real hardware
-    # (8G books). The "id" field is now more than a simple index, it's
-    # the LZA, layout:
-    #   [0:32]  - book offset
-    #   [33:45] - book number within interleave group (0 - 8191)
-    #   [46:52] - interleave group (0 - 127)
-    #   [53:63] - reserved (zeros)
-    for ig in IGs:
-        for igoffset in range(ig.total_books):
-            lza = ((ig.groupId << _IG_SHIFT) +
-                   (igoffset << _BOOK_SHIFT))
-            if verbose > 2:
-                print("lza 0x%016x, IG = %s, igoffset = %d" % (
-                    lza, ig.groupId, igoffset))
-            cur.execute(
-                'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                (lza, ig.groupId, igoffset, 0, 0))
-        cur.commit()    # every IG
+    if nodes[0].nvm_physaddr:
+        MDC990x_Book_table(cur, nodes, book_size_bytes)
+    else:   # Legacy
+        MFT_IG_Book_tables(cur, IGs, book_size_bytes)
 
     # add the initial directory shelves
     tmp = int(time.time())
@@ -457,7 +513,7 @@ def load_book_data_ini(inifile):
         Gname, G, other_sections = load_config(inifile)
     except Exception as e:
         if verbose:
-            print('Not an INI file:', str(e), file=sys.stderr)
+            print('Illegal INI file:', str(e), file=sys.stderr)
         return False
 
     # Get and validate the required global config items
@@ -498,7 +554,35 @@ def load_book_data_ini(inifile):
             hostname = section.name
             sdata = dict(section.items())
             node_id = int(sdata["node_id"], 10)
-            nvm_size = multiplier(sdata["nvm_size"], section, book_size_bytes)
+            assert 1 <= node_id <= 80, 'Bad node id'
+
+            # SGI uv300 / MDC 990x: use standard Linux techniques to free
+            # up GRU physical memory, then explicitly list addresses here.
+            # New (optional) syntax:
+            # nvm_size = X @ 0xY
+            # where X == legacy sizing value.  No "@" means legacy MFT.
+            #       Y == phys addr.  The "0x" is required.
+            # Right now it's just one chunk but is obviously extensible.
+
+            elems = sdata['nvm_size'].split('@')
+            assert 1 <= len(elems) <= 2, 'Bad nvm_size syntax'
+            try:
+                nvm_size, tmp = elems
+                tmp = tmp.strip()
+                try:
+                    nvm_physaddr = int(tmp, 16)
+                except ValueError as e:
+                    raise SystemExit(
+                        'Node ID %d: %s is invalid' % (node_id, tmp))
+                if hex(nvm_physaddr) != tmp:
+                    raise SystemExit(
+                        'Node ID %d: %s missing 0x?' % (node_id, tmp))
+                assert nvm_physaddr >= book_size_bytes, \
+                    'Book size bigger than base address'
+            except ValueError as e:     # not enough items to unpack
+                nvm_size = elems[0]
+                nvm_physaddr = 0
+            nvm_size = multiplier(nvm_size, section, book_size_bytes)
 
             if nvm_size % book_size_bytes != 0:
                 usage("[%s] NVM size not multiple of book size" % section)
@@ -508,17 +592,25 @@ def load_book_data_ini(inifile):
             if num_books < 1:
                 usage('num_books must be greater than zero')
 
+            # Assumption/constraint: MFT uses 4 "equal" MCs per IG
             module_size_books = num_books // 4
             if module_size_books * 4 != num_books:
                 usage('Books per node is not divisible by 4')
 
-            newNode = FRDnode(node_id, module_size_books=module_size_books)
+            newNode = FRDnode(
+                node_id,
+                module_size_books=module_size_books,
+                autoMCs=(not bool(nvm_physaddr)))
+            newNode.nvm_size = nvm_size
+            newNode.nvm_physaddr = nvm_physaddr
             if hostname.startswith('node'):     # force the default
                 assert newNode.hostname == hostname, \
                     'Bad "nodeXX" format: %s' % hostname
             else:
                 newNode.hostname = hostname
             FRDnodes.append(newNode)
+
+    assert int(G['node_count']) == len(FRDnodes), 'Bad node count'
 
     # Add default enclosure U-values if needed, regardless of INI form.
     for node in FRDnodes:
@@ -529,11 +621,18 @@ def load_book_data_ini(inifile):
     IGs = [ FRDintlv_group(node.node_id - 1, node.mediaControllers) for
             node in FRDnodes ]
 
-    books_total = 0
-    for node in FRDnodes:
-        books_total += sum(
-            mc.module_size_books for mc in node.mediaControllers)
-    nvm_bytes_total = books_total * book_size_bytes
+    # What mode: uv300/990 or MFT?
+    if any([bool(n.nvm_physaddr) for n in FRDnodes]):
+        assert all([bool(n.nvm_physaddr) for n in FRDnodes]), \
+            'Inconsistent use of physical addresses'
+        nvm_bytes_total = sum(n.nvm_size for n in FRDnodes)
+        books_total = nvm_bytes_total // book_size_bytes
+    else:   # NOT redundant in general case of general MC usage
+        books_total = 0
+        for node in FRDnodes:
+            books_total += sum(
+                mc.module_size_books for mc in node.mediaControllers)
+        nvm_bytes_total = books_total * book_size_bytes
     if verbose:
         print('book size = %d' % (book_size_bytes))
         print('%d books == %d (0x%016x) total NVM bytes' % (
@@ -664,7 +763,8 @@ def create_empty_db(cur):
         cur.execute(table_create)
 
         # Book numbers are now relative to an interleave group.
-        # FIXME: rename id to lza when there's a dull moment.
+        # intlv_group 1-128 is less than eight bits.  For 990 usage there
+        # is now a tag field above bits 15-0 (plenty of room for legacy IGs).
         table_create = """
             CREATE TABLE books (
             id INTEGER PRIMARY KEY,
