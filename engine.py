@@ -32,7 +32,8 @@ from pdb import set_trace
 from book_policy import BookPolicy
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol as lcp
-from frdnode import FRDnode
+from frdnode import FRDnode, BooksIGInterpretation as BII
+from genericobj import GenericObject
 
 _ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
 
@@ -738,45 +739,93 @@ class LibrarianCommandEngine(object):
                 globals.book_size_bytes,
                 globals.nvm_bytes_total
             )
-            self.__class__.nodes = self.db.get_nodes()
-            self.__class__.IGs = self.db.get_interleave_groups()
-            assert self.nodes and self.IGs, 'Database is corrupt'
 
-            racknum = 1
-            racknodes = [ n for n in self.nodes if n.rack == racknum ]
-            while racknodes:
-                for encnum in range(1, 9):
-                    encnodes = [ n for n in racknodes if n.enc == encnum ]
-                    if not encnodes:
-                        continue
-                    encnodes = sorted(encnodes, key=attrgetter('node'))
-                    outstr = [ '%d:%d:%d' % (racknum, encnum, n.node) for
+            self.__class__.nodes = self.db.get_nodes()
+            assert self.nodes, 'Database has no nodes'
+            if self.verbose:
+                racknum = 1
+                racknodes = [ n for n in self.nodes if n.rack == racknum ]
+                while racknodes:
+                    for encnum in range(1, 9):
+                        encnodes = [ n for n in racknodes if n.enc == encnum ]
+                        if not encnodes:
+                            continue
+                        encnodes = sorted(encnodes, key=attrgetter('node'))
+                        outstr = [ '%d:%d:%d' % (racknum, encnum, n.node) for
                                n in encnodes ]
-                    if self.verbose:
                         print('Rack %d Enc %2d nodes:' % (racknum, encnum),
                               ' '.join(outstr))
-                racknum += 1
-                racknodes = [ n for n in self.nodes if n.rack == racknum ]
+                    racknum += 1
+                    racknodes = [ n for n in self.nodes if n.rack == racknum ]
 
-            # Calculations for flat-space shadow backing were being done
-            # on every node after pulling down allbooks[].  Send over
-            # summary data instead.  Although the math doesn't care, human
-            # debugging will be easier if these are ordered.  Will need to
-            # send full IGs at some point for RAS help.  This is good for now.
+            # Retrieve the Book Id Interpretation (BII) mode.  It's stored
+            # with each book (along with its "IG" in the lower 16 bits).
+            tmp = self.db.get_books_by_intlv_group(1, [])
+            assert tmp, 'Database has no books'
+            book1 = tmp[0]
+            self.__class__.BIImode = \
+                (book1.intlv_group >> BII.MODE_SHIFT) & BII.MODE_MASK
 
-            self.IGs = sorted(self.IGs, key=attrgetter('groupId'))
-            self.__class__.books_per_IG = dict([(ig.groupId, ig.total_books)
-                                                for ig in self.IGs])
+            # IGs only truly exist on MFT; only two attributes are used here:
+            # 1) groupId (1-80 on MFT)
+            # 2) total_books; on MFT, a property that sums the NVM of each MC
+            # Just provide an object with those attributes for non-MFT cases.
+            # IGs is never used after this routine; don't bind it to self.
 
-            # Skip 'cmd_' prefix
+            IGs = self.db.get_interleave_groups()
+            if self.BIImode == BII.MODE_LZA:  # legacy MFT/FAME/TMAS
+                assert IGs, 'Database has no IGs'
+            elif self.BIImode == BII.MODE_PHYSADDR:
+                assert not IGs, 'Database should not have IGs'
+                # Here, "IG" is synonymous with "chunk of contiguous memory".
+                # Right now there's just one per compute partition but
+                # expansion is possible.  Or barefoot nodes.
+                for ignum in range(0, 100):     # Plenty for 990x
+                    self.db.execute('''SELECT COUNT(*) FROM books
+                                       WHERE intlv_group & 0xffff = ?''',
+                                       (ignum,))
+                    tmp = self.db.fetchone()
+                    assert len(tmp) == 1, 'BIImode unexpected DB return'
+                    tmp = tmp[0]
+                    if tmp:
+                        IGs.append(GenericObject(
+                            groupId=ignum,
+                            total_books=tmp))
+                # Idiot check, probably books with ignum > 100
+                self.db.execute('''SELECT COUNT(*) FROM books''')
+                tmp = self.db.fetchone()[0]
+                assert tmp == sum([ig.total_books for ig in IGs]), \
+                    'BIImode book count mismatch'
+            else:
+                if sys.stdin.isatty():
+                    set_trace()
+                raise RuntimeError(
+                    'Bad BII mode %d: database is corrupt' % self.BIImode)
+
+            # The math doesn't care, but human debugging is easier if...
+            IGs = sorted(IGs, key=attrgetter('groupId'))
+
+            # Calculations for flat-space shadow backing were originally
+            # done on every node after pulling down allbooks[].  Send over
+            # summary data instead.  Full RAS assistance on the far side
+            # may need full IGs again, but that's another day's work.
+
+            self.__class__.books_per_IG = dict(
+                [ (ig.groupId, ig.total_books) for ig in IGs]
+            )
+
+            # Create method lookup table by stripping the 'cmd_' prefix
+
             self.__class__._commands = dict(
                 [(name[4:], func)
                  for (name, func) in self.__class__.__dict__.items() if
                  name.startswith('cmd_')])
             self._cooked = cooked  # return style: raw = dict, cooked = obj
+
         except Exception as e:      # raising here is not clean
             innerE = '%s line %d: %s' % (
                 __file__, sys.exc_info()[2].tb_lineno, str(e))
+
         if innerE is not None:
             raise RuntimeError('INITIALIZATION ERROR: %s' % str(innerE))
 
