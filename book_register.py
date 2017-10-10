@@ -37,6 +37,7 @@ from pdb import set_trace
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group, FRDFAModule
+from frdnode import BooksIGInterpretation as BII
 from tmconfig import TMConfig, multiplier
 
 verbose = 0
@@ -182,16 +183,6 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 # INI:  type(mc) == frdnode.FRDFAModule
 # JSON: type(mc) == tmconfig.mediaControllers
 
-# FIXME: these need to go somewhere global.  They are the interpretation
-# of the "id" field of the "books" table.  This is a tag encoded above
-# the lowest 16 bits of the intlv_group, giving it plenty of headroom.
-
-_BOOKS_ID_SHIFT = 16    # Give it plenty of room
-
-_BOOKS_ID_LZA = 0       # MFT, whether TMAS, TM, or legacy FAME.  Implicit.
-
-_BOOKS_ID_PHYSADDR = 1  # 990x and FAME, if you do IVSHMEM math yourself.
-
 
 def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
     for ig in IGs:
@@ -223,12 +214,12 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
     #   [0:32]  - book offset, ALWAYS ZERO.  These bits seem like they're
     #             "wasted" but it avoided lots of shifting elsewhere.  As
     #             a bonus, they'll be used as sentinels/values in 990x mode.
-    #             This use is implicitly _BOOKS_ID_LZA
+    #             This use is implicitly MODE_LZA
     #   [33:45] - book number within interleave group (0 - 8191)
     #   [46:52] - interleave group (0 - 127)
     #   [53:63] - reserved (zeros)
-    tag = _BOOKS_ID_LZA << _BOOKS_ID_SHIFT      # For completeness...
-    assert not tag, 'You just broke the MFT'    # ...because it's a noop here
+    tag = BII.MODE_LZA << BII.MODE_SHIFT        # For completeness...
+    assert not tag, 'You just broke the MFT'    # ...cuz it's a noop here
     for ig in IGs:
         for igoffset in range(ig.total_books):
             lza = ((ig.groupId << _IG_SHIFT) +
@@ -236,37 +227,40 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
             if verbose > 2:
                 print("lza 0x%016x, IG = %s, igoffset = %d" % (
                     lza, ig.groupId, igoffset))
+            value = ig.groupId & BII.VALUE_MASK     # 0-based
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
-                (lza,               # id
-                 tag | ig.groupId,  # intlv_group
-                 igoffset,          # book_num
-                 0,                 # allocated
-                 0))                # attributes
+                (lza,           # id
+                 tag | value,   # intlv_group
+                 igoffset,      # book_num
+                 0,             # allocated
+                 0))            # attributes
         cur.commit()    # every IG
 
 #--------------------------------------------------------------------------
-# _BOOKS_ID_PHYSADDR: First use is in 990 mode, but an extended FAME mode
+# MODE_PHYSADDR: First use is in 990 mode, but an extended FAME mode
 # also falls in here.  IGs are stolen for a base number and tag:
-# 23-16: _BOOKS_ID_PHYSADDR
-# 15-0:  node ID (option base 1)
+# 23-16: mode = BOOKS_ID_PHYSADDR
+# 15-0:  IG/node reference, option base 0, overloaded definition
 # The "id" field is then the raw physical address.
 
 def MDC990x_Book_table(cur, nodes, book_size_bytes):
-    tag = _BOOKS_ID_PHYSADDR << _BOOKS_ID_SHIFT
+    tag = BII.MODE_PHYSADDR << BII.MODE_SHIFT
     for node in nodes:
         book_num = 0
         physaddr = node.nvm_physaddr    # here is where multiple chunks go
         remaining = node.nvm_size
         while remaining:
             try:
+                # Use node_id (1-whatever), not node (cycles on 1-10)
+                value = (node.node_id - 1) & BII.VALUE_MASK
                 cur.execute(
                     'INSERT INTO books VALUES(?, ?, ?, ?, ?)', (
-                    physaddr,               # id
-                    tag | node.node_id,     # intlv_group
-                    book_num,               # book_num
-                    0,                      # allocated
-                    0))                     # attributes
+                    physaddr,       # id
+                    tag | value,    # intlv_group
+                    book_num,       # book_num
+                    0,              # allocated
+                    0))             # attributes
             except OverflowError as e:
                 raise SystemExit(
                     'Unsigned-64 value won\'t slide into an SQLite signed INT')
