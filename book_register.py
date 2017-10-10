@@ -264,6 +264,12 @@ def MDC990x_Book_table(cur, nodes, book_size_bytes):
             except OverflowError as e:
                 raise SystemExit(
                     'Unsigned-64 value won\'t slide into an SQLite signed INT')
+            except Exception as e:
+                if 'IntegrityError' in str(type(e)):
+                    raise SystemExit(
+                        'node_id %d book %d: non-unique address: range overlap?' %
+                            (node.node_id, book_num))
+                raise SystemExit(str(e))
             remaining -= book_size_bytes
             physaddr += book_size_bytes
             book_num += 1
