@@ -32,6 +32,8 @@ import ctypes
 from copy import deepcopy
 from subprocess import getoutput
 from pdb import set_trace
+
+from frdnode import BooksIGInterpretation as BII
 from tm_fuse import TmfsOSError, tmfs_get_context
 import tm_ioctl_opt as IOCTL
 
@@ -78,6 +80,7 @@ class shadow_support(object):
 
         self.aperture_base = args.aperture_base
         self.aperture_size = args.aperture_size
+        self.BIImode = args.BIImode
         self.addr_mode = getattr(args, 'addr_mode', self._MODE_NONE)
         self._igstart = {}
 
@@ -87,21 +90,38 @@ class shadow_support(object):
 
         # Backing store (shadow_file or FAME direct) is contiguous but IG
         # ranges are not.  Map IG ranges onto areas of backing store.
-        # First get numerically sorted keys.
+        # First get numerically sorted keys.  Again, humans like sorting.
+        # Index 0 is the books per IG, and index 1 is the starting physaddr
+        # if appropriate.
 
-        igkeys = sorted([int(igstr)
-                         for igstr in lfs_globals['books_per_IG'].keys()])
+        books_per_IG = lfs_globals['books_per_IG']
+        igkeys = sorted([int(igstr) for igstr in books_per_IG.keys()])
 
-        offset = 0
+        # IG came over as strings...amend that.
+        for key in igkeys:
+            books_per_IG[key] = books_per_IG[str(key)]
+
+        # This is not quite worth a new round of subclassing...I think...
+        if self.BIImode == BII.MODE_LZA:    # And I'm already FAMEish
+            offset = 0
+            for ig in igkeys:
+                self.logger.info('0x%016x (%d) IG %d relative offset' % (
+                        offset, offset, ig))
+                # insure running Librarian DB fits in available space
+                assert offset < args.aperture_size, \
+                    'Absolute address for IG %d out of range' % ig
+                self._igstart[ig] = offset
+                set_trace()
+                books = books_per_IG[ig][0]
+                offset += books * self.book_size
+            return
+
+        assert self.BIImode == BII.MODE_PHYSADDR, 'Not today, bobo!'
         for ig in igkeys:
-            self.logger.info('0x%016x (%d) IG %d relative offset' % (
-                    offset, offset, ig))
-            # insure running Librarian DB fits in available space
-            assert offset < args.aperture_size, \
-                'Absolute address for IG %d out of range' % ig
-            self._igstart[ig] = offset
-            books = int(lfs_globals['books_per_IG'][str(ig)])
-            offset += books * self.book_size
+            physaddr = books_per_IG[ig][1]
+            self.logger.info('0x%016x (%d) IG %d raw physaddr' % (
+                        physaddr, physaddr, ig))
+            self._igstart[ig] = physaddr
 
     def _consistent(self, cached):
         try:
@@ -266,12 +286,15 @@ class shadow_support(object):
 
         # Offset into flat space has several contributors.  The concatenated
         # LZA field has already been broken down into constituent parts.
+        # Note: in BII.MODE_LZA there are absolute values to work with in.
+        # book['lza'].  Turns out the IG-relative math works just fine.
         intlv_group = book['intlv_group']
         ig_book_num = book['ig_book_num']
         book_start = ig_book_num * self.book_size
         book_offset = shelf_offset % self.book_size
         tmp = self._igstart[intlv_group] + book_start + book_offset
-        assert tmp < self.aperture_size, 'BAD SHADOW OFFSET'
+        if self.aperture_size:  # Based on BIImode
+            assert tmp < self.aperture_size, 'BAD SHADOW OFFSET'
         return tmp
 
     # Provide ABC noop defaults.  Note they're not all actually noop.
@@ -755,7 +778,7 @@ class apertures(shadow_support):
             return -1
 
 #--------------------------------------------------------------------------
-
+# Called before the class is initialized.
 
 def _detect_memory_space(args, lfs_globals):
     '''Not compatible with, and will ignore, other shadow_xxxx options.'''
@@ -763,6 +786,17 @@ def _detect_memory_space(args, lfs_globals):
     # IVSHMEM device found is used as fabric-attached memory.  Parse the
     # first block of lines of lspci -vv for Bus-Device-Function and
     # BAR2 information.
+
+    args.BIImode = lfs_globals['BIImode']
+    if args.BIImode == BII.MODE_PHYSADDR:
+        # Make the kernel believe it's FAME.  It will eventually ask for
+        # physaddrs.  However, there is no aperture base/size so don't set
+        # them.  Yes it will bomb until everything is keyed by BIImode.
+        args.addr_mode = shadow_support._MODE_FAME
+        args.aperture_base = 0
+        args.aperture_size = 0
+        args.logger.debug('addr_mode = MODE_FAME with per-IG physaddr (990x)')
+        return
 
     try:
         lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
