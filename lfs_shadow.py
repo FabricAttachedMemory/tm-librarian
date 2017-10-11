@@ -101,7 +101,7 @@ class shadow_support(object):
         for key in igkeys:
             books_per_IG[key] = books_per_IG[str(key)]
 
-        # This is not quite worth a new round of subclassing...I think...
+        # This and other changes might necessitate another round of subclassing
         if self.BIImode == BII.MODE_LZA:    # And I'm already FAMEish
             offset = 0
             for ig in igkeys:
@@ -365,6 +365,7 @@ class shadow_support(object):
         for groupId in sorted(self._igstart.keys()):
             for i in range(groupId - nextIndex):    # non-contiguous IGs
                 response.extend(struct.pack('Q', 0))
+            # This works for BII.MODE_PHYSADDR cuz aperture_base == 0
             physaddr = self._igstart[groupId] + self.aperture_base
             tmp = struct.pack('Q', physaddr)
             response.extend(tmp)
@@ -378,11 +379,14 @@ class shadow_support(object):
     # Support for getxattr, it comes next
     def _map_populate(self, shelf, start_book, buflen):
         '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
-        bos = self[(shelf.id, None)].bos
-
         # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
-        # 20-bit combo of 7:13 IG:book as a form of compression.
+        # 20-bit combo of 7:13 IG:book as a form of compression.  For non-LZA
+        # work this is a noop.
         response = bytearray()
+        if self.BIImode != BII.MODE_LZA:    # probably all FAME modes...
+            return response
+
+        bos = self[(shelf.id, None)].bos
         offset = 0
         while buflen > offset + 3 and start_book < len(bos):
             tmp = struct.pack('I', bos[start_book]['lza'] >> 33)
