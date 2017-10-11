@@ -80,6 +80,10 @@ class LibrarianCommandEngine(object):
         """
         globals = self.db.get_globals()
         globals['books_per_IG'] = self.books_per_IG
+        globals['BIImode'] = self.BIImode
+        if self.BIImode == BII.MODE_PHYSADDR:
+            # set_trace()
+            pass    # encode the IG start address
         return globals
 
     def cmd_create_shelf(self, cmdict):
@@ -770,7 +774,6 @@ class LibrarianCommandEngine(object):
             # 1) groupId (1-80 on MFT)
             # 2) total_books; on MFT, a property that sums the NVM of each MC
             # Just provide an object with those attributes for non-MFT cases.
-            # IGs is never used after this routine; don't bind it to self.
 
             IGs = self.db.get_interleave_groups()
             if self.BIImode == BII.MODE_LZA:  # legacy MFT/FAME/TMAS
@@ -796,6 +799,7 @@ class LibrarianCommandEngine(object):
                 tmp = self.db.fetchone()[0]
                 assert tmp == sum([ig.total_books for ig in IGs]), \
                     'BIImode book count mismatch'
+                self.__class__.IGs = IGs    # used in book_policy.py
             else:
                 if sys.stdin.isatty():
                     set_trace()
@@ -809,10 +813,21 @@ class LibrarianCommandEngine(object):
             # done on every node after pulling down allbooks[].  Send over
             # summary data instead.  Full RAS assistance on the far side
             # may need full IGs again, but that's another day's work.
+            # Legacy just sent books_per_IG, now also send raw physaddr
+            # as appropriate.
 
             self.__class__.books_per_IG = dict(
-                [ (ig.groupId, ig.total_books) for ig in IGs]
+                [ (ig.groupId, [ig.total_books, -1]) for ig in IGs]
             )
+            if self.BIImode == BII.MODE_PHYSADDR:
+                # Books were stored in order.  The first book is the base
+                # address for the contiguous block of the overloaded IG.
+                tag = BII.MODE_PHYSADDR << BII.MODE_SHIFT
+                for id, elems in self.books_per_IG.items():
+                    tmp = self.db.get_books_by_intlv_group(
+                        1, [tag | id, ], ascending=True)
+                    assert len(tmp) == 1, 'Books table is corrupt'
+                    elems[1] = tmp[0].id
 
             # Create method lookup table by stripping the 'cmd_' prefix
 
