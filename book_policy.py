@@ -80,9 +80,8 @@ class BookPolicy(object):
             # It's the root of the file system.  Keep going.
 
         no_set = 'Setting %s is prohibited' % xattr
-        if setting:
-            assert LCEobj.BIImode in (BII.MODE_LZA, ), no_set
-
+        LCEobj.errno = errno.ENOTSUP
+        assert LCEobj.BIImode in (BII.MODE_LZA, ), no_set
         if xattr == cls.XATTR_IG_REQ:
             # Value can just fall through but there might be extra work
             if setting:
