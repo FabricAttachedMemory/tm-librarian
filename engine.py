@@ -79,11 +79,9 @@ class LibrarianCommandEngine(object):
                 librarian version
         """
         globals = self.db.get_globals()
+        # books_per_IG has been expanded for MODE_PHYSADDR
         globals['books_per_IG'] = self.books_per_IG
         globals['BIImode'] = self.BIImode
-        if self.BIImode == BII.MODE_PHYSADDR:
-            # set_trace()
-            pass    # encode the IG start address
         return globals
 
     def cmd_create_shelf(self, cmdict):
@@ -813,8 +811,8 @@ class LibrarianCommandEngine(object):
             # done on every node after pulling down allbooks[].  Send over
             # summary data instead.  Full RAS assistance on the far side
             # may need full IGs again, but that's another day's work.
-            # Legacy just sent books_per_IG, now also send raw physaddr
-            # as appropriate.
+            # Legacy just sent books per IG value, now also send raw physaddr.
+            # That value for legacy MODE_LZA is -1.
 
             self.__class__.books_per_IG = dict(
                 [ (ig.groupId, [ig.total_books, -1]) for ig in IGs]
