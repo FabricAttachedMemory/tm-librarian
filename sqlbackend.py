@@ -352,7 +352,8 @@ class LibrarianDBackendSQL(object):
         self._cur.execute('''
             SELECT id, intlv_group, book_num, allocated, attributes
             FROM books JOIN books_on_shelves ON books.id = book_id
-            WHERE shelf_id = ? ORDER BY seq_num''', shelf.id)
+            WHERE shelf_id = ? ORDER BY seq_num''',
+            shelf.id)
         self._cur.iterclass = TMBook
         books = [ r for r in self._cur ]
         return books
@@ -578,7 +579,7 @@ class LibrarianDBackendSQL(object):
         return bos
 
     def get_bos_by_book_id(self, book_id):
-        """ Retrieve all bos entries given a book_id.
+        """ Retrieve THE bos entries given a book_id.
             Input---
               book_id - book identifier
             Output---
@@ -589,6 +590,7 @@ class LibrarianDBackendSQL(object):
                           book_id)
         self._cur.iterclass = TMBos
         bos = [ r for r in self._cur ]
+        assert len(bos) < 2, 'Book belongs to more than one shelf'
         return bos
 
     def get_bos_all(self):
