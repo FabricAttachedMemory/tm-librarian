@@ -219,6 +219,7 @@ class LibrarianCommandEngine(object):
         return shelf
 
     def _list_shelf_books(self, shelf):
+        '''Short form: merely the book-shelf assocation, no book details.'''
         self.errno = errno.EBADF
         assert shelf.id, '%s not open' % shelf.name
         bos = self.db.get_bos_by_shelf_id(shelf.id)
@@ -233,8 +234,12 @@ class LibrarianCommandEngine(object):
         return bos
 
     def cmd_list_shelf_books(self, cmdict):
+        '''2017-10: repurposed for 990x/PHYSADDR to provide all data from
+           librarian and remove calculations from lfs_fuse.py.  Should
+           probably rename this (and change call in lfs_fuse.py).'''
         shelf = self.cmd_get_shelf(cmdict)
-        return self._list_shelf_books(shelf)
+        # return self._list_shelf_books(shelf) old
+        return self.db.get_books_on_shelf(shelf)
 
     def _set_book_alloc(self, bookorbos, newalloc):
         self.errno = errno.EUCLEAN
