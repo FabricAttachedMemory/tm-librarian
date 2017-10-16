@@ -286,13 +286,14 @@ class shadow_support(object):
 
         # Offset into flat space has several contributors.  The concatenated
         # LZA field has already been broken down into constituent parts.
-        # Note: in BII.MODE_LZA there are absolute values to work with in.
-        # book['lza'].  Turns out the IG-relative math works just fine.
-        intlv_group = book['intlv_group']
-        ig_book_num = book['ig_book_num']
-        book_start = ig_book_num * self.book_size
-        book_offset = shelf_offset % self.book_size
-        tmp = self._igstart[intlv_group] + book_start + book_offset
+        # Note: in BII.MODE_LZA there are absolute values to work with in
+        # book['id'].  Turns out the IG-relative math works just fine.
+        intlv_group = book['intlv_group'] & BII.VALUE_MASK
+        book_num = book['book_num']                     # Relative to IG
+        ig_base = self._igstart[intlv_group]            # absolute
+        book_start = book_num * self.book_size          # relative to ig_base
+        book_offset = shelf_offset % self.book_size     # relative to book
+        tmp = ig_base + book_start + book_offset
         if self.aperture_size:  # Based on BIImode
             assert tmp < self.aperture_size, 'BAD SHADOW OFFSET'
         return tmp
@@ -383,13 +384,16 @@ class shadow_support(object):
         # 20-bit combo of 7:13 IG:book as a form of compression.  For non-LZA
         # work this is a noop.
         response = bytearray()
-        if self.BIImode != BII.MODE_LZA:    # probably all FAME modes...
+        if self.BIImode != BII.MODE_LZA:    # probably all FAME variants...
             return response
 
         bos = self[(shelf.id, None)].bos
         offset = 0
         while buflen > offset + 3 and start_book < len(bos):
-            tmp = struct.pack('I', bos[start_book]['lza'] >> 33)
+            # FIXME: 33 should be "apertures._BOOK_SHIFT" but that's a
+            # circular import.  Is all the data in bos[] elements now after
+            # the 2017-10 'list_shelf_book' changes for 990x?
+            tmp = struct.pack('I', bos[start_book]['id'] >> 33)
             response.extend(tmp)
             offset += 4
             start_book += 1
@@ -701,7 +705,7 @@ class apertures(shadow_support):
             shelf_book_num = PABO // self.book_size  # (0..n-1)
             if shelf_book_num >= len(bos):
                 return 'ERROR'
-            baseLZA = bos[shelf_book_num]['lza']
+            baseLZA = bos[shelf_book_num]['id']
 
             # Remember, this IS in the kernel :-)
             reason = cmd.split('_for_')[1]

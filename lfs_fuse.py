@@ -222,9 +222,6 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             # Librarian but then that increases the data size of the
             # list_shelf_books call.  Remember an MFT LZA is 20 bits of
             # info shifted 33 bits (an 8G book offset).
-            book['lza'] = book['book_id']
-            book['ig_book_num'] = (book['lza'] >> 33) & 8191    # low 13 bits
-            book['intlv_group'] = book['lza'] >> 46             # top 7 bits
         self.logger.info('%s BOS: %s' % (shelf.name, shelf.bos))
 
     def get_shelf_path(self, shelf):
