@@ -571,16 +571,18 @@ def load_book_data_ini(inifile):
             elems = sdata['nvm_size'].split('@')
             assert 1 <= len(elems) <= 2, 'Bad nvm_size syntax'
             try:
-                nvm_size, tmp = elems
-                tmp = tmp.strip().lower()  # because hex() returns lower
+                nvm_size, addr_str = elems
+                addr_str = addr_str.strip().lower()
+                if not addr_str.startswith('0x'):
+                    raise SystemExit(
+                        'Node ID %d: "%s" address must start with "0x"' %
+                            (node_id, addr_str))
                 try:
-                    nvm_physaddr = int(tmp, 16)
+                    nvm_physaddr = int(addr_str, 16)
                 except ValueError as e:
                     raise SystemExit(
-                        'Node ID %d: %s is invalid' % (node_id, tmp))
-                if hex(nvm_physaddr) != tmp:
-                    raise SystemExit(
-                        'Node ID %d: %s missing 0x?' % (node_id, tmp))
+                        'Node ID %d: "%s" not a valid hex number' %
+                            (node_id, addr_str))
                 assert nvm_physaddr >= book_size_bytes, \
                     'Book size bigger than base address'
             except ValueError as e:     # not enough items to unpack
