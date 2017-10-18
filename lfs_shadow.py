@@ -111,7 +111,6 @@ class shadow_support(object):
                 assert offset < args.aperture_size, \
                     'Absolute address for IG %d out of range' % ig
                 self._igstart[ig] = offset
-                set_trace()
                 books = books_per_IG[ig][0]
                 offset += books * self.book_size
             return
@@ -389,6 +388,7 @@ class shadow_support(object):
 
         bos = self[(shelf.id, None)].bos
         offset = 0
+        set_trace()
         while buflen > offset + 3 and start_book < len(bos):
             # FIXME: 33 should be "apertures._BOOK_SHIFT" but that's a
             # circular import.  Is all the data in bos[] elements now after
@@ -705,7 +705,18 @@ class apertures(shadow_support):
             shelf_book_num = PABO // self.book_size  # (0..n-1)
             if shelf_book_num >= len(bos):
                 return 'ERROR'
-            baseLZA = bos[shelf_book_num]['id']
+
+            # tmfs is always looking for an LZA.  Calculate if necessary.
+            # map_addr calculations should be rolled up across two spots.
+            baseBOS = bos[shelf_book_num]
+            if self.BIImode == BII.MODE_LZA:            # One value in DB
+                baseLZA = baseBOS['id']
+            elif self.BIImode == BII.MODE_PHYSADDR:     # Assemble from values
+                ig = baseBOS['intlv_group'] & BII.VALUE_MASK
+                baseLZA = ig << self._IG_SHIFT | \
+                          baseBOS['book_num'] << self._BOOK_SHIFT
+            else:
+                return 'ERROR'
 
             # Remember, this IS in the kernel :-)
             reason = cmd.split('_for_')[1]
@@ -726,10 +737,13 @@ class apertures(shadow_support):
             # last bits of "accuracy".  DON'T DO THE OFFSET ADDITION TWICE!
 
             if self.addr_mode in (self._MODE_FAME, self._MODE_FAME_DESC):
+                # In MODE_PHYSADDR, should be baseBOS[id] + PABO % book_size
+                # cuz aperture_base == 0
                 phys_offset = self.shadow_offset(shelf, PABO)
                 if phys_offset == -1:
                     return 'ERROR'
                 map_addr = self.aperture_base + phys_offset
+                # tmp = baseBOS['id'] + PABO % self.book_size # yes it agrees
             elif self.addr_mode == self._MODE_1906_DESC:
                 # Should match kernel calculations.  # books <= # descriptors
                 # and DESBK is preprogrammed so LZA -> aperture number.
