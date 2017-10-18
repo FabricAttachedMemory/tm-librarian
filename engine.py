@@ -78,11 +78,11 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 librarian version
         """
-        globals = self.db.get_globals()
+        lfs_globals = self.db.get_globals()
         # books_per_IG has been expanded for MODE_PHYSADDR
-        globals['books_per_IG'] = self.books_per_IG
-        globals['BIImode'] = self.BIImode
-        return globals
+        lfs_globals['books_per_IG'] = self.books_per_IG
+        lfs_globals['BIImode'] = self.BIImode
+        return lfs_globals
 
     def cmd_create_shelf(self, cmdict):
         """ Create a new shelf
@@ -740,11 +740,11 @@ class LibrarianCommandEngine(object):
         self.verbose = getattr(optargs, 'verbose', 0)
         try:
             self.db = backend
-            globals = self.db.get_globals()
+            lfs_globals = self.db.get_globals()
             (self.__class__._book_size_bytes,
              self.__class__._nvm_bytes_total) = (
-                globals.book_size_bytes,
-                globals.nvm_bytes_total
+                lfs_globals.book_size_bytes,
+                lfs_globals.nvm_bytes_total
             )
 
             self.__class__.nodes = self.db.get_nodes()
@@ -767,7 +767,7 @@ class LibrarianCommandEngine(object):
 
             # Retrieve the Book Id Interpretation (BII) mode.  It's stored
             # with each book (along with its "IG" in the lower 16 bits).
-            tmp = self.db.get_books_by_intlv_group(1, [])
+            tmp = self.db.get_books_by_intlv_group(1, [], allocated='ANY')
             assert tmp, 'Database has no books'
             book1 = tmp[0]
             self.__class__.BIImode = \
@@ -828,7 +828,7 @@ class LibrarianCommandEngine(object):
                 tag = BII.MODE_PHYSADDR << BII.MODE_SHIFT
                 for id, elems in self.books_per_IG.items():
                     tmp = self.db.get_books_by_intlv_group(
-                        1, [tag | id, ], ascending=True)
+                        1, [tag | id, ], allocated='ANY', ascending=True)
                     assert len(tmp) == 1, 'Books table is corrupt'
                     elems[1] = tmp[0].id
 
