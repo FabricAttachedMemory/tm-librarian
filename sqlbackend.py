@@ -315,6 +315,8 @@ class LibrarianDBackendSQL(object):
               max_books - maximum number of books
               IGs - list of interleave groups to filter: IN (....)
               allocated - list of filter(s) for "allocated" field
+                          None=FREE
+                          'ANY'=any
               exclude - treat IGs as exclusion filter: NOT IN (....)
               ascending - order by book_id == LZA
             Output---
@@ -322,6 +324,8 @@ class LibrarianDBackendSQL(object):
         """
         if allocated is None:
             allocated = [TMBook.ALLOC_FREE]
+        elif allocated == 'ANY':
+            allocated = range(6)    # get them all and then some
         if IGs:
             INclause = 'AND intlv_group %%s IN (%s)' % ','.join(
                 (str(i) for i in IGs))
