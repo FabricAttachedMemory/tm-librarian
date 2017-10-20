@@ -1,3 +1,9 @@
+tm-librarian (1.29+l4tm1) catapult; urgency=low
+
+  * Add support for 990 systems with single physical address range per partition
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Fri, 20 Oct 2017 11:14:54 -0600
+
 tm-librarian (1.28+l4tm1) catapult; urgency=low
 
   * Fix overlapping message issue
