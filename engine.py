@@ -811,6 +811,7 @@ class LibrarianCommandEngine(object):
 
             # The math doesn't care, but human debugging is easier if...
             IGs = sorted(IGs, key=attrgetter('groupId'))
+            self.__class__.IGs = IGs
 
             # Calculations for flat-space shadow backing were originally
             # done on every node after pulling down allbooks[].  Send over
