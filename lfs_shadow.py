@@ -388,7 +388,6 @@ class shadow_support(object):
 
         bos = self[(shelf.id, None)].bos
         offset = 0
-        set_trace()
         while buflen > offset + 3 and start_book < len(bos):
             # FIXME: 33 should be "apertures._BOOK_SHIFT" but that's a
             # circular import.  Is all the data in bos[] elements now after
