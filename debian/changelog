@@ -1,3 +1,9 @@
+tm-librarian (1.30+l4tm1) catapult; urgency=low
+
+  * Really add support for 990 systems with single physical address range per partition
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 25 Oct 2017 10:20:45 -0700
+
 tm-librarian (1.29+l4tm1) catapult; urgency=low
 
   * Add support for 990 systems with single physical address range per partition
