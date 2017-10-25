@@ -28,6 +28,7 @@ from pdb import set_trace
 from collections import defaultdict
 
 from book_shelf_bos import TMBook
+from frdnode import BooksIGInterpretation as BII
 
 #--------------------------------------------------------------------------
 # lfs_fuse.py does a little syntax/error checking before calling *_xattr
@@ -79,12 +80,20 @@ class BookPolicy(object):
             # It's the root of the file system.  Keep going.
 
         no_set = 'Setting %s is prohibited' % xattr
+        LCEobj.errno = errno.ENOTSUP
+        if setting:
+            assert LCEobj.BIImode in (BII.MODE_LZA, ), no_set
         if xattr == cls.XATTR_IG_REQ:
             # Value can just fall through but there might be extra work
             if setting:
                 reqIGs = [ord(value[i:i+1]) for i in range(0, len(value), 1)]
-                interleave_groups = LCEobj.db.get_interleave_groups()
-                currentIGs = [ig.groupId for ig in interleave_groups]
+
+                # as originally written:
+                # interleave_groups = LCEobj.db.get_interleave_groups()
+                # currentIGs = [ig.groupId for ig in interleave_groups]
+                # optimization noticed during MODE_PHYSICAL work:
+                currentIGs = [ig.groupId for ig in LCEobj.IGs]
+
                 assert set(reqIGs).issubset(currentIGs), \
                     'Requested IGs not subset of known IGs'
                 # Reset current position in pattern.

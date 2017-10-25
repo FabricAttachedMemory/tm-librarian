@@ -49,6 +49,7 @@ def multiplier(instr, section, book_size_bytes=0):
         return rsize                    # that was easy
     except ValueError as e:
         try:
+            instr = instr.strip()
             base = instr[:-1]
             rsize = int(base)           # so far so good
             suffix = instr[-1].upper()  # chomp one
@@ -163,6 +164,9 @@ class _GOnodes(GenericObject):
         assert 'hostname' not in kwargs, '"hostname" collides with property'
         super().__init__(**kwargs)
         self._hostname = None
+        # Trickle-down effect from 990 PHYSADDR.  It will always be zero here.
+        # Only used in book_register.py.
+        self.nvm_physaddr = 0
 
     @property
     def dotname(self):
