@@ -215,16 +215,12 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     def get_bos(self, shelf):
         path = self.get_shelf_path(shelf)
         shelf.bos = self.librarian(self.lcp('list_shelf_books', path=path))
-        for book in shelf.bos:
-            # Replaced a per-book loop of lcp('get_book') which was done
-            # in anticipation of drilling down on more info.  Turns out
-            # we have everything we need.   This could easily be in the
-            # Librarian but then that increases the data size of the
-            # list_shelf_books call.  Remember an MFT LZA is 20 bits of
-            # info shifted 33 bits (an 8G book offset).
-            book['lza'] = book['book_id']
-            book['ig_book_num'] = (book['lza'] >> 33) & 8191    # low 13 bits
-            book['intlv_group'] = book['lza'] >> 46             # top 7 bits
+        # Replaced a per-book loop of lcp('get_book') which was done
+        # in anticipation of drilling down on more info.  Turns out
+        # we have everything we need.   This could easily be in the
+        # Librarian but then that increases the data size of the
+        # list_shelf_books call.  Remember an MFT LZA is 20 bits of
+        # info shifted 33 bits (an 8G book offset).
         self.logger.info('%s BOS: %s' % (shelf.name, shelf.bos))
 
     def get_shelf_path(self, shelf):

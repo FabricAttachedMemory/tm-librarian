@@ -32,6 +32,18 @@ from pdb import set_trace
 from genericobj import GenericObject
 
 #--------------------------------------------------------------------------
+# Commonly imported file.  How is the "intlv_group" field in the "books"
+# table interpreted (and ultimately, the ID field itself)?  Look at the
+# mode in bits 23-16 to interpret the value.
+
+class BooksIGInterpretation():
+    VALUE_MASK = 0xffff     # Lower 16 bits
+    MODE_SHIFT = 16         # Embed the mode above VALUE_MASK
+    MODE_MASK = 0xff        # 256 modes max
+    MODE_LZA = 0            # Legacy mode, it really is the IG
+    MODE_PHYSADDR = 1       # Physaddr mode for 990x
+
+#--------------------------------------------------------------------------
 
 
 class FRDnodeID(object):
