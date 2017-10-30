@@ -772,6 +772,9 @@ class LibrarianFS(Operations):  # Name shows up in mount point
     @prentry
     def rename(self, old, new):
         # 0 or raise
+        rsp = self.librarian(self.lcp('get_shelf', path=new), errorOK=True)
+        if 'errmsg' not in rsp:
+            self.unlink(new)
         rsp = self.librarian(self.lcp('get_shelf', path=old))
         shelf = TMShelf(rsp)
         # one of the only places path2name still exists
