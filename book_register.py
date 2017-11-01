@@ -316,7 +316,7 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              node.serialNumber))
 
         cur.execute(
-            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO SOCs VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             (node.node_id,
              node.soc.macAddress,
              FRDnode.SOC_STATUS_OFFLINE,
@@ -324,7 +324,10 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              node.soc.tlsPublicCertificate,
              0,  # heartbeat
              0,  # cpu_percent
-             0)) # rootfs_percent
+             0,  # rootfs_percent
+             0,  # network_in
+             0,  # network_in
+             0)) # mem_percent
     cur.commit()
 
     if nodes[0].nvm_physaddr:
@@ -749,7 +752,10 @@ def create_empty_db(cur):
             tlsPublicCertificate TEXT,
             heartbeat INT,
             cpu_percent INT,
-            rootfs_percent INT
+            rootfs_percent INT,
+            network_in INT,
+            network_out INT,
+            mem_percent INT
             )
             """
         cur.execute(table_create)
