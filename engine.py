@@ -725,7 +725,10 @@ class LibrarianCommandEngine(object):
             cmdict['context']['node_id'],
             cmdict['status'],
             cmdict['cpu_percent'],
-            cmdict['rootfs_percent'])
+            cmdict['rootfs_percent'],
+            cmdict['network_in'],
+            cmdict['network_out'],
+            cmdict['mem_percent'])
 
     def cmd_update_node_mc_status(self, cmdict):
         self.db.modify_node_mc_status(

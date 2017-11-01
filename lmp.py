@@ -272,6 +272,9 @@ def show_nodes():
                 'macAddress': s.MAC,
                 'cpu_percent': s.cpu_percent,
                 'rootfs_percent': s.rootfs_percent,
+                'network_in': s.network_in,
+                'network_out': s.network_out,
+                'mem_percent': s.mem_percent
             }
 
             cur.execute('SELECT * FROM FAModules WHERE node_id=?', n.node_id)
