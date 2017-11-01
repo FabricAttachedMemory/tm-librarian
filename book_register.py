@@ -326,7 +326,7 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              0,  # cpu_percent
              0,  # rootfs_percent
              0,  # network_in
-             0,  # network_in
+             0,  # network_out
              0)) # mem_percent
     cur.commit()
 
