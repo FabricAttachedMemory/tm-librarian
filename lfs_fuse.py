@@ -184,11 +184,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.prev_net_io_out = net_io.bytes_sent
         self.librarian(self.lcp('update_node_soc_status',
                                 status=FRDnode.SOC_STATUS_ACTIVE,
-                                cpu_percent=psutil.cpu_percent(interval=None),
-                                rootfs_percent=psutil.disk_usage('/')[-1],
-                                network_in=0.0,
-                                network_out=0.0,
-                                mem_percent=psutil.virtual_memory().percent))
+                                cpu_percent=int(psutil.cpu_percent(interval=None)),
+                                rootfs_percent=int(psutil.disk_usage('/')[-1]),
+                                network_in=0,
+                                network_out=0,
+                                mem_percent=int(psutil.virtual_memory().percent)))
         self.librarian(self.lcp('update_node_mc_status',
                                 status=FRDFAModule.MC_STATUS_ACTIVE))
         self.heartbeat.schedule()
@@ -209,11 +209,11 @@ class LibrarianFS(Operations):  # Name shows up in mount point
         self.lfs_status = FRDnode.SOC_STATUS_OFFLINE
         self.librarian(self.lcp('update_node_soc_status',
                                 status=FRDnode.SOC_STATUS_OFFLINE,
-                                cpu_percent=0.0,
-                                rootfs_percent=0.0,
-                                network_in=0.0,
-                                network_out=0.0,
-                                mem_percent=0.0))
+                                cpu_percent=0,
+                                rootfs_percent=0,
+                                network_in=0,
+                                network_out=0,
+                                mem_percent=0))
         self.librarian(self.lcp('update_node_mc_status',
                                 status=FRDFAModule.MC_STATUS_OFFLINE))
         assert threading.current_thread() is threading.main_thread()
@@ -338,13 +338,13 @@ class LibrarianFS(Operations):  # Name shows up in mount point
             net_io = psutil.net_io_counters(pernic=False)
             self.librarian(self.lcp('update_node_soc_status',
                             status=self.lfs_status,
-                            cpu_percent=psutil.cpu_percent(interval=None),
-                            rootfs_percent=psutil.disk_usage('/')[-1],
-                            network_in=(net_io.bytes_recv -
-                                self.prev_net_io_in)/self.heartbeat_interval,
-                            network_out=(net_io.bytes_sent -
-                                self.prev_net_io_out)/self.heartbeat_interval,
-                            mem_percent=psutil.virtual_memory().percent))
+                            cpu_percent=int(psutil.cpu_percent(interval=None)),
+                            rootfs_percent=int(psutil.disk_usage('/')[-1]),
+                            network_in=int((net_io.bytes_recv -
+                                self.prev_net_io_in)/self.heartbeat_interval),
+                            network_out=int((net_io.bytes_sent -
+                                self.prev_net_io_out)/self.heartbeat_interval),
+                            mem_percent=int(psutil.virtual_memory().percent)))
             self.prev_net_io_in = net_io.bytes_recv
             self.prev_net_io_out = net_io.bytes_sent
         except Exception as e:
