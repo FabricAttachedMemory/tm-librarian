@@ -275,6 +275,18 @@ class LibrarianCommandEngine(object):
             Out (dict) ---
                 shelf
         """
+        new_cmdict = {}
+        new_cmdict.update({'context': cmdict['context']})
+        new_cmdict.update({'path': cmdict['newpath']})
+
+        try:
+            new_shelf = self.cmd_get_shelf(new_cmdict)
+        except AssertionError as e:
+            pass
+        else:
+            self.errno = errno.EEXIST
+            raise RuntimeError('Duplicate path found during rename %s' % cmdict['newpath'])
+
         self.errno = errno.ENOENT
         shelf = self.cmd_get_shelf(cmdict)
         old_path_list = self._path2list(cmdict['path'])
