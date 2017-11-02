@@ -45,9 +45,10 @@ from frdnode import FRDnode, FRDFAModule, FRDintlv_group
 
 class LibrarianDBackendSQL(object):
 
-    SCHEMA_VERSION = 'LIBRARIAN 0.996'
+    SCHEMA_VERSION = 'LIBRARIAN 0.997'
     # 0.995     Added heartbeat to SOC
     # 0.996     Added CPU and root FS percent to SOC; add link table
+    # 0.997     Added network_in, network_out and mem_percent to SOC
 
     @staticmethod
     def argparse_extend(parser):
