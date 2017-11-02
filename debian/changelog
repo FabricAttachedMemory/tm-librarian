@@ -1,3 +1,9 @@
+tm-librarian (1.31+l4tm1) catapult; urgency=low
+
+  * Fix database corruption during shelf rename and add new data fields for ED display
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Thu, 02 Nov 2017 11:59:27 -0600
+
 tm-librarian (1.30+l4tm1) catapult; urgency=low
 
   * Really add support for 990 systems with single physical address range per partition
