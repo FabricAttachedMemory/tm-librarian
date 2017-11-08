@@ -1,3 +1,11 @@
+tm-librarian (1.31-1) unstable; urgency=medium
+
+  * Fix database corruption during shelf rename and add new data fields for ED display
+  * Add support for 990 systems with single physical address range per partition
+  * Fix overlapping message issue
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Wed, 08 Nov 2017 10:35:03 -0700
+
 tm-librarian (1.27-1) unstable; urgency=medium
 
   * Fix heartbeat unschedule issue
