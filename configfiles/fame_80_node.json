@@ -1,5 +1,5 @@
 {
-	"coordinate": "/machine_rev/1/datacenter/pa1",
+	"coordinate": "/MachineVersion/1/Datacenter/pa1",
 	"managementServer": 
 	{
 		"softwareRecipeUri": "file:softwareReceipe.js",
@@ -65,11 +65,11 @@
 	"racks": 
 	[
 		{
-			"coordinate": "frame/A1.above_floor/rack/1",
+			"coordinate": "Frame/A1.above_floor/Rack/1",
 			"enclosures": 
 			[
 				{
-					"coordinate": "enclosure/1",
+					"coordinate": "Enclosure/1",
 					"iZoneBoards": 
 					[
 						{
@@ -96,7 +96,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "1",
 							"soc": 
 							{
@@ -137,7 +137,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "2",
 							"soc": 
 							{
@@ -178,7 +178,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "3",
 							"soc": 
 							{
@@ -219,7 +219,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "4",
 							"soc": 
 							{
@@ -260,7 +260,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "5",
 							"soc": 
 							{
@@ -301,7 +301,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "6",
 							"soc": 
 							{
@@ -342,7 +342,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "7",
 							"soc": 
 							{
@@ -383,7 +383,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "8",
 							"soc": 
 							{
@@ -424,7 +424,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "9",
 							"soc": 
 							{
@@ -465,7 +465,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "10",
 							"soc": 
 							{
@@ -508,7 +508,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/2",
+					"coordinate": "Enclosure/2",
 					"iZoneBoards": 
 					[
 						{
@@ -535,7 +535,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "11",
 							"soc": 
 							{
@@ -576,7 +576,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "12",
 							"soc": 
 							{
@@ -617,7 +617,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "13",
 							"soc": 
 							{
@@ -658,7 +658,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "14",
 							"soc": 
 							{
@@ -699,7 +699,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "15",
 							"soc": 
 							{
@@ -740,7 +740,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "16",
 							"soc": 
 							{
@@ -781,7 +781,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "17",
 							"soc": 
 							{
@@ -822,7 +822,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "18",
 							"soc": 
 							{
@@ -863,7 +863,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "19",
 							"soc": 
 							{
@@ -904,7 +904,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "20",
 							"soc": 
 							{
@@ -947,7 +947,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/3",
+					"coordinate": "Enclosure/3",
 					"iZoneBoards": 
 					[
 						{
@@ -974,7 +974,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "21",
 							"soc": 
 							{
@@ -1015,7 +1015,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "22",
 							"soc": 
 							{
@@ -1056,7 +1056,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "23",
 							"soc": 
 							{
@@ -1097,7 +1097,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "24",
 							"soc": 
 							{
@@ -1138,7 +1138,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "25",
 							"soc": 
 							{
@@ -1179,7 +1179,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "26",
 							"soc": 
 							{
@@ -1220,7 +1220,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "27",
 							"soc": 
 							{
@@ -1261,7 +1261,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "28",
 							"soc": 
 							{
@@ -1302,7 +1302,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "29",
 							"soc": 
 							{
@@ -1343,7 +1343,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "30",
 							"soc": 
 							{
@@ -1386,7 +1386,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/4",
+					"coordinate": "Enclosure/4",
 					"iZoneBoards": 
 					[
 						{
@@ -1413,7 +1413,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "31",
 							"soc": 
 							{
@@ -1454,7 +1454,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "32",
 							"soc": 
 							{
@@ -1495,7 +1495,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "33",
 							"soc": 
 							{
@@ -1536,7 +1536,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "34",
 							"soc": 
 							{
@@ -1577,7 +1577,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "35",
 							"soc": 
 							{
@@ -1618,7 +1618,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "36",
 							"soc": 
 							{
@@ -1659,7 +1659,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "37",
 							"soc": 
 							{
@@ -1700,7 +1700,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "38",
 							"soc": 
 							{
@@ -1741,7 +1741,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "39",
 							"soc": 
 							{
@@ -1782,7 +1782,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "40",
 							"soc": 
 							{
@@ -1825,7 +1825,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/5",
+					"coordinate": "Enclosure/5",
 					"iZoneBoards": 
 					[
 						{
@@ -1852,7 +1852,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "41",
 							"soc": 
 							{
@@ -1893,7 +1893,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "42",
 							"soc": 
 							{
@@ -1934,7 +1934,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "43",
 							"soc": 
 							{
@@ -1975,7 +1975,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "44",
 							"soc": 
 							{
@@ -2016,7 +2016,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "45",
 							"soc": 
 							{
@@ -2057,7 +2057,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "46",
 							"soc": 
 							{
@@ -2098,7 +2098,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "47",
 							"soc": 
 							{
@@ -2139,7 +2139,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "48",
 							"soc": 
 							{
@@ -2180,7 +2180,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "49",
 							"soc": 
 							{
@@ -2221,7 +2221,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "50",
 							"soc": 
 							{
@@ -2264,7 +2264,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/6",
+					"coordinate": "Enclosure/6",
 					"iZoneBoards": 
 					[
 						{
@@ -2291,7 +2291,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "51",
 							"soc": 
 							{
@@ -2332,7 +2332,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "52",
 							"soc": 
 							{
@@ -2373,7 +2373,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "53",
 							"soc": 
 							{
@@ -2414,7 +2414,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "54",
 							"soc": 
 							{
@@ -2455,7 +2455,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "55",
 							"soc": 
 							{
@@ -2496,7 +2496,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "56",
 							"soc": 
 							{
@@ -2537,7 +2537,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "57",
 							"soc": 
 							{
@@ -2578,7 +2578,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "58",
 							"soc": 
 							{
@@ -2619,7 +2619,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "59",
 							"soc": 
 							{
@@ -2660,7 +2660,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "60",
 							"soc": 
 							{
@@ -2703,7 +2703,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/7",
+					"coordinate": "Enclosure/7",
 					"iZoneBoards": 
 					[
 						{
@@ -2730,7 +2730,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "61",
 							"soc": 
 							{
@@ -2771,7 +2771,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "62",
 							"soc": 
 							{
@@ -2812,7 +2812,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "63",
 							"soc": 
 							{
@@ -2853,7 +2853,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "64",
 							"soc": 
 							{
@@ -2894,7 +2894,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "65",
 							"soc": 
 							{
@@ -2935,7 +2935,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "66",
 							"soc": 
 							{
@@ -2976,7 +2976,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "67",
 							"soc": 
 							{
@@ -3017,7 +3017,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "68",
 							"soc": 
 							{
@@ -3058,7 +3058,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "69",
 							"soc": 
 							{
@@ -3099,7 +3099,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "70",
 							"soc": 
 							{
@@ -3142,7 +3142,7 @@
 					]
 				},
 				{
-					"coordinate": "enclosure/8",
+					"coordinate": "Enclosure/8",
 					"iZoneBoards": 
 					[
 						{
@@ -3169,7 +3169,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "71",
 							"soc": 
 							{
@@ -3210,7 +3210,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "72",
 							"soc": 
 							{
@@ -3251,7 +3251,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "73",
 							"soc": 
 							{
@@ -3292,7 +3292,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "74",
 							"soc": 
 							{
@@ -3333,7 +3333,7 @@
 							]
 						},
 						{
-							"coordinate": "node/5",
+							"coordinate": "Node/5",
 							"serialNumber": "75",
 							"soc": 
 							{
@@ -3374,7 +3374,7 @@
 							]
 						},
 						{
-							"coordinate": "node/6",
+							"coordinate": "Node/6",
 							"serialNumber": "76",
 							"soc": 
 							{
@@ -3415,7 +3415,7 @@
 							]
 						},
 						{
-							"coordinate": "node/7",
+							"coordinate": "Node/7",
 							"serialNumber": "77",
 							"soc": 
 							{
@@ -3456,7 +3456,7 @@
 							]
 						},
 						{
-							"coordinate": "node/8",
+							"coordinate": "Node/8",
 							"serialNumber": "78",
 							"soc": 
 							{
@@ -3497,7 +3497,7 @@
 							]
 						},
 						{
-							"coordinate": "node/9",
+							"coordinate": "Node/9",
 							"serialNumber": "79",
 							"soc": 
 							{
@@ -3538,7 +3538,7 @@
 							]
 						},
 						{
-							"coordinate": "node/10",
+							"coordinate": "Node/10",
 							"serialNumber": "80",
 							"soc": 
 							{
@@ -3592,800 +3592,800 @@
 			"groupId": 0,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 1,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 2,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 3,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 4,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 5,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 6,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 7,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 8,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 9,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 10,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 11,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 12,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 13,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 14,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 15,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 16,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 17,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 18,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 19,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/2/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/2/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 20,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 21,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 22,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 23,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 24,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 25,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 26,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 27,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 28,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 29,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/3/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/3/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 30,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 31,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 32,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 33,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 34,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 35,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 36,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 37,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 38,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 39,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/4/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/4/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 40,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 41,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 42,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 43,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 44,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 45,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 46,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 47,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 48,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 49,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/5/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/5/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 50,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 51,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 52,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 53,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 54,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 55,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 56,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 57,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 58,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 59,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/6/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/6/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 60,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 61,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 62,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 63,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 64,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 65,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 66,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 67,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 68,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 69,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/7/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/7/Node/10/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 70,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/1/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/1/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/1/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/1/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/1/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 71,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/2/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/2/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/2/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/2/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/2/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 72,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/3/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/3/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/3/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/3/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/3/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 73,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/4/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/4/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/4/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/4/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/4/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 74,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/5/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/5/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/5/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/5/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/5/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 75,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/6/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/6/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/6/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/6/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/6/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 76,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/7/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/7/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/7/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/7/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/7/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 77,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/8/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/8/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/8/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/8/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/8/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 78,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/9/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/9/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/9/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/9/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/9/memory_board/1/media_controller/4"
 			]
 		},
 		{
 			"groupId": 79,
 			"mediaControllers": 
 			[
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/1",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/2",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/3",
-				"/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/8/node/10/memory_board/1/media_controller/4"
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/10/memory_board/1/media_controller/1",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/10/memory_board/1/media_controller/2",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/10/memory_board/1/media_controller/3",
+				"/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/8/Node/10/memory_board/1/media_controller/4"
 			]
 		}
 	]
