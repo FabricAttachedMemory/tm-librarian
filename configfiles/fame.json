@@ -1,5 +1,5 @@
 {
-	"coordinate": "/machine_rev/1/datacenter/pa1",
+	"coordinate": "/MachineVersion/1/Datacenter/pa1",
 	"managementServer": 
 	{
 		"softwareRecipeUri": "file:softwareReceipe.js",
@@ -54,11 +54,11 @@
 	"racks": 
 	[
 		{
-			"coordinate": "frame/A1.above_floor/rack/1",
+			"coordinate": "Frame/A1.above_floor/Rack/1",
 			"enclosures": 
 			[
 				{
-					"coordinate": "enclosure/1",
+					"coordinate": "Enclosure/1",
 					"iZoneBoards": 
 					[
 						{
@@ -85,7 +85,7 @@
 					"nodes": 
 					[
 						{
-							"coordinate": "node/1",
+							"coordinate": "Node/1",
 							"serialNumber": "11111",
 							"soc": 
 							{
@@ -126,7 +126,7 @@
 							]
 						},
 						{
-							"coordinate": "node/2",
+							"coordinate": "Node/2",
 							"serialNumber": "22222",
 							"soc": 
 							{
@@ -167,7 +167,7 @@
 							]
 						},
 						{
-							"coordinate": "node/3",
+							"coordinate": "Node/3",
 							"serialNumber": "33333",
 							"soc": 
 							{
@@ -208,7 +208,7 @@
 							]
 						},
 						{
-							"coordinate": "node/4",
+							"coordinate": "Node/4",
 							"serialNumber": "44444",
 							"soc": 
 							{
@@ -263,16 +263,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/1"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/2"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/3"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/1/memory_board/1/media_controller/4"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/1/memory_board/1/media_controller/4"
 			    }
 			]
 		},
@@ -281,16 +281,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/1"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/2"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/3"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/2/memory_board/1/media_controller/4"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/2/memory_board/1/media_controller/4"
 			    }
 			]
 		},
@@ -299,16 +299,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/1"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/2"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/3"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/3/memory_board/1/media_controller/4"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/3/memory_board/1/media_controller/4"
 			    }
 			]
 		},
@@ -317,16 +317,16 @@
 			"mediaControllers": 
 			[
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/1"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/1"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/2"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/2"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/3"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/3"
 			    },
 			    {
-				"coordinate": "/machine_rev/1/datacenter/pa1/frame/A1.above_floor/rack/1/enclosure/1/node/4/memory_board/1/media_controller/4"
+				"coordinate": "/MachineVersion/1/Datacenter/pa1/Frame/A1.above_floor/Rack/1/Enclosure/1/Node/4/memory_board/1/media_controller/4"
 			    }
 			]
 		}
