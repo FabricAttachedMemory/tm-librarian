@@ -1,3 +1,9 @@
+tm-librarian (1.32+l4tm1) catapult; urgency=low
+
+  * Fix book_register to work with simple ini file format
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 14 Nov 2017 14:46:20 -0700
+
 tm-librarian (1.31+l4tm1) catapult; urgency=low
 
   * Fix database corruption during shelf rename and add new data fields for ED display
