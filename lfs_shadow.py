@@ -860,6 +860,8 @@ def _detect_memory_space(args, lfs_globals):
     region2 = [ l for l in lspci[1:] if 'Region 2:' in l ][0]
     assert ('(64-bit, prefetchable)' in region2), \
         'IVSHMEM region 2 not found for device %s' % bdf
+    assert ('ignored' not in region2), \
+        'IVSHMEM region 2 has no memory %s' % bdf
     args.aperture_base = int(region2.split('Memory at')[1].split()[0], 16)
     assert args.aperture_base, \
         'Could not retrieve region 2 address of IVSHMEM device at %s' % bdf
@@ -876,7 +878,7 @@ def _detect_memory_space(args, lfs_globals):
     assert args.aperture_size, \
         'Could not retrieve region 2 size of IVSHMEM device at %s' % bdf
     assert args.aperture_size >= lfs_globals['nvm_bytes_total'], \
-        'available shadow size (%d) < nvm_bytes_total (%d)' % \
+        'IVSHMEM size < Librarian total NVM (%d < %d)' % \
         (args.aperture_size, lfs_globals['nvm_bytes_total'])
 
     args.logger.warning('IVSHMEM device at %s used as FAM' % bdf)
@@ -924,8 +926,7 @@ def the_shadow_knows(args, lfs_globals):
         return apertures(args, lfs_globals)
     except Exception as e:
         msg = str(e)
-        args.logger.error('!!! ERROR IN PLATFORM DETERMINATION (%d): %s' % (
-            sys.exc_info()[2].tb_lineno, msg))
+        args.logger.error('ERROR IN PLATFORM SETUP: %s' % (msg))
 
     # seems to be ignored, as is SystemExit
     raise OSError(errno.EINVAL, 'lfs_shadow: %s' % msg)
