@@ -20,6 +20,7 @@
 
 import argparse
 import errno
+import glob
 import os
 import psutil
 import shlex
@@ -43,7 +44,6 @@ from socket_handling import Client, lfsLogger
 from lfs_shadow import the_shadow_knows
 
 ACPI_NODE_UID = '/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0004:00/uid'
-FAME_DEFAULT_NET = '/sys/class/net/eth0/address'
 
 
 class Heartbeat:
@@ -888,16 +888,24 @@ def mount_LFS(args):
                 node_id = elems[elems.index('Node') + 1]
                 args.physloc = node_rack + ":" + node_enc + ":" + node_id
         except Exception as e:
-            # Fabric Emulation auto start shortcut (assumes eth0).
-            # If the last three octets of the MAC are equal use that value
-            # as the node id (1-80), derive the enclosure and rack number.
+            # Fabric Emulation auto start shortcut.  If the last three octets
+            # of the MAC are equal use that value as the node id (1-80).
+            # FAME VMs produced under a container have unpredictable
+            # network names, not just eth0.
+            HPEOUI = '48:50:42'     # see emulation_configure.bash
             try:
-                with open(FAME_DEFAULT_NET) as mac_file:
-                    mac = mac_file.read().strip().split(':')
-                    assert (mac[2] == '42' and
-                            (mac[3] == mac[4] == mac[5]) and
-                            1 <= int(mac[5]) <= 40), 'Not a FAME node'
-                    args.physloc = int(mac[5])
+                for fname in glob.glob('/sys/class/net/*/address'):
+                    with open(fname) as mac_file:
+                        mac = mac_file.read().strip()
+                        if not mac.startswith(HPEOUI):
+                            continue
+                        mac = mac.split(':')
+                        assert ((mac[3] == mac[4] == mac[5]) and
+                                1 <= int(mac[5]) <= 40), 'Not a FAME node'
+                        args.physloc = int(mac[5])
+                        break
+                else:
+                    raise RuntimeError('No network MAC match for %s' % HPEOUI)
             except Exception as e:
                 raise SystemExit(
                     'Could not automatically derive coordinate, use --physloc')
