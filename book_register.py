@@ -99,11 +99,11 @@ def load_config(inifile):
         usage('Missing [%s] section in config file: %s' % (Gname, inifile))
 
     other_sections = [ ]
-    for sname in config.sections():     # ignores 'DEFAULT'
-        section = config[sname]
+    for errname in config.sections():     # ignores 'DEFAULT'
+        section = config[errname]
         other_sections.append(section)
         options = frozenset([ o for o in section.keys() ])
-        if sname == Gname:
+        if errname == Gname:
             G = other_sections.pop()    # hence global and "other"
             legal = frozenset((
                 'book_size_bytes',
@@ -117,21 +117,21 @@ def load_config(inifile):
                 'book_size_bytes',
                 'node_count',
             ))
-        elif sname.startswith('enclosure'):
+        elif errname.startswith('enclosure'):
             legal = frozenset(('u',))
             required = frozenset(('u',))
-        else:   # treat sname as a node hostname
+        else:   # treat errname as a node hostname
             legal = frozenset(('node_id', 'nvm_size',))
             required = frozenset(('node_id', 'nvm_size',))
         bad = options - legal
         if not set(required).issubset(options):
             raise SystemExit(
                 'Missing option(s) in [%s]: %s\nRequired options are %s' % (
-                    sname, ', '.join(required-options), ', '.join(required)))
+                    errname, ', '.join(required-options), ', '.join(required)))
         if bad:
             raise SystemExit(
                 'Illegal option(s) in [%s]: %s\nLegal options are %s' % (
-                    sname, ', '.join(bad), ', '.join(legal)))
+                    errname, ', '.join(bad), ', '.join(legal)))
 
     return Gname, G, other_sections
 
@@ -178,6 +178,7 @@ def extrapolate(Gname, G, node_count, book_size_bytes):
 # Interleave Groups and MCs: the FRDnode MC structures are too "isolated"
 # and can't compute mc.memorySize without passing in book_size, and that
 # seems too clunky.  Compute it here (composition pattern).
+# The upper "id" field is then the raw physical address.
 # FIXME: do we actually use mc.memorySize anywhere (probably LMP) or
 # was it just a good idea at the time?
 # INI:  type(mc) == frdnode.FRDFAModule
@@ -214,12 +215,15 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
     #   [0:32]  - book offset, ALWAYS ZERO.  These bits seem like they're
     #             "wasted" but it avoided lots of shifting elsewhere.  As
     #             a bonus, they'll be used as sentinels/values in 990x mode.
-    #             This use is implicitly MODE_LZA
+    #             This use is implicitly MODE_LZA (mode value == 0).
+    #             To be consistent with other modes, put values in lower bits
+    #    19-16:   mode = MODE_LZA
+    #    15-0:    IG/node reference, option base 0, overloaded definition
     #   [33:45] - book number within interleave group (0 - 8191)
     #   [46:52] - interleave group (0 - 127)
     #   [53:63] - reserved (zeros)
     tag = BII.MODE_LZA << BII.MODE_SHIFT        # For completeness...
-    assert not tag, 'You just broke the MFT'    # ...cuz it's a noop here
+    assert not tag, 'You just broke the MFT'    # ...cuz this is legacy value
     for ig in IGs:
         for igoffset in range(ig.total_books):
             lza = ((ig.groupId << _IG_SHIFT) +
@@ -231,7 +235,7 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
             cur.execute(
                 'INSERT INTO books VALUES(?, ?, ?, ?, ?)',
                 (lza,           # id
-                 tag | value,   # intlv_group
+                 tag | value,   # intlv_group, tag computed at start
                  igoffset,      # book_num
                  0,             # allocated
                  0))            # attributes
@@ -240,11 +244,13 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
 #--------------------------------------------------------------------------
 # MODE_PHYSADDR: First use is in 990 mode, but an extended FAME mode
 # also falls in here.  IGs are stolen for a base number and tag:
-# 23-16: mode = BOOKS_ID_PHYSADDR
+# 19-16: mode = MODE_PHYSADDR
 # 15-0:  IG/node reference, option base 0, overloaded definition
-# The "id" field is then the raw physical address.
+# The upper "id" field is then the raw physical address.
 
 def MDC990x_Book_table(cur, nodes, book_size_bytes):
+    assert isinstance(nodes[0].nvm_size, list), 'NVM size must be a list'
+    assert isinstance(nodes[0].nmv_physaddr, list), 'PHYSADDR must be a list'
     tag = BII.MODE_PHYSADDR << BII.MODE_SHIFT
     for node in nodes:
         book_num = 0
@@ -330,7 +336,9 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
              0)) # mem_percent
     cur.commit()
 
-    if nodes[0].nvm_physaddr:
+    # If it's a scalar, it's from a tmconfig JSON file and is MFT.
+    # If it's a list, it could be either, depending on occurrence of physaddrs.
+    if nodes[0].nvm_physaddr[0]:
         MDC990x_Book_table(cur, nodes, book_size_bytes)
     else:   # Legacy
         MFT_IG_Book_tables(cur, IGs, book_size_bytes)
@@ -518,16 +526,18 @@ def load_book_data_ini(inifile):
 
     try:
         Gname, G, other_sections = load_config(inifile)
+    except configparser.Error as e:
+        print(str(e), file=sys.stderr)
+        return False
     except Exception as e:
-        if verbose:
-            print('Illegal INI file:', str(e), file=sys.stderr)
+        print('Illegal INI file:', str(e), file=sys.stderr)
         return False
 
     # Get and validate the required global config items
     node_count = int(G['node_count'])
     book_size_bytes = multiplier(G['book_size_bytes'], Gname)
-    if not ((2 << 10) <= book_size_bytes <= (8 * (2 << 30))):
-        raise SystemExit('book_size_bytes is out of range [1K, 8G]')
+    if not ((1 << 21) <= book_size_bytes <= (8 * (1 << 30))):
+        raise SystemExit('book_size_bytes is out of range [2M, 8G]')
     # Python 3 bin() prints a string in binary: '0b000101...'
     if sum([ int(c) for c in bin(book_size_bytes)[2:] ]) != 1:
         raise SystemExit('book_size_bytes must be a power of 2')
@@ -543,25 +553,26 @@ def load_book_data_ini(inifile):
     if FRDnodes is None:    # Grind it out section by section.
         FRDnodes = []
         for section in other_sections:
+            errname = '[%s]' % section.name
             if section.name.startswith('enclosure'):
                 assert not FRDnodes, \
-                    '[%s] must appear before any [node] section' % section.name
+                    '%s must appear before any [node] section' % errname
                 try:
                     encnum = int(section.name[-1])
                     assert encnum not in enc2U, \
-                        'Duplicate section [%s]' % section.name
+                        '%s duplicate section' % errname
                 except ValueError as e:
-                    raise RuntimeError('Bad section [%s]' % section.name)
+                    raise RuntimeError('%s bad section' % errname)
                 Uvalue = dict(section.items())['u']
                 assert ' ' not in Uvalue and '/' not in Uvalue, \
-                    'Illegal character [%s] U-value' % section.name
+                    '%s Illegal character U-value' % errname
                 enc2U[encnum] = Uvalue
                 continue
 
             hostname = section.name
             sdata = dict(section.items())
             node_id = int(sdata["node_id"], 10)
-            assert 1 <= node_id <= 80, 'Bad node id'
+            assert 1 <= node_id <= 80, '%s bad node id' % errname
 
             # SGI uv300 / MDC 990x: use standard Linux techniques to free
             # up GRU physical memory, then explicitly list addresses here.
@@ -569,56 +580,85 @@ def load_book_data_ini(inifile):
             # nvm_size = X @ 0xY
             # where X == legacy sizing value.  No "@" means legacy MFT.
             #       Y == phys addr.  The "0x" is required.
-            # Right now it's just one chunk but is obviously extensible.
+            # Continuation lines allow multiple ranges per partition (node).
+            # They aren't legal in MFT mode.  Continuation lines are
+            # separated by line feeds by configparser.  Maintained as
+            # separate lists because original code had separate scalars
+            # (frdnode.py and tmconfig.py).
 
-            elems = sdata['nvm_size'].split('@')
-            assert 1 <= len(elems) <= 2, 'Bad nvm_size syntax'
-            try:
-                nvm_size, addr_str = elems
-                addr_str = addr_str.strip().lower()
-                if not addr_str.startswith('0x'):
-                    raise SystemExit(
-                        'Node ID %d: "%s" address must start with "0x"' %
-                            (node_id, addr_str))
+            # Note that MFT mode is implicitly defined by absence of physaddrs
+            # or multiple sets (ranges) of book numbers.
+
+            sizes = []
+            addrs = []
+            for sizeATaddr in sdata['nvm_size'].split('\n'):
+                elems = sizeATaddr.split('@')
+                assert 1 <= len(elems) <= 2, \
+                    '%s bad nvm_size syntax "%s"' % (errname, sizeATaddr)
                 try:
-                    nvm_physaddr = int(addr_str, 16)
-                except ValueError as e:
-                    raise SystemExit(
-                        'Node ID %d: "%s" not a valid hex number' %
-                            (node_id, addr_str))
-                assert nvm_physaddr >= book_size_bytes, \
-                    'Book size bigger than base address'
-            except ValueError as e:     # not enough items to unpack
-                nvm_size = elems[0]
-                nvm_physaddr = 0
-            nvm_size = multiplier(nvm_size, section, book_size_bytes)
+                    size_str, addr_str = elems
+                    addr_str = addr_str.strip().lower()
+                    assert addr_str.startswith('0x'), \
+                        '%s: address "%s" must start with "0x"' % (
+                            errname, addr_str)
+                    try:
+                        nvm_physaddr = int(addr_str, 16)
+                    except ValueError as e:
+                        raise SystemExit(
+                            '%s "%s" is not a valid hex number' %
+                                (errname, addr_str))
+                except ValueError as e:     # not enough items to unpack
+                    size_str = elems[0]
+                    nvm_physaddr = 0
+                nvm_size = multiplier(size_str, section, book_size_bytes)
 
-            if nvm_size % book_size_bytes != 0:
-                usage("[%s] NVM size not multiple of book size" % section)
+                assert nvm_size % book_size_bytes == 0, \
+                    '%s NVM size not multiple of book size' % errname
+                if nvm_physaddr:
+                    assert nvm_physaddr >= book_size_bytes, \
+                        '%s book size %d bigger than address 0x%x' % (
+                            errname, book_size_bytes, nvm_physaddr)
+                    assert (nvm_physaddr % book_size_bytes) == 0, \
+                        '%s address 0x%x is not book-aligned' % (
+                            errname, nvm_physaddr)
 
-            num_books = int(nvm_size / book_size_bytes)
+                nbooks = int(nvm_size / book_size_bytes)
+                assert nbooks > 0, '%s %s book count must be > 0' % (
+                    errname, sizeATaddr)
 
-            if num_books < 1:
-                usage('num_books must be greater than zero')
+                # MFT assumptions/constraints: 4 "equal" MCs per IG.
+                if not nvm_physaddr:    # It might be MFT mode if no priors...
+                    assert not len(sizes), \
+                        '%s multiple ranges are illegal in MFT (1)' % errname
+                    assert nbooks % 4 == 0, \
+                        '%s books per node is not divisible by 4' % errname
 
-            # Assumption/constraint: MFT uses 4 "equal" MCs per IG
-            module_size_books = num_books // 4
-            if module_size_books * 4 != num_books:
-                usage('Books per node is not divisible by 4')
+                # Must come last, especially in MFT case it's the only one
+                sizes.append(nvm_size)
+                addrs.append(nvm_physaddr)
 
+            # Either all or none of them have to be set.  Use frozenset
+            # as a dupe eliminator; set is either one or two long.
+            tmp = frozenset([bool(a) for a in addrs])
+            assert len(tmp) == 1, \
+                '%s multiple ranges are illegal in MFT (2)' % errname
+
+            module_size_books = sum(sizes) // 4
             newNode = FRDnode(
                 node_id,
                 module_size_books=module_size_books,
                 autoMCs=(not bool(nvm_physaddr)))
-            newNode.nvm_size = nvm_size
-            newNode.nvm_physaddr = nvm_physaddr
+            newNode.nvm_size = sizes
+            newNode.nvm_physaddr = addrs
+
             if hostname.startswith('node'):     # force the default
                 assert newNode.hostname == hostname, \
-                    'Bad "nodeXX" format: %s' % hostname
+                    '%s nodeXX format does not match node_id' % errname
             else:
                 newNode.hostname = hostname
             FRDnodes.append(newNode)
 
+    # Idiot checks.
     assert int(G['node_count']) == len(FRDnodes), 'Bad node count'
 
     # Add default enclosure U-values if needed, regardless of INI form.
