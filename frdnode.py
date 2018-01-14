@@ -34,14 +34,16 @@ from genericobj import GenericObject
 #--------------------------------------------------------------------------
 # Commonly imported file.  How is the "intlv_group" field in the "books"
 # table interpreted (and ultimately, the ID field itself)?  Look at the
-# mode in bits 23-16 to interpret the value.
+# mode in bits 19-16 to interpret the value.  This use of 20 bits means
+# the smallest book size is 2^21 or two megabytes, which is also the
+# size of an x86 huge page.
 
 class BooksIGInterpretation():
     VALUE_MASK = 0xffff     # Lower 16 bits
     MODE_SHIFT = 16         # Embed the mode above VALUE_MASK
-    MODE_MASK = 0xff        # 256 modes max
+    MODE_MASK = 0xf         # 16 modes max
     MODE_LZA = 0            # Legacy mode, it really is the IG
-    MODE_PHYSADDR = 1       # Physaddr mode for 990x
+    MODE_PHYSADDR = 1       # Physaddr mode for 990x and SD Flex
 
 #--------------------------------------------------------------------------
 
