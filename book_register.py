@@ -228,8 +228,8 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
         for igoffset in range(ig.total_books):
             lza = ((ig.groupId << _IG_SHIFT) +
                    (igoffset << _BOOK_SHIFT))
-            if verbose > 2:
-                print("lza 0x%016x, IG = %s, igoffset = %d" % (
+            if verbose > 1:
+                print('lza 0x%016x, IG = %s, igoffset = %d' % (
                     lza, ig.groupId, igoffset))
             value = ig.groupId & BII.VALUE_MASK     # 0-based
             cur.execute(
@@ -250,35 +250,37 @@ def MFT_IG_Book_tables(cur, IGs, book_size_bytes):
 
 def MDC990x_Book_table(cur, nodes, book_size_bytes):
     assert isinstance(nodes[0].nvm_size, list), 'NVM size must be a list'
-    assert isinstance(nodes[0].nmv_physaddr, list), 'PHYSADDR must be a list'
+    assert isinstance(nodes[0].nvm_physaddr, list), 'PHYSADDR must be a list'
     tag = BII.MODE_PHYSADDR << BII.MODE_SHIFT
     for node in nodes:
         book_num = 0
-        physaddr = node.nvm_physaddr    # here is where multiple chunks go
-        remaining = node.nvm_size
-        while remaining:
-            try:
-                # Use node_id (1-whatever), not node (cycles on 1-10)
-                value = (node.node_id - 1) & BII.VALUE_MASK
-                cur.execute(
-                    'INSERT INTO books VALUES(?, ?, ?, ?, ?)', (
-                    physaddr,       # id
-                    tag | value,    # intlv_group
-                    book_num,       # book_num
-                    0,              # allocated
-                    0))             # attributes
-            except OverflowError as e:
-                raise SystemExit(
-                    'Unsigned-64 value won\'t slide into an SQLite signed INT')
-            except Exception as e:
-                if 'IntegrityError' in str(type(e)):
+        for (remaining, baseaddr) in zip(node.nvm_size, node.nvm_physaddr):
+            physaddr = baseaddr
+            while remaining:
+                try:
+                    # Use node_id (1-whatever), not node (cycles on 1-10)
+                    value = (node.node_id - 1) & BII.VALUE_MASK
+                    if verbose > 1:     # Print in DB columnar order
+                        print('0x%x %5d %5d' % (physaddr, tag|value, book_num))
+                    cur.execute(
+                        'INSERT INTO books VALUES(?, ?, ?, ?, ?)', (
+                        physaddr,       # id
+                        tag | value,    # intlv_group
+                        book_num,       # book_num
+                        0,              # allocated
+                        0))             # attributes
+                except OverflowError as e:
                     raise SystemExit(
-                        'node_id %d book %d: non-unique address: range overlap?' %
-                            (node.node_id, book_num))
-                raise SystemExit(str(e))
-            remaining -= book_size_bytes
-            physaddr += book_size_bytes
-            book_num += 1
+                        'U-64 value won\'t slide into an SQLite signed INT')
+                except Exception as e:
+                    if 'IntegrityError' in str(type(e)):
+                        raise SystemExit(
+                            '[%s] base 0x%x includes non-unique address 0x%x' %
+                                (node.hostname, baseaddr, physaddr ))
+                    raise SystemExit(str(e))
+                remaining -= book_size_bytes
+                physaddr += book_size_bytes
+                book_num += 1
         cur.commit()    # every node
 
 #--------------------------------------------------------------------------
@@ -520,6 +522,40 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
     print(json.dumps(bigun, indent=4))
 
 #--------------------------------------------------------------------------
+# YES there is a lot of repeated calculations but it simplifies code
+# w.r.t. tying a range to a node.
+
+
+def collision(basenode, nextnode=None):
+    '''Scan span and error message is based on existence of nextnode.'''
+    if nextnode is None:
+        if len(basenode.nvm_physaddr) == 1:  # One range in one node is noop
+            return
+        ranges = zip(basenode.nvm_physaddr,
+                     basenode.nvm_size)
+        errfmt = '%s range 0x%%x collides with its own range 0x%%x' % (
+            basenode.hostname)
+    else:
+        ranges = zip(basenode.nvm_physaddr + nextnode.nvm_physaddr,
+                     basenode.nvm_size + nextnode.nvm_size)
+        errfmt = '%s range 0x%%x collides with %s range 0x%%x' % (
+            basenode.hostname, nextnode.hostname)
+    limits = [ (addr, addr + size - 1) for addr, size in ranges ]
+    for index, (baselo, basehi) in enumerate(limits[:-1]):
+        for (lo, hi) in limits[index + 1:]:
+            # print(0x%f - 0x%f compared to 0x%f - 0x%f' % (
+            if ((baselo <= lo <= basehi) or
+                (baselo <= hi <= basehi)):
+                    raise SystemExit(errfmt % (baselo, lo))
+
+
+def overlap(nodes):
+    '''Only valid during MODE_PHYSADDR from INI file.'''
+    # First check consistency in a node, then do internode.
+    for index, basenode in enumerate(nodes):
+        collision(basenode)
+        for nextnode in nodes[index + 1:]:  # over-indexed returns empty list
+            collision(basenode, nextnode)
 
 
 def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
@@ -657,7 +693,8 @@ def load_book_data_ini(inifile):
         print(str(e), file=sys.stderr)
         return False
     except Exception as e:
-        print('Illegal INI file:', str(e), file=sys.stderr)
+        if verbose > 1:
+            print('Illegal INI file:', str(e), file=sys.stderr)
         return False
 
     # Get and validate the required global config items
@@ -695,17 +732,22 @@ def load_book_data_ini(inifile):
         enc2U[node.enc] = 'UV'  # Virtual, like FAME
 
     # What mode: uv300/990 or MFT?
-    if any([bool(n.nvm_physaddr) for n in FRDnodes]):
-        assert all([bool(n.nvm_physaddr) for n in FRDnodes]), \
-            'Inconsistent use of physical addresses'
-        nvm_bytes_total = sum(n.nvm_size for n in FRDnodes)
-        books_total = nvm_bytes_total // book_size_bytes
-    else:   # NOT redundant in general case of general MC usage
+    if INImode == BII.MODE_LZA:
+        # NOT redundant in general case of general MC usage
         books_total = 0
         for node in FRDnodes:
             books_total += sum(
                 mc.module_size_books for mc in node.mediaControllers)
         nvm_bytes_total = books_total * book_size_bytes
+    elif INImode == BII.MODE_PHYSADDR:
+        overlap(FRDnodes)
+        assert all(bool(addr) for n in FRDnodes for addr in n.nvm_physaddr), \
+            'At least one physaddr is zero'
+        nvm_bytes_total = sum(size for n in FRDnodes for size in n.nvm_size)
+        books_total = nvm_bytes_total // book_size_bytes
+    else:
+        raise SystemExit('Unexpected INI mode %d' % INImode)
+
     if verbose:
         print('book size = %d' % (book_size_bytes))
         print('%d books == %d (0x%016x) total NVM bytes' % (
@@ -731,7 +773,7 @@ def load_book_data_json(jsonfile):
         try:
             tmp_cfile = json.loads(f.read())    # Is it JSON?
         except ValueError as e:
-            if verbose:
+            if verbose > 2:
                 print('Not a JSON file:', str(e), file=sys.stderr)
             return False
     try:
