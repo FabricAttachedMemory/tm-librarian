@@ -608,11 +608,12 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
         # (frdnode.py and tmconfig.py).
 
         # Note that MFT mode is implicitly defined by absence of physaddrs
-        # or multiple sets (ranges) of book numbers.
+        # or multiple sets (ranges) of book numbers.  The strip() allows an
+        # empty declaration to be followed by continuation line(s).
 
         sizes = []
         addrs = []
-        for sizeATaddr in sdata['nvm_size'].split('\n'):
+        for sizeATaddr in sdata['nvm_size'].strip().split('\n'):
             elems = sizeATaddr.split('@')
             assert 1 <= len(elems) <= 2, \
                 '%s bad nvm_size syntax "%s"' % (errname, sizeATaddr)
