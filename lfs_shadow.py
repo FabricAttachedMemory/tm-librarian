@@ -378,23 +378,20 @@ class shadow_support(object):
 
     # Support for getxattr, it comes next
     def _map_populate(self, shelf, start_book, buflen):
-        '''Get LZAs from BOS, limit is number of ints that fit into buflen'''
-        # Every LZA is book-aligned so lower 33 bits are zeros.  Get the
-        # 20-bit combo of 7:13 IG:book as a form of compression.  For non-LZA
-        # work this is a noop.
+        '''Get LZAs from BOS, limit is number of 64-bit unsigned
+           longs that will fit into buflen'''
+        # BII.MODE_PHYSADDR mode LZA contains starting physical book
+        # address in bits [63:20] so the entire 64 bit address is passed.
         response = bytearray()
-        if self.BIImode != BII.MODE_LZA:    # probably all FAME variants...
-            return response
-
         bos = self[(shelf.id, None)].bos
         offset = 0
-        while buflen > offset + 3 and start_book < len(bos):
+        while buflen > offset + 7 and start_book < len(bos):
             # FIXME: 33 should be "apertures._BOOK_SHIFT" but that's a
             # circular import.  Is all the data in bos[] elements now after
             # the 2017-10 'list_shelf_book' changes for 990x?
-            tmp = struct.pack('I', bos[start_book]['id'] >> 33)
+            tmp = struct.pack('Q', bos[start_book]['id'])
             response.extend(tmp)
-            offset += 4
+            offset += 8
             start_book += 1
         return response
 
@@ -405,9 +402,9 @@ class shadow_support(object):
     # Overridden in class apertures to do true mmaps.
     def getxattr(self, shelf, xattr):
         try:
-            if xattr == '_obtain_booksize_addrmode_aperbase':
-                data = '%s,%d,%s' % (
-                    self.book_size, self.addr_mode, self.aperture_base)
+            if xattr == '_obtain_booksize_addrmode_aperbase_biimode':
+                data = '%s,%d,%s,%d' % (
+                    self.book_size, self.addr_mode, self.aperture_base, self.BIImode)
                 return data
 
             if xattr == '_obtain_shadow_igstart':
@@ -708,12 +705,8 @@ class apertures(shadow_support):
             # tmfs is always looking for an LZA.  Calculate if necessary.
             # map_addr calculations should be rolled up across two spots.
             baseBOS = bos[shelf_book_num]
-            if self.BIImode == BII.MODE_LZA:            # One value in DB
-                baseLZA = baseBOS['id']
-            elif self.BIImode == BII.MODE_PHYSADDR:     # Assemble from values
-                ig = baseBOS['intlv_group'] & BII.VALUE_MASK
-                baseLZA = ig << self._IG_SHIFT | \
-                          baseBOS['book_num'] << self._BOOK_SHIFT
+            if self.BIImode in (BII.MODE_LZA, BII.MODE_PHYSADDR):
+                bookID = baseBOS['id']
             else:
                 return 'ERROR'
 
@@ -725,9 +718,9 @@ class apertures(shadow_support):
             self.logger.debug(
                 'shelf book seq=%d, LZA=0x%x -> IG=%d, IGoffset=%d' % (
                     shelf_book_num,
-                    baseLZA,
-                    ((baseLZA >> self._IG_SHIFT) & self._IG_MASK),
-                    ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)))
+                    bookID,
+                    ((bookID >> self._IG_SHIFT) & self._IG_MASK),
+                    ((bookID >> self._BOOK_SHIFT) & self._BOOK_MASK)))
 
             # FAME modes need the "flattened IG" address into the memory area.
             # shadow_offset() returns a full byte-accurate address (for use
@@ -736,17 +729,18 @@ class apertures(shadow_support):
             # last bits of "accuracy".  DON'T DO THE OFFSET ADDITION TWICE!
 
             if self.addr_mode in (self._MODE_FAME, self._MODE_FAME_DESC):
-                # In MODE_PHYSADDR, should be baseBOS[id] + PABO % book_size
-                # cuz aperture_base == 0
-                phys_offset = self.shadow_offset(shelf, PABO)
-                if phys_offset == -1:
-                    return 'ERROR'
-                map_addr = self.aperture_base + phys_offset
-                # tmp = baseBOS['id'] + PABO % self.book_size # yes it agrees
+                if self.BIImode == BII.MODE_PHYSADDR:
+                    map_addr = bookID
+                else:
+                    phys_offset = self.shadow_offset(shelf, PABO)
+                    if phys_offset == -1:
+                        return 'ERROR'
+                    map_addr = self.aperture_base + phys_offset
+                    # tmp = baseBOS['id'] + PABO % self.book_size # yes it agrees
             elif self.addr_mode == self._MODE_1906_DESC:
                 # Should match kernel calculations.  # books <= # descriptors
                 # and DESBK is preprogrammed so LZA -> aperture number.
-                aper_num = ((baseLZA >> self._BOOK_SHIFT) & self._BOOK_MASK)
+                aper_num = ((bookID >> self._BOOK_SHIFT) & self._BOOK_MASK)
                 desc_offset = aper_num * self.book_size
                 book_offset = PABO % self.book_size
                 map_addr = self.aperture_base + desc_offset + book_offset
@@ -756,7 +750,7 @@ class apertures(shadow_support):
             else:
                 raise RuntimeError('Unimplemented mode %d' % self.addr_mode)
 
-            data = '%d,%s,%s' % (self.addr_mode, baseLZA, map_addr)
+            data = '%d,%s,%s' % (self.addr_mode, bookID, map_addr)
             self.logger.debug('data returned to fault handler = %s' % (data))
             return data
 
