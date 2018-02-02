@@ -36,10 +36,11 @@ from frdnode import BooksIGInterpretation as BII
 # user.LFS.xxxxx intrinsics.  Start with general logic checks.
 
 
-def _node_id2ig(node_id):
+def _node_id2ig(node_id, mode=BII.MODE_LZA):
     '''Right now nodes go from 1-80 but IGs are 0-79'''
     assert 0 < node_id <= 80, 'Bad node value'
-    return node_id - 1
+    # Overload IG field with BIImode before DB query
+    return (node_id - 1) | (mode << BII.MODE_SHIFT)
 
 
 class BookPolicy(object):
@@ -81,8 +82,6 @@ class BookPolicy(object):
 
         no_set = 'Setting %s is prohibited' % xattr
         LCEobj.errno = errno.ENOTSUP
-        if setting:
-            assert LCEobj.BIImode in (BII.MODE_LZA, ), no_set
         if xattr == cls.XATTR_IG_REQ:
             # Value can just fall through but there might be extra work
             if setting:
@@ -110,7 +109,7 @@ class BookPolicy(object):
         elif elems[2] == 'Interleave':
             assert not setting, no_set
             bos = LCEobj.db.get_books_on_shelf(shelf)
-            value = bytes([ b.intlv_group for b in bos ]).decode()
+            value = bytes([ b.intlv_group & BII.IG_MASK for b in bos ]).decode()
         elif xattr == cls.XATTR_ALLOCATION_POLICY_DEFAULT:
             if setting:
                 legal = frozenset(cls._policies) - frozenset(('RequestIG',))
@@ -204,7 +203,7 @@ class BookPolicy(object):
             node_ids = (node_ids, )
         if not node_ids:
             return []
-        IGs = [ _node_id2ig(n) for n in node_ids ]
+        IGs = [ _node_id2ig(n, self.LCEobj.BIImode) for n in node_ids ]
         return self._IGs2books(books_needed, IGs, shuffle=shuffle)
 
     def _policy_Nearest(self, books_needed,
@@ -218,8 +217,14 @@ class BookPolicy(object):
         caller_id = int(self.context['node_id'])
         caller = [n for n in self.LCEobj.nodes if n.node_id == caller_id][0]
         extant_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
-        enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
-            if n.enc == caller.enc))
+
+        # Assume all SD Flex partitions are in a single rack/enc
+        if self.LCEobj.BIImode == BII.MODE_PHYSADDR:
+            enc_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
+        else:
+            enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
+                if n.enc == caller.enc))
+
         localbooks = []
         encbooks = []
         nonencbooks = []
@@ -312,8 +317,10 @@ class BookPolicy(object):
         # Allocate specified number of books from each selected IG
         booksIG = {}
         for ig in igCnt.keys():
+            # Overload IG field with BIImode before DB query
+            mod_ig = ig | self.LCEobj.BIImode << BII.MODE_SHIFT
             booksIG[ig] = db.get_books_by_intlv_group(
-                igCnt[ig], (ig, ), exclude=False)
+                igCnt[ig], (mod_ig, ), exclude=False)
 
         # Build list of books using request_interleave pattern
         self.LCEobj.errno = errno.ENOSPC
