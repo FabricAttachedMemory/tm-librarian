@@ -45,6 +45,7 @@ class BooksIGInterpretation():
     MODE_LZA = 0            # Legacy mode, it really is the IG
     MODE_PHYSADDR = 1       # Physaddr mode for 990x and SD Flex
     MODE_INVALID = 0xf      # Okay, 15 modes max
+    IG_MASK = 0xff          # 256 IGs max
 
 #--------------------------------------------------------------------------
 
