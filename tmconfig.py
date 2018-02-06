@@ -166,7 +166,7 @@ class _GOnodes(GenericObject):
         self._hostname = None
         # Trickle-down effect from 990 PHYSADDR.  It will always be zero here.
         # Only used in book_register.py.
-        self.nvm_physaddr = 0
+        self.nvm_physaddr = [0,]
 
     @property
     def dotname(self):
