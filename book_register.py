@@ -573,6 +573,7 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
 
     FRDnodes = []
     INImode = BII.MODE_INVALID
+    enc2U = {}
     for section in other_sections:
         errname = '[%s]' % section.name
         if section.name.startswith('enclosure'):
@@ -668,7 +669,7 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
         assert len(tmp) == 1, \
             '%s multiple ranges are illegal in MFT (2)' % errname
 
-        module_size_books = sum(sizes) // 4
+        module_size_books = sum(sizes) // book_size_bytes // 4
         newNode = FRDnode(
             node_id,
             module_size_books=module_size_books,

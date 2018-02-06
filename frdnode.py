@@ -181,7 +181,7 @@ class FRDnode(FRDnodeID):
     SOC_HEARTBEAT_SECS = 10.0
 
     def __init__(self, node, enc=None, module_size_books=0, autoMCs=True):
-        self.nvm_physaddr = 0   # duck-type to match tmconfig.py (990 FAM)
+        self.nvm_physaddr = [0,]   # duck-type to match tmconfig.py (990 FAM)
         self._hostname = None
         node_id = None
         if enc is None:
