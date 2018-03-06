@@ -1,3 +1,16 @@
+tm-librarian (1.35-1) unstable; urgency=medium
+
+  * Uninitialized variable during MFT processing from tm-manifest setup tmconfig
+
+ -- Rocky Craig <rocky.craig@hpe.com>  Tue, 06 Mar 2018 06:47:38 -0700
+
+tm-librarian (1.34-1) unstable; urgency=medium
+
+  * Enable non-default books policies on SD Flex, fix book_register bug on MFT
+  * Enable multiple physical address ranges on SD Flex
+
+ -- Greg Pearson <greg.pearson@hpe.com>  Tue, 06 Feb 2018 12:47:38 -0700
+
 tm-librarian (1.32-1) unstable; urgency=medium
 
   * Fix book_register to work with simple ini file format
