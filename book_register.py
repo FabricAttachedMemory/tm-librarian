@@ -557,6 +557,7 @@ def collision(basenode, nextnode=None):
                     return errfmt % (baselo, lo)
 
 #--------------------------------------------------------------------------
+# Eat the INI file.
 
 
 def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
@@ -701,7 +702,7 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
         if errors:
             raise SystemExit('\n'.join(errors))
 
-    return FRDnodes, INImode
+    return FRDnodes, INImode, enc2U
 
 #--------------------------------------------------------------------------
 # An INI file is one of three forms.  [global] might have nvm_size_per_node
@@ -746,7 +747,7 @@ def load_book_data_ini(inifile):
     if FRDnodes is not None:        # That was easy, it's MFT or FAME
         INImode = BII.MODE_LZA
     else:
-        FRDnodes, INImode = parse_all_sections(
+        FRDnodes, INImode, enc2U = parse_all_sections(
             Gname, G, node_count, book_size_bytes, other_sections)
 
     # Idiot checks.
