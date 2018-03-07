@@ -1,36 +1,36 @@
-# The Librarian
+# The Librarian File System (LFS) Suite
 
-The Librarian is an application that runs on the Top of Rack Management
-Server (TORMS) and manages all the information associated with books and
-shelves.
+The Machine from HPE consists of a set of compute nodes that each host a portion of Fabric-Attached Memory (FAM).  The FAM of all nodes is combined into a global pool visible from any node.  In addition, a separate Top-of-Rack-Management Server (ToRMS) oversees and controls the hardware cluster.  Management of the FAM is behind the Linux file system API via a custom file system, LFS: the Librarian File System.  The name comes from the granularity of The Machine FAM: eight gigabyte "books" (contiguous sets of memory pages).  LFS manages books and collections of books between all the nodes.
 
-A book is the smallest NVM allocation unit the Libraraian handles. Each node will host a set of books managed by the Librarian.
+The Librarian is an application that runs on the TORMS and manages the metadata associated with LFS. The Librarian sees only metadata, never any actual book contents in FAM.  The Librarian keeps track of the cluster topology and book allocations in an SQL database, and communicates with a daemon on every node.
 
-A shelf is a management mechanism used by the Librarian to track a collection of books that can be accessed by a commonly-known "handle".  This information forms the metadata of the Librarian File System (LFS) seen by all nodes. The Librarian sees only metadata, never any actual book contents.  The LFS is a collection of shelves that can be seen by all nodes, where actual content data is managed in user processes.
+Each node presents the LFS to its Linux instance via a (file system) daemon. The LFS daemon (named lfs_fuse.py) manages the overall metadata by communicating with the Librarian over LAN.  As metadata operations should be a small fraction of operation, speed is not a primary concern.   Once metadata is established, the LFS daemon handles familiar open/close/truncate/read/write calls, and most specifically, mmap().   This is the real power of Fabric-Attached Memory: directly mapping FAM persistent storage into user process space.
 
-Each node presents the LFS to its Linux instance via a FuSE file system daemon. The LFS daemon (named lfs_fuse.py) manages the overall metadata by communicating with the Librarian over LAN.  As metadata operations should be a small fraction of operation, speed is not a primary concern.   Once metadata is established, the LFS daemon handles familiar open/close/truncate/read/write calls, and most specifically, mmap().   This is the real power of Fabric-Attached Memory: directly  mapping persistent storage into user process space.
+The Librarian is used in several environments:
 
+- Real Hardware with GenZ/NVM and Top of Rack Server present
+- Fabric-Attached Memory Emulation (FAME) (simulated NVM using ivshmem)
+- Future hardware (as experimental/demonstration concept)
+- HPE proprietary simulator for The Machine
 
-## Setup 
-To get the librarian onto the FAM Emulation ([FAME](https://github.com/FabricAttachedMemory/Emulation)) clone this repository:
+## Configuring the Librarian
+The Librarian needs a database which stores knows the topology and state of the cluster, namely
+* The number and (FAM NUMA) location of nodes
+* How much FAM is hosted by each node
+* Other optional information, mostly for true hardware
 
-    $ git clone https://github.com/FabricAttachedMemory/tm-librarian.git
-
-<!--
-I am not sure how this is done or who is running this, so it is commented out 
-
-* Install L4TM onto target system
-* Install Librarian package "apt-get install tm-librarian"
-* Create books .ini file describing desired NVM layout
-* Create initial books database using book_register.py utilty and .ini file
-* Start librarian.py server with newly created book database
--->
-
-First the configuration file (configfiles/book_data.ini) needs to be modified or initiated. This config file must mirror the FAME or physical hardware setup. If you are running FAME, the numbers must be consistent up to how the emulation_configure.bash was ran. Example for a 4 node FAME setup with a 16G backing store:
+The Machine organizes a maximum of ten nodes in a single enclosure, and a maximum of four enclosures in one instance.  Nodes 1-10 go in enclosure 1, 11-20 in enclosure 2, and so on.  The node population may be sparse.  Any topology is described in a configuration file in [legacy "INI" format](https://en.wikipedia.org/wiki/INI_file).  A very simple INI file follows; many values are extrapolated or defaulted from this file.
 
     [global]
     node_count = 4
-    book_size_bytes = 8M
+    book_size_bytes = 8G
+    bytes_per_node = 512B
+    
+This describes 4 nodes, numbered 1-4, given hostnames node01-node04 (a dense population of the first 4 slots in a single enclosure #1).  There are 512 books hosted by each node for a total of 4T of FAM per node, or 16T total.  Here is the same effect done in a more explicit form:
+
+    [global]
+    node_count = 4
+    book_size_bytes = 8G
 
     [node01]
     node_id = 1
@@ -48,20 +48,11 @@ First the configuration file (configfiles/book_data.ini) needs to be modified or
     node_id = 4
     nvm_size = 512B
 
-With this notation different nodes can have different memory sizes. A shorthand is also provided for when all the nodes have identical layouts. This is identical in function to the configuration above:
-    
-    [global]
-    node_count = 4
-    book_size_bytes = 8M
-    bytes_per_node = 4G
-
-Where:
-
-* [global]        - (STR) global section name
+* [global]        - (STR) global section name, always required
 * node_count      - (INT) total number of nodes
 * book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
-* [node##]        - (STR) unique section name
-* node_id         - (INT) unique global node ID for SoC
+* [node##]        - (STR) unique section name which doubles as the hostname of Linux on the SoC; not needed for short form when nvm_size_per_node is given
+* node_id         - (INT) unique global node ID for SoC (limit: 1-40, determines its location)
 * nvm_size        - (INT) total size of NVM hosted by node
 * bytes_per_node  - (INT) total NVM per node in bytes
 
@@ -72,128 +63,34 @@ book_size_bytes and nvm_size also support suffix multipliers:
 * T = TB (size * 1024 * 1024 * 1024 * 1024)
 * B = books (nvm_size only)    
 
-Assumptions:
+Finally, the database holding book metadata can be created using the setup script book_register.py.  By default the database lives at /var/hpetm/librarian.db:
 
-* "node_cnt" matches the number of "[node#]" sections present in file
-* "nvm_size" is a multiple of "book_size"
-* nodes are in increasing order based on "lza_base"
-* "lza_base" plus "nvm_size" does not overlap next node "lza_base"
-* there can be gaps between the end of one nodes NVM and the start of another nodes NVM
+    sudo mkdir -p /var/hpetm
+    sudo book_register.py -f -d /var/hpetm/librarian.db myconfig.ini
 
-Debian packaging of Librarian
+But first, the code needs to be downloaded somehow.
 
-* git clone https://some.where.com/tm-librarian.git
-* cd librarian
-* ensure you are on the master branch "git checkout master"
-* edit debian/changelog file and create new entry and increment version
-* create a git tag for the commit you want to package (ex: git tag -a v0.0.1 <commit>)
-* push the changelog and tag to gitlab master branch "git push origin master"
-* create the debian package "dpkg-buildpackage -tc"
-* packaged files will be located in the parent directory
-* copy the .deb, .dsc, .tar.gz and .changes files to 
-  hlinux-incoming.us.rdlabs.hpecorp.net
-  to the "/var/foreign/l4tm/pool/main/t/tm-librarian" directory
+## Obtaining the Librarian
 
-Next, the database holding book metadata must be created using the setup script (book_register.py), feeding it the configuration file (configfiles/book_data.ini) and the location and name of the database file to be created using the -d option. Example:
+The nodes run an image whose creation is elsewhere...The Librarian runs on the ToRMS on real hardware so its installation is handled via proprietary means.  If the setup is FAME, there are two major cases of the QEMU/KVM host:
 
-    ./book_register.py -d ~/librarian.db configfiles/book_data.ini
+1. "mostly Stretch" host (Debian 9.x, Ubuntu 16.04 or later)
+1. non-Debian host (CentOS or SLES)
 
-After this the database file is created and the librarian is ready to be used.
+### Debian-based FAME host
+
+1. [Run it from source](https://github.com/FabricAttachedMemory/tm-librarian)
+2. Pull down packages from public repo and dpkg -i
+
+### Non-Debian FAME host
+
+[Get the container](https://github.com/FabricAttachedMemory/librarian-container)
 
 ## Usage
 
 To run, simply run the librarian.py feeding it the location of the database file:
 
-    ./librarian.py --db_file ~/librarian.db
-
-## Environnments
-
-The Librarian will be used in several environments.
-
-* Fabric-Attached Memory Emulation (FAME) (simulated NVM using ivshmem)
-* TMAS with GenZ/NVM and Top of Rack Server implemented
-* Real Hardware with GenZ/NVM and Top of Rack Server present
-
-## Book Registration
-
-Books are physically-addressed entities in the GenZ fabric space.   Their location is dependent on the physical topology of a Machine instance: how many enclosures, how many nodes in each, how much NVM per node.  This is the source of the metadata needed by the Librarian.
-
-There is a process for registering books with the Librarian, actually creating an SQLite database for topology, shelf collections, ownership, etc.  In the long run this will be a more dynamic process with firmware on each node will supplying this info.  The current workflow is a static registration.
-
-Initially, a static file will be used to describe the NVM hosted by each node and a utility will be used to build an initial book database for use by the Librarian.  The data file will be in a basic "ini" file format, or for more fine-grained details beyond the scope of this discussion, a JSON format is available.
-
-The layout will consist of a global section which lists the total number of nodes and a book size, then a section for each node which lists the node ID, total NVM size and LZA base address for the NVM.
-
-Example 1:
-
-    [global]
-    node_count = 2
-    book_size_bytes = 8G
-
-    [node01]
-    node_id = 1
-    nvm_size = 512B
-
-    [node22]
-    node_id = 22
-    nvm_size = 512B
-
-The "B" in nvm_size refers to "books" of book_size_bytes.
-
-In The Machine prototype release, there can be up to four enclosures with
-ten nodes each.  Nodes are numbered from 1-40.  Nodes 1-10 are in 
-enclosure 1, and so on.  The node's physical location determines the GenZ
-address range served by that node.   book_register.py computes this
-data and initializes the Librarian database.
-
-There is also a short form that can be used if each node is symetric and
-there are no gaps in LZA addresses:
-
-Example 2:
-
-    [global]
-    node_count = 40
-    book_size_bytes = 8G
-    bytes_per_node = 4T
-
-Where:
-
-* [global]        - (STR) global section name
-* node_count      - (INT) total number of nodes
-* book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
-* [node##]        - (STR) unique section name
-* node_id         - (INT) unique global node ID for SoC
-* nvm_size        - (INT) total size of NVM hosted by node
-* bytes_per_node  - (INT) total NVM per node in bytes
-
-book_size_bytes and nvm_size also support suffix multipliers:
-
-* M = MB (size * 1024 * 1024)
-* G = GB (size * 1024 * 1024 * 1024)
-* T = TB (size * 1024 * 1024 * 1024 * 1024)
-* B = books (nvm_size only)    
-
-Assumptions:
-
-* "node_cnt" matches the number of "[node#]" sections present in file
-* "nvm_size" is a multiple of "book_size"
-* nodes are in increasing order based on "lza_base"
-* "lza_base" plus "nvm_size" does not overlap next node "lza_base"
-* there can be gaps between the end of one nodes NVM and the start of another nodes NVM
-
-Debian packaging of Librarian
-
-* git clone https://some.where.com/tm-librarian.git
-* cd librarian
-* ensure you are on the master branch "git checkout master"
-* edit debian/changelog file and create new entry and increment version
-* create a git tag for the commit you want to package (ex: git tag -a v0.0.1 <commit>)
-* push the changelog and tag to gitlab master branch "git push origin master"
-* create the debian package "dpkg-buildpackage -tc"
-* packaged files will be located in the parent directory
-* copy the .deb, .dsc, .tar.gz and .changes files to 
-  hlinux-incoming.us.rdlabs.hpecorp.net
-  to the "/var/foreign/l4tm/pool/main/t/tm-librarian" directory
+    ./librarian.py
 
 ## Librarian Server
 
@@ -244,15 +141,4 @@ or
 * Two
   * explicitly set the node's default allocation policy.  All shelf creations from this point get this policy.
   * create a shelf of the desired size.
-
-## Librarian supported commands
-
-The authoritative librarian command definition resides in the
-cmdproto.py file.
-
-## Database schema
-
-The authoritative librarian database schema definition resides in
-the book_register.py file. Some schema data is also replicated in the
-book_shelf_bos.py file.
 
