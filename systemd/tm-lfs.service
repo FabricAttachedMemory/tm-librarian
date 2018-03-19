@@ -1,0 +1,11 @@
+[Unit]
+Description=The Machine Librarian File System (LFS) daemon
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+EnvironmentFile=-/etc/default/tm-lfs
+ExecStart=/usr/bin/tm-lfs $OPT_ARGS
+
+[Install]
+WantedBy=multi-user.target
