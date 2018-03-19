@@ -1,14 +1,18 @@
 #!/bin/sh
 
+set -e
+set -u
+
 rm -rf /usr/lib/python3/dist-packages/tm_librarian/__pycache__
 rm -rf /usr/lib/python3/dist-packages/tm_librarian/tests/__pycache__
 
-deb-systemd-invoke stop tm-lfs
-deb-systemd-invoke disable tm-lfs
-deb-systemd-invoke stop tm-librarian
-deb-systemd-invoke disable tm-librarian
-deb-systemd-invoke stop tm-lmp
-deb-systemd-invoke disable tm-lmp
-systemctl daemon-reload
+for UNIT in tm-lfs tm-librarian tm-lmp; do
+    for ACTION in stop disable; do
+	deb-systemd-invoke $ACTION $UNIT || echo "Couldn't $ACTION $UNIT"
+    done
+done
+systemctl daemon-reload || echo "systemd daemon reload failed"
 
 #DEBHELPER#
+
+exit 0

@@ -1,4 +1,11 @@
-tm-librarian (1.35-1) unstable; urgency=medium
+tm-librarian (1.35-3) unstable; urgency=medium
+
+  * Subsume tm-utils and tm-lmp packages into tm-librarian
+  * Clean up some lintian warnings
+
+ -- Rocky Craig <rocky.craig@hpe.com>  Sat, 17 Mar 2018 14:42:42 -0600
+
+tm-librarian (1.35-2) unstable; urgency=medium
 
   * Uninitialized variable during MFT processing from tm-manifest setup tmconfig
 

@@ -1,1 +1,4 @@
-usr/lib/python3/dist-packages/tm_librarian/librarian.py usr/bin/librarian.py
+usr/lib/python3/dist-packages/tm_librarian/book_register.py usr/bin/tm-book-register
+usr/lib/python3/dist-packages/tm_librarian/fsck_lfs.py      usr/bin/fsck_lfs
+usr/lib/python3/dist-packages/tm_librarian/librarian.py     usr/bin/tm-librarian
+usr/lib/python3/dist-packages/tm_librarian/lmp.py           usr/bin/tm-lmp
