@@ -1,0 +1,59 @@
+.TH librarian.py "8" "2018" "The Machine" "Librarian File System central daemon"
+
+.SH NAME
+librarian.py \- Global daemon for the Librarian File System (LFS) for The Machine 
+
+.SH SYNOPSIS
+\fBlibrarian.py\fP [options] [arguments]
+
+.SH DESCRIPTION
+\fBlibrarian.py\fP is the central coordinating daemon for the distributed file
+system suite for nodes in The Machine from Hewlett Packard Enterprise.
+
+.SH OPTIONS
+.PP
+
+.TP
+-C, --config
+Use the specified file instead of /etc/tmms
+
+.TP
+-?
+Print a synopsis of all options and hints
+
+.TP
+-d
+Turn on debugging
+
+.TP
+-v
+Make it talk
+
+\fP
+.SH FILES
+Read on.
+
+.PP
+.TP
+/var/hpetm/librian.db
+Default location for the SQLite3 database produced from book_register.py
+
+.TP  
+/etc/default/tm-librarian
+Command-line arguments added during systemd invocation.
+
+.SH LOG FILES
+
+Various components generate their own (possibly rotating) log files.
+
+.PP
+.TP
+/var/log/librarian.log
+The main log file.
+
+.SH BUGS
+It's a prototype.  It tries to follow POSIX convention but is certainly
+NOT compliant.
+
+.SH SEE ALSO
+book_register.py fsck_lfs.py
