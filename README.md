@@ -26,7 +26,7 @@ The Machine organizes a maximum of ten nodes in a single enclosure, and a maximu
     book_size_bytes = 8G
     bytes_per_node = 512B
     
-This describes 4 nodes, numbered 1-4, given hostnames node01-node04 (a dense population of the first 4 slots in a single enclosure #1).  There are 512 books hosted by each node for a total of 4T of FAM per node, or 16T total.  Here is the same effect done in a more explicit form:
+This describes 4 nodes, numbered 1-4, given hostnames "node01" - "node04" (a dense population of the first 4 slots in a single enclosure #1).  There are 512 books hosted by each node for a total of 4T of FAM per node, or 16T total.  Here is the same effect done in a more explicit form:
 
     [global]
     node_count = 4
@@ -48,14 +48,7 @@ This describes 4 nodes, numbered 1-4, given hostnames node01-node04 (a dense pop
     node_id = 4
     nvm_size = 512B
 
-With this notation different nodes can have different memory sizes. A shorthand is also provided for when all the nodes have identical layouts. This is identical in function to the configuration above:
-    
-    [global]
-    node_count = 4
-    book_size_bytes = 8M
-    bytes_per_node = 4G
-
-Where:
+With this notation different nodes can have different memory sizes, node populations can be sparse, etc.  There are indeed NUMA considerations on the actual hardware but that is beyond the scope of this discussion.  The full set of recognized keywords:
 
 * [global]        - (STR) global section name
 * node_count      - (INT) total number of nodes
@@ -72,7 +65,7 @@ book_size_bytes and nvm_size also support suffix multipliers:
 * T = TB (size * 1024 * 1024 * 1024 * 1024)
 * B = books (nvm_size only)    
 
-Finally, the database holding book metadata can be created using the setup script book_register.py.  By default the database lives at /var/hpetm/librarian.db:
+Finally, the database holding book metadata can be created using the setup script book_register.py.  By default the database is expected to be found at /var/hpetm/librarian.db:
 
     sudo mkdir -p /var/hpetm
     sudo book_register.py -f -d /var/hpetm/librarian.db myconfig.ini
@@ -89,11 +82,13 @@ The nodes run an image whose creation is done elsewhere...The Librarian runs on 
 ### Debian-based FAME host
 
 1. [Run it from source](https://github.com/FabricAttachedMemory/tm-librarian)
-2. Pull down packages from public repo and dpkg -i
+2. Pull down packages from [the public repo](https://downloads.linux.hpe.com/SDR/repo/l4fame/) and dpkg -i
+    1. python3-tm-librarian.deb
+    1. tm-librarian.deb
 
 ### Non-Debian FAME host
 
-[Get the container](https://github.com/FabricAttachedMemory/librarian-container)
+[Get the container](https://github.com/FabricAttachedMemory/librarian-container) and run it according to instructions found on that website.
 
 ## Usage
 
@@ -128,7 +123,7 @@ Script | Function
 lfs_fuse.py|main librarian filesystem interface module
 book_shelf_bos.py|book, shelf, bos class and methods
 cmdproto.py|command definition for server and client
-lfs_daemon.py|common support routines encapsulated by different classes for different execution environments
+lfs_shadow.py|common support routines encapsulated by different classes for different execution environments
 
 ## Book Allocation Policies
 
@@ -140,14 +135,12 @@ See the man pages for attr(5), xattr(7), getfattr(1), getxattr(2).
 
 Policy is used in two fashions:
 
-* One
-  * create a shelf of zero length, it gets the node's default policy
-  * explicitly set the allocation policy
-  * allocate the desired amount of space
+* create a shelf of zero length, it gets the node's default policy
+* explicitly set the allocation policy
+* allocate the desired amount of space
 
 or 
 
-* Two
-  * explicitly set the node's default allocation policy.  All shelf creations from this point get this policy.
-  * create a shelf of the desired size.
+* explicitly set the node's default allocation policy.  All shelf creations from this point get this policy.
+* create a shelf of the desired size.
 
