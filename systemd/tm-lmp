@@ -1,0 +1,4 @@
+# Defaults for the tm-lmp systemd service (tm-librarian)
+
+# Set to optional arguments passed to LMP daemon
+OPT_ARGS=''
