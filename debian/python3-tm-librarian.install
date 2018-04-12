@@ -1,26 +1,26 @@
 #!/usr/bin/dh-exec
 
-backend_sqlite3.py		usr/lib/python3/dist-packages/tm_librarian
-book_policy.py			usr/lib/python3/dist-packages/tm_librarian
-book_register.py		usr/lib/python3/dist-packages/tm_librarian
-book_shelf_bos.py		usr/lib/python3/dist-packages/tm_librarian
-cmdproto.py			usr/lib/python3/dist-packages/tm_librarian
-engine.py			usr/lib/python3/dist-packages/tm_librarian
-frdnode.py			usr/lib/python3/dist-packages/tm_librarian
-fsck_lfs.py			usr/lib/python3/dist-packages/tm_librarian
-genericobj.py			usr/lib/python3/dist-packages/tm_librarian
-lfs_fuse.py			usr/lib/python3/dist-packages/tm_librarian
-lfs_shadow.py			usr/lib/python3/dist-packages/tm_librarian
-librarian.py			usr/lib/python3/dist-packages/tm_librarian
-repl_client.py			usr/lib/python3/dist-packages/tm_librarian
-socket_handling.py		usr/lib/python3/dist-packages/tm_librarian
-sqlassist.py			usr/lib/python3/dist-packages/tm_librarian
-sqlbackend.py			usr/lib/python3/dist-packages/tm_librarian
-tm_fuse.py			usr/lib/python3/dist-packages/tm_librarian
-tm_ioctl_opt.py			usr/lib/python3/dist-packages/tm_librarian
-lmp.py				usr/lib/python3/dist-packages/tm_librarian
-lmp_config.py			usr/lib/python3/dist-packages/tm_librarian
-tmconfig.py			usr/lib/python3/dist-packages/tm_librarian
+src/backend_sqlite3.py		usr/lib/python3/dist-packages/tm_librarian
+src/book_policy.py		usr/lib/python3/dist-packages/tm_librarian
+src/book_register.py		usr/lib/python3/dist-packages/tm_librarian
+src/book_shelf_bos.py		usr/lib/python3/dist-packages/tm_librarian
+src/cmdproto.py			usr/lib/python3/dist-packages/tm_librarian
+src/engine.py			usr/lib/python3/dist-packages/tm_librarian
+src/frdnode.py			usr/lib/python3/dist-packages/tm_librarian
+src/fsck_lfs.py			usr/lib/python3/dist-packages/tm_librarian
+src/genericobj.py		usr/lib/python3/dist-packages/tm_librarian
+src/lfs_fuse.py			usr/lib/python3/dist-packages/tm_librarian
+src/lfs_shadow.py		usr/lib/python3/dist-packages/tm_librarian
+src/librarian.py		usr/lib/python3/dist-packages/tm_librarian
+src/lmp.py			usr/lib/python3/dist-packages/tm_librarian
+src/lmp_config.py		usr/lib/python3/dist-packages/tm_librarian
+src/socket_handling.py		usr/lib/python3/dist-packages/tm_librarian
+src/sqlassist.py		usr/lib/python3/dist-packages/tm_librarian
+src/sqlbackend.py		usr/lib/python3/dist-packages/tm_librarian
+src/tm_fuse.py			usr/lib/python3/dist-packages/tm_librarian
+src/tm_ioctl_opt.py		usr/lib/python3/dist-packages/tm_librarian
+src/tmconfig.py			usr/lib/python3/dist-packages/tm_librarian
+
 tests/check-book.py		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/maptrap.c			usr/lib/python3/dist-packages/tm_librarian/tests
 tests/README			usr/lib/python3/dist-packages/tm_librarian/tests
@@ -29,6 +29,9 @@ tests/test_book_register.py	usr/lib/python3/dist-packages/tm_librarian/tests
 tests/test_code_format_pep8.py	usr/lib/python3/dist-packages/tm_librarian/tests
 tests/tm-fio-test.fio		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/check-ea.py		usr/lib/python3/dist-packages/tm_librarian/tests
+tests/repl_client.py		usr/lib/python3/dist-packages/tm_librarian/tests
+tests/script.txt		usr/lib/python3/dist-packages/tm_librarian/tests
+
 configfiles/book_data.ini	usr/lib/python3/dist-packages/tm_librarian/configfiles
 configfiles/book_max.ini	usr/lib/python3/dist-packages/tm_librarian/configfiles
 configfiles/fame.json		usr/lib/python3/dist-packages/tm_librarian/configfiles
