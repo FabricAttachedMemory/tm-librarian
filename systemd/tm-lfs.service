@@ -1,11 +1,11 @@
 [Unit]
-Description=TheMachine Librarian File System (LFS)
+Description=The Machine Librarian File System (LFS) daemon
 Requires=network-online.target
 After=network-online.target
 
 [Service]
 EnvironmentFile=-/etc/default/tm-lfs
-ExecStart=/usr/bin/lfs_fuse.py $OPT_ARGS
+ExecStart=/usr/bin/tm-lfs $OPT_ARGS
 
 [Install]
 WantedBy=multi-user.target

@@ -8,10 +8,10 @@ Each node presents the LFS to its Linux instance via a (file system) daemon. The
 
 The Librarian is used in several environments:
 
-- Real Hardware with GenZ/NVM and Top of Rack Server present
-- Fabric-Attached Memory Emulation (FAME) (simulated NVM using ivshmem)
+- Real Hardware with FAM behind a prototype of Gen-Z fabric.  A Top of Rack Server is present.
+- Fabric-Attached Memory Emulation (FAME) (simulated FAM using QEMU VMs as nodes and IVSHMEM)
 - Future hardware (as experimental/demonstration concept)
-- HPE proprietary simulator for The Machine
+- HPE proprietary simulator for The Machine (aka TMAS)
 
 ## Configuring the Librarian
 The Librarian needs a database which stores knows the topology and state of the cluster, namely
@@ -48,7 +48,16 @@ This describes 4 nodes, numbered 1-4, given hostnames node01-node04 (a dense pop
     node_id = 4
     nvm_size = 512B
 
-* [global]        - (STR) global section name, always required
+With this notation different nodes can have different memory sizes. A shorthand is also provided for when all the nodes have identical layouts. This is identical in function to the configuration above:
+    
+    [global]
+    node_count = 4
+    book_size_bytes = 8M
+    bytes_per_node = 4G
+
+Where:
+
+* [global]        - (STR) global section name
 * node_count      - (INT) total number of nodes
 * book_size_bytes - (INT) book size (M = Megabytes and G = Gigabytes)
 * [node##]        - (STR) unique section name which doubles as the hostname of Linux on the SoC; not needed for short form when nvm_size_per_node is given
@@ -72,7 +81,7 @@ But first, the code needs to be downloaded somehow.
 
 ## Obtaining the Librarian
 
-The nodes run an image whose creation is elsewhere...The Librarian runs on the ToRMS on real hardware so its installation is handled via proprietary means.  If the setup is FAME, there are two major cases of the QEMU/KVM host:
+The nodes run an image whose creation is done elsewhere...The Librarian runs on the ToRMS on real hardware so its installation is handled via proprietary means.  If the setup is FAME, there are two major cases of the QEMU/KVM host:
 
 1. "mostly Stretch" host (Debian 9.x, Ubuntu 16.04 or later)
 1. non-Debian host (CentOS or SLES)
@@ -88,9 +97,9 @@ The nodes run an image whose creation is elsewhere...The Librarian runs on the T
 
 ## Usage
 
-To run, simply run the librarian.py feeding it the location of the database file:
+To run, simply run the librarian.py and give it the location of the database file (if not using the above default):
 
-    ./librarian.py
+    ./librarian.py /path/to/librarian.db
 
 ## Librarian Server
 
