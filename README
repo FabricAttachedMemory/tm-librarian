@@ -2,12 +2,19 @@
 
 The "upstream" branch of this repo contains the source code and detailed
 documentation.  This branch is meant to be combined with "upstream" to
-create Debian packages.
+create Debian packages.  In particular, a "debian/gbp.conf" exists to 
+control the execution of gbp-buildpackage.
 
-To make the packages,
+To make the packages python3-tm-librarian, tm-librarian, and tm-lfs:
 
-1. More
-1. details
-1. will
-1. follow
-1. soon
+1. Check for ~/.gbp.conf or ~/.devscripts as they may contain conflicting settings.
+1. Insure there is no "master" branch
+1. Checkout the debian branch via "git checkout debian --"
+1. Create a "master" branch from "debian" via "git checkout --orphan master"
+1. Merge the upstream branch
+1. Build the binary package(s) via
+   gbp-buildpackage -b -us -uc -i
+
+   Note: the options are passed to debuild(1) which can also be used here:
+1. The package files are in /tmp/gbp4hpe
+1. Clean up with "git checkout debian -- && git branch -D master"
