@@ -1,11 +1,11 @@
 Debian packaging for The Librarian File System (LFS) Suite
 
 The "upstream" branch of this repo contains the source code and detailed
-documentation.  This branch is meant to be combined with "upstream" to
-create Debian packages.  In particular, a "debian/gbp.conf" exists to 
-control some of the execution of gbp-buildpackage.
+documentation.  This "debian" branch is to be combined with "upstream" to
+enable creation Debian packages.  In particular, a "debian/gbp.conf" exists
+to control some of the execution of gbp-buildpackage.
 
-To make the packages python3-tm-librarian, tm-librarian, and tm-lfs:
+To make the binary packages python3-tm-librarian, tm-librarian, and tm-lfs:
 
 1. Check for ~/.gbp.conf or ~/.devscripts as they may contain conflicting settings.
 2. Insure there is no "master" branch
@@ -23,10 +23,9 @@ To make the packages python3-tm-librarian, tm-librarian, and tm-lfs:
 
 6. Build the binary package(s) via
 
-   	$ gbp buildpackage -b -us -uc -i
+   	$ gbp buildpackage
 
-   Per "man gbp-buildpackages" the options are passed to debuild(1) The
-   package files are in /tmp/gbp4hpe (as specified in debian/gbp.conf)
+   The package files are in /tmp/gbp4hpe (as specified in debian/gbp.conf)
 
 7. Clean up with
 
