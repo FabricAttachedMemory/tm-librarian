@@ -2,31 +2,36 @@ Debian packaging for The Librarian File System (LFS) Suite
 
 The "upstream" branch of this repo contains the source code and detailed
 documentation.  This "debian" branch is to be combined with "upstream" to
-enable creation Debian packages.  In particular, a "debian/gbp.conf" exists
-to control some of the execution of gbp-buildpackage.
+enable the creation of Debian packages.  In particular, a "debian/gbp.conf"
+exists to control the execution of gbp-buildpackage.  Per "man gbp.conf"
+it should override any system-wide or personal settings.
 
 To make the binary packages python3-tm-librarian, tm-librarian, and tm-lfs:
 
-1. Check for ~/.gbp.conf or ~/.devscripts as they may contain conflicting settings.
-2. Insure there is no "master" branch
-3. Start from the debian branch:
+1. Check for ~/.devscripts as it may contain conflicting settings, particularly
+   the DEBUILD_DPKG_BUILDPACKAGE_OPTS variable.  "man debuild" has more info.
+   Rename or remove the file if you are unsure of its interaction.
 
-	$ git checkout debian --
+2. Start from the "debian" branch and insure there is no "master" branch:
 
-4. Create a "master" branch from "debian":
+	$ git checkout debian -- && git branch -D master
+
+3. Create a fresh "master" branch from the current "debian":
 
 	$ git checkout --orphan master
 
-5. Merge the upstream branch:
+   This also switches to that new "master".
+
+4. Merge the "upstream" branch into "master":
 
 	$ git merge upstream
 
-6. Build the binary package(s) via
+5. Build the binary package(s) via
 
    	$ gbp buildpackage
 
-   The package files are in /tmp/gbp4hpe (as specified in debian/gbp.conf)
+If it works, the package files are in /tmp/gbp4hpe (see debian/gbp.conf)
 
-7. Clean up with
+For a great reference to the build toolchain, have a look at
 
-	$ git checkout debian -- && git branch -D master
+https://people.debian.org/~stapelberg/2016/11/25/build-tools.html
