@@ -4,8 +4,8 @@
 # the Debian precedent.  The first package is all the Python scripts, and the following
 # packages tm-librarian and tm-lfs and ToRMS and node configurations, respectively.
 
-# This definition is about file locations
-%define mypath	tm-librarian
+# This definition is about file locations.  "global" is a fixed assignment, now.
+%global pathbase tm-librarian
 
 Name:		python3-tm-librarian
 Summary:	Python3 files for The Machine from HPE
@@ -13,7 +13,7 @@ Version:	1.35
 Release:	3
 
 # Buildroot aligns with debian/gbp.conf
-Buildroot:	/tmp/gbp4hpe/%{mypath}-%{version}
+Buildroot:	/tmp/gbp4hpe/%{pathbase}-%{version}
 License:	see /usr/share/doc/tm-librarian/copyright
 Distribution:	RPM-based
 Group:		System Environment/Daemons
@@ -33,9 +33,10 @@ Top of Rack Management Server (ToRMS)
 
 # SLES and CentOS don't have this generic directory, they use the actual 
 # Python version.  Since the programs are done via symlinks in /usr/bin
-# just hardcode this for now. %{buildroot} == $RPM_BUILD_ROOT
+# just hardcode this for now. %{buildroot} == $RPM_BUILD_ROOT.  "define"
+# defers to each runtime invocation, ie, deferred evaluation.
 
-%define mybuild %{buildroot}/usr/lib/python3/dist-packages/%{mypath}
+%define thisbuild %{buildroot}/usr/lib/python3/dist-packages/%{pathbase}
 
 ###########################################################################
 
@@ -80,11 +81,12 @@ fi
 if [ "$RPM_BUILD_ROOT" != "/" ]; then
 	rm -rf $RPM_BUILD_ROOT
 fi
-mkdir -p %{mybuild}	# It's under $RPM_BUILD_ROOT, see the define
+mkdir -p %{thisbuild}	# It's under $RPM_BUILD_ROOT, see the define
 
 # I think I'm at the top of the git repo...
 
-cp -avr *.py configfiles systemd tests %{mybuild}
+cp -av src/*.py %{thisbuild}
+cp -avr *.py configfiles docs systemd templates tests %{thisbuild}
 
 ###########################################################################
 %post -n tm-librarian
