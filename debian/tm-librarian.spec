@@ -13,7 +13,6 @@ Version:	1.35
 Release:	3
 
 # Buildroot aligns with debian/gbp.conf
-Buildroot:	/tmp/gbp4hpe/%{pathbase}-%{version}
 License:	see /usr/share/doc/tm-librarian/copyright
 Distribution:	RPM-based
 Group:		System Environment/Daemons
@@ -21,6 +20,7 @@ Packager: 	Advanced Software Development, Ft. Collins CO
 Vendor:		Hewlett Packard Enterprise
 URL:		http://www.hpe.com/TheMachine
 requires:	python3
+buildarch:	noarch
 
 %description
 Executable and library code for tm-librarian and tm-lfs, both per-node and
@@ -31,12 +31,24 @@ Top of Rack Management Server (ToRMS)
 %define _rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm
 %define _unpackaged_files_terminate_build 0
 
-# SLES and CentOS don't have this generic directory, they use the actual 
+# Override defaults that show up in $HOME.  In particular, since I don't
+# have a source tarball in .../SOURCE, repoint things here.
+
+%define _topdir %{getenv:PWD}
+
+# Scriptlet wrappers cd here just before invoking %scripts:
+# builddir == source
+%define _builddir %{_topdir}
+
+# Not sure why kicking _buildrootdir doesn't propagate to this
+%define buildroot %{_topdir}/FSOVERLAY
+
+# SLES and CentOS don't have this generic directory; they use the actual 
 # Python version.  Since the programs are done via symlinks in /usr/bin
 # just hardcode this for now. %{buildroot} == $RPM_BUILD_ROOT.  "define"
 # defers to each runtime invocation, ie, deferred evaluation.
 
-%define thisbuild %{buildroot}/usr/lib/python3/dist-packages/%{pathbase}
+%define targetdir %{buildroot}/usr/lib/python3/dist-packages/%{pathbase}
 
 ###########################################################################
 
@@ -73,6 +85,16 @@ to connect with a Librarian cental daemon.
 # Main package python3-tm-librarian, just the files
 %install
 
+# Last thing the scriptlet wrapper did was a cd....
+
+env | grep RPM | sort
+/bin/pwd
+ls -CF
+echo PWD = %{PWD}
+echo _builddir = %{_builddir}
+echo _topdir = %{_topdir}
+echo targetdir = %{targetdir}
+
 if [ -z "$RPM_BUILD_ROOT" -o "$RPM_BUILD_ROOT" = "/" ]; then
 	echo Bad RPM_BUILD_ROOT >&2
 	exit 99
@@ -81,12 +103,14 @@ fi
 if [ "$RPM_BUILD_ROOT" != "/" ]; then
 	rm -rf $RPM_BUILD_ROOT
 fi
-mkdir -p %{thisbuild}	# It's under $RPM_BUILD_ROOT, see the define
+mkdir -p %{targetdir}	# It's under $RPM_BUILD_ROOT, see the define
 
 # I think I'm at the top of the git repo...
 
-cp -av src/*.py %{thisbuild}
-cp -avr *.py configfiles docs systemd templates tests %{thisbuild}
+cp -av src/*.py %{targetdir}
+cp -avr *.py configfiles docs systemd templates tests %{targetdir}
+
+exit 0
 
 ###########################################################################
 %post -n tm-librarian
