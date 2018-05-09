@@ -4,13 +4,16 @@
 # the Debian precedent.  The first package is all the Python scripts, and the following
 # packages tm-librarian and tm-lfs and ToRMS and node configurations, respectively.
 
+# This definition is about file locations
+%define mypath	tm-librarian
+
 Name:		python3-tm-librarian
 Summary:	Python3 files for The Machine from HPE
 Version:	1.35
 Release:	3
 
 # Buildroot aligns with debian/gbp.conf
-Buildroot:	/tmp/gbp4hpe/tm-librarian-%{version}
+Buildroot:	/tmp/gbp4hpe/%{mypath}-%{version}
 License:	see /usr/share/doc/tm-librarian/copyright
 Distribution:	RPM-based
 Group:		System Environment/Daemons
@@ -27,6 +30,12 @@ Top of Rack Management Server (ToRMS)
 %define _rpmdir ../
 %define _rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm
 %define _unpackaged_files_terminate_build 0
+
+# SLES and CentOS don't have this generic directory, they use the actual 
+# Python version.  Since the programs are done via symlinks in /usr/bin
+# just hardcode this for now. %{buildroot} == $RPM_BUILD_ROOT
+
+%define mybuild %{buildroot}/usr/lib/python3/dist-packages/%{mypath}
 
 ###########################################################################
 
@@ -54,11 +63,13 @@ Librarian File System (LFS) daemon for each node in The Machine.  It needs
 to connect with a Librarian cental daemon.
 
 ###########################################################################
+# None of the packages have these sections
 # %prep
 # %setup
 # %build
 
 ###########################################################################
+# Main package python3-tm-librarian, just the files
 %install
 
 if [ -z "$RPM_BUILD_ROOT" -o "$RPM_BUILD_ROOT" = "/" ]; then
@@ -69,5 +80,15 @@ fi
 if [ "$RPM_BUILD_ROOT" != "/" ]; then
 	rm -rf $RPM_BUILD_ROOT
 fi
-mkdir -p $RPM_BUILD_ROOT
+mkdir -p %{mybuild}	# It's under $RPM_BUILD_ROOT, see the define
+
+# I think I'm at the top of the git repo...
+
+cp -avr *.py configfiles systemd tests %{mybuild}
+
+###########################################################################
+%post -n tm-librarian
+
+###########################################################################
+%post -n tm-lfs
 
