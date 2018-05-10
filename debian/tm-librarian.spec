@@ -41,9 +41,6 @@ Top of Rack Management Server (ToRMS)
 
 %define _builddir "%{_topdir}"
 
-# SLES12.  CentOS does something else.
-%define usrlocalman8 /usr/local/man/man8
-
 # SLES and CentOS don't have this generic directory; they use the actual 
 # Python version.  Since the programs are done via symlinks in /usr/bin
 # just hardcode this for now.  "define" is per-use deferred evaluation,
@@ -103,6 +100,8 @@ mkdir -p %{_rpmdir}	# If no --buildir is used, this is automagic
 
 %install
 
+set -u
+
 # Last thing the scriptlet wrapper did was a cd $RPM_BUILD_DIR
 
 if true; then
@@ -127,9 +126,31 @@ mkdir -p %{targetdir}	# It's under $RPM_BUILD_ROOT, see the define
 
 cp -ar src/*.py configfiles templates tests %{targetdir}
 
+#--------------------------------------------------------------------------
+# Other files.  Define a (global) macro for use here and in %files/
+# Man pages, SLES12 style.  CentOS does something else.
+
+%define usrlocalman8 /usr/local/man/man8
 MANDIR=$RPM_BUILD_ROOT%{usrlocalman8}
 mkdir -p $MANDIR
 cp -ar docs/*.8 $MANDIR
+
+# Default config files for systemd scripts.  SLES does indeed have this.
+
+%define etcdefault /etc/default
+ETCDEFAULT=$RPM_BUILD_ROOT%{etcdefault}
+mkdir -p $ETCDEFAULT
+for F in tm-lfs tm-librarian tm-lmp; do
+	cp -a systemd/$F $ETCDEFAULT
+done
+
+# Systemd script files, different from Debian's /lib/systemd/system
+%define systemdsystem /usr/lib/systemd/system
+SYSTEMDSYSTEM=$RPM_BUILD_ROOT%{systemdsystem}	# not RPM_BUILD_DIR
+mkdir -p $SYSTEMDSYSTEM
+for F in tm-lfs tm-librarian tm-lmp; do
+	cp -a systemd/$F.service $SYSTEMDSYSTEM
+done
 
 ###########################################################################
 # Alien spec delineated each file.  I'm lazy.
@@ -172,19 +193,53 @@ else
 fi
 
 ###########################################################################
-%files -n tm-librarian
+%post -n tm-librarian
 
-# Sure, give them all the files
-%{usrlocalman8}
+ln -sf %{distpackages}/fsck_lfs.py /usr/bin/fsck_lfs
+ln -sf %{distpackages}/book_register.py /usr/bin/tm-book-register
+ln -sf %{distpackages}/librarian.py /usr/bin/tm-librarian
+ln -sf %{distpackages}/lmp.py /usr/bin/tm-lmp
 
 ###########################################################################
-%post -n tm-librarian
+%postun -n tm-librarian
+
+# FIXME: get those symlinks
+:
+
+###########################################################################
+%files -n tm-librarian
+
+# Sure, give them all the man pages
+%{usrlocalman8}
+
+%config %{etcdefault}/tm-librarian
+%config %{etcdefault}/tm-lmp
+
+%{systemdsystem}/tm-librarian.service
+%{systemdsystem}/tm-lmp.service
+
+%{distpackages}/templates
+
+# Not the /usr/bin files, see %post
+
+###########################################################################
+%post -n tm-lfs
+
+ln -sf %{distpackages}/lfs_fuse.py /usr/bin/tm-lfs
+
+###########################################################################
+%postun -n tm-lfs
+
+# FIXME: get those symlinks
+:
 
 ###########################################################################
 %files -n tm-lfs
 
 %{usrlocalman8}/tm-lfs.8
 
-###########################################################################
-%post -n tm-lfs
+%config %{etcdefault}/tm-lfs
 
+%{systemdsystem}/tm-lfs.service
+
+# Not the /usr/bin files, see %post
