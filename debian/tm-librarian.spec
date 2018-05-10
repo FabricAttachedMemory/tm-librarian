@@ -41,6 +41,9 @@ Top of Rack Management Server (ToRMS)
 
 %define _builddir "%{_topdir}"
 
+# SLES12.  CentOS does something else.
+%define usrlocalman8 /usr/local/man/man8
+
 # SLES and CentOS don't have this generic directory; they use the actual 
 # Python version.  Since the programs are done via symlinks in /usr/bin
 # just hardcode this for now.  "define" is per-use deferred evaluation,
@@ -122,7 +125,11 @@ mkdir -p %{targetdir}	# It's under $RPM_BUILD_ROOT, see the define
 
 # PWD == top of the git repo
 
-cp -ar src/*.py configfiles docs systemd templates tests %{targetdir}
+cp -ar src/*.py configfiles templates tests %{targetdir}
+
+MANDIR=$RPM_BUILD_ROOT%{usrlocalman8}
+mkdir -p $MANDIR
+cp -ar docs/*.8 $MANDIR
 
 ###########################################################################
 # Alien spec delineated each file.  I'm lazy.
@@ -165,7 +172,18 @@ else
 fi
 
 ###########################################################################
+%files -n tm-librarian
+
+# Sure, give them all the files
+%{usrlocalman8}
+
+###########################################################################
 %post -n tm-librarian
+
+###########################################################################
+%files -n tm-lfs
+
+%{usrlocalman8}/tm-lfs.8
 
 ###########################################################################
 %post -n tm-lfs
