@@ -5,14 +5,13 @@
 # packages tm-librarian and tm-lfs and ToRMS and node configurations, respectively.
 
 # This definition is about file locations.  "global" is a fixed assignment, now.
-%global pathbase tm-librarian
+%global pathbase tm_librarian
 
 Name:		python3-tm-librarian
 Summary:	Python3 files for The Machine from HPE
 Version:	1.35
 Release:	3
 
-# Buildroot aligns with debian/gbp.conf
 License:	see /usr/share/doc/tm-librarian/copyright
 Distribution:	RPM-based
 Group:		System Environment/Daemons
@@ -26,29 +25,37 @@ buildarch:	noarch
 Executable and library code for tm-librarian and tm-lfs, both per-node and
 Top of Rack Management Server (ToRMS)
 
-# Taken from "alien -g".  The relative reference is to %buildroot
-%define _rpmdir ../
-%define _rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm
-%define _unpackaged_files_terminate_build 0
-
-# Override defaults that show up in $HOME.  In particular, since I don't
-# have a source tarball in .../SOURCE, repoint things here.
+# By default (/usr/lib/rpm/macros) this is $HOME/rpmbuild.  In particular,
+# since I don't have a source tarball in .../SOURCE, repoint things here 
+# (top of git repo).  Kicking buildroot[dir] in here does not propagate 
+# into the %files section, evaluations must be occurring in a weird order.
+# Setting these dirs does work from the command line:
+# --buildroot $PWD/BUILDROOT (keep the legacy name).  It will be deleted
+# unless --noclean is also specified.  --buildroot is not needed here.
 
 %define _topdir %{getenv:PWD}
 
-# Scriptlet wrappers cd here just before invoking %scripts:
-# builddir == source
-%define _builddir %{_topdir}
+# Scriptlet wrappers cd here (aka RPM_BUILD_DIR) just before %scripts:
+# builddir == source material after raw source has been "built", a noop here.
+# Do NOT run py3compile here as the build system Python != delivery system.
 
-# Not sure why kicking _buildrootdir doesn't propagate to this
-%define buildroot %{_topdir}/FSOVERLAY
+%define _builddir "%{_topdir}"
 
 # SLES and CentOS don't have this generic directory; they use the actual 
 # Python version.  Since the programs are done via symlinks in /usr/bin
-# just hardcode this for now. %{buildroot} == $RPM_BUILD_ROOT.  "define"
-# defers to each runtime invocation, ie, deferred evaluation.
+# just hardcode this for now.  "define" is per-use deferred evaluation,
+# vs %global.
 
-%define targetdir %{buildroot}/usr/lib/python3/dist-packages/%{pathbase}
+%define distpackages /usr/lib/python3/dist-packages/%{pathbase}
+%define targetdir %{buildroot}%{distpackages}
+
+# Taken (mostly) from "alien -g".  The relative reference is to %buildrootdir
+# which is one level up from the --buildroot cmdline option.  In this
+# setup it's the same as topdir.  Hmmm maybe that's not such a hot idea...
+
+%define _rpmdir ./RPMS
+%define _rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm
+%define _unpackaged_files_terminate_build 0
 
 ###########################################################################
 
@@ -76,41 +83,86 @@ Librarian File System (LFS) daemon for each node in The Machine.  It needs
 to connect with a Librarian cental daemon.
 
 ###########################################################################
-# None of the packages have these sections
-# %prep
+%prep
+
+# This is not really needed until the %files stage.  rpmbuild will make
+# all the dirs by default in $HOME/rpmbuild/(SOURCE, BUILD, etc) but only
+# makes BUILDROOT if things are changed via --buildroot.
+
+mkdir -p %{_rpmdir}	# If no --buildir is used, this is automagic
+
+###########################################################################
 # %setup
 # %build
 
 ###########################################################################
-# Main package python3-tm-librarian, just the files
+# Main package python3-tm-librarian, just the files.
+
 %install
 
-# Last thing the scriptlet wrapper did was a cd....
+# Last thing the scriptlet wrapper did was a cd $RPM_BUILD_DIR
 
-env | grep RPM | sort
-/bin/pwd
-ls -CF
-echo PWD = %{PWD}
-echo _builddir = %{_builddir}
-echo _topdir = %{_topdir}
-echo targetdir = %{targetdir}
+if true; then
+	env | grep RPM | sort
+	/bin/pwd
+	ls -CF
+	echo PWD = %{PWD}
+	echo _builddir = %{_builddir}
+	echo _topdir = %{_topdir}
+	echo targetdir = %{targetdir}
+fi
 
+# sync sync sync, aka legacy paranoia
 if [ -z "$RPM_BUILD_ROOT" -o "$RPM_BUILD_ROOT" = "/" ]; then
 	echo Bad RPM_BUILD_ROOT >&2
 	exit 99
 fi
-
-if [ "$RPM_BUILD_ROOT" != "/" ]; then
-	rm -rf $RPM_BUILD_ROOT
-fi
+rm -rf $RPM_BUILD_ROOT
 mkdir -p %{targetdir}	# It's under $RPM_BUILD_ROOT, see the define
 
-# I think I'm at the top of the git repo...
+# PWD == top of the git repo
 
-cp -av src/*.py %{targetdir}
-cp -avr *.py configfiles docs systemd templates tests %{targetdir}
+cp -ar src/*.py configfiles docs systemd templates tests %{targetdir}
 
-exit 0
+###########################################################################
+# Alien spec delineated each file.  I'm lazy.
+
+%files
+%defattr(-, root, root)
+%{distpackages}
+
+###########################################################################
+# Stolen from alien spec
+
+%post
+
+if which py3compile >/dev/null 2>&1; then
+	cd %{distpackages}/..
+        py3compile -p %{pathbase} -V 3.2-
+fi
+
+###########################################################################
+# Stolen from alien spec
+
+%preun
+find "%{distpackages}" -type d -name __pycache__ | while read D; do
+	rm -rf "$D"
+done
+
+for UNIT in tm-lfs tm-librarian tm-lmp; do
+    for ACTION in stop disable; do
+        systemctl $ACTION $UNIT || echo "Couldn't $ACTION $UNIT" >&2
+    done
+done
+systemctl daemon-reload || echo "systemctl daemon-reload failed" >&2
+
+if which py3clean >/dev/null 2>&1; then
+	cd %{distpackages}/..
+        py3clean -p %{pathbase} -V 3.2-
+else
+	# Big messy inline perl mess.  JSN.
+	:
+fi
 
 ###########################################################################
 %post -n tm-librarian
