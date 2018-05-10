@@ -12,12 +12,12 @@ Summary:	Python3 files for The Machine from HPE
 Version:	1.35
 Release:	3
 
-License:	see /usr/share/doc/tm-librarian/copyright
+License:	GPLv2
 Distribution:	RPM-based
 Group:		System Environment/Daemons
 Packager: 	Advanced Software Development, Ft. Collins CO
 Vendor:		Hewlett Packard Enterprise
-URL:		http://www.hpe.com/TheMachine
+URL:		http://www.github.com/FabricAttachedMemory
 requires:	python3
 buildarch:	noarch
 
@@ -200,13 +200,25 @@ ln -sf %{distpackages}/book_register.py /usr/bin/tm-book-register
 ln -sf %{distpackages}/librarian.py /usr/bin/tm-librarian
 ln -sf %{distpackages}/lmp.py /usr/bin/tm-lmp
 
-###########################################################################
+systemctl daemon-reload || echo "systemctl daemon-reload failed" >&2
+
+systemctl enable tm-librarian tm-lmp
+[ -f /var/hpetm/librarian.db ] && systemctl start tm-librarian tm-lmp || true
+
+#--------------------------------------------------------------------------
+%preun -n tm-librarian
+
+systemctl stop tm-librarian tm-lmp
+systemctl disable tm-librarian tm-lmp
+
+#--------------------------------------------------------------------------
 %postun -n tm-librarian
 
-# FIXME: get those symlinks
-:
+for f in fsck_lfs tm-book-register tm-librarian tm-lmp; do
+	unlink /usr/bin/$f || true
+done
 
-###########################################################################
+#--------------------------------------------------------------------------
 %files -n tm-librarian
 
 # Sure, give them all the man pages
@@ -227,13 +239,25 @@ ln -sf %{distpackages}/lmp.py /usr/bin/tm-lmp
 
 ln -sf %{distpackages}/lfs_fuse.py /usr/bin/tm-lfs
 
-###########################################################################
+systemctl daemon-reload || echo "systemctl daemon-reload failed" >&2
+
+systemctl enable tm-lfs
+systemctl start tm-lfs
+
+#--------------------------------------------------------------------------
+%preun -n tm-lfs
+
+systemctl stop tm-lfs
+systemctl disable tm-lfs
+
+#--------------------------------------------------------------------------
 %postun -n tm-lfs
 
-# FIXME: get those symlinks
-:
+for f in tm-lfs; do
+	unlink /usr/bin/$f || true
+done
 
-###########################################################################
+#--------------------------------------------------------------------------
 %files -n tm-lfs
 
 %{usrlocalman8}/tm-lfs.8
