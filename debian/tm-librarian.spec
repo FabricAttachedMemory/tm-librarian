@@ -61,7 +61,7 @@ Top of Rack Management Server (ToRMS)
 
 %package -n tm-librarian
 
-Summary:	Librarian for The Machine from HPE
+Summary:	Librarian daemon for The Machine from HPE
 Group:		System Environment/Daemons
 Requires:	%{name}
 
@@ -74,7 +74,7 @@ The LFS Management Protocol (LMP) is also configured with this package.
 
 %package -n tm-lfs
 
-Summary:	Librarian for The Machine from HPE
+Summary:	LFS per-node daemon for The Machine from HPE
 Group:		System Environment/Daemons
 Requires:	%{name}
 
