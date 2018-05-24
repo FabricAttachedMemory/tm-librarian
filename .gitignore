@@ -1,6 +1,0 @@
-*.db
-__pycache__
-*.pyc
-*.swp
-**/build/
-RPMS
