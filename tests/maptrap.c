@@ -48,7 +48,7 @@
 
 #include <sys/time.h>
 
-#define _GNU_SOURCE
+#define _GNU_SOURCE	// man 3 CPU_SET
 #include <sched.h>
 
 #ifndef PAGE_SIZE
@@ -63,7 +63,7 @@
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
 	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
-	    jumparound, HTpercore, HTspan;
+	    jumparound;
 	long loop;
 	unsigned int *mapped, *last_byte, hiperf, seconds, proceed;
 	unsigned long flags, access_offset;
@@ -77,7 +77,8 @@ struct tvals_t {
 ///////////////////////////////////////////////////////////////////////////
 // globals
 
-static int prompt_arg = 0, nLinuxCPUs = 0, verbose = 0;
+static int prompt_arg = 0, verbose = 0,
+    nLinuxCPUs = 0, nSockets = 0, nCoresPerSocket = 0, nThreadsPerCore = 0;
 static pthread_barrier_t barrier;
 static pthread_t golden1 = 0;
 struct timespec start, stop;
@@ -114,8 +115,8 @@ void prompt(char *fmt, ...)
 void usage() {
     fprintf(stderr,
     	"usage: maptrap <-P|-S> [-c:CfFH:l:L:moOprRs:t:T:uw:W ] filename\n");
+    fprintf(stderr, "\t-S    MAP_SHARED (default)\n\n");
     fprintf(stderr, "\t-P    MAP_PRIVATE\n");
-    fprintf(stderr, "\t-S    MAP_SHARED\n\n");
     fprintf(stderr, "\t-c 1  create/populate the file via write(2)\n");
     fprintf(stderr, "\t-c 2     \"       \"     \"   \"    \"  ftruncate(2)\n");
     fprintf(stderr, "\t-c 3     \"       \"     \"   \"    \"  truncate(2)\n");
@@ -133,8 +134,6 @@ void usage() {
     fprintf(stderr, "\t   7  cacheline walk LD-ST in 1st 2G of a file (chunk)\n");
     fprintf(stderr, "\t   8  random LD            in 1st 2G of a file\n");
     fprintf(stderr, "\t   9  random LD-incr-ST    in 1st 2G of a file\n");
-    fprintf(stderr, "\t-Hx,y Hyperthread info: x=HT/core, y=core-to-core span\n");
-    fprintf(stderr, "\t      TM with HT: -H 4,4    w/o HT: -H 1,1 (default)\n");
     fprintf(stderr, "\t-j    jump around (random access across entire file)\n");
     fprintf(stderr, "\t-l n  loop n times (default 1)\n");
     fprintf(stderr, "\t-L n  loop for n seconds (default: unused, see -l)\n");
@@ -149,7 +148,7 @@ void usage() {
     fprintf(stderr, "\t-t n  size of file for (f)truncate (default 16M)\n");
     fprintf(stderr, "\t-T n  number of threads (default 1)\n");
     fprintf(stderr, "\t      'ALL' will get the max %d\n", nLinuxCPUs);
-    fprintf(stderr, "\t      'CORES' will get one thread per core (use -H)\n");
+    fprintf(stderr, "\t      'CORES' will get one thread per core\n");
     fprintf(stderr, "\t-u    suppress final munmap()\n");
     fprintf(stderr, "\t-v    increase verbosity (might hurt performance)\n");
     fprintf(stderr, "\t-w n  walk the entire space, stride n, obey -l|-L\n");
@@ -407,22 +406,23 @@ void *payload(void *threadarg)
     }
     if (myindex >= tvals->nthreads) die("Cannot find my TID\n");
 
-    // HTpercore and HTspan are an assist to fill all cores with Linux threads
-    // before engaging hypterthreads.  In TM there are 4 threads per core and
+    // In TM there are 4 threads per core (if enabled) and only
     // one socket.  So Linux logical CPU 0-3 is core 0 HT 0-3 and so on, as
     // verified via "ps -mo pid,tid,fname,user,psr -p `pgrep maptrap`".
     // Thus the core-major, HT-minor approach is Linux affinity 0,4,8...124
     // for the first 32 threads, then 1,5,9...125 for the next 32 and so on.
 
-    ncores = nLinuxCPUs / tvals->HTpercore;
-    LinuxCPU = ((myindex % ncores) * tvals->HTspan) + (myindex / ncores);
+    ncores = nSockets * nCoresPerSocket;
+    LinuxCPU = myindex; 	// Is this always true?
     if (verbose)	// also use -L1 to see this
     	printf("ncores %d index %d cpu %u\n", ncores, myindex, LinuxCPU);
 
     CPU_ZERO(&cpuset);
     CPU_SET(LinuxCPU, &cpuset);
-    if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1)
-    	die("setaffinity() failed: %s", strerror(errno));
+    if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == -1) {
+    	perror("pthread_setaffinity_np() failed");
+	return NULL;
+    }
     usleep(50000);	// force a reschedule and allow affinity to kick in
 
     // Let the thread startup settle and start the clock.
@@ -578,28 +578,57 @@ long bignum(char const *instr, int Tsigned_Funsigned) {
 }
 
 ///////////////////////////////////////////////////////////////////////////
+// Be lazy, lscpu has done a lot of work.
+
+char *filterlscpu = "lscpu | awk '"
+	"BEGIN {S=CPS=TPC=41}"
+	"/^Core.s. per socket:/ {CPS=$NF}"
+	"/^Socket.s.:/ {S=$NF}"
+	"/^Thread.s. per core:/ {TPC=$NF}"
+	"END {print S, CPS, TPC}'";
+
+void get_cpuinfo()
+{
+    FILE *lscpu;
+
+    nSockets = nCoresPerSocket = nThreadsPerCore = -1;
+    if (!(lscpu = popen(filterlscpu, "r")))
+    	die("Cannot run lscpu: %s", strerror(errno));
+    if (fscanf(lscpu, "%d %d %d",
+	&nSockets, &nCoresPerSocket, &nThreadsPerCore) != 3)
+	    die("fscanf(lscpu) failed: %s", strerror(errno));
+    pclose(lscpu);
+    if ((nLinuxCPUs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
+    	die("Cannot determine active logical CPU count\n");
+    printf("%3d logical CPUs reported\n", nLinuxCPUs);
+    printf("%3d sockets\n", nSockets);
+    printf("%3d cores per socket\n", nCoresPerSocket);
+    printf("%3d threads per core\n", nThreadsPerCore);
+    if (nLinuxCPUs != nSockets * nCoresPerSocket * nThreadsPerCore)
+	die("CPU info doesn't line up");
+}
+
+///////////////////////////////////////////////////////////////////////////
 
 void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 {
     int opt, do_create = 0, do_delete = 0, do_close = 0, read1st = 0;
     struct stat buf;
-    char *s, *HTspec = NULL, *bigT = NULL;
+    char *s, *bigT = NULL;
 
-    if ((nLinuxCPUs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
-    	die("Cannot determine active logical CPU count\n");
-    printf("%3d logical CPUs available\n", nLinuxCPUs);
+    get_cpuinfo();
 
     // Initialize default thread payload values
     memset(tvals, 0, sizeof(struct tvals_t));
     tvals->fd = -1;
     tvals->fsize = 16 * 1024 * 1024;	// typical MongoDB
+    tvals->flags = MAP_SHARED;		// Not even sure if -P makes sense
     tvals->nthreads = 1;		// main() is a thread
     tvals->stride = sizeof(int);	// that which gets accessed
     tvals->unmap = 1;			// usually call munmap()
-    tvals->HTpercore = tvals->HTspan = 1;  // Essentially, HT off
 
     s = tvals->syncit;
-    while ((opt = getopt(argc, argv, "c:CdfFh:H:jl:L:mo:OpPqrRSs:t:T:uvw:WZ"))
+    while ((opt = getopt(argc, argv, "c:CdfFh:jl:L:mo:OpPqrRSs:t:T:uvw:WZ"))
 		!= EOF)
       switch (opt) {
 
@@ -624,7 +653,6 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 		break;
 
 	case 'h':	tvals->hiperf = bignum(optarg, 0); break;
-	case 'H':	HTspec = optarg; break;
 	case 'j':	tvals->jumparound = 1; break;
     	case 'l':	tvals->loop = bignum(optarg, 0); break;
     	case 'L':	tvals->seconds = bignum(optarg, 0); break;
@@ -660,20 +688,15 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     	if (!tvals->seconds)
 	    tvals->seconds = 10;
     } else {			
-    	if (!tvals->flags)
-	    die("-P and -S are mutually exclusive\n");
 	if (!tvals->RW)
     	    die("Use at least one of -R|-W, or -h which ignores them\n");
-    }
-    if (HTspec) {
-	if (sscanf(HTspec, "%d,%d", &tvals->HTpercore, &tvals->HTspan) != 2)
-	    die("Illegal HTspec '%s'\n", HTspec);
     }
     if (bigT) {
     	if (!strcmp(bigT, "ALL"))
 		tvals->nthreads = nLinuxCPUs;
     	else if (!strcmp(bigT, "CORES"))
-		tvals->nthreads = nLinuxCPUs / tvals->HTpercore;
+		// affinity logic does cores first
+		tvals->nthreads = nLinuxCPUs / nThreadsPerCore;
     	else
 		tvals->nthreads = atol(bigT);
     }
@@ -819,6 +842,7 @@ void printtime(
     if (delta > 0.99) {
         unsigned long aps = (float)naccesses / delta;
 
+        printf("%'20lu accesses/second\n", aps);
         printf("%'20lu accesses/thread/second\n",
 	    (unsigned long)((float)aps/(float)tvals->nthreads));
 	if (tvals->stride >= 64) 
