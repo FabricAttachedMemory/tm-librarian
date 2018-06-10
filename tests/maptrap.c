@@ -60,6 +60,13 @@
 
 #define die(...) { fprintf(stderr, __VA_ARGS__); exit(1); }
 
+// Return value is tri-state: 0 (success), a voodoo singleton, or error
+#define BARRIER_WAIT_OR_DIE(pBARRIER) { \
+	int bret = pthread_barrier_wait(pBARRIER); \
+	if (bret && bret != PTHREAD_BARRIER_SERIAL_THREAD) \
+		die("pthread_barrier_wait() failed: %s", strerror(bret)); \
+}
+
 // thread values: some are cmdline options, some are computed.
 struct tvals_t {
 	int fd, overcommit, RW, nthreads, unmap, no_sleep, stride, walking,
@@ -80,7 +87,7 @@ struct tvals_t {
 static int prompt_arg = 0, verbose = 0,
     nLinuxCPUs = 0, nSockets = 0, nCoresPerSocket = 0, nThreadsPerCore = 0;
 static pthread_barrier_t barrier;
-static pthread_t golden1 = 0;
+static pthread_t thread0 = 0;
 struct timespec start, stop;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -93,7 +100,7 @@ void prompt(char *fmt, ...)
 
     if (prompt_arg < 0)	// -q
     	return;	
-    if (golden1 && golden1 != pthread_self())
+    if (thread0 && thread0 != pthread_self())
     	return;
 
     va_start(ap, fmt);
@@ -397,7 +404,7 @@ void *payload(void *threadarg)
     unsigned int *access, curr_val, myindex, ncores;
     volatile unsigned int *proceed;
     long loop;
-    int LinuxCPU, b;
+    int LinuxCPU;
     cpu_set_t cpuset;
     
     for (myindex = 0; myindex < tvals->nthreads; myindex++) {
@@ -427,12 +434,7 @@ void *payload(void *threadarg)
 
     // Let the thread startup settle and start the clock.
 
-    b = pthread_barrier_wait(&barrier);
-    if (b == PTHREAD_BARRIER_SERIAL_THREAD) {	// Exactly one gets this (-1)
-    	golden1 = pthread_self();
-    	clock_gettime(CLOCK_MONOTONIC, &start);
-    } else if (b)
-	die("pthread_barrier_wait() failed: %s", strerror(b));
+    BARRIER_WAIT_OR_DIE(&barrier);
 
     switch (tvals->hiperf) {
     case 1:
@@ -580,14 +582,14 @@ long bignum(char const *instr, int Tsigned_Funsigned) {
 ///////////////////////////////////////////////////////////////////////////
 // Be lazy, lscpu has done a lot of work.
 
-char *filterlscpu = "lscpu | awk '"
+static char *filterlscpu = "lscpu | awk '"
 	"BEGIN {S=CPS=TPC=41}"
 	"/^Core.s. per socket:/ {CPS=$NF}"
 	"/^Socket.s.:/ {S=$NF}"
 	"/^Thread.s. per core:/ {TPC=$NF}"
 	"END {print S, CPS, TPC}'";
 
-void get_cpuinfo()
+static void get_cpuinfo()
 {
     FILE *lscpu;
 
@@ -600,10 +602,10 @@ void get_cpuinfo()
     pclose(lscpu);
     if ((nLinuxCPUs = sysconf(_SC_NPROCESSORS_ONLN)) < 0)
     	die("Cannot determine active logical CPU count\n");
-    printf("%3d logical CPUs reported\n", nLinuxCPUs);
-    printf("%3d sockets\n", nSockets);
-    printf("%3d cores per socket\n", nCoresPerSocket);
-    printf("%3d threads per core\n", nThreadsPerCore);
+    printf("%4d logical CPUs reported\n", nLinuxCPUs);
+    printf("%4d sockets\n", nSockets);
+    printf("%4d cores per socket\n", nCoresPerSocket);
+    printf("%4d threads per core\n", nThreadsPerCore);
     if (nLinuxCPUs != nSockets * nCoresPerSocket * nThreadsPerCore)
 	die("CPU info doesn't line up");
 }
@@ -681,6 +683,9 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
     if (tvals->loop && tvals->seconds)
 	die("Only one of -l | -L");
     if (!tvals->loop) tvals->loop = 1;
+    if (tvals->seconds)		// Loop counter will be ignored.
+	tvals->proceed = 1;	// Flushed at pthread_barrier_xxx.
+
     if (tvals->hiperf) {		// canned runs
     	prompt_arg = -1;		// Some expertise is assumed
 	tvals->flags = MAP_SHARED;
@@ -691,6 +696,7 @@ void cmdline_prepfile(struct tvals_t *tvals, int argc, char *argv[])
 	if (!tvals->RW)
     	    die("Use at least one of -R|-W, or -h which ignores them\n");
     }
+
     if (bigT) {
     	if (!strcmp(bigT, "ALL"))
 		tvals->nthreads = nLinuxCPUs;
@@ -862,23 +868,20 @@ int main(int argc, char *argv[])
     mmapper(&tvals);
     srandom(time(NULL));		// Randomize the seed
 
-    //---------------------------------------------------------------------
-    // load and go.  Threads pause at the barrier, then one starts the clock.
+    // load and go.  Threads pause at the barrier.  The "+1" is this main
+    // thread which does timing and other stuff.
 
-    if (tvals.seconds)		// Loop counter will be ignored.
-	tvals.proceed = 1;	// Flushed at pthread_barrier_xxx.
-
-    if (pthread_barrier_init(&barrier, NULL, tvals.nthreads) == -1) {
-    	perror("pthread_barrier_init() failed");
-	exit(1);
-    }
+    if (pthread_barrier_init(&barrier, NULL, tvals.nthreads + 1) == -1)
+    	die("pthread_barrier_init() failed");
 
     for (i = 0; i < tvals.nthreads; i++) {
-	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals))) {
-		perror("pthread_create() failed");
-		exit(1);
-	}
+	if ((ret = pthread_create(&tvals.tids[i], NULL, payload, &tvals)))
+		die("pthread_create() failed");
     }
+    thread0 = tvals.tids[0];
+    BARRIER_WAIT_OR_DIE(&barrier);
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
     if (tvals.seconds) {
 	sleep(tvals.seconds);
 	tvals.proceed = 0;
@@ -887,10 +890,8 @@ int main(int argc, char *argv[])
     for (i = 0; i < tvals.nthreads; i++) {
     	void *payload_ret;
 
-	if ((ret = pthread_join(tvals.tids[i], &payload_ret))) {
-		perror("pthread_join() failed");
-		exit(1);
-	}
+	if ((ret = pthread_join(tvals.tids[i], &payload_ret)))
+		die("pthread_join() failed");
     }
     clock_gettime(CLOCK_MONOTONIC, &stop);
 
