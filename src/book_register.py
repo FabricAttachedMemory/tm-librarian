@@ -37,10 +37,12 @@ from pdb import set_trace
 from book_shelf_bos import TMBook, TMShelf, TMBos, TMOpenedShelves
 from backend_sqlite3 import SQLite3assist
 from frdnode import FRDnode, FRDintlv_group, FRDFAModule
-from frdnode import BooksIGInterpretation as BII
+from frdnode import BooksIGInterpretation
 from tmconfig import TMConfig, multiplier
 
 verbose = 0
+
+BII = BooksIGInterpretation()       # Then manipulate it with __call__()
 
 _BOOK_SHIFT = 33   # Bits of offset for 20 bit book number
 _IG_SHIFT = 46     # Bits of offset for 7 bit IG
@@ -338,7 +340,7 @@ def createDB(book_size_bytes, nvm_bytes_total, nodes, IGs):
 
     # If it's a scalar, it's from a tmconfig JSON file and is MFT.
     # If it's a list, it could be either, depending on occurrence of physaddrs.
-    if nodes[0].nvm_physaddr[0]:
+    if BII.is_MODE_PHYSADDR:
         MDC990x_Book_table(cur, nodes, book_size_bytes)
     else:   # Legacy
         MFT_IG_Book_tables(cur, IGs, book_size_bytes)
@@ -562,18 +564,7 @@ def collision(basenode, nextnode=None):
 
 def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
 
-    def setINImode(newmode):
-        nonlocal INImode
-        if INImode == newmode:  # fast path
-            return
-        if INImode == BII.MODE_INVALID:
-            INImode = newmode
-            return
-        raise SystemExit('%s switched address modes from %d to %d' %
-            (errname, INImode, newmode))
-
     FRDnodes = []
-    INImode = BII.MODE_INVALID
     enc2U = {}
     for section in other_sections:
         errname = '[%s]' % section.name
@@ -620,43 +611,52 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
             assert 1 <= len(elems) <= 2, \
                 '%s bad nvm_size syntax "%s"' % (errname, sizeATaddr)
             try:
-                size_str, addr_str = elems
+                size_str, addr_str = elems          # ValueError if len() == 1
                 addr_str = addr_str.strip().lower()
                 assert addr_str.startswith('0x'), \
                     '%s: address "%s" must start with "0x"' % (
                         errname, addr_str)
                 try:
                     nvm_physaddr = int(addr_str, 16)
-                    setINImode(BII.MODE_PHYSADDR)
+                    BII(BII.MODE_PHYSADDR)
                 except ValueError as e:
                     raise SystemExit(
                         '%s "%s" is not a valid hex number' %
                             (errname, addr_str))
             except ValueError as e:     # not enough items to unpack
                 size_str = elems[0]
-                nvm_physaddr = 0
-                setINImode(BII.MODE_LZA)
-            assert INImode != BII.MODE_INVALID, '%s mode is not set' % errname
-            nvm_size = multiplier(size_str, section, book_size_bytes)
+                nvm_physaddr = -1       # Forces failures if misused
+                BII(BII.MODE_LZA)
+            assert BII.is_Valid, '%s mode is not set' % errname
 
+            # It's legal for a 990/Flex partition NOT to contribute FAM
+            # (the opposite of a "barefoot" node in MFT)
+            nvm_size = multiplier(size_str, section, book_size_bytes)
+            if not nvm_physaddr and not nvm_size:   # "0 @ 0x0"
+                continue
+
+            # Time to start idiot checking sizes, because either
+            # A. MODE_PHYSICAL with non-zero FAM on this line
+            # B. MODE_LZA
             assert nvm_size % book_size_bytes == 0, \
-                '%s NVM size not multiple of book size' % errname
-            if nvm_physaddr:
+                '%s NVM size is not multiple of book size' % errname
+            nbooks = int(nvm_size / book_size_bytes)
+            assert nbooks > 0, '%s %s book count must be > 0' % (
+                errname, sizeATaddr)
+
+            if BII.is_MODE_PHYSADDR:
                 assert nvm_physaddr >= book_size_bytes, \
                     '%s book size %d bigger than address 0x%x' % (
                         errname, book_size_bytes, nvm_physaddr)
                 assert (nvm_physaddr % book_size_bytes) == 0, \
                     '%s address 0x%x is not book-aligned' % (
                         errname, nvm_physaddr)
-
-            nbooks = int(nvm_size / book_size_bytes)
-            assert nbooks > 0, '%s %s book count must be > 0' % (
-                errname, sizeATaddr)
-
-            # MFT assumptions/constraints: 4 "equal" MCs per IG.
-            if not nvm_physaddr:    # It might be MFT mode if no priors...
+            else:
+                assert BII.is_MODE_LZA, 'Expecting MFT mode'
+                # No continuation lines
                 assert not len(sizes), \
                     '%s multiple ranges are illegal in MFT (1)' % errname
+                # MFT assumptions/constraints: 4 "equal" MCs per IG.
                 assert nbooks % 4 == 0, \
                     '%s books per node is not divisible by 4' % errname
 
@@ -666,15 +666,16 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
 
         # Either all or none of them have to be set.  Use frozenset
         # as a dupe eliminator; set is either one or two long.
-        tmp = frozenset([bool(a) for a in addrs])
-        assert len(tmp) == 1, \
-            '%s multiple ranges are illegal in MFT (2)' % errname
+        if addrs:
+            tmp = frozenset([bool(a) for a in addrs])
+            assert len(tmp) == 1, \
+                '%s multiple ranges are illegal in MFT (2)' % errname
 
         module_size_books = sum(sizes) // book_size_bytes // 4
         newNode = FRDnode(
             node_id,
             module_size_books=module_size_books,
-            autoMCs=(not bool(nvm_physaddr)))
+            autoMCs=BII.is_MODE_LZA)
         newNode.nvm_size = sizes
         newNode.nvm_physaddr = addrs
 
@@ -685,7 +686,7 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
             newNode.hostname = hostname
         FRDnodes.append(newNode)
 
-    if INImode == BII.MODE_PHYSADDR:
+    if BII.is_MODE_PHYSADDR:
         # First check intra-node range overlaps, then do internode to others.
         # The single-node call will generate a range printout if verbose > 0.
         errors = []
@@ -702,7 +703,7 @@ def parse_all_sections(Gname, G, node_count, book_size_bytes, other_sections):
         if errors:
             raise SystemExit('\n'.join(errors))
 
-    return FRDnodes, INImode, enc2U
+    return FRDnodes, enc2U
 
 #--------------------------------------------------------------------------
 # An INI file is one of three forms.  [global] might have nvm_size_per_node
@@ -745,9 +746,9 @@ def load_book_data_ini(inifile):
 
     FRDnodes = extrapolate_global_section(Gname, G, node_count, book_size_bytes)
     if FRDnodes is not None:        # That was easy, it's MFT or FAME
-        INImode = BII.MODE_LZA
+        BII(BII.MODE_LZA)
     else:
-        FRDnodes, INImode, enc2U = parse_all_sections(
+        FRDnodes, enc2U = parse_all_sections(
             Gname, G, node_count, book_size_bytes, other_sections)
 
     # Idiot checks.
@@ -762,20 +763,20 @@ def load_book_data_ini(inifile):
         enc2U[node.enc] = 'UV'  # Virtual, like FAME
 
     # What mode: uv300/990 or MFT?
-    if INImode == BII.MODE_LZA:
+    if BII.is_MODE_LZA:
         # NOT redundant in general case of general MC usage
         books_total = 0
         for node in FRDnodes:
             books_total += sum(
                 mc.module_size_books for mc in node.mediaControllers)
         nvm_bytes_total = books_total * book_size_bytes
-    elif INImode == BII.MODE_PHYSADDR:
+    elif BII.is_MODE_PHYSADDR:
         assert all(bool(addr) for n in FRDnodes for addr in n.nvm_physaddr), \
             'At least one physaddr is zero'
         nvm_bytes_total = sum(size for n in FRDnodes for size in n.nvm_size)
         books_total = nvm_bytes_total // book_size_bytes
     else:
-        raise SystemExit('Unexpected INI mode %d' % INImode)
+        raise SystemExit('Unexpected INI mode %d' % BII())
 
     if verbose:
         print('book size = %d' % (book_size_bytes))
