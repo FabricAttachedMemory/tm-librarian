@@ -47,6 +47,37 @@ class BooksIGInterpretation():
     MODE_INVALID = 0xf      # Okay, 15 modes max
     IG_MASK = 0xff          # 256 IGs max
 
+    # Implement a one-shot singleton for book_register.  No __init__ so
+    # only instantiate it once per run scope, then manipulate state via
+    # __call__().   Oh, and make it idempotent.
+
+    _current = MODE_INVALID
+
+    @classmethod
+    def __call__(cls, arg=None):
+        if arg is None:                                     # getter
+            return cls._current
+        if arg == cls._current:                             # idempotency
+            return
+        if cls._current is not cls.MODE_INVALID:            # setter idiot
+            raise RuntimeError('Cannot switch BII mode')
+        if arg not in (cls.MODE_LZA, cls.MODE_PHYSADDR):    # setter careless
+            raise RuntimeError('Illegal value for BII mode')
+        cls._current = arg
+
+    # Parameterize isXXXX boolean attributes
+    @classmethod
+    def __getattr__(cls, attr):
+        if not attr.startswith('is_'):
+            return cls.__dict__.get(attr, None)
+        attr = attr[3:]
+        if attr == 'Valid':
+            return cls._current != cls.MODE_INVALID
+        check = cls.__dict__.get(attr, None);
+        if check is None:
+            raise AttributeError('%s is not a known attribute' % attr)
+        return check == cls._current
+
 #--------------------------------------------------------------------------
 
 
