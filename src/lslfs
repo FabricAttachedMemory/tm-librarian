@@ -1,0 +1,265 @@
+#!/bin/bash
+
+# Simple utilities for quick peek at /lfs from a TORMS.
+
+DB=${LIBRARIANDB:-/var/hpetm/librarian.db}
+[ `whoami` != root ] && SUDO=sudo || SUDO=
+$SUDO echo -n	# Get it out of the way now
+
+while [ $# -gt 0 ]; do		# No arguments, just options
+    case "$1" in
+    '-?' | '-help' | '--h*')
+    	cat <<EOHELP
+usage: `basename $0` [-h] [-l]
+	-h	Large numbers displayed in more human-legible form
+	-l	Long listing
+	-v	Verbose
+
+	All commands: lslfs lllfs alloclfs dflfs dulfs
+
+	export LIBRARIANDB=blah to change from $DB
+EOHELP
+	exit 0
+	;;
+
+    '-h')
+	INTFMT="%'18.f"	# Radix character
+	;;
+
+    '-l')		# Not every directive obeys this
+	LONG="true"
+	;;
+
+    '-v')
+	VERBOSE="true"
+	;;
+
+    --install)
+	set -u
+	THIS=`basename $0`
+	THAT=lslfs
+	OTHER="alloclfs dflfs dulfs lllfs rmlfs"
+	[ $THIS != $THAT ] && echo "Only install via $THAT" >&2 && exit 1
+	TARGET=/usr/local/bin
+	[ ! -d $TARGET ] && echo "$TARGET is not a directory" >&2 && exit 1
+	$SUDO cp $0 $TARGET
+	cd $TARGET || exit 1
+	for LINK in $OTHER; do
+		$SUDO unlink $LINK 2>/dev/null
+		$SUDO ln $THIS $LINK
+	done
+	exit 0
+	;;
+
+    *)	# after all 
+	break
+	;;
+
+    esac
+    shift
+done
+
+INTFMT=${INTFMT:-%16.f}
+LONG=${LONG:-}
+VERBOSE=${VERBOSE:-}
+
+set -u
+
+###########################################################################
+
+function die() {
+	echo "$1" >&2
+	exit 1
+}
+
+###########################################################################
+
+function verbose() {
+	[ $VERBOSE ] && echo $* >&2
+}
+
+###########################################################################
+# Open in read-only: google "sqlite3 URI read-only"
+
+function jfdi() {
+	verbose "$SUDO sqlite3 \"file:$DB?mode=ro\" \"$*\""
+	$SUDO sqlite3 $DB "$*"
+	return $?
+}
+
+function books_used() {
+	SQL="SELECT book_count FROM shelves"
+	USED=`jfdi $SQL | awk 'BEGIN{sum=0}{sum+=$1}END{print sum}'`
+	verbose $USED books used
+	echo $USED
+	return 0
+}
+
+function bytes_used() {
+	# The standard awk summation trick overflows at this scale.
+	# There's a final, dangling \n
+	SQL="SELECT size_bytes FROM shelves"
+	USED=`jfdi $SQL | tr '\n' '+'`	# Now it's a dangling '+'
+	echo "${USED}0" | bc		# Now it's undangled
+	return 0
+}
+
+###########################################################################
+# Called from two places
+
+function lllfs() {
+	jfdi SELECT size_bytes,mtime,name,value FROM shelves JOIN shelf_xattrs ON id=shelf_id WHERE xattr LIKE \"%Policy%\" ORDER BY name | \
+	tr '|' ' ' | while read S T N A; do
+	    # echo `printf "$INTFMT" $S` `date --date="@$T" '+%a %b %d %H:%I'` $N "($A)"
+	    printf "$INTFMT %(%a %b %d %H:%I)T %-10s (%s)\n" $S $T $N $A
+	done
+	return $?
+}
+
+###########################################################################
+# MAIN
+
+# BII_MODE (see book_register.py) is in upper 16 bits of an IG.
+# 0 == LZA mode: TM or FAME
+# 1 == PHYSADDR mode: 990 or SDFLEX
+
+BII_MODE=`jfdi select intlv_group \>\> 16 from books limit 1`
+[ $BII_MODE -lt 0 -o $BII_MODE -gt 1 ] && die "Illegal BII_MODE $BII_MODE in $DB"
+
+CMD=`basename $0`
+[ ! -f "$DB" ] && die "$DB does not exist"
+
+case $CMD in
+    lslfs)
+	[ "$LONG" ] && lllfs || jfdi SELECT name FROM shelves ORDER BY name
+	exit $?
+	;;
+
+    lllfs)
+    	lllfs
+	exit $?
+	;;
+
+    dulfs)
+	USED=`bytes_used`
+	printf "$INTFMT\n" $USED
+	exit $?
+	;;
+
+    dflfs)
+	USED=`books_used`
+	TOTAL=`jfdi SELECT books_total FROM globals;`
+	verbose "$TOTAL total books"
+
+	AVAILABLE=`echo "$TOTAL-$USED" | bc`
+	PERCENT=`echo "100*$USED/$TOTAL" | bc`
+
+	# Not sure how sqlite handles 8G (33 bits)
+	SIZE=`jfdi SELECT book_size_bytes\>\>20 FROM globals`
+	S=`printf "%4dM" $SIZE`
+
+	# Very similar to df
+	echo "Filesystem     $S-books      Used   Available Use% Mounted on"
+
+	printf "FAM               %8d  %8d    %8d  %2d%% /lfs\n" \
+		$TOTAL $USED $AVAILABLE $PERCENT
+	exit $?
+	;;
+
+    alloclfs)
+	NAME_POLICY=`jfdi SELECT name,id,value FROM shelves JOIN shelf_xattrs ON id=shelf_id WHERE xattr LIKE \"%Policy%\" ORDER BY name`
+	for NP in $NAME_POLICY; do
+	    set -- `echo $NP | tr '|' ' '`
+	    SHELF=$1
+	    ID=$2
+	    POLICY=$3
+	    MSG="($POLICY)"
+	    if [ $POLICY = 'RequestIG' ]; then
+		TMP=`jfdi "SELECT value FROM shelf_xattrs WHERE shelf_id=$ID AND xattr='user.LFS.InterleaveRequest'"`
+		REQ=`echo -n $TMP | dd conv=swab 2>/dev/null | od -An -x`
+		MSG="($POLICY 0x$REQ)"
+	    fi
+	    case $BII_MODE in
+	    0) IGS=`jfdi "SELECT book_id>>46 FROM books_on_shelves WHERE shelf_id=$ID ORDER BY seq_num"`
+	       ;;
+	    1) IGS=`jfdi "SELECT intlv_group&0xfff&0xfffff FROM books_on_shelves JOIN books on book_id=book_num WHERE shelf_id=$ID ORDER BY seq_num"`
+	       ;;
+	    *) die "TSNH in alloclfs"
+	       ;;
+	    esac
+	    echo $SHELF $MSG $IGS
+	done
+
+	NNODES=`jfdi "SELECT nodes_total FROM globals"`
+	echo -e "\nNodes: $NNODES"
+
+	TMP=`jfdi "SELECT book_size_bytes FROM globals"`
+	let BSM=$TMP/1024/1024
+	echo "Book size (MB): $BSM"
+
+	TMP=`jfdi "SELECT nvm_bytes_total FROM globals"`
+	let NGT=$TMP/1024/1024/1024
+	echo "Total NVM (GB): $NGT"
+
+	declare -a MODE_IGS=(`jfdi SELECT DISTINCT intlv_group FROM books`)
+	echo "Nodes with FAM: ${#MODE_IGS[*]}"
+	SUM=0
+	for MODE_IG in ${MODE_IGS[*]}; do
+	    BPN=`jfdi "SELECT COUNT(*) FROM books WHERE intlv_group=$MODE_IG"`
+	    [ $BII_MODE -eq 1 ] && let IG=65535\&$MODE_IG || IG=$MODE_IG
+	    let NODE=$IG+1
+	    NODE=`printf 'node%02d' $NODE`
+	    FREE=`jfdi "SELECT COUNT(*) FROM BOOKS WHERE intlv_group=$MODE_IG AND allocated=0"`
+	    let USED=${BPN}-${FREE}
+	    let FREEPCT=100*$FREE/$BPN
+	    let SUM+=$FREEPCT
+	    printf "%s: %4d books %4d used %3d free (%d%%)\n" $NODE $BPN $USED $FREE $FREEPCT
+	done
+	let PERCENT=$SUM/${#MODE_IGS[*]}
+	echo "Overall: ${PERCENT}% free"
+	exit $?
+	;;
+
+    rmlfs)
+	declare -a SHELF_IDS=()
+	while [ $# -gt 0 ]; do
+	    SHELF=$1
+	    shift
+	    if [ "${SHELF:0:12}" = ".lfs_pending" -o "${SHELF:0:5}" = ".tmfs" ]; then
+	    	echo "Use fsck_lfs.py to clear $SHELF" >&2
+		continue
+	    fi
+	    SID=`jfdi "SELECT id FROM SHELVES WHERE name = '$SHELF'"`
+	    if [ ! "$SID" ]; then
+		echo "No shelf '$SHELF'" >&2
+		continue
+	    fi
+	    N=`jfdi "SELECT COUNT(*) FROM opened_shelves WHERE shelf_id = '$SID'"`
+	    [ $N -eq 0 ] && SHELF_IDS+=($SID) || echo "$SHELF is open" >&2
+	done
+	[ ${#SHELF_IDS[*]} -eq 0 ] && die "No shelves found"
+
+	# Work "backwards" from known info, so in case a step fails, rmlfs
+	# can be retried to pick up the undone pieces.
+	for SID in ${SHELF_IDS[*]}; do
+	    jfdi "DELETE FROM shelf_xattrs WHERE shelf_id=$SID"
+	    BOOK_IDS=`jfdi "SELECT book_id FROM books_on_shelves WHERE shelf_id=$SID"`
+	    for BID in $BOOK_IDS; do
+	    	SQL="UPDATE books SET allocated=0,attributes=0 WHERE id=$BID"
+		jfdi "$SQL"
+		[ $? -ne 0 ] && die "$SQL failed"
+	    done
+
+	    SQL="DELETE FROM books_on_shelves WHERE shelf_id=$SID"
+	    jfdi "$SQL"
+	    [ $? -ne 0 ] && die "$SQL failed"
+
+	    SQL="DELETE FROM shelves WHERE id=$SID"
+	    jfdi "$SQL"
+	    [ $? -ne 0 ] && die "$SQL failed"
+	done
+	exit 0
+	;;
+esac
+
+die "$CMD not implemented"
