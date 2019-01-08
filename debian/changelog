@@ -1,3 +1,10 @@
+tm-librarian (1.35-4) unstable; urgency=medium
+
+  * Allow SD990/Flex to have FAM-less "nodes"
+  * Refactor BooksIGInterpretation (BII) enum into a full singleton class
+
+ -- Rocky Craig <rocky.craig@hpe.com>  Mon, 1 Jan 2019 14:42:42 -0700
+
 tm-librarian (1.35-3) unstable; urgency=medium
 
   * Subsume tm-utils and tm-lmp packages into tm-librarian
