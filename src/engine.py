@@ -32,7 +32,7 @@ from pdb import set_trace
 from book_policy import BookPolicy
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from cmdproto import LibrarianCommandProtocol as lcp
-from frdnode import FRDnode, BooksIGInterpretation as BII
+from frdnode import FRDnode, BooksIGInterpretation
 from genericobj import GenericObject
 
 _ZERO_PREFIX = '.lfs_pending_zero_'     # agree with lfs_fuse.py
@@ -81,7 +81,7 @@ class LibrarianCommandEngine(object):
         lfs_globals = self.db.get_globals()
         # books_per_IG has been expanded for MODE_PHYSADDR
         lfs_globals['books_per_IG'] = self.books_per_IG
-        lfs_globals['BIImode'] = self.BIImode
+        lfs_globals['BIImode'] = self.BII()
         return lfs_globals
 
     def cmd_create_shelf(self, cmdict):
@@ -785,8 +785,10 @@ class LibrarianCommandEngine(object):
             tmp = self.db.get_books_by_intlv_group(1, [], allocated='ANY')
             assert tmp, 'Database has no books'
             book1 = tmp[0]
-            self.__class__.BIImode = \
-                (book1.intlv_group >> BII.MODE_SHIFT) & BII.MODE_MASK
+            self.BII = BooksIGInterpretation()  # Now ready to use
+            mode = (book1.intlv_group >> self.BII.MODE_SHIFT) & self.BII.MODE_MASK
+            self.BII(mode)                      # set the class variable
+            assert self.BII.is_Valid, 'BII mode cannot be set'
 
             # IGs only truly exist on MFT; only two attributes are used here:
             # 1) groupId (1-80 on MFT)
@@ -794,9 +796,9 @@ class LibrarianCommandEngine(object):
             # Just provide an object with those attributes for non-MFT cases.
 
             IGs = self.db.get_interleave_groups()
-            if self.BIImode == BII.MODE_LZA:  # legacy MFT/FAME/TMAS
+            if self.BII.is_MODE_LZA:  # legacy MFT/FAME/TMAS
                 assert IGs, 'Database has no IGs'
-            elif self.BIImode == BII.MODE_PHYSADDR:
+            elif self.BII.is_MODE_PHYSADDR:
                 assert not IGs, 'Database should not have IGs'
                 # Here, "IG" is synonymous with "chunk of contiguous memory".
                 # Right now there's just one per compute partition but
@@ -822,7 +824,7 @@ class LibrarianCommandEngine(object):
                 if sys.stdin.isatty():
                     set_trace()
                 raise RuntimeError(
-                    'Bad BII mode %d: database is corrupt' % self.BIImode)
+                    'Bad BII mode %d: database is corrupt' % self.BII())
 
             # The math doesn't care, but human debugging is easier if...
             IGs = sorted(IGs, key=attrgetter('groupId'))
@@ -838,10 +840,10 @@ class LibrarianCommandEngine(object):
             self.__class__.books_per_IG = dict(
                 [ (ig.groupId, [ig.total_books, -1]) for ig in IGs]
             )
-            if self.BIImode == BII.MODE_PHYSADDR:
+            if self.BII.is_MODE_PHYSADDR:
                 # Books were stored in order.  The first book is the base
                 # address for the contiguous block of the overloaded IG.
-                tag = BII.MODE_PHYSADDR << BII.MODE_SHIFT
+                tag = self.BII.MODE_PHYSADDR << self.BII.MODE_SHIFT
                 for id, elems in self.books_per_IG.items():
                     tmp = self.db.get_books_by_intlv_group(
                         1, [tag | id, ], allocated='ANY', ascending=True)

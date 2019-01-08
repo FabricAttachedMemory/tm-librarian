@@ -28,7 +28,7 @@ from pdb import set_trace
 from collections import defaultdict
 
 from book_shelf_bos import TMBook
-from frdnode import BooksIGInterpretation as BII
+from frdnode import BooksIGInterpretation as BII    # for constants
 
 #--------------------------------------------------------------------------
 # lfs_fuse.py does a little syntax/error checking before calling *_xattr
@@ -126,7 +126,8 @@ class BookPolicy(object):
 
     def __init__(self, LCEobj, shelf, context):
         '''LCEobj members are used to enforce the 1:1 IG:node assumption'''
-        assert len(LCEobj.IGs) == len(LCEobj.nodes), 'IG:node != 1:1'
+        if LCEobj.BII.is_MODE_LZA:
+            assert len(LCEobj.IGs) == len(LCEobj.nodes), 'IG:node != 1:1'
         LCEobj.errno = errno.EINVAL
         self.LCEobj = LCEobj
         self.shelf = shelf
@@ -203,7 +204,7 @@ class BookPolicy(object):
             node_ids = (node_ids, )
         if not node_ids:
             return []
-        IGs = [ _node_id2ig(n, self.LCEobj.BIImode) for n in node_ids ]
+        IGs = [ _node_id2ig(n, self.LCEobj.BII()) for n in node_ids ]
         return self._IGs2books(books_needed, IGs, shuffle=shuffle)
 
     def _policy_Nearest(self, books_needed,
@@ -219,7 +220,7 @@ class BookPolicy(object):
         extant_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
 
         # Assume all SD Flex partitions are in a single rack/enc
-        if self.LCEobj.BIImode == BII.MODE_PHYSADDR:
+        if self.LCEobj.BII.is_MODE_PHYSADDR:
             enc_node_ids = frozenset(n.node_id for n in self.LCEobj.nodes)
         else:
             enc_node_ids = frozenset((n.node_id for n in self.LCEobj.nodes
@@ -318,7 +319,7 @@ class BookPolicy(object):
         booksIG = {}
         for ig in igCnt.keys():
             # Overload IG field with BIImode before DB query
-            mod_ig = ig | self.LCEobj.BIImode << BII.MODE_SHIFT
+            mod_ig = ig | self.LCEobj.BII() << BII.MODE_SHIFT
             booksIG[ig] = db.get_books_by_intlv_group(
                 igCnt[ig], (mod_ig, ), exclude=False)
 

@@ -53,6 +53,11 @@ class BooksIGInterpretation():
 
     _current = MODE_INVALID
 
+    # Allow secondary modules to refer to the class after a primary module
+    # initializes the _current value.
+    def __init__(self, startup=None):
+        assert startup is None, 'Cannot pass a value to __init__()'
+
     @classmethod
     def __call__(cls, arg=None):
         if arg is None:                                     # getter
