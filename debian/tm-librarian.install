@@ -1,5 +1,7 @@
 #!/usr/bin/dh-exec
 
+src/lslfs			=> tmp/lslfs
+
 systemd/tm-librarian		=> etc/default/tm-librarian
 systemd/tm-librarian.service	=> lib/systemd/system/tm-librarian.service
 

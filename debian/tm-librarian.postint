@@ -1,0 +1,7 @@
+#!/bin/sh
+
+/tmp/lslfs --install
+
+rm -f /tmp/lslfs
+
+exit 0
