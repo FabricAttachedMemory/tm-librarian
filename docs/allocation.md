@@ -40,7 +40,7 @@ will return an ENOSPC error.
 
 Policy | Description | Candidate nodes
 -------|-------------|:---------------
-RandomBooks | Any node with free books, non-weighted choice | 1-20
+RandomBooks | Any node with free books | 1-20
 LocalNode| Only the node running the application | 15
 LocalEnc| Nodes in the same enclosure | 11-20
 NonLocal_Enc| Nodes in the same enclosure except this node | 11-14 &amp; 16-20

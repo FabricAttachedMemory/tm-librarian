@@ -1,20 +1,34 @@
-The Librarian needs a database which stores knows the topology and state of the cluster, namely
-* The number and (FAM NUMA) location of nodes
-* How much FAM is hosted by each node
-* Other optional information, mostly for true hardware
+## Configuring the Librarian
 
-The Machine organizes a maximum of ten nodes in a single enclosure, and a maximum of four enclosures in one instance.  Nodes 1-10 go in enclosure 1, 11-20 in enclosure 2, and so on.  The node population may be sparse.  Any topology is described in a configuration file in [legacy "INI" format](https://en.wikipedia.org/wiki/INI_file).  A very simple INI file follows; many values are extrapolated or defaulted from this file.
+The Librarian uses an SQLite database to store the topology and state of the
+cluster, namely
+* The number and location of nodes
+* How much FAM is hosted by each node
+* Other information, mostly for true hardware
+
+Recall that The Machine accepts a maximum of ten nodes in a single enclosure
+and a maximum of four enclosures in one full rack.  Nodes 1-10 go in enclosure
+1, 11-20 in enclosure 2, and so on.  The node population may be sparse.
+The topology is statically described in a configuration file in 
+[legacy "INI" format](https://en.wikipedia.org/wiki/INI_file).  
+
+A very simple INI file follows; many values are extrapolated or defaulted
+from this file.  This file uses values, especially book_size_bytes,
+suitable for the FAME or Superdome Flex environments.
 
     [global]
     node_count = 4
-    book_size_bytes = 8G
+    book_size_bytes = 8M
     bytes_per_node = 512B
     
-This describes 4 nodes, numbered 1-4, given hostnames "node01" - "node04" (a dense population of the first 4 slots in a single enclosure #1).  There are 512 books hosted by each node for a total of 4T of FAM per node, or 16T total.  Here is the same effect done in a more explicit form:
+This describes 4 nodes, numbered 1-4, given hostnames "node01" - "node04"
+(a dense population of the first 4 slots in a single enclosure #1).
+There are 512 books hosted by each node for a total of 4G of FAM per node,
+or 16G total.  Here is the same effect done in a more explicit form:
 
     [global]
     node_count = 4
-    book_size_bytes = 8G
+    book_size_bytes = 8M
 
     [node01]
     node_id = 1
@@ -32,7 +46,15 @@ This describes 4 nodes, numbered 1-4, given hostnames "node01" - "node04" (a den
     node_id = 4
     nvm_size = 512B
 
-With this notation different nodes can have different memory sizes, node populations can be sparse, etc.  There are indeed NUMA considerations on the actual hardware but that is beyond the scope of this discussion.  The full set of recognized keywords:
+In general you should keep the node_id and [hostname] in sync as shown.
+Also, use "node" as the base of the hostname.
+
+With this notation different nodes can have different memory sizes, 
+populations can be sparse, etc.  There are indeed NUMA considerations on the
+actual hardware [which you can read about here.](allocation.md)
+
+The useful set of recognized INI keywords (others are reserved for true
+instances of The Machine):
 
 * [global]        - (STR) global section name
 * node_count      - (INT) total number of nodes
@@ -49,8 +71,31 @@ book_size_bytes and nvm_size also support suffix multipliers:
 * T = TB (size * 1024 * 1024 * 1024 * 1024)
 * B = books (nvm_size only)    
 
-Finally, the database holding book metadata can be created using the setup script book_register.py.  By default the database is expected to be found at /var/hpetm/librarian.db:
+The database holding book metadata can be created using the setup script
+book_register.py.  If running from source, it's at "src/book_register.py";
+from an installed package, it's "/usr/bin/tm-book_register".
+
+By default the database is expected to be found at /var/hpetm/librarian.db:
 
     sudo mkdir -p /var/hpetm
-    sudo book_register.py -f -d /var/hpetm/librarian.db myconfig.ini
+    sudo src/book_register.py -f -d /var/hpetm/librarian.db myconfig.ini
+
+## Examining the database
+
+It's possible to look at the database on the system hosting the file.
+You can examine it directly with the "sqlitebrowser", or use some convenience
+routines for a higher-level snapshot.  They are included in the source but
+not installed (as of this writing).
+
+Run "sudo src/lslfs --install" (the file is at /usr/bin/python3.x/dist-packages/tm_librarian/src when installed from a Debian pacakge).  This creates five
+commands in /usr/local/bin which examine the database in $DBPATH 
+(defaults to /var/hpetm/librarian.db):
+
+|Script|Function|
+|:-----|:-------|
+|lslfs |A simple listing of all files and directories|
+|lllfs |A more detailed listing|
+|dflfs |Free disk space per the "df(1)" command|
+|dulfs |Used disk space per the "du(1)" command|
+|alloclfs|An extensive usage report: book assignments per file and books used by node|
 
