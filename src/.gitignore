@@ -1,0 +1,4 @@
+# To run lmp.py from src, first do "ln -s ../templates templates".
+# This .gitignore file stops the annoyance.
+
+templates
