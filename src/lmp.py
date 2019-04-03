@@ -417,7 +417,7 @@ def show_allocated(coordinate):
                 memory=d_memory)
         return render_template(
             'show_allocated.html',
-                memory=d_memory,
+            memory=d_memory,
             api_version=mainapp.config['API_VERSION'])
 
     except Exception as e:
@@ -470,7 +470,7 @@ def show_active(coordinate):
                 active=d_active)
         return render_template(
             'show_active.html',
-                active=d_active,
+            active=d_active,
             api_version=mainapp.config['API_VERSION'])
 
     except Exception as e:
@@ -592,14 +592,14 @@ def show_shelf(pathname=None):
 
             return render_template(
                 'show_shelf.html',
-                    owner=s_owner,
-                    group=s_group,
-                    mode=s_mode,
-                    size=s_size,
-                    booksize=s_booksize,
-                    policy=s_policy,
-                    active=l_active,
-                    books=l_books,
+                owner=s_owner,
+                group=s_group,
+                mode=s_mode,
+                size=s_size,
+                booksize=s_booksize,
+                policy=s_policy,
+                active=l_active,
+                books=l_books,
                 api_version=mainapp.config['API_VERSION'])
 
     except Exception as e:
