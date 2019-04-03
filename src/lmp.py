@@ -19,10 +19,13 @@
 # - python3-flask
 # - librarian DB must be created from json configuration file
 
+import errno
+import logging
 import os
+import stat
 import sys
-import json
 import time
+
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from flask import Flask, render_template, jsonify, request, g
 from pdb import set_trace
@@ -38,18 +41,18 @@ mainapp.config.from_object('lmp_config')
 mainapp.config['API_VERSION'] = 1.0
 mainapp.cur = None
 
-
 ###########################################################################
 # Format an error code
+
 
 def _response_bad(errmsg, status_code=418):
     response = jsonify({'error': errmsg})
     response.status_code = status_code
     return response
 
-
 ###########################################################################
 # Execute before each request to check version
+
 
 @mainapp.before_request
 def check_version(*args, **kwargs):
@@ -73,9 +76,9 @@ def check_version(*args, **kwargs):
     if version != want:
         return _response_bad('Bad version: %s != %s' % (version, want))
 
-
 ###########################################################################
 # Execute after every request to fix up headers
+
 
 @mainapp.after_request
 def version(response):
@@ -84,10 +87,10 @@ def version(response):
         mainapp.config['API_VERSION']
     return response
 
-
 ###########################################################################
 # Check if requestor wants json formatted reply.  Now that grids updater
 # calls without context, return True if it's not a "real" request.
+
 
 def requestor_wants_json(request):
     try:
@@ -97,6 +100,7 @@ def requestor_wants_json(request):
 
 ###########################################################################
 # Convert Librarian books status to LMP equivalent
+
 
 def convert_book_status(status):
     if status == TMBook.ALLOC_FREE:
@@ -114,6 +118,7 @@ def convert_book_status(status):
 ###########################################################################
 # View: /lmp - (root) list views available
 
+
 @mainapp.route('/lmp/')
 def show_views():
     if requestor_wants_json(request):
@@ -128,6 +133,7 @@ def show_views():
 ###########################################################################
 # View: /global - Global Memory Information
 # Desc: list global memory usage information
+
 
 @mainapp.route('/lmp/global/')
 def show_global():
@@ -247,10 +253,10 @@ def show_global():
         active=d_active,
         api_version=mainapp.config['API_VERSION'])
 
-
 ###########################################################################
 # View: /nodes - List of Nodes
 # Desc: list nodes in The Machine instance managed by the Librarian
+
 
 @mainapp.route('/lmp/nodes/')
 def show_nodes():
@@ -306,10 +312,10 @@ def show_nodes():
         nodes=l_nodes,
         api_version=mainapp.config['API_VERSION'])
 
-
 ###########################################################################
 # View: /interleaveGroups - Memory Configuration
 # Desc: list interleave groups in The Machine instance managed by the Librarian
+
 
 @mainapp.route('/lmp/interleaveGroups/')
 def show_interleaveGroups():
@@ -346,12 +352,12 @@ def show_interleaveGroups():
         interleaveGroups=l_ig,
         api_version=mainapp.config['API_VERSION'])
 
-
 ###########################################################################
 # View: /allocated/{coordinate} - Memory Allocation
 # Desc: list allocations across The Machine
 # Input: coordinate - the coordinate of a datacenter, rack, enclosure,
 #                     node, memory_board or media_controller
+
 
 @mainapp.route('/lmp/allocated/<path:coordinate>')
 def show_allocated(coordinate):
@@ -417,11 +423,11 @@ def show_allocated(coordinate):
     except Exception as e:
         return _response_bad('%s' % (e), 404)
 
-
 ###########################################################################
 # View: /active/{coordinate} - Memory Activity
 # Desc: list memory access by SOCs across The Machine
 # Input: coordinate - the coordinate of a specfic SOC
+
 
 @mainapp.route('/lmp/active/<path:coordinate>')
 def show_active(coordinate):
@@ -470,12 +476,12 @@ def show_active(coordinate):
     except Exception as e:
         return _response_bad('%s' % (e), 404)
 
-
 ###########################################################################
 # View: /shelf/{pathname} - Directory and Shelf Information
 # Desc: list directory/shelf information (pathname = directory or shelf)
 # Input: pathname - full path of the directory or shelf within the librarian
 #                   file system, not including the /lfs prefix
+
 
 @mainapp.route('/lmp/shelf/')
 @mainapp.route('/lmp/shelf/<pathname>')
@@ -599,11 +605,11 @@ def show_shelf(pathname=None):
     except Exception as e:
         return _response_bad('%s' % (e), 400)
 
-
 ###########################################################################
 # View: /books/{interleaveGroup} - Book Information
 # Desc: list information about all books
 # Input: interleave-group - (optional) interleave group to filter books listing
+
 
 @mainapp.route('/lmp/books/')
 @mainapp.route('/lmp/books/<interleaveGroup>')
@@ -662,6 +668,65 @@ def show_books(interleaveGroup="all"):
         books=l_books,
         api_version=mainapp.config['API_VERSION'])
 
+############################################################################
+# Create a FIFO after possibly removing an old one.  Return an open, non-
+# blocking file descriptor.  path can be absolute or relative (because
+# of the os.chdir way up top).
+
+inpipe = None                   # Globals set at startup, used in event loop.
+logger = None
+
+
+def piper(path='/tmp/lmpfifo'):
+    global inpipe
+
+    logger = logging.getLogger('werkzeug')      # For Justin.
+    try:
+        if os.path.exists(path):
+            assert stat.S_ISFIFO(os.stat(path).st_mode), \
+                '%s exists but is not a FIFO'
+        else:
+            os.mkfifo(path)
+    except Exception as e:
+        raise RuntimeError('reuse/create("%s") failed: %s' % (path, str(e)))
+
+    try:
+        inpipe = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    except Exception as e:
+        raise RuntimeError('open("%s") failed: %s' % (path, str(e)))
+
+###########################################################################
+# See https://github.hpe.com/rocky-craig/FABulous for standalone version.
+# Putting it here means one less program to run.  Fix up matryoshka config
+# file to point here.
+
+lastFAB = 7                     # Gotta start somewhere.
+
+
+@mainapp.route('/fab/')
+def fab():
+    global lastFAB                          # MIGHT get updated
+
+    try:
+        new = os.read(inpipe, 1024)         # Non-blocking
+        if not new:                         # No data
+            new = lastFAB                   # Let it ride
+        else:
+            # Extract the trailing/final number.  Any errors will return
+            # the previous sample.
+            try:
+                new = new.decode().strip()  # Bytes to string and chomp
+                new = int(new.split()[-1])
+                assert 0 <= new <= 100
+            except Exception as e:
+                new = lastFAB
+    except OSError as err:
+        new = lastFAB                       # Let it ride
+        if err.errno != errno.EAGAIN:       # aka EWOULDBLOCK
+            logger.warning('Pipe read got %s' % str(err))
+
+    lastFAB = new
+    return jsonify({ 'fabric': { 'percentage': new }})
 
 ###########################################################################
 # Main.  Now that routes are done, load flatgrids which memoizes them.
@@ -690,7 +755,12 @@ if __name__ == '__main__':
         st = os.stat(args.db_file)
         mainapp.db_file = args.db_file
     except IOError as e:
-        raise SystemExit('%s does not exist' % args.db_file)
+        raise SystemExit('DB file %s does not exist' % args.db_file)
+
+    try:
+        piper(mainapp.config['FABFIFO'])
+    except Exception as err:
+        raise SystemExit(err)
 
     mainapp.run(
         debug=mainapp.config['DEBUG'],
