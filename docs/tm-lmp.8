@@ -1,41 +1,48 @@
 .TH lmp.py "8" "2018" "The Machine" "LFS Management Protocol daemon"
 
 .SH NAME
-lmp.py \- Management Protocol Daemon of the Librarian File System (LFS) for The Machine 
+lmp.py \- Management Protocol Daemon of the Librarian File System (LFS)
 
 .SH SYNOPSIS
 \fBlmp.py\fP [options] [arguments]
 
 .SH DESCRIPTION
-\fBlmp.py\fP is cool
+\fBlmp.py\fP reads the Librarian database file to get static topology 
+information and real-time book and file usage.  It provides a ReST base
+endpoint for a variety of statistics.  This ReST endpoint is used by
+the Matryoshka daemon of Executive Dashboard 2.0.  See the tm-dashboard
+repo on public github under the FabricAttachedMemory project.
+
+\fBlmp.py\fP also provides a simple web interface to view these stats.
+It's at http://<hostname>:31178/lmp/
+
+Finally, lmp.py supplies a pipe at a location specified in the lmp_config.py
+file.  Writing an integer to this pipe will cause that number to be 
+reflected in the ED 2.0 "Fabric %" usage meter.
 
 .SH OPTIONS
 .PP
 
 .TP
--C, --config
-Use the specified file instead of /etc/tmms
+-d /path/to/file.db
+Use this path instead of the default /var/hpetm/librarian.db
 
 .TP
 -?
 Print a synopsis of all options and hints
 
-.TP
--d
-Turn on debugging
-
-.TP
--v
-Make it talk
-
 \fP
 .SH FILES
-Read on.
 
 .PP
 .TP
 /var/hpetm/librian.db
 Default location for the SQLite3 database produced from book_register.py
+
+.PP
+.TP
+lmp_config.py
+Configuration variables read by lmp.py at invocation.
 
 .SH SEE ALSO
 librarian.py
