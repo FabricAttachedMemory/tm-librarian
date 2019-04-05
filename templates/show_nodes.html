@@ -8,7 +8,11 @@
     {% for node in nodes %}
     <H4>nodes:</H4>
     <UL>
-        <LI>coordinate -> {{ node['coordinate'] }}</LI>
+        <LI>coordinate -> {{ node['coordinate'] }} (relative)</LI>
+        <LI>rack_num -> {{ node['rack_num'] }} (max of 1)</LI>
+        <LI>enc_num -> {{ node['enc_num'] }} (1-4 per rack)</LI>
+        <LI>node_num -> {{ node['node_num'] }} (1-10 per enclosure)</LI>
+        <LI>node_id -> {{ node['node_id'] }} (1-40 per installation)</LI>
         <LI>serialNumber -> {{ node['serialNumber'] }}</LI>
         <H4>soc:</H4>
         <UL>

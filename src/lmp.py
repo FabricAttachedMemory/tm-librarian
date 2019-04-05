@@ -270,10 +270,13 @@ def show_nodes():
             cur.execute('SELECT * FROM SOCs WHERE node_id=?', n.node_id)
             cur.iterclass = 'default'
             socs = [ r for r in cur ]
-            assert len(socs) == 1, 'Only 1 SOC can be handled'
+            assert len(socs) == 1, 'Only 1 SOC/node can be handled'
             s = socs[0]
+            # Only partial coords are returned, it's up to the caller to
+            # keep track of upstack.  Add the n.data to assist matryoshka
+            # which for some reason (in 2019) is expecting full coord string.
             d_soc = {
-                'coordinate': s.coordinate,
+                'coordinate': s.coordinate,     # Legacy values start here
                 'tlsPublicCertificate': s.tlsPublicCertificate,
                 'macAddress': s.MAC,
                 'cpu_percent': s.cpu_percent,
@@ -293,12 +296,18 @@ def show_nodes():
                 d_mc['memorySize'] = m.memorySize
                 l_mcs.append(d_mc)
 
-            d_node = {}
-            d_node['coordinate'] = n.coordinate
-            d_node['serialNumber'] = n.serialNumber
-            d_node['node_id'] = n.node_id   # Extra for books_allocated demo
-            d_node['soc'] = d_soc
-            d_node['mediaControllers'] = l_mcs
+            # node_id added in 2017 for books_allocated_demo; others added
+            # in 2019 for matryoshka.
+            d_node = {
+                'coordinate': n.coordinate,
+                'serialNumber': n.serialNumber,
+                'soc': d_soc,
+                'mediaControllers': l_mcs,
+                'node_id': n.node_id,       # 1-40, throughout entire rack
+                'rack_num': n.rack,         # 1     MFT; will SDflex grow?
+                'enc_num': n.enc,           # 1-4,  within this rack_num
+                'node_num': n.node,         # 1-10, within this enc_num
+            }
             l_nodes.append(d_node)
 
     except Exception as e:
@@ -620,11 +629,14 @@ def show_books(interleaveGroup="all"):
         cur.iterclass = None
         b_size = cur.fetchone()[0]
 
-        if interleaveGroup == "all":
+        allIGs = interleaveGroup == 'all'
+        if allIGs:
             cur.execute('SELECT * FROM books')
         else:
-            cur.execute('SELECT * FROM books WHERE intlv_group=?',
-                        interleaveGroup)
+            # On SD990 and SDFlex the IG field took on flags above 8 bits (see
+            # frdnode::IG_MASK.  Filter out the IG value from the lower bits.
+            cur.execute('SELECT * FROM books WHERE intlv_group & 0xff = ?',
+                        int(interleaveGroup))
 
         cur.iterclass = 'default'
         books = [ r for r in cur ]
@@ -635,6 +647,8 @@ def show_books(interleaveGroup="all"):
             d_b = {}
             d_b['lza'] = b.id
             d_b['state'] = convert_book_status(b.allocated)
+            if allIGs:
+                d_b['ig'] = b.intlv_group & 0xFF
 
             # Do not report shelf or offset for notready books
             if d_b['state'] == 'notready':
