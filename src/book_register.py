@@ -499,7 +499,16 @@ def INI_to_JSON(G, book_size_bytes, FRDnodes, IGs, enc2U):
             ])
         ]))
 
-    theRack['enclosures'].append(thisenc)    # No enclosure left behind
+        # 2019: stop lying to matryoshka about nodeMp on SDFlex.  And
+        # Innovation Zones, too.  Keep the InterleaveGroup stuff because
+        # that's implicitly the node IDs, even on SDFlex.
+        if BII.is_MODE_PHYSADDR:
+            del thisenc['nodes'][-1]['nodeMp']
+
+    if BII.is_MODE_PHYSADDR:
+        del thisenc['iZoneBoards']          # Which has an MP, too
+
+    theRack['enclosures'].append(thisenc)   # No enclosure left behind
 
     # Finish the JSON.  IGs is an array of frdnode.py::FRDFAModules.
     # Expand constituent coordinates into an absolute coordinate cuz that's
