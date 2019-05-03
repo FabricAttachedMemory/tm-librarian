@@ -1,4 +1,5 @@
 # Defaults for the tm-lfs systemd service (tm-librarian)
 
-# Set to optional arguments passed to Librarian File System (LFS) daemon
-OPT_ARGS=''
+# Set optional arguments passed to Librarian File System (LFS) daemon
+
+OPT_ARGS='--fakezero'
