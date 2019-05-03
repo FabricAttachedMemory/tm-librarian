@@ -198,8 +198,14 @@ case $CMD in
 	echo "Book size (MB): $BSM"
 
 	TMP=`jfdi "SELECT nvm_bytes_total FROM globals"`
-	let NGT=$TMP/1024/1024/1024
-	echo "Total NVM (GB): $NGT"
+	let N=$TMP/1024/1024/1024
+	if [ $N -gt 0 ]; then
+		UNITS=GB
+	else
+		let N=$TMP/1024/1024
+		UNITS=MB
+	fi
+	echo "Total NVM ($UNITS): $N"
 
 	declare -a MODE_IGS=(`jfdi SELECT DISTINCT intlv_group FROM books`)
 	echo "Nodes with FAM: ${#MODE_IGS[*]}"

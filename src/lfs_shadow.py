@@ -813,25 +813,28 @@ def _detect_memory_space(args, lfs_globals):
         args.logger.debug('addr_mode = MODE_FAME with per-IG physaddr (990x)')
         return
 
-    try:
-        lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
-        line1 = lspci[0]
-    except Exception as e:
-        line1 = ('IVSHMEM cannot be found', '')
+    lspci = getoutput('lspci -vv -d1af4:1110').split('\n')[:11]
+    line1 = lspci[0]    # Might say "lspci: command not found"
+    if 'lspci' in line1:
+        raise RuntimeError('lspci command must be installed')
 
-    RHstanza = 'Red Hat, Inc Inter-VM shared memory'
-    # QEMU      Tested  line1
-    # <= 2.4:   x86_64  endswith(RHstanza)
-    # == 2.5:   aarch64 contains RHstanza, endswith(" (Rev 01)")
-    # == 2.6:   aarch64 contains RHstanza, endswith(" (rev 01)") YES lower case
-    machine = os.uname().machine
-    qemuOK = machine == 'x86_64' or (
-             machine == 'aarch64' and line1.lower().endswith(' (rev 01)'))
+    ivshmemOK = False
+    if 'Red Hat, Inc' in line1:
+        RHstanza = 'Inter-VM shared memory'
+        # QEMU      Tested  line1
+        # <= 2.4:   x86_64  endswith(RHstanza)
+        # == 2.5:   aarch64 contains RHstanza, endswith(" (Rev 01)")
+        # == 2.6:   aarch64 contains RHstanza, endswith(" (rev 01)") YES lower r
+        machine = os.uname().machine
+        ivshmemOK = machine == 'x86_64' or (
+                    machine == 'aarch64' and
+                    line1.lower().endswith(' (rev 01)'))
+        ivshmemOK = ivshmemOK and RHstanza in line1
 
     # If not FAME/IVSHMEM, ass-u-me it's TMAS or real TM.  Hardcode the
     # direct descriptor mode for now, Zbridge preloads all 1906.
 
-    if not (RHstanza in line1 and qemuOK):
+    if not ivshmemOK:
         args.logger.warning(
             'No match with IVSHEM PCI devices, assuming TM(AS)')
         if args.fixed1906:
@@ -862,9 +865,11 @@ def _detect_memory_space(args, lfs_globals):
 
     # At 2.6 resource2 file went away, just detect size from line " [size=64G]"
     size = region2.split('size=')[1][:-1]   # kill the right bracket
-    assert size[-1] in 'GT', \
+    assert size[-1] in 'MGT', \
         'Region 2 size not "G" or "T" for IVSHMEM device at %s' % bdf
-    if size[-1] == 'G':
+    if size[-1] == 'M':
+        args.aperture_size = int(size[:-1]) << 20
+    elif size[-1] == 'G':
         args.aperture_size = int(size[:-1]) << 30
     else:
         args.aperture_size = int(size[:-1]) << 40
