@@ -1,3 +1,11 @@
+tm-librarian (1.35-5) unstable; urgency=medium
+
+  * Tweaks for small FAME FAM (under 1G)
+  * Startup scanning improvements
+  * Defaults files upgraded
+
+ -- Rocky Craig <rocky.craig@hpe.com>  Thu, 2 May 2019 14:42:42 -0700
+
 tm-librarian (1.35-4) unstable; urgency=medium
 
   * Allow SD990/Flex to have FAM-less "nodes"
