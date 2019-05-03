@@ -5,8 +5,6 @@ src/lslfs			=> tmp/lslfs
 systemd/tm-librarian		=> etc/default/tm-librarian
 systemd/tm-librarian.service	=> lib/systemd/system/tm-librarian.service
 
-systemd/tm-lmp			=> etc/default/tm-lmp
-systemd/tm-lmp.service		=> lib/systemd/system/tm-lmp.service
 templates/show_allocated.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_nodes.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_directory.html	usr/lib/python3/dist-packages/tm_librarian/templates

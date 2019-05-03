@@ -1,7 +1,7 @@
 #!/usr/bin/dh-exec
 
-systemd_tm-lmp			=> etc/default/tm-lmp
-systemd_tm-lmp.service		=> lib/systemd/system/tm-lmp.service
+systemd/tm-lmp			=> etc/default/tm-lmp
+systemd/tm-lmp.service		=> lib/systemd/system/tm-lmp.service
 templates/show_allocated.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_nodes.html	usr/lib/python3/dist-packages/tm_librarian/templates
 templates/show_directory.html	usr/lib/python3/dist-packages/tm_librarian/templates

@@ -2,3 +2,8 @@
 
 systemd/tm-lfs			=> etc/default/tm-lfs
 systemd/tm-lfs.service		=> lib/systemd/system/tm-lfs.service
+
+# For SLES and RHEL
+
+systemd/tm-lfs			=> etc/sysconfig/tm-lfs
+
