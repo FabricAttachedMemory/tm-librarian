@@ -31,6 +31,7 @@ tests/tm-fio-test.fio		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/check-ea.py		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/repl_client.py		usr/lib/python3/dist-packages/tm_librarian/tests
 tests/script.txt		usr/lib/python3/dist-packages/tm_librarian/tests
+tests/chk_sdsm_lfs_cfg.py	usr/lib/python3/dist-packages/tm_librarian/tests
 
 configfiles/book_data.ini	usr/lib/python3/dist-packages/tm_librarian/configfiles
 configfiles/book_max.ini	usr/lib/python3/dist-packages/tm_librarian/configfiles

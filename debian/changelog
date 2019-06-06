@@ -1,3 +1,9 @@
+tm-librarian (1.35-6) unstable; urgency=medium
+
+  * Add SDFlex/SDSM configuration validator as standalone command
+
+ -- Rocky Craig <rocky.craig@hpe.com>  Thu, 6 Jun 2019 14:42:42 -0700
+
 tm-librarian (1.35-5) unstable; urgency=medium
 
   * Tweaks for small FAME FAM (under 1G)
