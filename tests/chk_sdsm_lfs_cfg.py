@@ -27,7 +27,24 @@ from backend_sqlite3 import LibrarianDBackendSQLite3
 from book_shelf_bos import TMBook, TMShelf, TMBos
 from frdnode import BooksIGInterpretation as BII
 
-debug = os.getenv('DEBUG', 0)
+_debug = os.getenv('DEBUG', 0)
+
+###########################################################################
+# Make this WHOLE script a class someday.
+
+_errors = []
+
+
+def addError(msg='', reset=False):
+    global _errors
+    if reset:
+        _errors = []
+        return
+    msg = msg.strip()
+    if msg:
+        _errors.append(msg)
+        if _debug:
+            print(msg)
 
 ###########################################################################
 
@@ -83,7 +100,7 @@ def scan_SDSM_UEFI():
 def get_librarian_regions(db):
     db.execute('SELECT book_size_bytes FROM globals')
     book_size_bytes = db.fetchone()[0]
-    if debug:
+    if _debug:
             print('book size = %d bytes' % (book_size_bytes))
 
     # query the Librarian database for all books, then calculate ranges.
@@ -103,31 +120,52 @@ def get_librarian_regions(db):
 ###########################################################################
 # Return None on problems, ranges like get_librarian_regions on success.
 # The text is fairly "packed" with respect to odd spaces.
+# https://elixir.bootlin.com/linux/v4.12.14/source/Documentation/admin-guide/kernel-parameters.txt#L2136
 
 
 def get_proc_cmdline_regions():
+    seps = {
+        '@': 'Force-use',
+        '#': 'ACPI',
+        '$': 'Reserved',
+        '!': 'NVDIM',
+    }
     with open('/proc/cmdline', 'r') as f:
         cmdline = f.read()
     if 'memmap' not in cmdline:
         return None, None
     regions = []
-    try:
-        stanzas = cmdline.split('memmap=')[1]
-        stanza0 = stanzas.split()[0]
-        regionstrs = stanza0.split(',')
-        for r in regionstrs:
-            size, base = r.split('x')   # used by config builder
+    stanzas = cmdline.split('memmap=')[1]
+    stanza0 = stanzas.split()[0]
+    regionstrs = stanza0.split(',')
+    for r in regionstrs:
+        for sep, use in seps.items():
+            try:
+                size, base = r.split(sep)
+            except ValueError as e:
+                continue
+            break
+        else:
+            addError('Invalid memmap stanza "%s"' % r)
+            continue
+        try:
             base = int(base, 16)
             mult = size[-1].upper()
-            assert mult in 'MG', 'Bad multiplier %s' % mult
-            size = int(size[:-1]) * (1 << 30)
-            if size == 'G':
-                size += 1 << 10
-            regions.append((base, base + size - 1, -1))   # partition == noop
-        return regions
-    except Exception as err:
-        print(str(err), file=sys.stderr)
-    return None, None
+            if mult in 'MGT':
+                size = int(size[:-1], 16)
+                if mult == 'M':
+                    size *= (1 << 20)
+                elif size == 'G':
+                    size *= (1 << 30)
+                elif size == 'T':
+                    size *= (1 << 40)
+            else:
+                size = int(size, 16)
+        except Exception as err:
+            addError('Cannot parse base or size in "%s"' % r)
+            continue
+        regions.append((base, base + size - 1, -1))   # partition == noop
+    return regions
 
 ###########################################################################
 # Return None on problems, ranges like get_librarian_regions on success.
@@ -160,27 +198,26 @@ def get_tmfs_module_regions():
 
 ###########################################################################
 
+_firmware_regions = None
+
 
 def misfits_in_firmware(who, regions, forceFail=False):
-    if debug:
+    if _debug:
         print('Validating %s range(s) fit in firmware range(s)' % who)
-    misfits = 0
     for (start, end, partition) in regions:
         docstr = rangestr(start, end)
-        if debug:
+        if _debug:
             print('\t%s ' % docstr, end='')
-        for (fw_start, fw_end, fw_partition) in firmware_regions:
+        for (fw_start, fw_end, fw_partition) in _firmware_regions:
             if not forceFail and start >= fw_start and end <= fw_end:
-                if debug:
+                if _debug:
                     print('in', fw_partition)
                 break
         else:   # Yes, else on for is cool
-            if debug:
+            if _debug:
                 print('NO MATCH')
-            else:
-                print('%s: range %s is unavailable in FW' % (who, docstr))
-            misfits += 1
-    return misfits
+            msg = '%s: range %s is unavailable in FW' % (who, docstr)
+            addError(msg)
 
 ###########################################################################
 # The Librarian DB is the authoritative source of information.  The
@@ -192,8 +229,6 @@ def misfits_in_firmware(who, regions, forceFail=False):
 # setup), then it is possible that the Librarian is depending on memory
 # that might not be available for the Librarian to use at this time.  Since
 # this condition is detectable, save the user some potential problems.
-
-firmware_regions = None
 
 
 def rangestr(start, end):
@@ -209,58 +244,56 @@ def rangestr(start, end):
     return '0x%016x - 0x%016x (%d %s)' % (start, end, size, units)
 
 
-def chk_libr_ranges_vs_live_config(db):
-    global firmware_regions
+def check_all_ranges(db):
+    global _firmware_regions
 
     # find all the possible SDSM/FAM memory based on the SDSM firmware (needs
     # to be FW bios.1_2_2_m_3.fd or later)
 
-    (firmware_partitions, firmware_regions) = scan_SDSM_UEFI()
-    if firmware_partitions is None or firmware_regions is None:
+    (firmware_partitions, _firmware_regions) = scan_SDSM_UEFI()
+    if firmware_partitions is None or _firmware_regions is None:
         # we are not on a Superdome Flex: return zero for no errors
         return 0
 
     # print the firmware information
-    if debug:
+    if _debug:
         print("Firmware partitions:", firmware_partitions)
-        for (fw_start, fw_end, fw_partition) in firmware_regions:
+        for (fw_start, fw_end, fw_partition) in _firmware_regions:
             print('Partition:range %s = %s' % (
                 fw_partition, rangestr(fw_start, fw_end)))
         print("")
 
     # get the various regions
-    errors = 0
     librarian_regions = get_librarian_regions(db)
     if not librarian_regions:
-        errors += 1
-        if debug:
-            print('Cannot retrieve librarian regions')
+        addError('Cannot retrieve librarian regions.')
+
     memmap_regions = get_proc_cmdline_regions()
     if not memmap_regions:
-        errors += 1
-        if debug:
-            print('Cannot retrieve memmap regions')
+        addError('Cannot retrieve memmap regions.')
+
     tmfs_regions = get_tmfs_module_regions()
     if not tmfs_regions:
-        errors += 1
-        if debug:
-            print('Cannot retrieve tmfs regions')
-    if errors:
-        return errors
+        print('Cannot retrieve tmfs regions.')
+
+    if _errors:
+        return _errors[:]   # a copy
 
     # Top-level comparisons.  More are needed...
-    if (len(librarian_regions) > len(memmap_regions) or
+    others = max(len(librarian_regions), len(memmap_regions), len(tmfs_regions))
+    if (others > len(_firmware_regions) or
+            len(librarian_regions) > len(memmap_regions) or
             len(librarian_regions) > len(tmfs_regions)):
-        errors += 1
-        if debug:
-            print('Too many librarian regions')
+        addError(
+            'Region element mismatch: FW=%d, libr=%d, cmdline=%d, tmfs=%d.' % (
+            len(_firmware_regions), len(librarian_regions),
+            len(memmap_regions), len(tmfs_regions)))
 
     # insure all the regions fit inside the firmware ranges.
-    errors += misfits_in_firmware('Librarian', librarian_regions)
-    errors += misfits_in_firmware('cmdline memmap', memmap_regions)
-    errors += misfits_in_firmware('tmfs module', tmfs_regions)
-    if errors:
-        return errors
+    misfits_in_firmware('Librarian', librarian_regions)
+    misfits_in_firmware('cmdline memmap', memmap_regions)
+    misfits_in_firmware('tmfs module', tmfs_regions)
+    return _errors[:]   # a copy
 
 ###########################################################################
 
@@ -269,18 +302,24 @@ if __name__ == '__main__':
 
     if len(sys.argv) < 2:
         raise SystemExit("usage: %s <librarian-data-base>" % (sys.argv[0]))
+
+    # If you import this file as a module, you need to do this in your
+    # importer.
+    db_file = sys.argv[1]
     try:
         # Using this instead of SQLite3assist gets higher level ops
-        db = LibrarianDBackendSQLite3(Namespace(db_file=sys.argv[1]))
+        db = LibrarianDBackendSQLite3(Namespace(db_file=db_file))
     except Exception as e:
-        raise SystemExit(str(e))
+        raise SystemExit('Cannot open "%s": %s' % (db_file, str(e)))
 
-    # check the Librarian configuration versus the system address space setup
-    errors = chk_libr_ranges_vs_live_config(db)
+    # Check the Librarian configuration versus the system address space setup.
+    errors = check_all_ranges(db)
     db.close()
     if errors:
+        if not _debug:
+            print('Rerun this with DEBUG=1', file=sys.stderr)
         raise SystemExit(
-            'Found %d memory range violation(s) against FW config.' % (errors))
-
+            'Found %d memory range violation(s) against FW config:\n%s' % (
+                (len(errors)), '\n'.join(errors)))
     print('No problems found.')
     raise SystemExit(0)
